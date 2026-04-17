@@ -3,6 +3,7 @@
 -- Safe to run multiple times (idempotent).
 
 create extension if not exists "pgcrypto";
+create extension if not exists "vector";
 
 -- ============ DEALS ============
 create table if not exists public.deals (
@@ -180,6 +181,237 @@ do $$ begin create policy "activities_all" on public.activities for all using (t
 do $$ begin create policy "deal_files_all" on public.deal_files for all using (true) with check (true); exception when duplicate_object then null; end $$;
 do $$ begin create policy "comps_all"      on public.comps      for all using (true) with check (true); exception when duplicate_object then null; end $$;
 
+-- ============ KNOWLEDGE FILES (uploaded by anyone, firm-wide) ============
+create table if not exists public.knowledge_files (
+  id           uuid primary key default gen_random_uuid(),
+  name         text not null,
+  path         text not null,           -- path inside 'knowledge-files' bucket
+  mime_type    text,
+  size_bytes   bigint,
+  tags         text[] not null default '{}',
+  sector       text,
+  uploaded_by  text,                    -- free-form, usually email
+  summary      text,
+  char_count   int,
+  created_at   timestamptz not null default now()
+);
+
+create index if not exists knowledge_files_sector_idx on public.knowledge_files (sector);
+create index if not exists knowledge_files_tags_idx   on public.knowledge_files using gin (tags);
+
+alter table public.knowledge_files enable row level security;
+do $$ begin create policy "knowledge_files_all" on public.knowledge_files for all using (true) with check (true); exception when duplicate_object then null; end $$;
+
+-- ============ KNOWLEDGE CHUNKS (unified search index — vector + full-text) ============
+-- Every searchable item in the app lands here as one or more chunks.
+-- source_type = 'document' | 'file' | 'comp' | 'deal' | 'deal_file'
+create table if not exists public.knowledge_chunks (
+  id           uuid primary key default gen_random_uuid(),
+  source_type  text not null check (source_type in ('document','file','comp','deal','deal_file')),
+  source_id    uuid not null,
+  title        text,
+  content      text not null,
+  chunk_index  int  not null default 0,
+  tsv          tsvector,
+  embedding    vector(768),
+  metadata     jsonb default '{}',
+  created_at   timestamptz not null default now()
+);
+
+create index if not exists knowledge_chunks_source_idx on public.knowledge_chunks (source_type, source_id);
+create index if not exists knowledge_chunks_tsv_idx    on public.knowledge_chunks using gin (tsv);
+create index if not exists knowledge_chunks_emb_idx    on public.knowledge_chunks using ivfflat (embedding vector_cosine_ops) with (lists = 50);
+
+-- Auto-maintain tsvector on insert/update
+create or replace function public.knowledge_chunks_tsv_trigger() returns trigger as $$
+begin
+  new.tsv := setweight(to_tsvector('english', coalesce(new.title,  '')), 'A')
+          || setweight(to_tsvector('english', coalesce(new.content,'')), 'B');
+  return new;
+end $$ language plpgsql;
+
+drop trigger if exists knowledge_chunks_tsv on public.knowledge_chunks;
+create trigger knowledge_chunks_tsv before insert or update on public.knowledge_chunks
+  for each row execute function public.knowledge_chunks_tsv_trigger();
+
+alter table public.knowledge_chunks enable row level security;
+do $$ begin create policy "knowledge_chunks_all" on public.knowledge_chunks for all using (true) with check (true); exception when duplicate_object then null; end $$;
+
+-- ============ AUTO-INDEX TRIGGERS ============
+-- Documents → knowledge_chunks
+create or replace function public.index_document() returns trigger as $$
+begin
+  delete from public.knowledge_chunks where source_type = 'document' and source_id = new.id;
+  insert into public.knowledge_chunks (source_type, source_id, title, content, chunk_index, metadata)
+  values ('document', new.id, new.title, new.content, 0,
+          jsonb_build_object('sector', new.sector, 'tags', new.tags));
+  return new;
+end $$ language plpgsql;
+
+drop trigger if exists index_document_trg on public.documents;
+create trigger index_document_trg after insert or update on public.documents
+  for each row execute function public.index_document();
+
+-- Comps → knowledge_chunks
+create or replace function public.index_comp() returns trigger as $$
+begin
+  delete from public.knowledge_chunks where source_type = 'comp' and source_id = new.id;
+  insert into public.knowledge_chunks (source_type, source_id, title, content, chunk_index, metadata)
+  values ('comp', new.id,
+          new.target || coalesce(' / ' || new.acquirer, ''),
+          concat_ws(' · ',
+            'Target: ' || new.target,
+            'Acquirer: ' || coalesce(new.acquirer, 'n/a'),
+            'Year: '    || coalesce(new.year::text, 'n/a'),
+            'Sector: '  || coalesce(new.sector, 'n/a'),
+            'Type: '    || coalesce(new.deal_type, 'n/a'),
+            'EV (USDm): ' || coalesce(new.ev_usd_m::text, 'n/a'),
+            'Rev mult: ' || coalesce(new.revenue_multiple::text, 'n/a'),
+            'EBITDA mult: ' || coalesce(new.ebitda_multiple::text, 'n/a'),
+            new.notes),
+          0,
+          jsonb_build_object('sector', new.sector, 'year', new.year, 'deal_type', new.deal_type));
+  return new;
+end $$ language plpgsql;
+
+drop trigger if exists index_comp_trg on public.comps;
+create trigger index_comp_trg after insert or update on public.comps
+  for each row execute function public.index_comp();
+
+-- Deals → knowledge_chunks (searchable by client name, sector, notes)
+create or replace function public.index_deal() returns trigger as $$
+begin
+  delete from public.knowledge_chunks where source_type = 'deal' and source_id = new.id;
+  insert into public.knowledge_chunks (source_type, source_id, title, content, chunk_index, metadata)
+  values ('deal', new.id, new.client_name,
+          concat_ws(' · ',
+            new.client_name,
+            new.deal_type, new.side, new.stage, new.nda_status,
+            'Sector: ' || coalesce(new.sector, 'n/a'),
+            'Lead: '   || coalesce(new.lead_owner, 'n/a'),
+            new.notes),
+          0,
+          jsonb_build_object('stage', new.stage, 'sector', new.sector, 'side', new.side));
+  return new;
+end $$ language plpgsql;
+
+drop trigger if exists index_deal_trg on public.deals;
+create trigger index_deal_trg after insert or update on public.deals
+  for each row execute function public.index_deal();
+
+-- Deal files → knowledge_chunks (metadata only; full text added client-side)
+create or replace function public.index_deal_file() returns trigger as $$
+declare deal_name text;
+begin
+  select client_name into deal_name from public.deals where id = new.deal_id;
+  delete from public.knowledge_chunks where source_type = 'deal_file' and source_id = new.id;
+  insert into public.knowledge_chunks (source_type, source_id, title, content, chunk_index, metadata)
+  values ('deal_file', new.id, new.name,
+          concat_ws(' · ', new.name, 'Category: ' || coalesce(new.category,'Other'), 'Deal: ' || coalesce(deal_name,'n/a')),
+          0,
+          jsonb_build_object('deal_id', new.deal_id, 'category', new.category));
+  return new;
+end $$ language plpgsql;
+
+drop trigger if exists index_deal_file_trg on public.deal_files;
+create trigger index_deal_file_trg after insert or update on public.deal_files
+  for each row execute function public.index_deal_file();
+
+-- ============ BACKFILL existing rows into knowledge_chunks ============
+insert into public.knowledge_chunks (source_type, source_id, title, content, chunk_index, metadata)
+select 'document', d.id, d.title, d.content, 0, jsonb_build_object('sector', d.sector, 'tags', d.tags)
+from public.documents d
+where not exists (select 1 from public.knowledge_chunks k where k.source_type = 'document' and k.source_id = d.id);
+
+insert into public.knowledge_chunks (source_type, source_id, title, content, chunk_index, metadata)
+select 'comp', c.id,
+       c.target || coalesce(' / ' || c.acquirer, ''),
+       concat_ws(' · ',
+         'Target: '|| c.target,
+         'Acquirer: ' || coalesce(c.acquirer,'n/a'),
+         'Year: ' || coalesce(c.year::text,'n/a'),
+         'Sector: '|| coalesce(c.sector,'n/a'),
+         'Type: ' || coalesce(c.deal_type,'n/a'),
+         'EV (USDm): ' || coalesce(c.ev_usd_m::text,'n/a'),
+         'Rev mult: ' || coalesce(c.revenue_multiple::text,'n/a'),
+         'EBITDA mult: ' || coalesce(c.ebitda_multiple::text,'n/a'),
+         c.notes),
+       0,
+       jsonb_build_object('sector', c.sector, 'year', c.year, 'deal_type', c.deal_type)
+from public.comps c
+where not exists (select 1 from public.knowledge_chunks k where k.source_type = 'comp' and k.source_id = c.id);
+
+insert into public.knowledge_chunks (source_type, source_id, title, content, chunk_index, metadata)
+select 'deal', d.id, d.client_name,
+       concat_ws(' · ', d.client_name, d.deal_type, d.side, d.stage, d.nda_status,
+         'Sector: ' || coalesce(d.sector,'n/a'),
+         'Lead: '   || coalesce(d.lead_owner,'n/a'),
+         d.notes),
+       0,
+       jsonb_build_object('stage', d.stage, 'sector', d.sector, 'side', d.side)
+from public.deals d
+where not exists (select 1 from public.knowledge_chunks k where k.source_type = 'deal' and k.source_id = d.id);
+
+-- ============ SEARCH RPC ============
+-- Hybrid search. Full-text always, vector when an embedding is supplied.
+-- ts_headline produces highlighted snippets.
+create or replace function public.search_knowledge(
+  query_text      text,
+  query_embedding vector(768) default null,
+  match_count     int default 24,
+  source_filter   text[] default null
+) returns table (
+  id          uuid,
+  source_type text,
+  source_id   uuid,
+  title       text,
+  snippet     text,
+  chunk_index int,
+  metadata    jsonb,
+  score       real
+) as $$
+  with q as (
+    select
+      nullif(trim(query_text), '') as qt,
+      case when nullif(trim(query_text), '') is not null
+           then plainto_tsquery('english', query_text) end as tsq
+  )
+  select
+    c.id,
+    c.source_type,
+    c.source_id,
+    c.title,
+    case when q.tsq is not null
+         then ts_headline('english', c.content, q.tsq,
+              'MaxWords=28, MinWords=14, MaxFragments=2, StartSel=<<, StopSel=>>')
+         else left(c.content, 240)
+    end as snippet,
+    c.chunk_index,
+    c.metadata,
+    case
+      when query_embedding is not null and q.tsq is not null
+        then (0.55 * coalesce(ts_rank(c.tsv, q.tsq), 0))::real
+           + (0.45 * (1 - (c.embedding <=> query_embedding))::real)
+      when query_embedding is not null
+        then (1 - (c.embedding <=> query_embedding))::real
+      when q.tsq is not null
+        then coalesce(ts_rank(c.tsv, q.tsq), 0)::real
+      else 0::real
+    end as score
+  from public.knowledge_chunks c, q
+  where
+    (source_filter is null or c.source_type = any(source_filter))
+    and (
+      q.tsq is null
+      or c.tsv @@ q.tsq
+      or (query_embedding is not null and (c.embedding <=> query_embedding) < 0.55)
+    )
+  order by score desc
+  limit match_count;
+$$ language sql stable;
+
+grant execute on function public.search_knowledge(text, vector, int, text[]) to anon, authenticated;
+
 -- ============ STORAGE ============
 -- After running this SQL, create a public bucket called "deal-files" in
 -- Supabase Studio → Storage → New bucket. A public bucket is sufficient on
@@ -196,4 +428,17 @@ exception when others then null; end $$;
 
 do $$ begin
   create policy "deal_files_delete"  on storage.objects for delete using (bucket_id = 'deal-files');
+exception when others then null; end $$;
+
+-- Also create a public 'knowledge-files' bucket in Supabase Studio.
+do $$ begin
+  create policy "knowledge_files_read"   on storage.objects for select using (bucket_id = 'knowledge-files');
+exception when others then null; end $$;
+
+do $$ begin
+  create policy "knowledge_files_insert" on storage.objects for insert with check (bucket_id = 'knowledge-files');
+exception when others then null; end $$;
+
+do $$ begin
+  create policy "knowledge_files_delete" on storage.objects for delete using (bucket_id = 'knowledge-files');
 exception when others then null; end $$;

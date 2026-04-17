@@ -1,45 +1,48 @@
-import { useEffect, useMemo, useState } from 'react'
-import { useSearchParams } from 'react-router-dom'
-import { format } from 'date-fns'
-import { Plus, Search, BookOpen, Tag as TagIcon, Hash, Trash2, Table as TableIcon, FileText } from 'lucide-react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { useNavigate, useSearchParams } from 'react-router-dom'
+import { format, formatDistanceToNow } from 'date-fns'
+import {
+  Plus, Search, BookOpen, Tag as TagIcon, Hash, Trash2, Table as TableIcon,
+  FileText, Sparkles, Download, Upload, Briefcase, ExternalLink, Loader2,
+  Filter as FilterIcon, File as FileIcon
+} from 'lucide-react'
 import { supabase, isSupabaseConfigured, subscribeTable } from '../lib/supabase.js'
+import { searchKnowledge, groupResults, filePublicUrl, deleteKnowledgeFile } from '../lib/knowledge.js'
+import { embeddingsEnabled } from '../lib/embeddings.js'
+import { useAuth } from '../hooks/useAuth.js'
 import ConfigBanner from '../components/ConfigBanner.jsx'
 import Modal from '../components/Modal.jsx'
 import Drawer from '../components/Drawer.jsx'
 import EmptyState from '../components/EmptyState.jsx'
+import KnowledgeUpload from '../components/KnowledgeUpload.jsx'
 import { useToast } from '../components/Toast.jsx'
 import { useConfirm } from '../components/ConfirmDialog.jsx'
 
-const DOC_DEMO = [
-  { id: 'k1', title: 'M&A Process Playbook', content: 'End-to-end M&A workflow used across Valence engagements: mandate, teaser, NDA, IM, management presentations, LOI, diligence, SPA, close.', tags: ['playbook','M&A','process'], sector: 'General', created_at: new Date().toISOString() },
-  { id: 'k2', title: 'ECM Roadshow Framework', content: 'Standard roadshow cadence for IPO/FPO mandates: anchor meetings, institutional one-on-ones, retail syndicate alignment.', tags: ['ECM','roadshow','IPO'], sector: 'Capital Markets', created_at: new Date().toISOString() },
-  { id: 'k3', title: 'Healthcare Sector Memo — Q1', content: 'Thesis: consolidation wave across hospital chains + diagnostics.', tags: ['thesis','healthcare'], sector: 'Healthcare', created_at: new Date().toISOString() },
-  { id: 'k4', title: 'BFSI Deal Note Template', content: 'Standard internal note structure for BFSI mandates.', tags: ['template','BFSI'], sector: 'BFSI', created_at: new Date().toISOString() },
-  { id: 'k5', title: 'NDA — Sell-side Standard', content: 'Valence standard sell-side NDA. Mutual, 2-year tail.', tags: ['legal','template','NDA'], sector: 'Legal', created_at: new Date().toISOString() },
-  { id: 'k6', title: 'DCM Pricing Reference', content: 'Reference grid for recent INR corporate bond issuances by rating band.', tags: ['DCM','pricing','reference'], sector: 'Capital Markets', created_at: new Date().toISOString() }
-]
-
-const COMPS_DEMO = [
-  { id: 'c1', target: 'CareHub Diagnostics',   acquirer: 'Asian Hospital Group',   year: 2024, sector: 'Healthcare',     deal_type: 'M&A',   ev_usd_m: 420,  revenue_multiple: 3.8, ebitda_multiple: 14.2, notes: 'Strategic roll-up. 65-clinic footprint.' },
-  { id: 'c2', target: 'NorthStar Fintech',     acquirer: 'Everlast PE',             year: 2024, sector: 'Fintech',        deal_type: 'PE/VC', ev_usd_m: 680,  revenue_multiple: 8.5, ebitda_multiple: null,  notes: 'Series D at $680M EV.' },
-  { id: 'c3', target: 'Greenline Power',       acquirer: 'Sovereign Infra Fund',    year: 2023, sector: 'Energy',         deal_type: 'M&A',   ev_usd_m: 1250, revenue_multiple: 2.1, ebitda_multiple: 11.4, notes: '60% stake. Regulated utility.' },
-  { id: 'c4', target: 'LearnKart',             acquirer: 'Global EdTech PLC',       year: 2024, sector: 'EdTech',         deal_type: 'M&A',   ev_usd_m: 290,  revenue_multiple: 6.2, ebitda_multiple: null,  notes: 'Cross-border India + SEA.' },
-  { id: 'c5', target: 'Maple Consumer Brands', acquirer: 'Regional Strategics Ltd', year: 2023, sector: 'Consumer',       deal_type: 'M&A',   ev_usd_m: 185,  revenue_multiple: 2.4, ebitda_multiple: 12.8, notes: 'Premium staples.' },
-  { id: 'c6', target: 'Artemis Infra Bonds',   acquirer: null,                      year: 2024, sector: 'Infrastructure', deal_type: 'DCM',   ev_usd_m: 500,  revenue_multiple: null, ebitda_multiple: null, notes: '10Y INR bonds. 7.85% coupon. AAA.' }
-]
+const SOURCE_LABELS = {
+  document:  { label: 'Memo',       icon: BookOpen,   color: 'text-valence-blue' },
+  file:      { label: 'File',       icon: FileIcon,   color: 'text-valence-blue' },
+  comp:      { label: 'Comp',       icon: TableIcon,  color: 'text-valence-success' },
+  deal:      { label: 'Deal',       icon: Briefcase,  color: 'text-white' },
+  deal_file: { label: 'Deal file',  icon: FileIcon,   color: 'text-valence-warning' }
+}
 
 export default function Knowledge() {
-  const [tab, setTab] = useState('docs') // 'docs' | 'comps'
+  const [tab, setTab] = useState('search') // 'search' | 'memos' | 'files' | 'comps'
   return (
     <div className="space-y-6">
       <ConfigBanner />
 
-      <div className="flex items-center gap-1 rounded-lg border border-valence-border bg-white/[0.02] p-1 w-fit">
-        <TabButton active={tab === 'docs'}  onClick={() => setTab('docs')}  icon={BookOpen}>Documents</TabButton>
-        <TabButton active={tab === 'comps'} onClick={() => setTab('comps')} icon={TableIcon}>Precedent Comps</TabButton>
+      <div className="flex items-center gap-1 rounded-lg border border-valence-border bg-white/[0.02] p-1 w-fit overflow-x-auto">
+        <TabButton active={tab === 'search'} onClick={() => setTab('search')} icon={Sparkles}>Search</TabButton>
+        <TabButton active={tab === 'memos'}  onClick={() => setTab('memos')}  icon={BookOpen}>Memos</TabButton>
+        <TabButton active={tab === 'files'}  onClick={() => setTab('files')}  icon={FileIcon}>Files</TabButton>
+        <TabButton active={tab === 'comps'}  onClick={() => setTab('comps')}  icon={TableIcon}>Comps</TabButton>
       </div>
 
-      {tab === 'docs' ? <Documents /> : <Comps />}
+      {tab === 'search' && <SearchPortal />}
+      {tab === 'memos'  && <Documents />}
+      {tab === 'files'  && <FilesSection />}
+      {tab === 'comps'  && <Comps />}
     </div>
   )
 }
@@ -48,7 +51,7 @@ function TabButton({ active, onClick, children, icon: Icon }) {
   return (
     <button
       onClick={onClick}
-      className={`inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-semibold transition ${
+      className={`inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-semibold transition whitespace-nowrap ${
         active ? 'bg-valence-blue-soft text-white' : 'text-valence-muted hover:text-white'
       }`}
     >
@@ -58,7 +61,185 @@ function TabButton({ active, onClick, children, icon: Icon }) {
   )
 }
 
-// ============ DOCUMENTS ============
+// ============ UNIFIED SEARCH PORTAL ============
+function SearchPortal() {
+  const navigate = useNavigate()
+  const toast = useToast()
+  const [q, setQ] = useState('')
+  const [results, setResults] = useState([])
+  const [mode, setMode] = useState('lexical')
+  const [loading, setLoading] = useState(false)
+  const [source, setSource] = useState('all')
+  const [error, setError] = useState('')
+  const debounceRef = useRef(null)
+  const reqIdRef = useRef(0)
+
+  useEffect(() => {
+    clearTimeout(debounceRef.current)
+    debounceRef.current = setTimeout(() => run(q, source), 220)
+    return () => clearTimeout(debounceRef.current)
+  }, [q, source])
+
+  async function run(query, src) {
+    if (!isSupabaseConfigured) return
+    const myReq = ++reqIdRef.current
+    setLoading(true); setError('')
+    try {
+      const { results, mode } = await searchKnowledge(query, {
+        matchCount: 30,
+        sourceFilter: src === 'all' ? null : [src]
+      })
+      if (myReq !== reqIdRef.current) return
+      setResults(results)
+      setMode(mode)
+    } catch (e) {
+      if (myReq !== reqIdRef.current) return
+      setError(e.message || 'Search failed')
+      setResults([])
+    } finally {
+      if (myReq === reqIdRef.current) setLoading(false)
+    }
+  }
+
+  const grouped = useMemo(() => groupResults(results), [results])
+
+  function openResult(r) {
+    if (r.source_type === 'document') navigate(`/knowledge?open=${r.source_id}`)
+    else if (r.source_type === 'deal' || r.source_type === 'deal_file') navigate(`/deals?open=${r.metadata?.deal_id || r.source_id}`)
+    else if (r.source_type === 'file') {
+      // Open file directly
+      supabase.from('knowledge_files').select('path').eq('id', r.source_id).single().then(({ data }) => {
+        if (data?.path) window.open(filePublicUrl(data.path), '_blank')
+        else toast.error('File not found.')
+      })
+    } else if (r.source_type === 'comp') {
+      navigate('/knowledge')
+      toast.info('Precedent comp — open the Comps tab to see details.')
+    }
+  }
+
+  return (
+    <div className="space-y-5">
+      {/* Hero search */}
+      <section className="relative overflow-hidden rounded-2xl border border-valence-border bg-valence-hero p-6 lg:p-8">
+        <div className="absolute inset-0 bg-valence-grid opacity-40" aria-hidden />
+        <div className="relative">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-valence-blue">Firm-wide search</p>
+          <h1 className="mt-2 max-w-2xl text-2xl font-semibold tracking-tight text-white lg:text-3xl">
+            Everything Valence knows, one search away.
+          </h1>
+          <p className="mt-2 max-w-2xl text-sm text-valence-muted">
+            Memos, uploaded files, deal notes, precedent comps — indexed across the firm. {embeddingsEnabled()
+              ? 'AI understands what you mean, not just what you type.'
+              : 'Add a Gemini key to turn on semantic search (understands meaning, not just keywords).'}
+          </p>
+
+          <div className="mt-5 flex items-center gap-3 rounded-xl border border-valence-border bg-valence-surface/60 px-4 py-3 focus-within:border-valence-blue focus-within:ring-2 focus-within:ring-valence-blue-ring transition">
+            <Search className="h-4 w-4 text-valence-blue" />
+            <input
+              value={q} onChange={e => setQ(e.target.value)} autoFocus
+              placeholder={mode === 'hybrid'
+                ? 'Ask in plain English — "pharma consolidation Mumbai", "healthcare thesis Q2"…'
+                : 'Search memos, files, deal notes, comps…'}
+              className="flex-1 bg-transparent text-sm text-white placeholder:text-valence-subtle outline-none"
+            />
+            {loading ? <Loader2 className="h-4 w-4 text-valence-muted animate-spin" /> : <span className="vl-kbd">Live</span>}
+          </div>
+
+          <div className="mt-3 flex flex-wrap items-center gap-2">
+            <span className="text-[10px] font-semibold uppercase tracking-wider text-valence-subtle">
+              <FilterIcon className="inline h-3 w-3 mr-1" /> Show
+            </span>
+            {[
+              ['all',      'Everything'],
+              ['document', 'Memos'],
+              ['file',     'Files'],
+              ['comp',     'Comps'],
+              ['deal',     'Deals'],
+              ['deal_file','Deal files']
+            ].map(([id, label]) => (
+              <button
+                key={id} onClick={() => setSource(id)}
+                className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-semibold transition ${
+                  source === id ? 'border-valence-blue/40 bg-valence-blue-soft text-valence-blue' : 'border-valence-border bg-white/[0.03] text-valence-muted hover:text-white'
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+            <span className="ml-auto text-[10px] text-valence-subtle">
+              {mode === 'hybrid' ? 'Hybrid (AI + keyword)' : 'Keyword search'}
+            </span>
+          </div>
+        </div>
+      </section>
+
+      {error && (
+        <div className="rounded-lg border border-valence-danger/30 bg-valence-danger/10 px-4 py-3 text-sm text-valence-danger">
+          {error}
+        </div>
+      )}
+
+      {/* Results */}
+      {loading && grouped.length === 0 ? (
+        <div className="space-y-2">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <div key={i} className="h-20 rounded-xl bg-white/[0.03] animate-pulse" />
+          ))}
+        </div>
+      ) : grouped.length === 0 ? (
+        <EmptyState
+          icon={Sparkles}
+          title={q ? 'Nothing matched' : 'Start typing to search the firm'}
+          description={q ? 'Try fewer, broader keywords — or upload more memos and files to the knowledge base.' : 'Every memo, file, comp and deal note is searchable from this one bar.'}
+        />
+      ) : (
+        <ul className="space-y-2">
+          {grouped.map(r => <ResultRow key={`${r.source_type}:${r.source_id}`} r={r} onOpen={openResult} />)}
+        </ul>
+      )}
+    </div>
+  )
+}
+
+function ResultRow({ r, onOpen }) {
+  const meta = SOURCE_LABELS[r.source_type] || SOURCE_LABELS.document
+  const Icon = meta.icon
+  return (
+    <li
+      onClick={() => onOpen(r)}
+      className="group cursor-pointer rounded-xl border border-valence-border bg-white/[0.02] px-4 py-3 transition hover:border-valence-border-strong hover:bg-white/[0.05]"
+    >
+      <div className="flex items-start gap-3">
+        <div className={`grid h-9 w-9 place-items-center rounded-lg bg-valence-blue-soft ring-1 ring-valence-blue/20 shrink-0 ${meta.color}`}>
+          <Icon className="h-4 w-4" />
+        </div>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 flex-wrap">
+            <p className="truncate text-sm font-semibold text-white group-hover:text-valence-blue transition">{r.title || '(untitled)'}</p>
+            <span className="vl-chip">{meta.label}</span>
+            {r.metadata?.sector && <span className="vl-chip-blue">{r.metadata.sector}</span>}
+            {r.matchCount > 1 && <span className="text-[10px] text-valence-subtle">{r.matchCount} matching sections</span>}
+          </div>
+          <p className="mt-1 text-xs leading-relaxed text-valence-muted" dangerouslySetInnerHTML={{ __html: highlight(r.snippet) }} />
+        </div>
+        <ExternalLink className="h-3.5 w-3.5 text-valence-subtle opacity-0 group-hover:opacity-100 transition" />
+      </div>
+    </li>
+  )
+}
+
+function highlight(html) {
+  if (!html) return ''
+  // Postgres returns <<match>> wrappers; convert to styled spans, everything
+  // else is escaped to prevent injection from arbitrary document text.
+  const escaped = String(html).replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]))
+  return escaped
+    .replace(/&lt;&lt;/g, '<mark class="rounded bg-valence-blue/20 px-0.5 text-valence-blue">')
+    .replace(/&gt;&gt;/g, '</mark>')
+}
+
+// ============ MEMOS (existing documents UI, upgraded) ============
 function Documents() {
   const toast = useToast()
   const confirm = useConfirm()
@@ -76,8 +257,6 @@ function Documents() {
     if (!isSupabaseConfigured) return
     return subscribeTable('documents', load)
   }, [])
-
-  // Deep-link from Command Palette: /knowledge?open=<id>
   useEffect(() => {
     const id = params.get('open')
     if (!id || docs.length === 0) return
@@ -90,7 +269,7 @@ function Documents() {
 
   async function load() {
     setLoading(true)
-    if (!isSupabaseConfigured) { setDocs(DOC_DEMO); setLoading(false); return }
+    if (!isSupabaseConfigured) { setDocs([]); setLoading(false); return }
     const { data, error } = await supabase.from('documents').select('*').order('created_at', { ascending: false })
     if (error) toast.error(error.message)
     setDocs(data || [])
@@ -99,7 +278,6 @@ function Documents() {
 
   const sectors = useMemo(() => Array.from(new Set(docs.map(d => d.sector).filter(Boolean))).sort(), [docs])
   const tags    = useMemo(() => Array.from(new Set(docs.flatMap(d => d.tags || []))).sort(), [docs])
-
   const filtered = useMemo(() => {
     const needle = q.trim().toLowerCase()
     return docs.filter(d =>
@@ -113,74 +291,37 @@ function Documents() {
   }, [docs, q, sector, tag])
 
   async function saveDoc(payload) {
-    if (!isSupabaseConfigured) {
-      setDocs(prev => [{ id: `local-${Date.now()}`, created_at: new Date().toISOString(), ...payload }, ...prev])
-      setModal(false); toast.success('Document published.'); return
-    }
     const { error } = await supabase.from('documents').insert(payload)
     if (error) return toast.error(error.message)
-    setModal(false); load()
-    toast.success('Document published.')
+    setModal(false); load(); toast.success('Memo published.')
   }
 
   async function deleteDoc(doc) {
-    const ok = await confirm({ title: 'Delete document?', body: `"${doc.title}" will be removed from the knowledge base.`, destructive: true, confirmLabel: 'Delete' })
+    const ok = await confirm({ title: 'Delete memo?', body: `"${doc.title}" will be removed.`, destructive: true, confirmLabel: 'Delete' })
     if (!ok) return
-    if (!isSupabaseConfigured) {
-      setDocs(prev => prev.filter(d => d.id !== doc.id))
-    } else {
-      const { error } = await supabase.from('documents').delete().eq('id', doc.id)
-      if (error) return toast.error(error.message)
-      load()
-    }
-    setOpen(null)
-    toast.success('Document deleted.')
+    const { error } = await supabase.from('documents').delete().eq('id', doc.id)
+    if (error) return toast.error(error.message)
+    load(); setOpen(null); toast.success('Memo deleted.')
   }
 
   return (
-    <div className="space-y-6">
-      <div className="vl-card p-5">
-        <div className="flex items-center gap-3 rounded-xl border border-valence-border bg-white/[0.03] px-4 py-3 focus-within:border-valence-blue focus-within:ring-2 focus-within:ring-valence-blue-ring transition">
-          <Search className="h-4 w-4 text-valence-blue" />
-          <input
-            value={q} onChange={e => setQ(e.target.value)} autoFocus
-            placeholder="Search playbooks, memos, templates — live across every document…"
-            className="flex-1 bg-transparent text-sm text-white placeholder:text-valence-subtle outline-none"
-          />
-        </div>
-
-        <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
-          <div className="flex flex-wrap items-center gap-2">
-            <Chip active={sector === 'All'} onClick={() => setSector('All')}>All sectors</Chip>
-            {sectors.map(s => <Chip key={s} active={sector === s} onClick={() => setSector(s)}>{s}</Chip>)}
+    <div className="space-y-5">
+      <div className="vl-card p-4">
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="flex flex-1 min-w-[240px] items-center gap-2 rounded-lg border border-valence-border bg-white/[0.03] px-3 py-2">
+            <Search className="h-4 w-4 text-valence-blue" />
+            <input value={q} onChange={e => setQ(e.target.value)} placeholder="Filter memos…" className="flex-1 bg-transparent text-sm text-white placeholder:text-valence-subtle outline-none" />
           </div>
-          <button onClick={() => setModal(true)} className="vl-btn-primary">
-            <Plus className="h-4 w-4" /> New document
-          </button>
+          <Select label="Sector" value={sector} onChange={setSector} options={['All', ...sectors]} />
+          {tags.length > 0 && <Select label="Tag" value={tag} onChange={setTag} options={['All', ...tags]} />}
+          <button onClick={() => setModal(true)} className="vl-btn-primary"><Plus className="h-4 w-4" /> New memo</button>
         </div>
-
-        {tags.length > 0 && (
-          <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-valence-border pt-3">
-            <span className="text-[11px] font-semibold uppercase tracking-wider text-valence-subtle">Tags</span>
-            <Chip active={tag === 'All'} onClick={() => setTag('All')} small>All</Chip>
-            {tags.map(t => (
-              <Chip key={t} active={tag === t} onClick={() => setTag(t)} small>
-                <Hash className="h-3 w-3" /> {t}
-              </Chip>
-            ))}
-          </div>
-        )}
       </div>
 
       {loading ? (
         <GridSkeleton />
       ) : filtered.length === 0 ? (
-        <EmptyState
-          icon={BookOpen}
-          title={q ? 'No documents match your search' : 'The knowledge base is empty'}
-          description={q ? 'Try different keywords or clear your filters.' : 'Add your first memo, template or playbook.'}
-          action={<button onClick={() => setModal(true)} className="vl-btn-primary"><Plus className="h-4 w-4" /> New document</button>}
-        />
+        <EmptyState icon={BookOpen} title="No memos yet" description="Publish thesis memos, playbooks, templates — anything the team refers back to." action={<button onClick={() => setModal(true)} className="vl-btn-primary"><Plus className="h-4 w-4" /> New memo</button>} />
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {filtered.map(d => (
@@ -224,27 +365,131 @@ function Documents() {
               {open.sector && <span className="vl-chip-blue">{open.sector}</span>}
               {(open.tags || []).map(t => <span key={t} className="vl-chip"><Hash className="h-3 w-3" />{t}</span>)}
             </div>
-            <div className="whitespace-pre-wrap rounded-lg border border-valence-border bg-white/[0.02] px-4 py-4 text-sm leading-relaxed text-valence-text">
-              {open.content}
-            </div>
+            <div className="whitespace-pre-wrap rounded-lg border border-valence-border bg-white/[0.02] px-4 py-4 text-sm leading-relaxed text-valence-text">{open.content}</div>
           </div>
         )}
       </Drawer>
 
-      <Modal
-        open={modal}
-        onClose={() => setModal(false)}
-        title="New document"
-        description="Write a memo, template, or playbook. It becomes searchable for the whole team instantly."
-        size="lg"
-      >
+      <Modal open={modal} onClose={() => setModal(false)} title="New memo" description="Write a memo, template, or playbook. It becomes searchable for the whole team instantly." size="lg">
         <DocForm onCancel={() => setModal(false)} onSubmit={saveDoc} />
       </Modal>
     </div>
   )
 }
 
-// ============ COMPS ============
+// ============ FILES ============
+function FilesSection() {
+  const toast = useToast()
+  const confirm = useConfirm()
+  const { profile } = useAuth()
+  const [files, setFiles] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [q, setQ] = useState('')
+
+  useEffect(() => { load() }, [])
+  useEffect(() => {
+    if (!isSupabaseConfigured) return
+    return subscribeTable('knowledge_files', load)
+  }, [])
+
+  async function load() {
+    setLoading(true)
+    if (!isSupabaseConfigured) { setFiles([]); setLoading(false); return }
+    const { data, error } = await supabase.from('knowledge_files').select('*').order('created_at', { ascending: false })
+    if (error) toast.error(error.message)
+    setFiles(data || [])
+    setLoading(false)
+  }
+
+  const filtered = useMemo(() => {
+    const needle = q.trim().toLowerCase()
+    if (!needle) return files
+    return files.filter(f =>
+      f.name.toLowerCase().includes(needle) ||
+      (f.sector || '').toLowerCase().includes(needle) ||
+      (f.tags || []).some(t => t.toLowerCase().includes(needle))
+    )
+  }, [files, q])
+
+  async function remove(f) {
+    const ok = await confirm({ title: 'Delete file?', body: `"${f.name}" will be removed from the knowledge base.`, destructive: true, confirmLabel: 'Delete' })
+    if (!ok) return
+    try {
+      await deleteKnowledgeFile(f)
+      toast.success('File deleted.')
+      load()
+    } catch (e) { toast.error(e.message) }
+  }
+
+  return (
+    <div className="space-y-5">
+      <div className="vl-card p-5">
+        <KnowledgeUpload uploadedBy={profile?.email || null} onUploaded={load} />
+      </div>
+
+      <div className="vl-card p-4">
+        <div className="flex items-center gap-2 rounded-lg border border-valence-border bg-white/[0.03] px-3 py-2">
+          <Search className="h-3.5 w-3.5 text-valence-subtle" />
+          <input value={q} onChange={e => setQ(e.target.value)} placeholder="Filter files by name, sector, tag…" className="flex-1 bg-transparent text-sm text-white placeholder:text-valence-subtle outline-none" />
+        </div>
+      </div>
+
+      {loading ? (
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          {Array.from({ length: 6 }).map((_, i) => <div key={i} className="h-24 rounded-xl bg-white/[0.03] animate-pulse" />)}
+        </div>
+      ) : filtered.length === 0 ? (
+        <EmptyState icon={FileIcon} title={q ? 'No files match' : 'No files uploaded yet'} description={q ? 'Try fewer keywords.' : 'Upload PDFs, decks, NDAs, memos — anything the team needs to reference.'} />
+      ) : (
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          {filtered.map(f => <FileCard key={f.id} file={f} onDelete={remove} />)}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function FileCard({ file, onDelete }) {
+  return (
+    <article className="vl-card vl-card-hover p-4 group relative">
+      <div className="flex items-start gap-3">
+        <div className="grid h-10 w-10 place-items-center rounded-lg bg-valence-blue-soft ring-1 ring-valence-blue/20 shrink-0">
+          <FileIcon className="h-4 w-4 text-valence-blue" />
+        </div>
+        <div className="flex-1 min-w-0">
+          <p className="truncate text-sm font-semibold text-white" title={file.name}>{file.name}</p>
+          <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] text-valence-muted">
+            {file.sector && <span className="vl-chip-blue">{file.sector}</span>}
+            {file.char_count > 0 && <span>{Math.round(file.char_count / 1000)}k chars</span>}
+            <span className="text-valence-subtle">·</span>
+            <span>{formatDistanceToNow(new Date(file.created_at), { addSuffix: true })}</span>
+          </div>
+          {(file.tags || []).length > 0 && (
+            <div className="mt-2 flex flex-wrap gap-1">
+              {file.tags.slice(0, 4).map(t => (
+                <span key={t} className="inline-flex items-center gap-1 rounded-md border border-valence-border bg-white/[0.03] px-1.5 py-0.5 text-[10px] font-medium text-valence-muted">
+                  <Hash className="h-2.5 w-2.5" />{t}
+                </span>
+              ))}
+            </div>
+          )}
+          {file.summary && <p className="mt-2 text-[11px] leading-relaxed text-valence-muted line-clamp-3">{file.summary}</p>}
+        </div>
+      </div>
+
+      <div className="mt-3 flex items-center justify-end gap-1">
+        <a href={filePublicUrl(file.path)} target="_blank" rel="noreferrer" className="vl-btn-ghost" aria-label="Open">
+          <Download className="h-3.5 w-3.5" />
+        </a>
+        <button onClick={() => onDelete(file)} className="vl-btn-ghost text-valence-subtle hover:text-valence-danger" aria-label="Delete">
+          <Trash2 className="h-3.5 w-3.5" />
+        </button>
+      </div>
+    </article>
+  )
+}
+
+// ============ COMPS (unchanged UX) ============
 function Comps() {
   const toast = useToast()
   const confirm = useConfirm()
@@ -256,14 +501,11 @@ function Comps() {
   const [modal, setModal] = useState(false)
 
   useEffect(() => { load() }, [])
-  useEffect(() => {
-    if (!isSupabaseConfigured) return
-    return subscribeTable('comps', load)
-  }, [])
+  useEffect(() => { if (isSupabaseConfigured) return subscribeTable('comps', load) }, [])
 
   async function load() {
     setLoading(true)
-    if (!isSupabaseConfigured) { setComps(COMPS_DEMO); setLoading(false); return }
+    if (!isSupabaseConfigured) { setComps([]); setLoading(false); return }
     const { data, error } = await supabase.from('comps').select('*').order('year', { ascending: false })
     if (error) toast.error(error.message)
     setComps(data || [])
@@ -272,7 +514,6 @@ function Comps() {
 
   const sectors = useMemo(() => Array.from(new Set(comps.map(c => c.sector).filter(Boolean))).sort(), [comps])
   const types   = useMemo(() => Array.from(new Set(comps.map(c => c.deal_type).filter(Boolean))).sort(), [comps])
-
   const filtered = useMemo(() => {
     const needle = q.trim().toLowerCase()
     return comps.filter(c =>
@@ -283,30 +524,23 @@ function Comps() {
   }, [comps, q, sector, type])
 
   async function saveComp(payload) {
-    if (!isSupabaseConfigured) {
-      setComps(prev => [{ id: `local-${Date.now()}`, ...payload }, ...prev])
-      setModal(false); toast.success('Comp added.'); return
-    }
     const { error } = await supabase.from('comps').insert(payload)
     if (error) return toast.error(error.message)
     setModal(false); load(); toast.success('Comp added.')
   }
-
   async function deleteComp(c) {
-    const ok = await confirm({ title: 'Delete this comp?', body: `${c.target} will be removed from the comps library.`, destructive: true, confirmLabel: 'Delete' })
+    const ok = await confirm({ title: 'Delete this comp?', body: `${c.target} will be removed.`, destructive: true, confirmLabel: 'Delete' })
     if (!ok) return
-    if (!isSupabaseConfigured) { setComps(prev => prev.filter(x => x.id !== c.id)); return }
     const { error } = await supabase.from('comps').delete().eq('id', c.id)
     if (error) return toast.error(error.message)
     load(); toast.success('Comp deleted.')
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
       <div className="vl-card p-4">
         <p className="text-sm font-semibold text-white">Precedent transactions</p>
-        <p className="mt-0.5 text-xs text-valence-muted">Our internal comps library. Feed it with every relevant deal you come across — it sets pricing conversations.</p>
-
+        <p className="mt-0.5 text-xs text-valence-muted">Your internal comps library. Feed it every relevant deal — it sets pricing conversations.</p>
         <div className="mt-4 flex flex-wrap items-center gap-3">
           <div className="flex flex-1 min-w-[240px] items-center gap-2 rounded-lg border border-valence-border bg-white/[0.03] px-3 py-2">
             <Search className="h-3.5 w-3.5 text-valence-subtle" />
@@ -314,9 +548,7 @@ function Comps() {
           </div>
           <Select label="Sector" value={sector} onChange={setSector} options={['All', ...sectors]} />
           <Select label="Type"   value={type}   onChange={setType}   options={['All', ...types]} />
-          <button onClick={() => setModal(true)} className="vl-btn-primary">
-            <Plus className="h-4 w-4" /> Add comp
-          </button>
+          <button onClick={() => setModal(true)} className="vl-btn-primary"><Plus className="h-4 w-4" /> Add comp</button>
         </div>
       </div>
 
@@ -325,7 +557,7 @@ function Comps() {
           {Array.from({ length: 5 }).map((_, i) => <div key={i} className="h-12 rounded-lg bg-white/[0.04] animate-pulse" />)}
         </div>
       ) : filtered.length === 0 ? (
-        <EmptyState icon={TableIcon} title="No comps yet" description="Add a precedent transaction to build your pricing reference." action={<button onClick={() => setModal(true)} className="vl-btn-primary"><Plus className="h-4 w-4" /> Add comp</button>} />
+        <EmptyState icon={TableIcon} title="No comps yet" description="Add precedent transactions to build your pricing reference." action={<button onClick={() => setModal(true)} className="vl-btn-primary"><Plus className="h-4 w-4" /> Add comp</button>} />
       ) : (
         <div className="vl-card overflow-hidden">
           <div className="overflow-x-auto">
@@ -374,21 +606,6 @@ function Comps() {
   )
 }
 
-function Chip({ active, onClick, children, small = false }) {
-  return (
-    <button
-      onClick={onClick}
-      className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 ${small ? 'py-0.5 text-[11px]' : 'py-1 text-xs'} font-semibold transition ${
-        active
-          ? 'border-valence-blue/40 bg-valence-blue-soft text-valence-blue'
-          : 'border-valence-border bg-white/[0.03] text-valence-muted hover:text-valence-text'
-      }`}
-    >
-      {children}
-    </button>
-  )
-}
-
 function Select({ value, onChange, label, options }) {
   return (
     <label className="flex items-center gap-2 rounded-lg border border-valence-border bg-white/[0.03] pl-3 pr-2 py-2 text-xs font-medium text-valence-muted">
@@ -423,7 +640,7 @@ function DocForm({ onSubmit, onCancel }) {
       </div>
       <div>
         <label className="vl-label">Content</label>
-        <textarea className="vl-input min-h-[180px]" value={content} onChange={e => setContent(e.target.value)} required />
+        <textarea className="vl-input min-h-[220px]" value={content} onChange={e => setContent(e.target.value)} required />
       </div>
       <div className="grid grid-cols-2 gap-4">
         <div>
