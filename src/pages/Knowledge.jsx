@@ -3,7 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom'
 import { format, formatDistanceToNow } from 'date-fns'
 import {
   Plus, Search, BookOpen, Tag as TagIcon, Hash, Trash2, Table as TableIcon,
-  FileText, Sparkles, Download, Upload, Briefcase, ExternalLink, Loader2,
+  Sparkles, Download, Briefcase, ExternalLink, Loader2,
   Filter as FilterIcon, File as FileIcon
 } from 'lucide-react'
 import { supabase, isSupabaseConfigured, subscribeTable } from '../lib/supabase.js'
@@ -27,7 +27,13 @@ const SOURCE_LABELS = {
 }
 
 export default function Knowledge() {
-  const [tab, setTab] = useState('search') // 'search' | 'memos' | 'files' | 'comps'
+  const [params, setParams] = useSearchParams()
+  const tab = params.get('tab') || 'search'
+  const setTab = (t) => {
+    const next = new URLSearchParams(params)
+    if (t === 'search') next.delete('tab'); else next.set('tab', t)
+    setParams(next, { replace: true })
+  }
   return (
     <div className="space-y-6">
       <ConfigBanner />
@@ -39,7 +45,7 @@ export default function Knowledge() {
         <TabButton active={tab === 'comps'}  onClick={() => setTab('comps')}  icon={TableIcon}>Comps</TabButton>
       </div>
 
-      {tab === 'search' && <SearchPortal />}
+      {tab === 'search' && <SearchPortal onSelectTab={setTab} />}
       {tab === 'memos'  && <Documents />}
       {tab === 'files'  && <FilesSection />}
       {tab === 'comps'  && <Comps />}
@@ -62,7 +68,7 @@ function TabButton({ active, onClick, children, icon: Icon }) {
 }
 
 // ============ UNIFIED SEARCH PORTAL ============
-function SearchPortal() {
+function SearchPortal({ onSelectTab }) {
   const navigate = useNavigate()
   const toast = useToast()
   const [q, setQ] = useState('')
@@ -104,17 +110,16 @@ function SearchPortal() {
   const grouped = useMemo(() => groupResults(results), [results])
 
   function openResult(r) {
-    if (r.source_type === 'document') navigate(`/knowledge?open=${r.source_id}`)
-    else if (r.source_type === 'deal' || r.source_type === 'deal_file') navigate(`/deals?open=${r.metadata?.deal_id || r.source_id}`)
+    if (r.source_type === 'document') navigate(`/knowledge?tab=memos&open=${r.source_id}`)
+    else if (r.source_type === 'deal' || r.source_type === 'deal_file')
+      navigate(`/deals?open=${r.metadata?.deal_id || r.source_id}`)
     else if (r.source_type === 'file') {
-      // Open file directly
       supabase.from('knowledge_files').select('path').eq('id', r.source_id).single().then(({ data }) => {
         if (data?.path) window.open(filePublicUrl(data.path), '_blank')
         else toast.error('File not found.')
       })
     } else if (r.source_type === 'comp') {
-      navigate('/knowledge')
-      toast.info('Precedent comp — open the Comps tab to see details.')
+      onSelectTab?.('comps')
     }
   }
 

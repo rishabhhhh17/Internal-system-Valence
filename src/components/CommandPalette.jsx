@@ -2,15 +2,18 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   Search, Briefcase, BookOpen, CalendarDays, Users, CheckCircle2,
-  CornerDownLeft, Sparkles, LayoutDashboard, ArrowRight
+  CornerDownLeft, Sparkles, LayoutDashboard, ArrowRight, File as FileIcon,
+  FolderOpen
 } from 'lucide-react'
 import { supabase, isSupabaseConfigured } from '../lib/supabase.js'
+import { searchKnowledge } from '../lib/knowledge.js'
 
 const QUICK_NAV = [
   { type: 'nav', title: 'Overview',       sub: 'Dashboard',        to: '/',          icon: LayoutDashboard },
   { type: 'nav', title: 'Deal Logger',    sub: 'Pipeline & files', to: '/deals',     icon: Briefcase },
-  { type: 'nav', title: 'Knowledge Base', sub: 'Docs & comps',     to: '/knowledge', icon: BookOpen },
+  { type: 'nav', title: 'Knowledge Base', sub: 'Docs, files, comps', to: '/knowledge', icon: BookOpen },
   { type: 'nav', title: 'Day Planner',    sub: 'Meetings & tasks', to: '/planner',   icon: CalendarDays },
+  { type: 'nav', title: 'Drive',          sub: 'Your Google Drive', to: '/drive',    icon: FolderOpen },
   { type: 'nav', title: 'Team Directory', sub: 'The Valence team', to: '/team',      icon: Users }
 ]
 
@@ -18,7 +21,9 @@ export default function CommandPalette() {
   const [open, setOpen] = useState(false)
   const [q, setQ]       = useState('')
   const [idx, setIdx]   = useState(0)
-  const [data, setData] = useState({ deals: [], docs: [], tasks: [], meetings: [], contacts: [] })
+  const [data, setData] = useState({ deals: [], docs: [], tasks: [], meetings: [], contacts: [], files: [] })
+  const [kbHits, setKbHits] = useState([])
+  const kbReqRef = useRef(0)
   const inputRef = useRef(null)
   const navigate = useNavigate()
 
@@ -43,22 +48,39 @@ export default function CommandPalette() {
     if (!open) return
     if (!isSupabaseConfigured) return
     ;(async () => {
-      const [d, doc, t, m, c] = await Promise.all([
-        supabase.from('deals').select('id, client_name, deal_type, stage, sector').limit(50),
-        supabase.from('documents').select('id, title, sector, tags').limit(50),
-        supabase.from('tasks').select('id, title, completed').limit(50),
-        supabase.from('meetings').select('id, title, attendee_name, date, time').limit(50),
-        supabase.from('contacts').select('id, name, company, role, deal_id').limit(100)
+      const [d, doc, t, m, c, f] = await Promise.all([
+        supabase.from('deals').select('id, client_name, deal_type, stage, sector').limit(100),
+        supabase.from('documents').select('id, title, sector, tags').limit(100),
+        supabase.from('tasks').select('id, title, completed').limit(100),
+        supabase.from('meetings').select('id, title, attendee_name, date, time').limit(100),
+        supabase.from('contacts').select('id, name, company, role, deal_id').limit(200),
+        supabase.from('knowledge_files').select('id, name, sector, tags').limit(100)
       ])
       setData({
         deals:    d.data    || [],
         docs:     doc.data  || [],
         tasks:    t.data    || [],
         meetings: m.data    || [],
-        contacts: c.data    || []
+        contacts: c.data    || [],
+        files:    f.data    || []
       })
     })()
   }, [open])
+
+  // Live semantic search against knowledge_chunks. Debounced. Ignores stale responses.
+  useEffect(() => {
+    if (!open) { setKbHits([]); return }
+    const needle = q.trim()
+    if (!needle || !isSupabaseConfigured) { setKbHits([]); return }
+    const myReq = ++kbReqRef.current
+    const t = setTimeout(async () => {
+      try {
+        const { results } = await searchKnowledge(needle, { matchCount: 12 })
+        if (myReq === kbReqRef.current) setKbHits(results || [])
+      } catch { if (myReq === kbReqRef.current) setKbHits([]) }
+    }, 180)
+    return () => clearTimeout(t)
+  }, [q, open])
 
   const results = useMemo(() => {
     const needle = q.trim().toLowerCase()
@@ -89,8 +111,27 @@ export default function CommandPalette() {
       if (match(c.name, needle) || match(c.company, needle))
         out.push({ type: 'contact', title: c.name, sub: [c.role, c.company].filter(Boolean).join(' · ') || 'Counterparty', to: c.deal_id ? `/deals?open=${c.deal_id}` : '/deals', icon: Users, group: 'Counterparties' })
     }
-    return out.slice(0, 40)
-  }, [q, data])
+    for (const f of data.files) {
+      if (match(f.name, needle) || match(f.sector, needle) || (f.tags || []).some(t => match(t, needle)))
+        out.push({ type: 'file', title: f.name, sub: f.sector || 'File', to: `/knowledge`, icon: FileIcon, group: 'Files' })
+    }
+    // Knowledge Base full-content hits (dedupe against what we already added)
+    const haveIds = new Set(out.map(o => `${o.type}:${o.title}`))
+    for (const h of kbHits) {
+      if (h.source_type === 'document') {
+        if (!haveIds.has('doc:' + h.title))
+          out.push({ type: 'doc', title: h.title, sub: 'Memo content match', to: `/knowledge?open=${h.source_id}`, icon: BookOpen, group: 'In content' })
+      } else if (h.source_type === 'deal') {
+        if (!haveIds.has('deal:' + h.title))
+          out.push({ type: 'deal', title: h.title, sub: 'Deal note match', to: `/deals?open=${h.source_id}`, icon: Briefcase, group: 'In content' })
+      } else if (h.source_type === 'file') {
+        out.push({ type: 'file', title: h.title, sub: 'File content match', to: `/knowledge`, icon: FileIcon, group: 'In content' })
+      } else if (h.source_type === 'comp') {
+        out.push({ type: 'comp', title: h.title, sub: 'Precedent comp', to: `/knowledge`, icon: BookOpen, group: 'In content' })
+      }
+    }
+    return out.slice(0, 50)
+  }, [q, data, kbHits])
 
   function pick(item) {
     setOpen(false)

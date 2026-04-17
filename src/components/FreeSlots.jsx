@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { format } from 'date-fns'
 import { Clock, Sparkles, Send, Mail, Copy, Check, FileEdit, RefreshCw } from 'lucide-react'
 import Modal from './Modal.jsx'
@@ -56,11 +56,11 @@ function ProposeTimeModal({ open, slot, onClose, onSent }) {
   const [addInvite, setAddInvite] = useState(true)
   const [copied, setCopied] = useState(false)
 
-  // Seed fields when the modal opens
-  useState(() => {
+  // Reset fields whenever the modal is opened for a new slot
+  useEffect(() => {
     if (!open || !slot) return
     setTitle(''); setTo(''); setSubject(''); setBody(''); setCopied(false)
-  })
+  }, [open, slot?.start?.toISOString?.()])
 
   async function autodraft() {
     if (!slot || !title.trim()) return
