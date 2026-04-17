@@ -19,6 +19,8 @@ import Contacts from '../components/Contacts.jsx'
 import ActivityTimeline from '../components/ActivityTimeline.jsx'
 import DealBrief from '../components/DealBrief.jsx'
 import EmailComposer from '../components/EmailComposer.jsx'
+import SimilarDeals from '../components/SimilarDeals.jsx'
+import TeaserImport from '../components/TeaserImport.jsx'
 import { useToast } from '../components/Toast.jsx'
 import { useConfirm } from '../components/ConfirmDialog.jsx'
 
@@ -295,6 +297,7 @@ function DealDrawerBody({ deal, onEdit, onDelete, onComposeEmail }) {
     { id: 'files',    label: 'Files',          icon: FolderOpen },
     { id: 'contacts', label: 'Counterparties', icon: UsersIcon },
     { id: 'activity', label: 'Activity',       icon: ActivityIcon },
+    { id: 'similar',  label: 'Similar',        icon: Sparkles },
     { id: 'brief',    label: 'AI Brief',       icon: Sparkles }
   ]
 
@@ -321,6 +324,7 @@ function DealDrawerBody({ deal, onEdit, onDelete, onComposeEmail }) {
         {tab === 'files'    && <FileVault dealId={deal.id} />}
         {tab === 'contacts' && <Contacts dealId={deal.id} onOpenComposer={onComposeEmail} />}
         {tab === 'activity' && <ActivityTimeline dealId={deal.id} />}
+        {tab === 'similar'  && <SimilarDeals deal={deal} />}
         {tab === 'brief'    && <DealBrief deal={deal} />}
       </div>
     </div>
@@ -516,8 +520,21 @@ function DealForm({ initial, onSubmit, onCancel }) {
     setSubmitting(false)
   }
 
+  function applyExtracted(data) {
+    setForm(s => ({
+      ...s,
+      client_name:      data.client_name || s.client_name,
+      deal_type:        data.deal_type   || s.deal_type,
+      side:             data.side        || s.side,
+      sector:           data.sector      || s.sector,
+      ticket_size_usd_m:data.ticket_size_usd_m != null ? String(data.ticket_size_usd_m) : s.ticket_size_usd_m,
+      notes:            data.notes       || s.notes
+    }))
+  }
+
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
+      {!initial && <TeaserImport onExtracted={applyExtracted} />}
       <div className="grid grid-cols-2 gap-4">
         <div className="col-span-2">
           <label className="vl-label">Client name</label>

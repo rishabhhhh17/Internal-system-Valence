@@ -2,6 +2,7 @@ import Sidebar from './Sidebar.jsx'
 import Topbar from './Topbar.jsx'
 import MobileNav from './MobileNav.jsx'
 import CommandPalette from './CommandPalette.jsx'
+import ShortcutsOverlay from './ShortcutsOverlay.jsx'
 
 export default function Layout({ children }) {
   return (
@@ -16,6 +17,7 @@ export default function Layout({ children }) {
         <MobileNav />
       </div>
       <CommandPalette />
+      <ShortcutsOverlay />
     </div>
   )
 }

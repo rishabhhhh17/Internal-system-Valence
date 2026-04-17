@@ -115,6 +115,66 @@ const EMAIL_SCENARIOS = {
 
 export function emailScenarios() { return EMAIL_SCENARIOS }
 
+// ============ MEETING → ACTION ITEMS ============
+export async function summariseMeeting({ title, notes, dateLabel, attendees = [] }) {
+  const prompt = `You are a senior associate at Valence Growth Partners. The user just had a meeting and pasted their raw notes below. Produce a concise, professional summary AND a structured list of action items.
+
+Return STRICT JSON matching this schema, and nothing else:
+{
+  "summary": "2-4 sentence summary of what was discussed and decided",
+  "decisions": ["one-line decisions, if any"],
+  "action_items": [
+    { "title": "short imperative task (e.g. 'Send IM to Arclight')", "owner": "name or empty", "due_date": "YYYY-MM-DD or empty" }
+  ],
+  "follow_up_questions": ["open items or questions to resolve, if any"]
+}
+
+Meeting: ${title || '(untitled)'}
+Date: ${dateLabel || ''}
+Attendees: ${attendees.join(', ') || ''}
+
+Notes:
+${notes}`
+
+  const text = await gemini(prompt, { temperature: 0.2, maxOutputTokens: 900 })
+  const cleaned = text.replace(/^```json\s*|\s*```$/g, '').trim()
+  try {
+    return JSON.parse(cleaned)
+  } catch {
+    // Model sometimes wraps with stray text; try to extract the JSON block
+    const m = cleaned.match(/\{[\s\S]*\}/)
+    if (m) { try { return JSON.parse(m[0]) } catch {} }
+    return { summary: cleaned, decisions: [], action_items: [], follow_up_questions: [] }
+  }
+}
+
+// ============ TEASER → DEAL FIELDS ============
+export async function extractDealFromTeaser(text) {
+  const prompt = `You are a senior associate at Valence Growth Partners ingesting an external teaser or information memorandum. Extract the fields below from the text and return STRICT JSON only.
+
+Schema (null where unknown):
+{
+  "client_name": "company name being advised / for sale",
+  "deal_type": "M&A | ECM | PE/VC | DCM",
+  "side": "Buy-side | Sell-side | Advisory",
+  "sector": "Healthcare | BFSI | Fintech | Infrastructure | Consumer | Consumer Tech | EdTech | Energy | Real Estate | Technology | Other",
+  "ticket_size_usd_m": number or null,
+  "notes": "3-4 sentence internal brief capturing the situation"
+}
+
+Teaser text (truncated):
+${text.slice(0, 9000)}`
+
+  const raw = await gemini(prompt, { temperature: 0.15, maxOutputTokens: 600 })
+  const cleaned = raw.replace(/^```json\s*|\s*```$/g, '').trim()
+  try { return JSON.parse(cleaned) }
+  catch {
+    const m = cleaned.match(/\{[\s\S]*\}/)
+    if (m) { try { return JSON.parse(m[0]) } catch {} }
+    throw new Error('Could not parse AI response as JSON')
+  }
+}
+
 export async function draftEmail({ scenario, deal, contact }) {
   const spec = EMAIL_SCENARIOS[scenario] || EMAIL_SCENARIOS.intro
   const first = (contact?.name || '').split(' ')[0] || 'there'

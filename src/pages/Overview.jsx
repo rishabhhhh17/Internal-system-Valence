@@ -2,19 +2,23 @@ import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import {
   Briefcase, BookOpen, CalendarDays, Users, ArrowUpRight,
-  TrendingUp, CheckCircle2, Sparkles, Activity
+  TrendingUp, CheckCircle2, Sparkles, Activity, DollarSign
 } from 'lucide-react'
 import { format } from 'date-fns'
 import { supabase, isSupabaseConfigured } from '../lib/supabase.js'
 import { STAGES, stageMeta, stageToneClasses } from '../lib/stages.js'
+import { forecastPipeline } from '../lib/insights.js'
 import ConfigBanner from '../components/ConfigBanner.jsx'
+import VelocityChart from '../components/VelocityChart.jsx'
+import StaleDealsCard from '../components/StaleDealsCard.jsx'
+import ExpertsWidget from '../components/ExpertsWidget.jsx'
 
 const demoDeals = [
-  { client_name: 'Nimbus Health',    deal_type: 'M&A',   stage: 'Diligence',   nda_status: 'Signed',  sector: 'Healthcare',     ticket_size_usd_m: 180 },
-  { client_name: 'Arclight Capital', deal_type: 'PE/VC', stage: 'Origination', nda_status: 'Pending', sector: 'Infrastructure', ticket_size_usd_m: 120 },
-  { client_name: 'Quantum Edge',     deal_type: 'ECM',   stage: 'Marketing',   nda_status: 'Signed',  sector: 'Fintech',        ticket_size_usd_m: 250 },
-  { client_name: 'Meridian EdTech',  deal_type: 'PE/VC', stage: 'Negotiation', nda_status: 'Signed',  sector: 'EdTech',         ticket_size_usd_m:  35 },
-  { client_name: 'Orion Realty',     deal_type: 'PE/VC', stage: 'Closing',     nda_status: 'Signed',  sector: 'Real Estate',    ticket_size_usd_m: 320 }
+  { client_name: 'Nimbus Health',    deal_type: 'M&A',   stage: 'Diligence',   nda_status: 'Signed',  sector: 'Healthcare',     ticket_size_usd_m: 180, fee_success_pct: 1.75, fee_retainer_usd: 50000 },
+  { client_name: 'Arclight Capital', deal_type: 'PE/VC', stage: 'Origination', nda_status: 'Pending', sector: 'Infrastructure', ticket_size_usd_m: 120, fee_success_pct: 2.00 },
+  { client_name: 'Quantum Edge',     deal_type: 'ECM',   stage: 'Marketing',   nda_status: 'Signed',  sector: 'Fintech',        ticket_size_usd_m: 250, fee_success_pct: 2.50, fee_retainer_usd: 75000 },
+  { client_name: 'Meridian EdTech',  deal_type: 'PE/VC', stage: 'Negotiation', nda_status: 'Signed',  sector: 'EdTech',         ticket_size_usd_m:  35, fee_success_pct: 3.50 },
+  { client_name: 'Orion Realty',     deal_type: 'PE/VC', stage: 'Closing',     nda_status: 'Signed',  sector: 'Real Estate',    ticket_size_usd_m: 320, fee_success_pct: 1.50 }
 ]
 
 export default function Overview() {
@@ -47,6 +51,8 @@ export default function Overview() {
     }
   }, [deals])
 
+  const forecast = useMemo(() => forecastPipeline(deals), [deals])
+
   const funnelCounts = useMemo(() => {
     const g = Object.fromEntries(STAGES.map(s => [s.id, 0]))
     for (const d of deals) if (g[d.stage] != null) g[d.stage] += 1
@@ -75,24 +81,24 @@ export default function Overview() {
           </p>
           <div className="mt-6 flex flex-wrap gap-3">
             <Link to="/deals" className="vl-btn-primary">Open Deal Logger <ArrowUpRight className="h-4 w-4" /></Link>
-            <Link to="/planner" className="vl-btn-secondary">Plan the day</Link>
+            <Link to="/knowledge" className="vl-btn-secondary"><Sparkles className="h-4 w-4" /> Ask the firm</Link>
             <span className="inline-flex items-center gap-2 text-xs text-valence-muted pl-3">
-              Tip: press <span className="vl-kbd">⌘K</span> anywhere to jump to a deal, doc or counterparty.
+              Press <span className="vl-kbd">⌘K</span> anywhere to search · press <span className="vl-kbd">?</span> for shortcuts.
             </span>
           </div>
         </div>
       </section>
 
-      {/* Stats */}
+      {/* Stat cards */}
       <section className="grid grid-cols-2 gap-4 md:grid-cols-4">
         <StatCard label="Pipeline value" value={`$${fmt(pipeline.pipelineValue)}M`} sub={`${pipeline.totalActive} active`} icon={TrendingUp} accent />
-        <StatCard label="Closed value"   value={`$${fmt(pipeline.closedValue)}M`}   sub="Success fees recognised" icon={CheckCircle2} />
-        <StatCard label="Knowledge docs" value={stats.docs}                          sub="Searchable institutional memory" icon={BookOpen} />
-        <StatCard label="Open tasks"     value={stats.tasks}                         sub="Across the team today"          icon={Activity} />
+        <StatCard label="Expected fees"  value={`$${Math.round(forecast.weighted / 1000).toLocaleString()}k`} sub="Probability-weighted" icon={DollarSign} />
+        <StatCard label="Knowledge docs" value={stats.docs} sub="Searchable institutional memory" icon={BookOpen} />
+        <StatCard label="Open tasks"     value={stats.tasks} sub="Across the team today" icon={Activity} />
       </section>
 
+      {/* Funnel + Quick actions */}
       <section className="grid gap-6 lg:grid-cols-3">
-        {/* Funnel snapshot */}
         <div className="lg:col-span-2 vl-card p-6">
           <div className="mb-4 flex items-center justify-between">
             <div>
@@ -129,13 +135,22 @@ export default function Overview() {
           </ul>
         </div>
 
-        {/* Quick actions */}
         <div className="space-y-4">
-          <QuickAction to="/deals"     icon={Briefcase}    title="Deal Logger"    body="Kanban + data rooms + AI briefs." />
-          <QuickAction to="/knowledge" icon={BookOpen}     title="Knowledge Base" body="Memos, templates and precedent comps." />
-          <QuickAction to="/planner"   icon={CalendarDays} title="Day Planner"    body="Meetings, tasks and scheduling assistant." />
-          <QuickAction to="/team"      icon={Users}        title="Team Directory" body="Who covers what, at a glance." />
+          <QuickAction to="/knowledge"        icon={Sparkles}     title="Ask the firm"       body="Plain-English Q&A across every memo, file, deal." accent />
+          <QuickAction to="/deals"            icon={Briefcase}    title="Deal Logger"        body="Kanban, data rooms, AI briefs, similarity engine." />
+          <QuickAction to="/planner"          icon={CalendarDays} title="Day Planner"        body="Meetings, tasks, Google Calendar tap-to-propose." />
+          <QuickAction to="/team"             icon={Users}        title="Team Directory"     body="Who covers what, at a glance." />
         </div>
+      </section>
+
+      {/* Insights row */}
+      <section className="grid gap-6 lg:grid-cols-3">
+        <div className="lg:col-span-2"><VelocityChart /></div>
+        <StaleDealsCard deals={deals} />
+      </section>
+
+      <section>
+        <ExpertsWidget deals={deals} />
       </section>
     </div>
   )
@@ -155,9 +170,9 @@ function StatCard({ label, value, sub, icon: Icon, accent = false }) {
   )
 }
 
-function QuickAction({ to, icon: Icon, title, body }) {
+function QuickAction({ to, icon: Icon, title, body, accent = false }) {
   return (
-    <Link to={to} className="vl-card vl-card-hover block p-5 group">
+    <Link to={to} className={`vl-card vl-card-hover block p-5 group ${accent ? 'ring-1 ring-valence-blue/20' : ''}`}>
       <div className="flex items-start gap-3">
         <div className="grid h-10 w-10 place-items-center rounded-lg bg-valence-blue-soft ring-1 ring-valence-blue/20">
           <Icon className="h-4 w-4 text-valence-blue" />

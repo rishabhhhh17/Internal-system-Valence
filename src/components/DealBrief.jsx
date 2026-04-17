@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Sparkles, Copy, Check, RefreshCw } from 'lucide-react'
+import { Sparkles, Copy, Check, RefreshCw, Printer } from 'lucide-react'
 import { supabase, isSupabaseConfigured } from '../lib/supabase.js'
 import { generateDealBrief, isGeminiConfigured } from '../lib/gemini.js'
 import { logActivity } from '../lib/activity.js'
@@ -45,6 +45,48 @@ export default function DealBrief({ deal }) {
     setTimeout(() => setCopied(false), 1500)
   }
 
+  function printAsPDF() {
+    if (!brief) return
+    const win = window.open('', '_blank', 'width=900,height=1000')
+    if (!win) return
+    const safeTitle = (deal.client_name || 'Deal').replace(/[<>&]/g, '')
+    const paragraphs = brief.split(/\n\n+/).map(p => {
+      const m = p.match(/^(SITUATION|COMMERCIALS|COUNTERPARTIES|NEXT STEPS)\s*:\s*/i)
+      if (!m) return `<p>${escape(p)}</p>`
+      return `<p><span class="lbl">${m[1].toUpperCase()}</span><br/>${escape(p.slice(m[0].length))}</p>`
+    }).join('')
+    win.document.write(`<!doctype html><html><head><meta charset="utf-8"/>
+<title>${safeTitle} — Internal Brief</title>
+<style>
+  body { font-family: Inter, -apple-system, sans-serif; color: #0a0f1e; padding: 48px; max-width: 720px; margin: auto; line-height: 1.55; }
+  header { border-bottom: 2px solid #3399FF; padding-bottom: 16px; margin-bottom: 28px; }
+  h1 { font-size: 24px; margin: 0 0 4px; letter-spacing: -0.01em; }
+  .sub { color: #64748b; font-size: 12px; text-transform: uppercase; letter-spacing: 0.08em; }
+  .chips { margin-top: 10px; font-size: 12px; color: #475569; }
+  .chips span { display: inline-block; margin-right: 10px; padding: 2px 8px; background: #e0edff; color: #1a85ff; border-radius: 999px; font-weight: 600; }
+  .lbl { font-size: 10px; font-weight: 700; color: #3399FF; letter-spacing: 0.18em; }
+  p { margin: 0 0 14px; }
+  footer { margin-top: 40px; border-top: 1px solid #e2e8f0; padding-top: 12px; font-size: 11px; color: #94a3b8; }
+  @media print { body { padding: 24px; } }
+</style></head>
+<body>
+  <header>
+    <div class="sub">Valence Growth Partners · Internal brief</div>
+    <h1>${safeTitle}</h1>
+    <div class="chips">
+      <span>${escape(deal.deal_type || '')}</span>
+      <span>${escape(deal.stage || '')}</span>
+      ${deal.sector ? `<span>${escape(deal.sector)}</span>` : ''}
+      ${deal.ticket_size_usd_m ? `<span>$${Number(deal.ticket_size_usd_m).toLocaleString()}M EV</span>` : ''}
+    </div>
+  </header>
+  ${paragraphs}
+  <footer>Generated ${new Date().toLocaleString()} · ValanceOS</footer>
+</body></html>`)
+    win.document.close()
+    setTimeout(() => { win.focus(); win.print() }, 120)
+  }
+
   return (
     <div className="space-y-3">
       <div className="rounded-xl border border-valence-border bg-gradient-to-br from-valence-blue/10 via-white/[0.02] to-transparent p-4">
@@ -69,9 +111,14 @@ export default function DealBrief({ deal }) {
 
       {brief && (
         <div className="vl-card p-5 relative">
-          <button onClick={copy} className="absolute right-3 top-3 vl-btn-ghost" aria-label="Copy">
-            {copied ? <Check className="h-3.5 w-3.5 text-valence-success" /> : <Copy className="h-3.5 w-3.5" />}
-          </button>
+          <div className="absolute right-3 top-3 flex items-center gap-1">
+            <button onClick={printAsPDF} className="vl-btn-ghost" aria-label="Print">
+              <Printer className="h-3.5 w-3.5" />
+            </button>
+            <button onClick={copy} className="vl-btn-ghost" aria-label="Copy">
+              {copied ? <Check className="h-3.5 w-3.5 text-valence-success" /> : <Copy className="h-3.5 w-3.5" />}
+            </button>
+          </div>
           <div className="whitespace-pre-wrap text-sm leading-relaxed text-valence-text">
             {renderBrief(brief)}
           </div>
@@ -79,6 +126,10 @@ export default function DealBrief({ deal }) {
       )}
     </div>
   )
+}
+
+function escape(str) {
+  return String(str || '').replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]))
 }
 
 function renderBrief(text) {

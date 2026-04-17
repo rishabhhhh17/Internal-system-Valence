@@ -15,8 +15,10 @@ import Modal from '../components/Modal.jsx'
 import Drawer from '../components/Drawer.jsx'
 import EmptyState from '../components/EmptyState.jsx'
 import KnowledgeUpload from '../components/KnowledgeUpload.jsx'
+import AskChat from '../components/AskChat.jsx'
 import { useToast } from '../components/Toast.jsx'
 import { useConfirm } from '../components/ConfirmDialog.jsx'
+import { Bot } from 'lucide-react'
 
 const SOURCE_LABELS = {
   document:  { label: 'Memo',       icon: BookOpen,   color: 'text-valence-blue' },
@@ -28,10 +30,10 @@ const SOURCE_LABELS = {
 
 export default function Knowledge() {
   const [params, setParams] = useSearchParams()
-  const tab = params.get('tab') || 'search'
+  const tab = params.get('tab') || 'ask'
   const setTab = (t) => {
     const next = new URLSearchParams(params)
-    if (t === 'search') next.delete('tab'); else next.set('tab', t)
+    if (t === 'ask') next.delete('tab'); else next.set('tab', t)
     setParams(next, { replace: true })
   }
   return (
@@ -39,12 +41,14 @@ export default function Knowledge() {
       <ConfigBanner />
 
       <div className="flex items-center gap-1 rounded-lg border border-valence-border bg-white/[0.02] p-1 w-fit overflow-x-auto">
+        <TabButton active={tab === 'ask'}    onClick={() => setTab('ask')}    icon={Bot}>Ask AI</TabButton>
         <TabButton active={tab === 'search'} onClick={() => setTab('search')} icon={Sparkles}>Search</TabButton>
         <TabButton active={tab === 'memos'}  onClick={() => setTab('memos')}  icon={BookOpen}>Memos</TabButton>
         <TabButton active={tab === 'files'}  onClick={() => setTab('files')}  icon={FileIcon}>Files</TabButton>
         <TabButton active={tab === 'comps'}  onClick={() => setTab('comps')}  icon={TableIcon}>Comps</TabButton>
       </div>
 
+      {tab === 'ask'    && <AskChat />}
       {tab === 'search' && <SearchPortal onSelectTab={setTab} />}
       {tab === 'memos'  && <Documents />}
       {tab === 'files'  && <FilesSection />}

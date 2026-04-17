@@ -17,6 +17,7 @@ import { logActivity } from '../lib/activity.js'
 import ConfigBanner from '../components/ConfigBanner.jsx'
 import Modal from '../components/Modal.jsx'
 import FreeSlots from '../components/FreeSlots.jsx'
+import MeetingSummary from '../components/MeetingSummary.jsx'
 import { useToast } from '../components/Toast.jsx'
 import { useConfirm } from '../components/ConfirmDialog.jsx'
 
@@ -52,6 +53,7 @@ export default function Planner() {
   const summaryRanForKeyRef = useRef('')
 
   const [meetingModal, setMeetingModal] = useState(false)
+  const [summaryModal, setSummaryModal] = useState(null) // meeting object or true for standalone
   const [drafted, setDrafted] = useState(null) // { meeting, message }
 
   const [newTask, setNewTask] = useState('')
@@ -330,9 +332,14 @@ export default function Planner() {
                 <h2 className="vl-section-title">Today's meetings</h2>
                 <p className="text-xs text-valence-muted mt-0.5">{format(new Date(), "EEEE, d MMMM yyyy")}</p>
               </div>
-              <button onClick={() => setMeetingModal(true)} className="vl-btn-primary">
-                <Plus className="h-4 w-4" /> Schedule
-              </button>
+              <div className="flex items-center gap-2">
+                <button onClick={() => setSummaryModal(true)} className="vl-btn-secondary">
+                  <Sparkles className="h-4 w-4" /> Summarise notes
+                </button>
+                <button onClick={() => setMeetingModal(true)} className="vl-btn-primary">
+                  <Plus className="h-4 w-4" /> Schedule
+                </button>
+              </div>
             </div>
 
             {loading ? (
@@ -446,6 +453,14 @@ export default function Planner() {
       >
         <MeetingForm deals={deals} onCancel={() => setMeetingModal(false)} onSubmit={addMeeting} />
       </Modal>
+
+      {/* Meeting summary modal */}
+      <MeetingSummary
+        open={Boolean(summaryModal)}
+        onClose={() => setSummaryModal(null)}
+        meeting={typeof summaryModal === 'object' ? summaryModal : null}
+        deals={deals}
+      />
 
       {/* Drafted message */}
       <Modal
