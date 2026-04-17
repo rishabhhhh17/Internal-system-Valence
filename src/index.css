@@ -1,0 +1,78 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    color-scheme: dark;
+  }
+
+  html, body, #root {
+    height: 100%;
+  }
+
+  body {
+    @apply bg-valence-bg text-valence-text font-sans antialiased;
+    font-feature-settings: 'cv11', 'ss01', 'ss03';
+    letter-spacing: -0.01em;
+  }
+
+  ::selection {
+    background: rgba(51, 153, 255, 0.35);
+    color: #ffffff;
+  }
+
+  /* Scrollbar */
+  ::-webkit-scrollbar { width: 10px; height: 10px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.08); border-radius: 8px; }
+  ::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.16); }
+}
+
+@layer components {
+  .vl-card {
+    @apply rounded-xl border border-valence-border bg-white/[0.03] backdrop-blur-sm;
+  }
+  .vl-card-hover {
+    @apply transition-all duration-200 hover:border-valence-border-strong hover:bg-white/[0.05];
+  }
+  .vl-input {
+    @apply w-full rounded-lg border border-valence-border bg-white/[0.03] px-3.5 py-2.5 text-sm text-valence-text placeholder:text-valence-subtle outline-none transition focus:border-valence-blue focus:ring-2 focus:ring-valence-blue-ring;
+  }
+  .vl-label {
+    @apply block text-xs font-medium uppercase tracking-wider text-valence-muted mb-1.5;
+  }
+  .vl-btn-primary {
+    @apply inline-flex items-center justify-center gap-2 rounded-lg bg-valence-blue px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-valence-blue-hover focus:outline-none focus:ring-2 focus:ring-valence-blue-ring disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+  .vl-btn-secondary {
+    @apply inline-flex items-center justify-center gap-2 rounded-lg border border-valence-border bg-white/[0.03] px-4 py-2.5 text-sm font-semibold text-valence-text transition hover:border-valence-border-strong hover:bg-white/[0.06];
+  }
+  .vl-btn-ghost {
+    @apply inline-flex items-center justify-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-valence-muted transition hover:bg-white/[0.04] hover:text-valence-text;
+  }
+  .vl-chip {
+    @apply inline-flex items-center gap-1.5 rounded-full border border-valence-border bg-white/[0.04] px-2.5 py-1 text-xs font-medium text-valence-muted;
+  }
+  .vl-chip-blue {
+    @apply inline-flex items-center gap-1.5 rounded-full border border-valence-blue/30 bg-valence-blue-soft px-2.5 py-1 text-xs font-semibold text-valence-blue;
+  }
+  .vl-divider {
+    @apply h-px w-full bg-gradient-to-r from-transparent via-valence-border to-transparent;
+  }
+  .vl-section-title {
+    @apply text-xl font-semibold tracking-tight text-valence-text;
+  }
+  .vl-kbd {
+    @apply rounded border border-valence-border bg-white/[0.04] px-1.5 py-0.5 text-[10px] font-medium text-valence-muted;
+  }
+}
+
+/* Global subtle grid background overlay */
+.bg-valence-grid {
+  background-image:
+    linear-gradient(rgba(255,255,255,0.025) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,0.025) 1px, transparent 1px);
+  background-size: 40px 40px;
+  background-position: -1px -1px;
+}

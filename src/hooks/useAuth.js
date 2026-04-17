@@ -1,0 +1,39 @@
+import { useEffect, useState, useCallback } from 'react'
+import { supabase, isSupabaseConfigured } from '../lib/supabase.js'
+
+// Returns the current Supabase session and profile derived from a Google sign-in.
+export function useAuth() {
+  const [session, setSession] = useState(null)
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    if (!isSupabaseConfigured) { setLoading(false); return }
+    let active = true
+    supabase.auth.getSession().then(({ data }) => {
+      if (active) { setSession(data.session); setLoading(false) }
+    })
+    const { data: sub } = supabase.auth.onAuthStateChange((_event, s) => {
+      if (active) setSession(s)
+    })
+    return () => { active = false; sub.subscription.unsubscribe() }
+  }, [])
+
+  const user = session?.user || null
+  const meta = user?.user_metadata || {}
+  const profile = user ? {
+    name:  meta.full_name || meta.name || user.email,
+    email: user.email,
+    avatar: meta.avatar_url || meta.picture || null
+  } : null
+
+  const googleConnected = Boolean(session?.provider_token)
+  const provider = session?.user?.app_metadata?.provider || null
+
+  const refresh = useCallback(async () => {
+    if (!isSupabaseConfigured) return
+    const { data } = await supabase.auth.refreshSession()
+    setSession(data.session)
+  }, [])
+
+  return { session, profile, loading, googleConnected, provider, refresh }
+}
