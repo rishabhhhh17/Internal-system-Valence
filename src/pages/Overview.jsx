@@ -92,7 +92,7 @@ export default function Overview() {
       {/* Stat cards */}
       <section className="grid grid-cols-2 gap-4 md:grid-cols-4">
         <StatCard label="Pipeline value" value={`$${fmt(pipeline.pipelineValue)}M`} sub={`${pipeline.totalActive} active`} icon={TrendingUp} accent />
-        <StatCard label="Expected fees"  value={`$${Math.round(forecast.weighted / 1000).toLocaleString()}k`} sub="Probability-weighted" icon={DollarSign} />
+        <StatCard label="Expected fees"  value={fmtUSD(forecast.weighted)} sub="Probability-weighted" icon={DollarSign} />
         <StatCard label="Knowledge docs" value={stats.docs} sub="Searchable institutional memory" icon={BookOpen} />
         <StatCard label="Open tasks"     value={stats.tasks} sub="Across the team today" icon={Activity} />
       </section>
@@ -192,4 +192,11 @@ function QuickAction({ to, icon: Icon, title, body, accent = false }) {
 function fmt(n) {
   if (n == null) return '—'
   return Number(n).toLocaleString()
+}
+
+function fmtUSD(n) {
+  if (!n || n < 1) return '$0'
+  if (n >= 1_000_000) return `$${(n / 1_000_000).toFixed(1)}M`
+  if (n >= 1_000)     return `$${Math.round(n / 1_000).toLocaleString()}k`
+  return `$${Math.round(n).toLocaleString()}`
 }
