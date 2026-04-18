@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { format, parseISO } from 'date-fns'
 import {
@@ -300,6 +300,7 @@ export default function Deals() {
 // ============ DRAWER BODY ============
 function DealDrawerBody({ deal, onEdit, onDelete, onComposeEmail }) {
   const [tab, setTab] = useState('overview')
+  const tabRefs = useRef({})
   const tabs = [
     { id: 'overview',   label: 'Overview',       icon: Briefcase },
     { id: 'financials', label: 'Financials',     icon: TrendingUp },
@@ -313,22 +314,32 @@ function DealDrawerBody({ deal, onEdit, onDelete, onComposeEmail }) {
     { id: 'share',      label: 'Share',          icon: ExternalLink }
   ]
 
+  useEffect(() => {
+    tabRefs.current[tab]?.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' })
+  }, [tab])
+
   return (
     <div className="space-y-5">
       <DealHeader deal={deal} onEdit={onEdit} onDelete={onDelete} onCompose={() => onComposeEmail(null)} />
 
-      <div className="flex items-center gap-1 rounded-lg border border-valence-border bg-valence-surface p-1 overflow-x-auto">
-        {tabs.map(t => (
-          <button
-            key={t.id}
-            onClick={() => setTab(t.id)}
-            className={`inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-semibold transition whitespace-nowrap ${
-              tab === t.id ? 'bg-valence-blue-soft text-valence-text' : 'text-valence-muted hover:text-valence-text'
-            }`}
-          >
-            <t.icon className="h-3.5 w-3.5" /> {t.label}
-          </button>
-        ))}
+      <div className="relative">
+        <div className="flex items-center gap-1 rounded-lg border border-valence-border bg-valence-surface p-1 overflow-x-auto scrollbar-hide">
+          {tabs.map(t => (
+            <button
+              key={t.id}
+              ref={el => (tabRefs.current[t.id] = el)}
+              onClick={() => setTab(t.id)}
+              className={`inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-semibold transition whitespace-nowrap shrink-0 ${
+                tab === t.id ? 'bg-white text-valence-text shadow-sm' : 'text-valence-muted hover:text-valence-text'
+              }`}
+            >
+              <t.icon className="h-3.5 w-3.5" /> {t.label}
+            </button>
+          ))}
+        </div>
+        {/* Edge fades so users know the tab list scrolls */}
+        <div className="pointer-events-none absolute inset-y-0 left-0 w-6 bg-gradient-to-r from-white to-transparent" aria-hidden />
+        <div className="pointer-events-none absolute inset-y-0 right-0 w-6 bg-gradient-to-l from-white to-transparent" aria-hidden />
       </div>
 
       <div>

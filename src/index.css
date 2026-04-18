@@ -15,12 +15,21 @@
     @apply bg-valence-bg text-valence-text font-sans antialiased;
     font-feature-settings: 'ss01', 'cv11';
     letter-spacing: -0.01em;
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
   }
 
   ::selection {
     background: rgba(51, 153, 255, 0.22);
     color: #0a0f1e;
   }
+
+  /* Editorial focus rings — soft, branded */
+  *:focus-visible {
+    @apply outline-none ring-2 ring-valence-blue-ring ring-offset-2 ring-offset-white;
+  }
+  button:focus:not(:focus-visible) { outline: none; }
 
   /* Scrollbar — subtle, light */
   ::-webkit-scrollbar        { width: 10px; height: 10px; }
@@ -30,6 +39,16 @@
 
   /* Editorial display on surfaces that opt-in */
   .font-display { font-family: 'Fraunces', 'Cormorant Garamond', Georgia, serif; }
+
+  /* Main content fades in on each navigation — sets demo polish */
+  main { animation: fadeIn 0.32s cubic-bezier(0.22, 1, 0.36, 1); }
+
+  /* Nicer image fade on load */
+  img { animation: fadeIn 0.4s ease-out; }
+
+  /* Details marker hide for custom summaries */
+  details > summary { list-style: none; }
+  details > summary::-webkit-details-marker { display: none; }
 }
 
 @layer components {
@@ -41,7 +60,10 @@
     @apply rounded-xl border border-valence-border bg-valence-surface;
   }
   .vl-card-hover {
-    @apply transition-all duration-200 hover:border-valence-border-strong hover:shadow-valence;
+    @apply transition-all duration-200 hover:border-valence-ink/20 hover:shadow-valence hover:-translate-y-px;
+  }
+  .vl-card-tap {
+    @apply transition-all duration-150 active:scale-[0.99];
   }
 
   /* ============ INPUTS ============ */
@@ -109,6 +131,23 @@
     content: '·';
     @apply mx-2 text-valence-subtle;
   }
+}
+
+/* Hide scrollbars on horizontal nav tabs */
+.scrollbar-hide { scrollbar-width: none; -ms-overflow-style: none; }
+.scrollbar-hide::-webkit-scrollbar { display: none; }
+
+/* Shimmer skeleton — use .vl-skeleton instead of animate-pulse for a premium feel */
+.vl-skeleton {
+  background: linear-gradient(
+    90deg,
+    rgba(10, 15, 30, 0.04) 0%,
+    rgba(10, 15, 30, 0.09) 50%,
+    rgba(10, 15, 30, 0.04) 100%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.6s linear infinite;
+  border-radius: 0.5rem;
 }
 
 /* Subtle grid on hero surfaces — barely visible, editorial */
