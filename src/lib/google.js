@@ -12,6 +12,9 @@ export const GOOGLE_SCOPES = [
   'https://www.googleapis.com/auth/calendar',
   'https://www.googleapis.com/auth/drive.readonly',
   'https://www.googleapis.com/auth/gmail.send',
+  // Read-only header access — powers the deal drawer's "Sync Gmail" feature.
+  // We never read bodies; metadataHeaders is limited to From/To/CC/Date/Subject.
+  'https://www.googleapis.com/auth/gmail.metadata',
   'openid', 'email', 'profile'
 ].join(' ')
 

@@ -48,22 +48,17 @@ export default function Drive() {
     return (
       <div className="space-y-6">
         <ConfigBanner />
-        <section className="relative overflow-hidden rounded-2xl border border-valence-border bg-valence-hero p-8 lg:p-12">
-          <div className="absolute inset-0 bg-valence-grid opacity-40" aria-hidden />
-          <div className="relative flex flex-col items-start gap-4">
-            <div className="grid h-12 w-12 place-items-center rounded-xl bg-valence-blue-soft ring-1 ring-valence-blue/30">
-              <FolderOpen className="h-5 w-5 text-valence-blue" />
-            </div>
-            <div>
-              <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-valence-blue">Google Drive</p>
-              <h1 className="mt-2 max-w-2xl text-2xl font-semibold tracking-tight text-valence-text lg:text-3xl">
-                Your Drive, inside ValanceOS.
-              </h1>
-              <p className="mt-2 max-w-xl text-sm text-valence-muted">
-                Connect your Google account once — search and open every file without leaving the app.
-              </p>
-            </div>
-            <button onClick={() => signInWithGoogle().catch(e => toast.error(e.message))} className="vl-btn-primary">
+        <section className="relative overflow-hidden rounded-2xl border border-valence-border bg-white vl-circles py-14 px-8 lg:px-14">
+          <div className="absolute inset-0 bg-valence-grid opacity-60" aria-hidden />
+          <div className="relative max-w-2xl">
+            <p className="vl-eyebrow">Google Drive</p>
+            <h1 className="mt-4 font-display text-display font-semibold text-valence-text">
+              Your Drive, inside ValanceOS.
+            </h1>
+            <p className="mt-4 max-w-xl text-sm leading-relaxed text-valence-muted lg:text-base">
+              Connect your Google account once — search and open every file without leaving the app.
+            </p>
+            <button onClick={() => signInWithGoogle().catch(e => toast.error(e.message))} className="mt-6 vl-btn-accent">
               <Sparkles className="h-4 w-4" /> Connect Google
             </button>
           </div>
