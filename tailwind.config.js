@@ -5,16 +5,17 @@ export default {
     extend: {
       colors: {
         valence: {
-          // Boutique light palette — mirrors valencegrowth.com
+          // Palette pulled from the actual valencegrowth.com stylesheet.
+          // Ink navy #0D1E3A, accent blue #3399FF, surface grey #f6f7f7.
           bg:            '#ffffff',
-          surface:       '#fafafa',
+          surface:       '#f6f7f7',
           elevated:      '#ffffff',
-          'ink':         '#0a0f1e',   // deep navy reserved for contrast panels (sidebar, hero mark, footer)
-          'ink-soft':    '#0f1a34',
+          'ink':         '#0D1E3A',
+          'ink-soft':    '#17315a',
 
-          border:        'rgba(10, 15, 30, 0.08)',
-          'border-strong':'rgba(10, 15, 30, 0.14)',
-          'border-ink':  'rgba(255, 255, 255, 0.10)', // for use on ink backgrounds
+          border:        'rgba(0, 0, 0, 0.06)',
+          'border-strong':'rgba(0, 0, 0, 0.16)',
+          'border-ink':  'rgba(255, 255, 255, 0.10)',
 
           blue:          '#3399FF',
           'blue-hover':  '#1a85ff',
@@ -22,13 +23,13 @@ export default {
           'blue-soft':   '#e6f2ff',
           'blue-ring':   'rgba(51, 153, 255, 0.22)',
 
-          text:          '#0a0f1e',
-          muted:         '#475569',
+          text:          '#0D1E3A',
+          muted:         '#4b5872',
           subtle:        '#94a3b8',
           faint:         '#cbd5e1',
 
-          success:       '#059669',
-          'success-soft':'#d1fae5',
+          success:       '#357b49',
+          'success-soft':'#dceadf',
           warning:       '#b45309',
           'warning-soft':'#fef3c7',
           danger:        '#dc2626',
@@ -36,16 +37,18 @@ export default {
         }
       },
       fontFamily: {
-        // Body + UI + display: Inter throughout (tight-tracked for headlines)
-        sans:    ['Inter', 'ui-sans-serif', 'system-ui', '-apple-system', 'sans-serif'],
-        display: ['Inter', 'ui-sans-serif', 'system-ui', '-apple-system', 'sans-serif']
+        // Manrope is the primary face on valencegrowth.com; Oxygen is used
+        // for accents. Both are loaded from Google Fonts in index.html.
+        sans:    ['Manrope', 'ui-sans-serif', 'system-ui', '-apple-system', 'sans-serif'],
+        display: ['Manrope', 'ui-sans-serif', 'system-ui', '-apple-system', 'sans-serif'],
+        oxygen:  ['Oxygen', 'ui-sans-serif', 'system-ui', '-apple-system', 'sans-serif']
       },
       fontSize: {
-        // Mirrors the valencegrowth.com rhythm — tight tracking, snug line-height,
-        // heavy weight expected.
-        'hero':    ['clamp(2.75rem, 5.5vw + 0.5rem, 5.5rem)',  { lineHeight: '1.02', letterSpacing: '-0.035em' }],
-        'display': ['clamp(2.25rem, 3.5vw + 0.25rem, 3.75rem)',{ lineHeight: '1.04', letterSpacing: '-0.03em'  }],
-        'feature': ['clamp(1.75rem, 2.2vw + 0.25rem, 2.5rem)', { lineHeight: '1.1',  letterSpacing: '-0.02em'  }]
+        // Tuned for Manrope — softer, geometric face; needs slightly less
+        // aggressive negative tracking than Inter.
+        'hero':    ['clamp(2.75rem, 5.5vw + 0.5rem, 5.5rem)',  { lineHeight: '1.05', letterSpacing: '-0.03em'  }],
+        'display': ['clamp(2.25rem, 3.5vw + 0.25rem, 3.75rem)',{ lineHeight: '1.08', letterSpacing: '-0.025em' }],
+        'feature': ['clamp(1.75rem, 2.2vw + 0.25rem, 2.5rem)', { lineHeight: '1.12', letterSpacing: '-0.02em'  }]
       },
       boxShadow: {
         'valence':      '0 1px 2px rgba(10, 15, 30, 0.04), 0 8px 24px rgba(10, 15, 30, 0.06)',
