@@ -3,6 +3,7 @@ import Topbar from './Topbar.jsx'
 import MobileNav from './MobileNav.jsx'
 import CommandPalette from './CommandPalette.jsx'
 import ShortcutsOverlay from './ShortcutsOverlay.jsx'
+import Footer from './Footer.jsx'
 
 export default function Layout({ children }) {
   return (
@@ -11,9 +12,10 @@ export default function Layout({ children }) {
       <Sidebar />
       <div className="relative z-10 flex min-h-screen flex-1 flex-col">
         <Topbar />
-        <main className="flex-1 px-4 pb-28 pt-8 sm:px-6 lg:px-12 lg:pb-12">
-          <div className="mx-auto w-full max-w-[1400px]">{children}</div>
+        <main className="flex-1 px-4 pt-10 sm:px-6 lg:px-12">
+          <div className="mx-auto w-full max-w-[1280px]">{children}</div>
         </main>
+        <Footer />
         <MobileNav />
       </div>
       <CommandPalette />

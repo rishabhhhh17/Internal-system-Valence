@@ -27,6 +27,16 @@ delete from public.comps where target in (
   'Heritage Hospitality','Quantum Biotech'
 );
 
+-- Clean orphaned knowledge_chunks (chunks whose source row was deleted in a
+-- previous run). Without this, repeated seed runs leave duplicate results in
+-- the Ask / Search tabs.
+delete from public.knowledge_chunks
+where (source_type = 'document'  and source_id not in (select id from public.documents))
+   or (source_type = 'comp'      and source_id not in (select id from public.comps))
+   or (source_type = 'deal'      and source_id not in (select id from public.deals))
+   or (source_type = 'file'      and source_id not in (select id from public.knowledge_files))
+   or (source_type = 'deal_file' and source_id not in (select id from public.deal_files));
+
 -- ============ DEALS ============
 insert into public.deals
   (client_name, deal_type, stage, nda_status, side, sector, ticket_size_usd_m, fee_retainer_usd, fee_success_pct, target_close, lead_owner, deck_url, notes, created_at)
