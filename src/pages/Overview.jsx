@@ -8,6 +8,7 @@ import { format } from 'date-fns'
 import { supabase, isSupabaseConfigured } from '../lib/supabase.js'
 import { STAGES, stageMeta, stageToneClasses } from '../lib/stages.js'
 import { forecastPipeline } from '../lib/insights.js'
+import { useCurrency } from '../hooks/useCurrency.jsx'
 import ConfigBanner from '../components/ConfigBanner.jsx'
 import VelocityChart from '../components/VelocityChart.jsx'
 import StaleDealsCard from '../components/StaleDealsCard.jsx'
@@ -22,6 +23,7 @@ const demoDeals = [
 ]
 
 export default function Overview() {
+  const { money, amount } = useCurrency()
   const [stats, setStats] = useState({ docs: 0, tasks: 0 })
   const [deals, setDeals] = useState(demoDeals)
 
@@ -88,8 +90,8 @@ export default function Overview() {
 
       {/* Stat row */}
       <section className="grid grid-cols-2 gap-px bg-valence-border rounded-2xl overflow-hidden border border-valence-border md:grid-cols-4">
-        <StatCell label="Pipeline value" value={`$${fmt(pipeline.pipelineValue)}M`} sub={`${pipeline.totalActive} active mandate${pipeline.totalActive === 1 ? '' : 's'}`} icon={TrendingUp} />
-        <StatCell label="Expected fees"  value={fmtUSD(forecast.weighted)} sub="Probability-weighted" icon={DollarSign} />
+        <StatCell label="Pipeline value" value={money(pipeline.pipelineValue)} sub={`${pipeline.totalActive} active mandate${pipeline.totalActive === 1 ? '' : 's'}`} icon={TrendingUp} />
+        <StatCell label="Expected fees"  value={amount(forecast.weighted)}    sub="Probability-weighted" icon={DollarSign} />
         <StatCell label="Knowledge docs" value={stats.docs} sub="Indexed across the firm" icon={BookOpen} />
         <StatCell label="Open tasks"     value={stats.tasks} sub="Across the team today" icon={Activity} />
       </section>

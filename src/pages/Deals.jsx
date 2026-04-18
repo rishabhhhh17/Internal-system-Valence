@@ -4,7 +4,8 @@ import { format, parseISO } from 'date-fns'
 import {
   Plus, Search, Briefcase, FileText, ExternalLink, Edit3, Trash2,
   Filter as FilterIcon, Circle, Table as TableIcon, LayoutGrid, TrendingUp,
-  Mail, Users as UsersIcon, FolderOpen, Activity as ActivityIcon, Sparkles, Info, Download
+  Mail, Users as UsersIcon, FolderOpen, Activity as ActivityIcon, Sparkles, Info, Download,
+  ListChecks, MessageSquare, UserCircle
 } from 'lucide-react'
 import { supabase, isSupabaseConfigured, subscribeTable } from '../lib/supabase.js'
 import { logActivity } from '../lib/activity.js'
@@ -26,8 +27,13 @@ import TargetList from '../components/TargetList.jsx'
 import FinancialsCard from '../components/FinancialsCard.jsx'
 import ShareManager from '../components/ShareManager.jsx'
 import GmailSyncButton from '../components/GmailSyncButton.jsx'
+import StageGate from '../components/StageGate.jsx'
+import DealTeam from '../components/DealTeam.jsx'
+import DealComments from '../components/DealComments.jsx'
+import ConflictBanner from '../components/ConflictBanner.jsx'
 import { useToast } from '../components/Toast.jsx'
 import { useConfirm } from '../components/ConfirmDialog.jsx'
+import { useCurrency } from '../hooks/useCurrency.jsx'
 
 const NDA    = ['Signed', 'Pending', 'Not Required']
 const TYPES  = ['M&A', 'ECM', 'PE/VC', 'DCM']
@@ -54,6 +60,7 @@ const demo = [
 export default function Deals() {
   const toast = useToast()
   const confirm = useConfirm()
+  const { money } = useCurrency()
   const [params, setParams] = useSearchParams()
   const [deals, setDeals] = useState([])
   const [loading, setLoading] = useState(true)
@@ -196,8 +203,8 @@ export default function Deals() {
 
       {/* Pipeline metrics */}
       <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
-        <BigStat label="Pipeline value" value={`$${fmt(metrics.pipelineValue)}M`} sub={`${metrics.active} active deal${metrics.active === 1 ? '' : 's'}`} accent icon={TrendingUp} />
-        <BigStat label="Closed value"   value={`$${fmt(metrics.closedValue)}M`} sub={`${metrics.closed} closed`} icon={Briefcase} />
+        <BigStat label="Pipeline value" value={money(metrics.pipelineValue)} sub={`${metrics.active} active deal${metrics.active === 1 ? '' : 's'}`} accent icon={TrendingUp} />
+        <BigStat label="Closed value"   value={money(metrics.closedValue)} sub={`${metrics.closed} closed`} icon={Briefcase} />
         <BigStat label="Active funnel"  value={metrics.active} sub="Currently in play" icon={ActivityIcon} />
         <BigStat label="Total mandates" value={metrics.total} sub="All-time" icon={FolderOpen} />
       </div>
@@ -303,10 +310,13 @@ function DealDrawerBody({ deal, onEdit, onDelete, onComposeEmail }) {
   const tabRefs = useRef({})
   const tabs = [
     { id: 'overview',   label: 'Overview',       icon: Briefcase },
+    { id: 'gate',       label: 'Checklist',      icon: ListChecks },
+    { id: 'team',       label: 'Deal team',      icon: UserCircle },
     { id: 'financials', label: 'Financials',     icon: TrendingUp },
     { id: 'files',      label: 'Files',          icon: FolderOpen },
     { id: 'contacts',   label: 'Counterparties', icon: UsersIcon },
     { id: 'activity',   label: 'Activity',       icon: ActivityIcon },
+    { id: 'comments',   label: 'Discussion',     icon: MessageSquare },
     { id: 'similar',    label: 'Similar',        icon: Sparkles },
     { id: 'targets',    label: 'Targets',        icon: UsersIcon },
     { id: 'cim',        label: 'CIM',            icon: FileText },
@@ -344,10 +354,13 @@ function DealDrawerBody({ deal, onEdit, onDelete, onComposeEmail }) {
 
       <div>
         {tab === 'overview'   && <DealOverview deal={deal} />}
+        {tab === 'gate'       && <StageGate deal={deal} />}
+        {tab === 'team'       && <DealTeam deal={deal} />}
         {tab === 'financials' && <FinancialsCard deal={deal} />}
         {tab === 'files'      && <FileVault dealId={deal.id} />}
         {tab === 'contacts'   && <Contacts dealId={deal.id} onOpenComposer={onComposeEmail} />}
         {tab === 'activity'   && <ActivityTimeline dealId={deal.id} />}
+        {tab === 'comments'   && <DealComments deal={deal} />}
         {tab === 'similar'    && <SimilarDeals deal={deal} />}
         {tab === 'targets'    && <TargetList deal={deal} />}
         {tab === 'cim'        && <CIMGenerator deal={deal} />}
@@ -496,7 +509,7 @@ function DealTable({ deals, onOpen }) {
                 <td className="px-5 py-4"><span className="vl-chip">{d.deal_type}</span></td>
                 <td className="px-5 py-4 text-xs text-valence-muted">{d.side || '—'}</td>
                 <td className="px-5 py-4 text-xs text-valence-muted">{d.sector || '—'}</td>
-                <td className="px-5 py-4 text-xs font-semibold text-valence-blue">{d.ticket_size_usd_m ? `$${fmt(d.ticket_size_usd_m)}M` : '—'}</td>
+                <td className="px-5 py-4 text-xs font-semibold text-valence-blue">{d.ticket_size_usd_m ? money(d.ticket_size_usd_m) : '—'}</td>
                 <td className="px-5 py-4 text-xs text-valence-muted">{d.lead_owner || '—'}</td>
                 <td className="px-5 py-4"><NdaBadge status={d.nda_status} /></td>
               </tr>
@@ -563,6 +576,9 @@ function DealForm({ initial, onSubmit, onCancel }) {
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       {!initial && <TeaserImport onExtracted={applyExtracted} />}
+      {!initial && (
+        <ConflictBanner clientName={form.client_name} sector={form.sector} side={form.side} />
+      )}
       <div className="grid grid-cols-2 gap-4">
         <div className="col-span-2">
           <label className="vl-label">Client name</label>

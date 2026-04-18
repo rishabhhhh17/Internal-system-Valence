@@ -1,6 +1,7 @@
 import { useMemo, useRef, useState } from 'react'
 import { Briefcase, TrendingUp, MoreHorizontal, Move } from 'lucide-react'
 import { STAGES, STAGE_IDS, stageToneClasses } from '../lib/stages.js'
+import { useCurrency } from '../hooks/useCurrency.jsx'
 
 export default function DealKanban({ deals, onOpen, onStageChange }) {
   const [draggingId, setDraggingId] = useState(null)
@@ -78,6 +79,7 @@ export default function DealKanban({ deals, onOpen, onStageChange }) {
 
 function Card({ deal: d, onOpen, onStageChange, setDraggingId, setOverStage, openMenu, setOpenMenu }) {
   const ref = useRef(null)
+  const { money } = useCurrency()
   return (
     <article
       ref={ref}
@@ -128,7 +130,7 @@ function Card({ deal: d, onOpen, onStageChange, setDraggingId, setOverStage, ope
       </div>
       {d.ticket_size_usd_m != null && (
         <div className="mt-2 flex items-center gap-1 text-[11px] font-semibold text-valence-blue">
-          <TrendingUp className="h-3 w-3" /> ${Number(d.ticket_size_usd_m).toLocaleString()}M
+          <TrendingUp className="h-3 w-3" /> {money(d.ticket_size_usd_m)}
         </div>
       )}
 

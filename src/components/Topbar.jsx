@@ -2,6 +2,7 @@ import { useLocation } from 'react-router-dom'
 import { Search } from 'lucide-react'
 import Logo from './Logo.jsx'
 import GoogleButton from './GoogleButton.jsx'
+import CurrencyToggle from './CurrencyToggle.jsx'
 
 const titles = {
   '/':          { title: 'Overview',        sub: 'The firm at a glance — pipeline, activity, the day ahead.' },
@@ -41,6 +42,7 @@ export default function Topbar() {
         <span className="vl-kbd">⌘K</span>
       </button>
 
+      <CurrencyToggle />
       <GoogleButton />
     </header>
   )

@@ -28,6 +28,8 @@ alter table public.deals add column if not exists lead_owner        text;
 -- v3: financial snapshot + optional AI-generated CIM draft
 alter table public.deals add column if not exists financials jsonb;
 alter table public.deals add column if not exists cim_draft  text;
+-- v4: watchlist flag (prospects we're tracking, not yet engaged)
+alter table public.deals add column if not exists is_watchlist boolean not null default false;
 
 -- Drop old v1 CHECK constraints BEFORE migrating legacy stage values, so the
 -- updates are not blocked by the old vocabulary.
@@ -146,6 +148,52 @@ create table if not exists public.deal_files (
 );
 
 create index if not exists deal_files_deal_idx on public.deal_files (deal_id);
+
+-- ============ STAGE CHECKLIST ============
+-- Ticked items persist here; item vocabulary lives in src/lib/checklists.js.
+create table if not exists public.deal_checklist (
+  id          uuid primary key default gen_random_uuid(),
+  deal_id     uuid not null references public.deals(id) on delete cascade,
+  stage       text not null,
+  item_key    text not null,
+  is_done     boolean not null default true,
+  done_by     text,
+  done_at     timestamptz not null default now(),
+  unique (deal_id, stage, item_key)
+);
+create index if not exists deal_checklist_deal_idx on public.deal_checklist (deal_id, stage);
+
+alter table public.deal_checklist enable row level security;
+do $$ begin create policy "deal_checklist_all" on public.deal_checklist for all using (true) with check (true); exception when duplicate_object then null; end $$;
+
+-- ============ DEAL TEAM (internal staffing per mandate) ============
+create table if not exists public.deal_team (
+  id          uuid primary key default gen_random_uuid(),
+  deal_id     uuid not null references public.deals(id) on delete cascade,
+  name        text not null,
+  role        text not null,            -- Lead Partner / Deputy / Associate / Analyst / Legal / Co-advisor
+  email       text,
+  share_pct   numeric,                  -- origination + execution credit (sums across team)
+  created_at  timestamptz not null default now()
+);
+create index if not exists deal_team_deal_idx on public.deal_team (deal_id);
+
+alter table public.deal_team enable row level security;
+do $$ begin create policy "deal_team_all" on public.deal_team for all using (true) with check (true); exception when duplicate_object then null; end $$;
+
+-- ============ DEAL COMMENTS (per-deal discussion thread) ============
+create table if not exists public.deal_comments (
+  id          uuid primary key default gen_random_uuid(),
+  deal_id     uuid not null references public.deals(id) on delete cascade,
+  author      text not null,
+  body        text not null,
+  mentions    text[] not null default '{}',
+  created_at  timestamptz not null default now()
+);
+create index if not exists deal_comments_deal_idx on public.deal_comments (deal_id, created_at desc);
+
+alter table public.deal_comments enable row level security;
+do $$ begin create policy "deal_comments_all" on public.deal_comments for all using (true) with check (true); exception when duplicate_object then null; end $$;
 
 -- ============ EXTERNAL DATA ROOM SHARES ============
 -- Each row is a shareable link to a specific deal's data room, scoped to
