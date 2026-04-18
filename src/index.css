@@ -76,18 +76,28 @@
     @apply block text-[10px] font-semibold uppercase tracking-[0.14em] text-valence-muted mb-1.5;
   }
 
-  /* ============ BUTTONS ============ */
+  /* ============ BUTTONS ============
+     The signature CTA on valencegrowth.com is an UPPERCASE pill with a
+     right-arrow that glides on hover. We mirror that pattern here. */
   .vl-btn-primary {
-    @apply inline-flex items-center justify-center gap-2 rounded-lg bg-valence-ink px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-valence-ink-soft focus:outline-none focus:ring-2 focus:ring-valence-blue-ring disabled:opacity-50 disabled:cursor-not-allowed;
+    @apply inline-flex items-center justify-center gap-2.5 rounded-full bg-valence-ink px-5 py-3 text-xs font-semibold uppercase tracking-[0.14em] text-white transition-all duration-200 hover:bg-valence-ink-soft focus:outline-none focus:ring-2 focus:ring-valence-blue-ring disabled:opacity-50 disabled:cursor-not-allowed;
   }
   .vl-btn-accent {
-    @apply inline-flex items-center justify-center gap-2 rounded-lg bg-valence-blue px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-valence-blue-hover focus:outline-none focus:ring-2 focus:ring-valence-blue-ring disabled:opacity-50 disabled:cursor-not-allowed;
+    @apply inline-flex items-center justify-center gap-2.5 rounded-full bg-valence-blue px-5 py-3 text-xs font-semibold uppercase tracking-[0.14em] text-white transition-all duration-200 hover:bg-valence-blue-hover focus:outline-none focus:ring-2 focus:ring-valence-blue-ring disabled:opacity-50 disabled:cursor-not-allowed;
   }
   .vl-btn-secondary {
-    @apply inline-flex items-center justify-center gap-2 rounded-lg border border-valence-border bg-white px-4 py-2.5 text-sm font-semibold text-valence-text transition hover:border-valence-ink/30 hover:bg-valence-surface;
+    @apply inline-flex items-center justify-center gap-2.5 rounded-full border border-valence-ink bg-white px-5 py-3 text-xs font-semibold uppercase tracking-[0.14em] text-valence-text transition-all duration-200 hover:bg-valence-ink hover:text-white;
   }
   .vl-btn-ghost {
     @apply inline-flex items-center justify-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-valence-muted transition hover:bg-valence-surface hover:text-valence-text;
+  }
+  /* Compact utility variants for dense UI (drawers, forms) where we still
+     want labels in sentence case at smaller sizes. */
+  .vl-btn-primary-sm {
+    @apply inline-flex items-center justify-center gap-2 rounded-lg bg-valence-ink px-3.5 py-2 text-sm font-semibold text-white transition hover:bg-valence-ink-soft focus:outline-none focus:ring-2 focus:ring-valence-blue-ring disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+  .vl-btn-secondary-sm {
+    @apply inline-flex items-center justify-center gap-2 rounded-lg border border-valence-border bg-white px-3.5 py-2 text-sm font-semibold text-valence-text transition hover:border-valence-ink/30 hover:bg-valence-surface;
   }
 
   /* ============ CHIPS ============ */
@@ -136,6 +146,20 @@
     content: '·';
     @apply mx-2 text-valence-subtle;
   }
+}
+
+/* Arrow glide inside CTA buttons — mirrors the animateButton pattern on the
+   Valence site. Opt-in: add a child with class="vl-arrow" to any button. */
+.vl-btn-primary .vl-arrow,
+.vl-btn-accent .vl-arrow,
+.vl-btn-secondary .vl-arrow {
+  display: inline-block;
+  transition: transform 0.2s ease-out;
+}
+.vl-btn-primary:hover .vl-arrow,
+.vl-btn-accent:hover .vl-arrow,
+.vl-btn-secondary:hover .vl-arrow {
+  transform: translateX(3px);
 }
 
 /* Hide scrollbars on horizontal nav tabs */
