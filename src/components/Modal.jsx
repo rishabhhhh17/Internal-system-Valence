@@ -23,7 +23,7 @@ export default function Modal({ open, onClose, title, description, children, siz
       <div className={`relative z-10 w-full ${widths[size]} animate-slide-up rounded-2xl border border-valence-border-strong bg-valence-surface shadow-valence`}>
         <div className="flex items-start justify-between border-b border-valence-border px-6 py-4">
           <div>
-            <h2 className="text-base font-semibold tracking-tight text-white">{title}</h2>
+            <h2 className="text-base font-semibold tracking-tight text-valence-text">{title}</h2>
             {description && <p className="mt-0.5 text-xs text-valence-muted">{description}</p>}
           </div>
           <button onClick={onClose} className="vl-btn-ghost -mr-2" aria-label="Close">

@@ -47,24 +47,24 @@ export default function Team() {
   }, [q, role, expertise])
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       {/* Hero */}
-      <section className="relative overflow-hidden rounded-2xl border border-valence-border bg-valence-hero p-6 lg:p-8">
-        <div className="absolute inset-0 bg-valence-grid opacity-40" aria-hidden />
-        <div className="relative flex flex-wrap items-end justify-between gap-6">
-          <div>
-            <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-valence-blue">The Valence team</p>
-            <h1 className="mt-2 text-2xl font-semibold tracking-tight text-white lg:text-3xl">
-              Senior advisors across Mumbai &amp; London
+      <section className="relative overflow-hidden rounded-2xl border border-valence-border bg-white vl-circles py-12 px-8 lg:px-12">
+        <div className="absolute inset-0 bg-valence-grid opacity-60" aria-hidden />
+        <div className="relative flex flex-wrap items-end justify-between gap-8">
+          <div className="max-w-2xl">
+            <p className="vl-eyebrow">The Valence team</p>
+            <h1 className="mt-4 font-display text-display font-semibold text-valence-text">
+              Senior coverage, across Mumbai and London.
             </h1>
-            <p className="mt-2 max-w-xl text-sm text-valence-muted">
-              Curated, agile, holistic — coverage that spans M&amp;A, ECM, DCM and private markets. Find the right person for any mandate.
+            <p className="mt-4 max-w-xl text-sm leading-relaxed text-valence-muted lg:text-base">
+              One floor across two cities. Ask the right person for any mandate — filtered by sector, role, or experience.
             </p>
           </div>
-          <div className="flex gap-8">
-            <Metric label="Team members" value={TEAM.length} />
+          <div className="flex gap-10">
+            <Metric label="Team" value={TEAM.length} />
             <Metric label="Cities" value={2} />
-            <Metric label="Sectors covered" value={expertiseOptions.length} />
+            <Metric label="Sectors" value={expertiseOptions.length} />
           </div>
         </div>
       </section>
@@ -72,12 +72,12 @@ export default function Team() {
       {/* Filters */}
       <div className="vl-card p-4">
         <div className="flex flex-wrap items-center gap-3">
-          <div className="flex flex-1 min-w-[240px] items-center gap-2 rounded-lg border border-valence-border bg-white/[0.03] px-3 py-2">
+          <div className="flex flex-1 min-w-[240px] items-center gap-2 rounded-lg border border-valence-border bg-valence-surface px-3 py-2">
             <Search className="h-3.5 w-3.5 text-valence-subtle" />
             <input
               value={q} onChange={e => setQ(e.target.value)}
               placeholder="Search by name, title or expertise…"
-              className="flex-1 bg-transparent text-sm text-white placeholder:text-valence-subtle outline-none"
+              className="flex-1 bg-transparent text-sm text-valence-text placeholder:text-valence-subtle outline-none"
             />
           </div>
 
@@ -105,7 +105,7 @@ function PersonCard({ person }) {
   const roleTone = {
     'Managing Director': 'text-valence-blue',
     'Director':          'text-valence-blue',
-    'Vice President':    'text-white',
+    'Vice President':    'text-valence-text',
     'Associate':         'text-valence-muted',
     'Analyst':           'text-valence-muted'
   }[person.title]
@@ -116,7 +116,7 @@ function PersonCard({ person }) {
       <div className="relative flex items-start gap-4">
         <Avatar name={person.name} />
         <div className="flex-1 min-w-0">
-          <p className="truncate text-[15px] font-semibold text-white">{person.name}</p>
+          <p className="truncate text-[15px] font-semibold text-valence-text">{person.name}</p>
           <p className={`mt-0.5 text-xs font-semibold ${roleTone}`}>{person.title}</p>
           <p className="mt-1 inline-flex items-center gap-1 text-[11px] text-valence-muted">
             <MapPin className="h-3 w-3" /> {person.city}
@@ -163,19 +163,19 @@ function Avatar({ name }) {
 function Metric({ label, value }) {
   return (
     <div>
-      <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-valence-subtle">{label}</p>
-      <p className="mt-1 text-2xl font-semibold tabular-nums text-white">{value}</p>
+      <p className="vl-eyebrow-ink">{label}</p>
+      <p className="mt-1 font-display text-3xl font-semibold tabular-nums text-valence-text">{value}</p>
     </div>
   )
 }
 
 function Select({ value, onChange, label, options }) {
   return (
-    <label className="flex items-center gap-2 rounded-lg border border-valence-border bg-white/[0.03] pl-3 pr-2 py-2 text-xs font-medium text-valence-muted">
+    <label className="flex items-center gap-2 rounded-lg border border-valence-border bg-valence-surface pl-3 pr-2 py-2 text-xs font-medium text-valence-muted">
       <span className="text-[11px] uppercase tracking-wider">{label}</span>
       <select
         value={value} onChange={e => onChange(e.target.value)}
-        className="bg-transparent pr-1 text-sm font-semibold text-white outline-none"
+        className="bg-transparent pr-1 text-sm font-semibold text-valence-text outline-none"
       >
         {options.map(o => <option key={o} className="bg-valence-surface" value={o}>{o}</option>)}
       </select>

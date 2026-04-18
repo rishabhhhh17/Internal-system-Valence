@@ -135,7 +135,7 @@ export default function MeetingSummary({ open, onClose, meeting, deals = [] }) {
         </div>
 
         {result && (
-          <div className="space-y-4 rounded-xl border border-valence-border bg-white/[0.02] p-4">
+          <div className="space-y-4 rounded-xl border border-valence-border bg-valence-surface p-4">
             <div>
               <p className="vl-label">Summary</p>
               <p className="mt-1 text-sm leading-relaxed text-valence-text">{result.summary}</p>
@@ -163,7 +163,7 @@ export default function MeetingSummary({ open, onClose, meeting, deals = [] }) {
                 </p>
                 <ul className="mt-2 space-y-1.5">
                   {result.action_items.map((a, i) => (
-                    <li key={i} className="group flex items-center gap-2 rounded-lg border border-valence-border bg-white/[0.03] px-3 py-2">
+                    <li key={i} className="group flex items-center gap-2 rounded-lg border border-valence-border bg-valence-surface px-3 py-2">
                       <input
                         type="checkbox"
                         checked={a._selected}
@@ -173,7 +173,7 @@ export default function MeetingSummary({ open, onClose, meeting, deals = [] }) {
                       <input
                         value={a.title || ''}
                         onChange={e => updateAction(i, { title: e.target.value })}
-                        className="flex-1 bg-transparent text-sm text-white outline-none"
+                        className="flex-1 bg-transparent text-sm text-valence-text outline-none"
                       />
                       <input
                         type="date"

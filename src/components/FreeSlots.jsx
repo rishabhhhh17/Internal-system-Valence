@@ -12,7 +12,7 @@ export default function FreeSlots({ slots, connected, onSent }) {
   if (!connected) return null
   if (!slots?.length) {
     return (
-      <div className="rounded-xl border border-dashed border-valence-border bg-white/[0.02] px-5 py-6 text-center">
+      <div className="rounded-xl border border-dashed border-valence-border bg-valence-surface px-5 py-6 text-center">
         <Clock className="mx-auto h-4 w-4 text-valence-subtle" />
         <p className="mt-2 text-sm text-valence-muted">No open slots left in today's workday.</p>
       </div>
@@ -26,7 +26,7 @@ export default function FreeSlots({ slots, connected, onSent }) {
           <button
             key={s.start.toISOString()}
             onClick={() => setPick(s)}
-            className="inline-flex items-center gap-2 rounded-full border border-valence-blue/30 bg-valence-blue-soft px-3 py-1.5 text-xs font-semibold text-white hover:bg-valence-blue/30 hover:border-valence-blue/50 transition"
+            className="inline-flex items-center gap-2 rounded-full border border-valence-blue/30 bg-valence-blue-soft px-3 py-1.5 text-xs font-semibold text-valence-text hover:bg-valence-blue/30 hover:border-valence-blue/50 transition"
             title={`Free ${format(s.start, 'p')} – ${format(s.end, 'p')}`}
           >
             <Clock className="h-3.5 w-3.5 text-valence-blue" />

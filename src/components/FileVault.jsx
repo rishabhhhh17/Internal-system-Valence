@@ -81,7 +81,7 @@ export default function FileVault({ dealId }) {
         <div className="flex items-start gap-3 rounded-xl border border-valence-warning/30 bg-valence-warning/5 px-4 py-3">
           <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-valence-warning" />
           <div className="text-sm flex-1">
-            <p className="font-semibold text-white">Storage bucket not found</p>
+            <p className="font-semibold text-valence-text">Storage bucket not found</p>
             <p className="mt-0.5 text-[11px] text-valence-muted leading-relaxed">
               Go to Supabase Studio → Storage → New bucket → name it <span className="vl-kbd">deal-files</span>, make it public, save.
             </p>
@@ -100,13 +100,13 @@ export default function FileVault({ dealId }) {
         onClick={() => inputRef.current?.click()}
         onDragOver={(e) => e.preventDefault()}
         onDrop={async (e) => { e.preventDefault(); handleFile(e.dataTransfer.files?.[0]) }}
-        className="relative cursor-pointer rounded-xl border border-dashed border-valence-border hover:border-valence-blue/40 bg-white/[0.02] px-5 py-6 text-center transition"
+        className="relative cursor-pointer rounded-xl border border-dashed border-valence-border hover:border-valence-blue/40 bg-valence-surface px-5 py-6 text-center transition"
       >
         <input ref={inputRef} type="file" className="hidden" onChange={onPick} />
         <div className="mx-auto grid h-10 w-10 place-items-center rounded-lg bg-valence-blue-soft ring-1 ring-valence-blue/30 mb-3">
           <Upload className="h-4 w-4 text-valence-blue" />
         </div>
-        <p className="text-sm font-semibold text-white">
+        <p className="text-sm font-semibold text-valence-text">
           {uploading ? 'Uploading…' : 'Drop a file or click to upload'}
         </p>
         <p className="mt-0.5 text-[11px] text-valence-muted">
@@ -116,7 +116,7 @@ export default function FileVault({ dealId }) {
           <select
             value={category} onChange={e => { e.stopPropagation(); setCategory(e.target.value) }}
             onClick={e => e.stopPropagation()}
-            className="rounded-lg border border-valence-border bg-valence-surface px-2.5 py-1 text-[11px] font-semibold text-white outline-none"
+            className="rounded-lg border border-valence-border bg-valence-surface px-2.5 py-1 text-[11px] font-semibold text-valence-text outline-none"
           >
             {CATEGORIES.map(c => <option key={c} className="bg-valence-surface" value={c}>{c}</option>)}
           </select>
@@ -127,25 +127,25 @@ export default function FileVault({ dealId }) {
       {loading ? (
         <div className="space-y-2">
           {Array.from({ length: 3 }).map((_, i) => (
-            <div key={i} className="h-14 rounded-lg bg-white/[0.03] animate-pulse" />
+            <div key={i} className="h-14 rounded-lg bg-valence-surface animate-pulse" />
           ))}
         </div>
       ) : files.length === 0 ? (
-        <div className="rounded-lg border border-valence-border bg-white/[0.02] px-5 py-6 text-center">
+        <div className="rounded-lg border border-valence-border bg-valence-surface px-5 py-6 text-center">
           <Paperclip className="mx-auto h-4 w-4 text-valence-subtle" />
           <p className="mt-2 text-sm text-valence-muted">No files yet. Everything related to this deal lives here.</p>
         </div>
       ) : (
         <ul className="space-y-2">
           {files.map(f => (
-            <li key={f.id} className="group flex items-center gap-3 rounded-lg border border-valence-border bg-white/[0.02] px-4 py-3 hover:bg-white/[0.04] transition">
+            <li key={f.id} className="group flex items-center gap-3 rounded-lg border border-valence-border bg-valence-surface px-4 py-3 hover:bg-valence-surface transition">
               <div className="grid h-9 w-9 place-items-center rounded-lg bg-valence-blue-soft ring-1 ring-valence-blue/20 shrink-0">
                 <FileText className="h-4 w-4 text-valence-blue" />
               </div>
               <div className="flex-1 min-w-0">
-                <p className="truncate text-sm font-semibold text-white">{f.name}</p>
+                <p className="truncate text-sm font-semibold text-valence-text">{f.name}</p>
                 <div className="mt-0.5 flex items-center gap-2 text-[11px] text-valence-muted">
-                  <span className="inline-flex items-center rounded-md border border-valence-border bg-white/[0.03] px-1.5 py-0.5 font-semibold text-valence-blue">{f.category || 'Other'}</span>
+                  <span className="inline-flex items-center rounded-md border border-valence-border bg-valence-surface px-1.5 py-0.5 font-semibold text-valence-blue">{f.category || 'Other'}</span>
                   <span>{formatBytes(f.size_bytes)}</span>
                   <span className="text-valence-subtle">·</span>
                   <span>{format(new Date(f.created_at), 'd MMM yyyy')}</span>

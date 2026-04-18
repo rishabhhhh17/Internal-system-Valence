@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import {
   Briefcase, BookOpen, CalendarDays, Users, ArrowUpRight,
-  TrendingUp, CheckCircle2, Sparkles, Activity, DollarSign
+  TrendingUp, Sparkles, Activity, DollarSign, FolderOpen, ArrowRight
 } from 'lucide-react'
 import { format } from 'date-fns'
 import { supabase, isSupabaseConfigured } from '../lib/supabase.js'
@@ -44,11 +44,7 @@ export default function Overview() {
     const active = deals.filter(d => !stageMeta(d.stage).terminal)
     const pipelineValue = active.reduce((s, d) => s + (Number(d.ticket_size_usd_m) || 0), 0)
     const closedValue   = deals.filter(d => d.stage === 'Closed').reduce((s, d) => s + (Number(d.ticket_size_usd_m) || 0), 0)
-    return {
-      totalActive: active.length,
-      total: deals.length,
-      pipelineValue, closedValue
-    }
+    return { totalActive: active.length, total: deals.length, pipelineValue, closedValue }
   }, [deals])
 
   const forecast = useMemo(() => forecastPipeline(deals), [deals])
@@ -62,70 +58,75 @@ export default function Overview() {
   const maxFunnel = Math.max(1, ...Object.values(funnelCounts))
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-12">
       <ConfigBanner />
 
-      {/* Hero */}
-      <section className="relative overflow-hidden rounded-2xl border border-valence-border bg-valence-hero p-6 lg:p-10">
-        <div className="absolute inset-0 bg-valence-grid opacity-40" aria-hidden />
-        <div className="relative">
-          <div className="flex items-center gap-2 text-xs font-medium text-valence-muted">
-            <span className="h-1.5 w-1.5 rounded-full bg-valence-success shadow-[0_0_8px_#34d399]" />
-            Live workspace · {today}
-          </div>
-          <h1 className="mt-3 max-w-3xl text-3xl font-semibold leading-[1.15] tracking-tight text-white lg:text-[40px]">
-            A single operating layer for <span className="text-valence-blue">Valence Growth Partners</span>.
+      {/* Editorial hero — mirrors the Valence website feel */}
+      <section className="relative overflow-hidden rounded-2xl border border-valence-border bg-white vl-circles py-14 px-8 lg:px-14 lg:py-20">
+        <div className="absolute inset-0 bg-valence-grid opacity-60" aria-hidden />
+        <div className="relative max-w-3xl">
+          <p className="vl-eyebrow">Live workspace · {today}</p>
+          <h1 className="mt-5 font-display text-hero font-semibold text-valence-text">
+            A unified operating system for a boutique advisory firm.
           </h1>
-          <p className="mt-3 max-w-2xl text-sm text-valence-muted lg:text-base">
-            Pipeline, files, knowledge and the day ahead — unified across Mumbai and London.
+          <p className="mt-5 max-w-2xl text-base leading-relaxed text-valence-muted lg:text-lg">
+            Pipeline, knowledge and the day ahead — brought together for the Valence core team across Mumbai and London.
           </p>
-          <div className="mt-6 flex flex-wrap gap-3">
-            <Link to="/deals" className="vl-btn-primary">Open Deal Logger <ArrowUpRight className="h-4 w-4" /></Link>
-            <Link to="/knowledge" className="vl-btn-secondary"><Sparkles className="h-4 w-4" /> Ask the firm</Link>
-            <span className="inline-flex items-center gap-2 text-xs text-valence-muted pl-3">
-              Press <span className="vl-kbd">⌘K</span> anywhere to search · press <span className="vl-kbd">?</span> for shortcuts.
+          <div className="mt-8 flex flex-wrap items-center gap-3">
+            <Link to="/deals" className="vl-btn-primary">
+              Open Deal Logger <ArrowUpRight className="h-4 w-4" />
+            </Link>
+            <Link to="/knowledge" className="vl-btn-secondary">
+              <Sparkles className="h-4 w-4 text-valence-blue" /> Ask the firm
+            </Link>
+            <span className="inline-flex items-center gap-2 pl-2 text-xs text-valence-muted">
+              <span className="vl-kbd">⌘K</span> to search · <span className="vl-kbd">?</span> for shortcuts
             </span>
           </div>
         </div>
       </section>
 
-      {/* Stat cards */}
-      <section className="grid grid-cols-2 gap-4 md:grid-cols-4">
-        <StatCard label="Pipeline value" value={`$${fmt(pipeline.pipelineValue)}M`} sub={`${pipeline.totalActive} active`} icon={TrendingUp} accent />
-        <StatCard label="Expected fees"  value={fmtUSD(forecast.weighted)} sub="Probability-weighted" icon={DollarSign} />
-        <StatCard label="Knowledge docs" value={stats.docs} sub="Searchable institutional memory" icon={BookOpen} />
-        <StatCard label="Open tasks"     value={stats.tasks} sub="Across the team today" icon={Activity} />
+      {/* Stat row */}
+      <section className="grid grid-cols-2 gap-px bg-valence-border rounded-2xl overflow-hidden border border-valence-border md:grid-cols-4">
+        <StatCell label="Pipeline value" value={`$${fmt(pipeline.pipelineValue)}M`} sub={`${pipeline.totalActive} active mandate${pipeline.totalActive === 1 ? '' : 's'}`} icon={TrendingUp} />
+        <StatCell label="Expected fees"  value={fmtUSD(forecast.weighted)} sub="Probability-weighted" icon={DollarSign} />
+        <StatCell label="Knowledge docs" value={stats.docs} sub="Indexed across the firm" icon={BookOpen} />
+        <StatCell label="Open tasks"     value={stats.tasks} sub="Across the team today" icon={Activity} />
       </section>
 
       {/* Funnel + Quick actions */}
-      <section className="grid gap-6 lg:grid-cols-3">
-        <div className="lg:col-span-2 vl-card p-6">
-          <div className="mb-4 flex items-center justify-between">
+      <section className="grid gap-8 lg:grid-cols-3">
+        <div className="lg:col-span-2 vl-card p-8">
+          <div className="mb-6 flex items-end justify-between">
             <div>
-              <h2 className="vl-section-title">The Valence funnel</h2>
-              <p className="text-xs text-valence-muted mt-0.5">Where every live mandate sits right now</p>
+              <p className="vl-eyebrow-ink">The funnel</p>
+              <h2 className="mt-2 font-display text-2xl font-semibold tracking-tight text-valence-text">
+                Every mandate, plainly placed.
+              </h2>
             </div>
-            <Link to="/deals" className="text-xs font-semibold text-valence-blue hover:text-white">View board →</Link>
+            <Link to="/deals" className="inline-flex items-center gap-1.5 text-sm font-semibold text-valence-blue hover:text-valence-blue-hover">
+              View board <ArrowRight className="h-3.5 w-3.5" />
+            </Link>
           </div>
-          <ul className="space-y-1.5">
+          <ul className="space-y-2">
             {STAGES.map(s => {
               const count = funnelCounts[s.id] || 0
               const width = (count / maxFunnel) * 100
               return (
-                <li key={s.id} title={s.desc} className="flex items-center gap-3">
-                  <span className={`inline-flex w-28 justify-center rounded-full border px-2 py-1 text-[10px] font-semibold ${stageToneClasses(s.id)}`}>
+                <li key={s.id} title={s.desc} className="flex items-center gap-4">
+                  <span className={`inline-flex w-28 justify-center rounded-full border px-2 py-1 text-[10px] font-semibold shrink-0 ${stageToneClasses(s.id)}`}>
                     {s.id}
                   </span>
-                  <div className="flex-1 h-6 rounded-md bg-white/[0.03] overflow-hidden relative">
+                  <div className="relative flex-1 h-7 rounded-md bg-valence-surface overflow-hidden border border-valence-border">
                     <div
-                      className={`h-full rounded-md transition-all ${
+                      className={`h-full rounded-r-md transition-all ${
                         s.terminal
-                          ? (s.id === 'Closed' ? 'bg-valence-success/40' : s.id === 'Lost' ? 'bg-valence-danger/40' : 'bg-valence-warning/40')
-                          : 'bg-gradient-to-r from-valence-blue/30 to-valence-blue/80'
+                          ? (s.id === 'Closed' ? 'bg-valence-success/50' : s.id === 'Lost' ? 'bg-valence-danger/40' : 'bg-valence-warning/40')
+                          : 'bg-gradient-to-r from-valence-blue/40 to-valence-blue'
                       }`}
                       style={{ width: `${width}%` }}
                     />
-                    <span className="absolute inset-0 flex items-center justify-end pr-2 text-[11px] font-semibold tabular-nums text-white">
+                    <span className="absolute inset-0 flex items-center justify-end pr-3 text-[11px] font-semibold tabular-nums text-valence-text">
                       {count || ''}
                     </span>
                   </div>
@@ -135,16 +136,17 @@ export default function Overview() {
           </ul>
         </div>
 
-        <div className="space-y-4">
-          <QuickAction to="/knowledge"        icon={Sparkles}     title="Ask the firm"       body="Plain-English Q&A across every memo, file, deal." accent />
-          <QuickAction to="/deals"            icon={Briefcase}    title="Deal Logger"        body="Kanban, data rooms, AI briefs, similarity engine." />
-          <QuickAction to="/planner"          icon={CalendarDays} title="Day Planner"        body="Meetings, tasks, Google Calendar tap-to-propose." />
-          <QuickAction to="/team"             icon={Users}        title="Team Directory"     body="Who covers what, at a glance." />
+        <div className="space-y-3">
+          <QuickAction to="/knowledge" icon={Sparkles}     title="Ask the firm"       body="Plain-English questions, answers grounded in your memos, files, and deals." accent />
+          <QuickAction to="/deals"     icon={Briefcase}    title="Deal Logger"        body="Kanban, data rooms, AI briefs, and a similarity engine." />
+          <QuickAction to="/planner"   icon={CalendarDays} title="Day Planner"        body="Real calendar, free slots, one-tap meeting proposals." />
+          <QuickAction to="/drive"     icon={FolderOpen}   title="Drive"              body="Your Google Drive, at your fingertips." />
+          <QuickAction to="/team"      icon={Users}        title="Team"               body="Coverage, at a glance." />
         </div>
       </section>
 
-      {/* Insights row */}
-      <section className="grid gap-6 lg:grid-cols-3">
+      {/* Insights */}
+      <section className="grid gap-8 lg:grid-cols-3">
         <div className="lg:col-span-2"><VelocityChart /></div>
         <StaleDealsCard deals={deals} />
       </section>
@@ -156,16 +158,15 @@ export default function Overview() {
   )
 }
 
-function StatCard({ label, value, sub, icon: Icon, accent = false }) {
+function StatCell({ label, value, sub, icon: Icon }) {
   return (
-    <div className={`vl-card relative overflow-hidden p-5 ${accent ? 'ring-1 ring-valence-blue/20' : ''}`}>
-      {accent && <div className="absolute -right-10 -top-10 h-32 w-32 rounded-full bg-valence-blue/10 blur-2xl" aria-hidden />}
+    <div className="bg-white p-6">
       <div className="flex items-center justify-between">
-        <span className="text-xs font-medium uppercase tracking-wider text-valence-muted">{label}</span>
-        <Icon className={`h-4 w-4 ${accent ? 'text-valence-blue' : 'text-valence-subtle'}`} />
+        <span className="vl-eyebrow-ink">{label}</span>
+        <Icon className="h-4 w-4 text-valence-subtle" />
       </div>
-      <p className="mt-4 text-3xl font-semibold tracking-tight text-white">{value}</p>
-      {sub && <p className="mt-0.5 text-[11px] text-valence-muted">{sub}</p>}
+      <p className="mt-4 font-display text-3xl font-semibold tracking-tight text-valence-text">{value}</p>
+      {sub && <p className="mt-1 text-[11px] text-valence-muted">{sub}</p>}
     </div>
   )
 }
@@ -174,11 +175,11 @@ function QuickAction({ to, icon: Icon, title, body, accent = false }) {
   return (
     <Link to={to} className={`vl-card vl-card-hover block p-5 group ${accent ? 'ring-1 ring-valence-blue/20' : ''}`}>
       <div className="flex items-start gap-3">
-        <div className="grid h-10 w-10 place-items-center rounded-lg bg-valence-blue-soft ring-1 ring-valence-blue/20">
-          <Icon className="h-4 w-4 text-valence-blue" />
+        <div className={`grid h-10 w-10 place-items-center rounded-lg shrink-0 ${accent ? 'bg-valence-blue-soft' : 'bg-valence-surface border border-valence-border'}`}>
+          <Icon className={`h-4 w-4 ${accent ? 'text-valence-blue' : 'text-valence-muted'}`} />
         </div>
         <div className="flex-1">
-          <p className="text-sm font-semibold text-white flex items-center justify-between">
+          <p className="text-sm font-semibold text-valence-text flex items-center justify-between">
             {title}
             <ArrowUpRight className="h-3.5 w-3.5 text-valence-subtle group-hover:text-valence-blue transition" />
           </p>

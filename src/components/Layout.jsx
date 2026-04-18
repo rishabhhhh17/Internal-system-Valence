@@ -11,7 +11,7 @@ export default function Layout({ children }) {
       <Sidebar />
       <div className="relative z-10 flex min-h-screen flex-1 flex-col">
         <Topbar />
-        <main className="flex-1 px-4 pb-28 pt-6 sm:px-6 lg:px-10 lg:pb-10">
+        <main className="flex-1 px-4 pb-28 pt-8 sm:px-6 lg:px-12 lg:pb-12">
           <div className="mx-auto w-full max-w-[1400px]">{children}</div>
         </main>
         <MobileNav />

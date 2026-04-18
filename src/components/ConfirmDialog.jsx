@@ -53,7 +53,7 @@ export function ConfirmProvider({ children }) {
                 <div className={`grid h-10 w-10 place-items-center rounded-xl border ${state.destructive ? 'border-valence-danger/30 bg-valence-danger/10 text-valence-danger' : 'border-valence-blue/30 bg-valence-blue-soft text-valence-blue'}`}>
                   <AlertTriangle className="h-4 w-4" />
                 </div>
-                <h2 className="text-base font-semibold tracking-tight text-white">{state.title}</h2>
+                <h2 className="text-base font-semibold tracking-tight text-valence-text">{state.title}</h2>
               </div>
               <button onClick={() => close(false)} className="vl-btn-ghost -mr-2 -mt-1" aria-label="Close">
                 <X className="h-4 w-4" />

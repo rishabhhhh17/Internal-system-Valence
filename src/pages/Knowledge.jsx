@@ -24,7 +24,7 @@ const SOURCE_LABELS = {
   document:  { label: 'Memo',       icon: BookOpen,   color: 'text-valence-blue' },
   file:      { label: 'File',       icon: FileIcon,   color: 'text-valence-blue' },
   comp:      { label: 'Comp',       icon: TableIcon,  color: 'text-valence-success' },
-  deal:      { label: 'Deal',       icon: Briefcase,  color: 'text-white' },
+  deal:      { label: 'Deal',       icon: Briefcase,  color: 'text-valence-text' },
   deal_file: { label: 'Deal file',  icon: FileIcon,   color: 'text-valence-warning' }
 }
 
@@ -40,7 +40,7 @@ export default function Knowledge() {
     <div className="space-y-6">
       <ConfigBanner />
 
-      <div className="flex items-center gap-1 rounded-lg border border-valence-border bg-white/[0.02] p-1 w-fit overflow-x-auto">
+      <div className="flex items-center gap-1 rounded-lg border border-valence-border bg-valence-surface p-1 w-fit overflow-x-auto">
         <TabButton active={tab === 'ask'}    onClick={() => setTab('ask')}    icon={Bot}>Ask AI</TabButton>
         <TabButton active={tab === 'search'} onClick={() => setTab('search')} icon={Sparkles}>Search</TabButton>
         <TabButton active={tab === 'memos'}  onClick={() => setTab('memos')}  icon={BookOpen}>Memos</TabButton>
@@ -62,7 +62,7 @@ function TabButton({ active, onClick, children, icon: Icon }) {
     <button
       onClick={onClick}
       className={`inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-semibold transition whitespace-nowrap ${
-        active ? 'bg-valence-blue-soft text-white' : 'text-valence-muted hover:text-white'
+        active ? 'bg-valence-blue-soft text-valence-text' : 'text-valence-muted hover:text-valence-text'
       }`}
     >
       <Icon className="h-3.5 w-3.5" />
@@ -130,27 +130,27 @@ function SearchPortal({ onSelectTab }) {
   return (
     <div className="space-y-5">
       {/* Hero search */}
-      <section className="relative overflow-hidden rounded-2xl border border-valence-border bg-valence-hero p-6 lg:p-8">
-        <div className="absolute inset-0 bg-valence-grid opacity-40" aria-hidden />
-        <div className="relative">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-valence-blue">Firm-wide search</p>
-          <h1 className="mt-2 max-w-2xl text-2xl font-semibold tracking-tight text-white lg:text-3xl">
+      <section className="relative overflow-hidden rounded-2xl border border-valence-border bg-white vl-circles py-12 px-8 lg:px-12">
+        <div className="absolute inset-0 bg-valence-grid opacity-60" aria-hidden />
+        <div className="relative max-w-3xl">
+          <p className="vl-eyebrow">Firm-wide search</p>
+          <h1 className="mt-4 font-display text-display font-semibold text-valence-text">
             Everything Valence knows, one search away.
           </h1>
-          <p className="mt-2 max-w-2xl text-sm text-valence-muted">
+          <p className="mt-4 max-w-2xl text-sm leading-relaxed text-valence-muted lg:text-base">
             Memos, uploaded files, deal notes, precedent comps — indexed across the firm. {embeddingsEnabled()
-              ? 'AI understands what you mean, not just what you type.'
-              : 'Add a Gemini key to turn on semantic search (understands meaning, not just keywords).'}
+              ? 'AI reads your intent, not just your keywords.'
+              : 'Add a Gemini key to unlock semantic search across meaning, not just text.'}
           </p>
 
-          <div className="mt-5 flex items-center gap-3 rounded-xl border border-valence-border bg-valence-surface/60 px-4 py-3 focus-within:border-valence-blue focus-within:ring-2 focus-within:ring-valence-blue-ring transition">
+          <div className="mt-6 flex items-center gap-3 rounded-xl border border-valence-border bg-white px-4 py-3 focus-within:border-valence-blue focus-within:ring-2 focus-within:ring-valence-blue-ring transition shadow-valence">
             <Search className="h-4 w-4 text-valence-blue" />
             <input
               value={q} onChange={e => setQ(e.target.value)} autoFocus
               placeholder={mode === 'hybrid'
                 ? 'Ask in plain English — "pharma consolidation Mumbai", "healthcare thesis Q2"…'
                 : 'Search memos, files, deal notes, comps…'}
-              className="flex-1 bg-transparent text-sm text-white placeholder:text-valence-subtle outline-none"
+              className="flex-1 bg-transparent text-sm text-valence-text placeholder:text-valence-subtle outline-none"
             />
             {loading ? <Loader2 className="h-4 w-4 text-valence-muted animate-spin" /> : <span className="vl-kbd">Live</span>}
           </div>
@@ -170,7 +170,7 @@ function SearchPortal({ onSelectTab }) {
               <button
                 key={id} onClick={() => setSource(id)}
                 className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-semibold transition ${
-                  source === id ? 'border-valence-blue/40 bg-valence-blue-soft text-valence-blue' : 'border-valence-border bg-white/[0.03] text-valence-muted hover:text-white'
+                  source === id ? 'border-valence-blue/40 bg-valence-blue-soft text-valence-blue' : 'border-valence-border bg-valence-surface text-valence-muted hover:text-valence-text'
                 }`}
               >
                 {label}
@@ -193,7 +193,7 @@ function SearchPortal({ onSelectTab }) {
       {loading && grouped.length === 0 ? (
         <div className="space-y-2">
           {Array.from({ length: 4 }).map((_, i) => (
-            <div key={i} className="h-20 rounded-xl bg-white/[0.03] animate-pulse" />
+            <div key={i} className="h-20 rounded-xl bg-valence-surface animate-pulse" />
           ))}
         </div>
       ) : grouped.length === 0 ? (
@@ -217,7 +217,7 @@ function ResultRow({ r, onOpen }) {
   return (
     <li
       onClick={() => onOpen(r)}
-      className="group cursor-pointer rounded-xl border border-valence-border bg-white/[0.02] px-4 py-3 transition hover:border-valence-border-strong hover:bg-white/[0.05]"
+      className="group cursor-pointer rounded-xl border border-valence-border bg-valence-surface px-4 py-3 transition hover:border-valence-border-strong hover:bg-valence-surface"
     >
       <div className="flex items-start gap-3">
         <div className={`grid h-9 w-9 place-items-center rounded-lg bg-valence-blue-soft ring-1 ring-valence-blue/20 shrink-0 ${meta.color}`}>
@@ -225,7 +225,7 @@ function ResultRow({ r, onOpen }) {
         </div>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
-            <p className="truncate text-sm font-semibold text-white group-hover:text-valence-blue transition">{r.title || '(untitled)'}</p>
+            <p className="truncate text-sm font-semibold text-valence-text group-hover:text-valence-blue transition">{r.title || '(untitled)'}</p>
             <span className="vl-chip">{meta.label}</span>
             {r.metadata?.sector && <span className="vl-chip-blue">{r.metadata.sector}</span>}
             {r.matchCount > 1 && <span className="text-[10px] text-valence-subtle">{r.matchCount} matching sections</span>}
@@ -317,9 +317,9 @@ function Documents() {
     <div className="space-y-5">
       <div className="vl-card p-4">
         <div className="flex flex-wrap items-center gap-3">
-          <div className="flex flex-1 min-w-[240px] items-center gap-2 rounded-lg border border-valence-border bg-white/[0.03] px-3 py-2">
+          <div className="flex flex-1 min-w-[240px] items-center gap-2 rounded-lg border border-valence-border bg-valence-surface px-3 py-2">
             <Search className="h-4 w-4 text-valence-blue" />
-            <input value={q} onChange={e => setQ(e.target.value)} placeholder="Filter memos…" className="flex-1 bg-transparent text-sm text-white placeholder:text-valence-subtle outline-none" />
+            <input value={q} onChange={e => setQ(e.target.value)} placeholder="Filter memos…" className="flex-1 bg-transparent text-sm text-valence-text placeholder:text-valence-subtle outline-none" />
           </div>
           <Select label="Sector" value={sector} onChange={setSector} options={['All', ...sectors]} />
           {tags.length > 0 && <Select label="Tag" value={tag} onChange={setTag} options={['All', ...tags]} />}
@@ -339,12 +339,12 @@ function Documents() {
                 {d.sector && <span className="vl-chip-blue">{d.sector}</span>}
                 <span className="text-[11px] text-valence-subtle">{format(new Date(d.created_at), 'd MMM')}</span>
               </div>
-              <h3 className="mt-3 text-base font-semibold leading-snug text-white group-hover:text-valence-blue transition">{d.title}</h3>
+              <h3 className="mt-3 text-base font-semibold leading-snug text-valence-text group-hover:text-valence-blue transition">{d.title}</h3>
               <p className="mt-2 text-xs leading-relaxed text-valence-muted line-clamp-4">{d.content}</p>
               {(d.tags || []).length > 0 && (
                 <div className="mt-4 flex flex-wrap gap-1.5">
                   {(d.tags || []).slice(0, 4).map(t => (
-                    <span key={t} className="inline-flex items-center gap-1 rounded-md border border-valence-border bg-white/[0.03] px-1.5 py-0.5 text-[10px] font-medium text-valence-muted">
+                    <span key={t} className="inline-flex items-center gap-1 rounded-md border border-valence-border bg-valence-surface px-1.5 py-0.5 text-[10px] font-medium text-valence-muted">
                       <Hash className="h-2.5 w-2.5" />{t}
                     </span>
                   ))}
@@ -374,7 +374,7 @@ function Documents() {
               {open.sector && <span className="vl-chip-blue">{open.sector}</span>}
               {(open.tags || []).map(t => <span key={t} className="vl-chip"><Hash className="h-3 w-3" />{t}</span>)}
             </div>
-            <div className="whitespace-pre-wrap rounded-lg border border-valence-border bg-white/[0.02] px-4 py-4 text-sm leading-relaxed text-valence-text">{open.content}</div>
+            <div className="whitespace-pre-wrap rounded-lg border border-valence-border bg-valence-surface px-4 py-4 text-sm leading-relaxed text-valence-text">{open.content}</div>
           </div>
         )}
       </Drawer>
@@ -437,15 +437,15 @@ function FilesSection() {
       </div>
 
       <div className="vl-card p-4">
-        <div className="flex items-center gap-2 rounded-lg border border-valence-border bg-white/[0.03] px-3 py-2">
+        <div className="flex items-center gap-2 rounded-lg border border-valence-border bg-valence-surface px-3 py-2">
           <Search className="h-3.5 w-3.5 text-valence-subtle" />
-          <input value={q} onChange={e => setQ(e.target.value)} placeholder="Filter files by name, sector, tag…" className="flex-1 bg-transparent text-sm text-white placeholder:text-valence-subtle outline-none" />
+          <input value={q} onChange={e => setQ(e.target.value)} placeholder="Filter files by name, sector, tag…" className="flex-1 bg-transparent text-sm text-valence-text placeholder:text-valence-subtle outline-none" />
         </div>
       </div>
 
       {loading ? (
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {Array.from({ length: 6 }).map((_, i) => <div key={i} className="h-24 rounded-xl bg-white/[0.03] animate-pulse" />)}
+          {Array.from({ length: 6 }).map((_, i) => <div key={i} className="h-24 rounded-xl bg-valence-surface animate-pulse" />)}
         </div>
       ) : filtered.length === 0 ? (
         <EmptyState icon={FileIcon} title={q ? 'No files match' : 'No files uploaded yet'} description={q ? 'Try fewer keywords.' : 'Upload PDFs, decks, NDAs, memos — anything the team needs to reference.'} />
@@ -466,7 +466,7 @@ function FileCard({ file, onDelete }) {
           <FileIcon className="h-4 w-4 text-valence-blue" />
         </div>
         <div className="flex-1 min-w-0">
-          <p className="truncate text-sm font-semibold text-white" title={file.name}>{file.name}</p>
+          <p className="truncate text-sm font-semibold text-valence-text" title={file.name}>{file.name}</p>
           <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] text-valence-muted">
             {file.sector && <span className="vl-chip-blue">{file.sector}</span>}
             {file.char_count > 0 && <span>{Math.round(file.char_count / 1000)}k chars</span>}
@@ -476,7 +476,7 @@ function FileCard({ file, onDelete }) {
           {(file.tags || []).length > 0 && (
             <div className="mt-2 flex flex-wrap gap-1">
               {file.tags.slice(0, 4).map(t => (
-                <span key={t} className="inline-flex items-center gap-1 rounded-md border border-valence-border bg-white/[0.03] px-1.5 py-0.5 text-[10px] font-medium text-valence-muted">
+                <span key={t} className="inline-flex items-center gap-1 rounded-md border border-valence-border bg-valence-surface px-1.5 py-0.5 text-[10px] font-medium text-valence-muted">
                   <Hash className="h-2.5 w-2.5" />{t}
                 </span>
               ))}
@@ -548,12 +548,12 @@ function Comps() {
   return (
     <div className="space-y-5">
       <div className="vl-card p-4">
-        <p className="text-sm font-semibold text-white">Precedent transactions</p>
+        <p className="text-sm font-semibold text-valence-text">Precedent transactions</p>
         <p className="mt-0.5 text-xs text-valence-muted">Your internal comps library. Feed it every relevant deal — it sets pricing conversations.</p>
         <div className="mt-4 flex flex-wrap items-center gap-3">
-          <div className="flex flex-1 min-w-[240px] items-center gap-2 rounded-lg border border-valence-border bg-white/[0.03] px-3 py-2">
+          <div className="flex flex-1 min-w-[240px] items-center gap-2 rounded-lg border border-valence-border bg-valence-surface px-3 py-2">
             <Search className="h-3.5 w-3.5 text-valence-subtle" />
-            <input value={q} onChange={e => setQ(e.target.value)} placeholder="Search target, acquirer, sector…" className="flex-1 bg-transparent text-sm text-white placeholder:text-valence-subtle outline-none" />
+            <input value={q} onChange={e => setQ(e.target.value)} placeholder="Search target, acquirer, sector…" className="flex-1 bg-transparent text-sm text-valence-text placeholder:text-valence-subtle outline-none" />
           </div>
           <Select label="Sector" value={sector} onChange={setSector} options={['All', ...sectors]} />
           <Select label="Type"   value={type}   onChange={setType}   options={['All', ...types]} />
@@ -563,7 +563,7 @@ function Comps() {
 
       {loading ? (
         <div className="vl-card p-4 space-y-2">
-          {Array.from({ length: 5 }).map((_, i) => <div key={i} className="h-12 rounded-lg bg-white/[0.04] animate-pulse" />)}
+          {Array.from({ length: 5 }).map((_, i) => <div key={i} className="h-12 rounded-lg bg-valence-surface animate-pulse" />)}
         </div>
       ) : filtered.length === 0 ? (
         <EmptyState icon={TableIcon} title="No comps yet" description="Add precedent transactions to build your pricing reference." action={<button onClick={() => setModal(true)} className="vl-btn-primary"><Plus className="h-4 w-4" /> Add comp</button>} />
@@ -586,15 +586,15 @@ function Comps() {
               </thead>
               <tbody className="divide-y divide-valence-border">
                 {filtered.map(c => (
-                  <tr key={c.id} className="hover:bg-white/[0.03] transition">
-                    <td className="px-5 py-3 text-sm font-semibold text-white">{c.target}</td>
+                  <tr key={c.id} className="hover:bg-valence-surface transition">
+                    <td className="px-5 py-3 text-sm font-semibold text-valence-text">{c.target}</td>
                     <td className="px-5 py-3 text-xs text-valence-muted">{c.acquirer || '—'}</td>
                     <td className="px-5 py-3 text-xs text-valence-muted tabular-nums">{c.year || '—'}</td>
                     <td className="px-5 py-3"><span className="vl-chip">{c.sector || '—'}</span></td>
                     <td className="px-5 py-3"><span className="vl-chip">{c.deal_type || '—'}</span></td>
                     <td className="px-5 py-3 text-right text-xs font-semibold text-valence-blue tabular-nums">{c.ev_usd_m ? `$${Number(c.ev_usd_m).toLocaleString()}M` : '—'}</td>
-                    <td className="px-5 py-3 text-right text-xs text-white tabular-nums">{c.revenue_multiple ? `${Number(c.revenue_multiple).toFixed(1)}x` : '—'}</td>
-                    <td className="px-5 py-3 text-right text-xs text-white tabular-nums">{c.ebitda_multiple ? `${Number(c.ebitda_multiple).toFixed(1)}x` : '—'}</td>
+                    <td className="px-5 py-3 text-right text-xs text-valence-text tabular-nums">{c.revenue_multiple ? `${Number(c.revenue_multiple).toFixed(1)}x` : '—'}</td>
+                    <td className="px-5 py-3 text-right text-xs text-valence-text tabular-nums">{c.ebitda_multiple ? `${Number(c.ebitda_multiple).toFixed(1)}x` : '—'}</td>
                     <td className="px-5 py-3 text-right">
                       <button onClick={() => deleteComp(c)} className="vl-btn-ghost text-valence-subtle hover:text-valence-danger" aria-label="Delete">
                         <Trash2 className="h-3.5 w-3.5" />
@@ -617,9 +617,9 @@ function Comps() {
 
 function Select({ value, onChange, label, options }) {
   return (
-    <label className="flex items-center gap-2 rounded-lg border border-valence-border bg-white/[0.03] pl-3 pr-2 py-2 text-xs font-medium text-valence-muted">
+    <label className="flex items-center gap-2 rounded-lg border border-valence-border bg-valence-surface pl-3 pr-2 py-2 text-xs font-medium text-valence-muted">
       <span className="text-[11px] uppercase tracking-wider">{label}</span>
-      <select value={value} onChange={e => onChange(e.target.value)} className="bg-transparent pr-1 text-sm font-semibold text-white outline-none">
+      <select value={value} onChange={e => onChange(e.target.value)} className="bg-transparent pr-1 text-sm font-semibold text-valence-text outline-none">
         {options.map(o => <option key={o} className="bg-valence-surface" value={o}>{o}</option>)}
       </select>
     </label>
@@ -720,11 +720,11 @@ function GridSkeleton() {
     <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
       {Array.from({ length: 6 }).map((_, i) => (
         <div key={i} className="vl-card p-5 animate-pulse">
-          <div className="h-4 w-20 rounded-full bg-white/[0.06]" />
-          <div className="mt-4 h-4 w-3/4 rounded bg-white/[0.08]" />
+          <div className="h-4 w-20 rounded-full bg-valence-surface" />
+          <div className="mt-4 h-4 w-3/4 rounded bg-valence-surface" />
           <div className="mt-3 space-y-2">
-            <div className="h-3 w-full rounded bg-white/[0.05]" />
-            <div className="h-3 w-5/6 rounded bg-white/[0.05]" />
+            <div className="h-3 w-full rounded bg-valence-surface" />
+            <div className="h-3 w-5/6 rounded bg-valence-surface" />
           </div>
         </div>
       ))}

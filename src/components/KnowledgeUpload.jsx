@@ -82,7 +82,7 @@ export default function KnowledgeUpload({ onUploaded, uploadedBy }) {
         onClick={() => inputRef.current?.click()}
         onDragOver={e => e.preventDefault()}
         onDrop={e => { e.preventDefault(); addToQueue(Array.from(e.dataTransfer.files || [])) }}
-        className="cursor-pointer rounded-xl border border-dashed border-valence-border hover:border-valence-blue/40 bg-white/[0.02] px-6 py-8 text-center transition"
+        className="cursor-pointer rounded-xl border border-dashed border-valence-border hover:border-valence-blue/40 bg-valence-surface px-6 py-8 text-center transition"
       >
         <input
           ref={inputRef} type="file" className="hidden"
@@ -92,7 +92,7 @@ export default function KnowledgeUpload({ onUploaded, uploadedBy }) {
         <div className="mx-auto grid h-12 w-12 place-items-center rounded-xl bg-valence-blue-soft ring-1 ring-valence-blue/30 mb-3">
           <Upload className="h-5 w-5 text-valence-blue" />
         </div>
-        <p className="text-sm font-semibold text-white">Drop files to add to the knowledge base</p>
+        <p className="text-sm font-semibold text-valence-text">Drop files to add to the knowledge base</p>
         <p className="mt-1 text-[11px] text-valence-muted">
           PDF, DOCX, TXT, MD, CSV, HTML · up to 25 MB each · text is extracted and made searchable for the whole team
           {embeddingsEnabled() && ' · AI semantic search ON'}
@@ -113,7 +113,7 @@ export default function KnowledgeUpload({ onUploaded, uploadedBy }) {
       {queue.length > 0 && (
         <div className="space-y-2">
           {queue.map(item => (
-            <div key={item.id} className="rounded-lg border border-valence-border bg-white/[0.02] px-4 py-3">
+            <div key={item.id} className="rounded-lg border border-valence-border bg-valence-surface px-4 py-3">
               <div className="flex items-center gap-3">
                 <div className="grid h-9 w-9 place-items-center rounded-lg bg-valence-blue-soft ring-1 ring-valence-blue/20 shrink-0">
                   {item.status === 'done'
@@ -125,7 +125,7 @@ export default function KnowledgeUpload({ onUploaded, uploadedBy }) {
                     : <FileText className="h-4 w-4 text-valence-blue" />}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="truncate text-sm font-semibold text-white">{item.file.name}</p>
+                  <p className="truncate text-sm font-semibold text-valence-text">{item.file.name}</p>
                   <p className="text-[11px] text-valence-muted">{item.label}</p>
                 </div>
                 {item.status !== 'uploading' && (
@@ -134,7 +134,7 @@ export default function KnowledgeUpload({ onUploaded, uploadedBy }) {
                   </button>
                 )}
               </div>
-              <div className="mt-2 h-1 w-full overflow-hidden rounded-full bg-white/[0.05]">
+              <div className="mt-2 h-1 w-full overflow-hidden rounded-full bg-valence-surface">
                 <div
                   className={`h-full rounded-full transition-all ${item.status === 'error' ? 'bg-valence-danger' : 'bg-valence-blue'}`}
                   style={{ width: `${Math.max(2, Math.round((item.pct || 0) * 100))}%` }}

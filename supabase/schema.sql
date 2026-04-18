@@ -25,6 +25,9 @@ alter table public.deals add column if not exists fee_retainer_usd  numeric;
 alter table public.deals add column if not exists fee_success_pct   numeric;
 alter table public.deals add column if not exists target_close      date;
 alter table public.deals add column if not exists lead_owner        text;
+-- v3: financial snapshot + optional AI-generated CIM draft
+alter table public.deals add column if not exists financials jsonb;
+alter table public.deals add column if not exists cim_draft  text;
 
 -- Drop old v1 CHECK constraints BEFORE migrating legacy stage values, so the
 -- updates are not blocked by the old vocabulary.
@@ -143,6 +146,46 @@ create table if not exists public.deal_files (
 );
 
 create index if not exists deal_files_deal_idx on public.deal_files (deal_id);
+
+-- ============ EXTERNAL DATA ROOM SHARES ============
+-- Each row is a shareable link to a specific deal's data room, scoped to
+-- a subset of that deal's files, protected by a random share_code, with an
+-- optional expiry and an access log (opens + downloads).
+create table if not exists public.deal_shares (
+  id            uuid primary key default gen_random_uuid(),
+  deal_id       uuid not null references public.deals(id) on delete cascade,
+  share_code    text not null unique,
+  title         text,
+  recipient_name  text,
+  recipient_email text,
+  file_ids      uuid[] not null default '{}',   -- deal_files.id to expose; empty = all
+  note          text,                           -- welcome message shown on the share page
+  expires_at    timestamptz,
+  revoked       boolean not null default false,
+  created_by    text,
+  created_at    timestamptz not null default now()
+);
+
+create index if not exists deal_shares_deal_idx on public.deal_shares (deal_id);
+create index if not exists deal_shares_code_idx on public.deal_shares (share_code);
+
+-- Access log for shares (view + download events)
+create table if not exists public.deal_share_access (
+  id          uuid primary key default gen_random_uuid(),
+  share_id    uuid not null references public.deal_shares(id) on delete cascade,
+  event       text not null,                    -- 'view' | 'download'
+  file_id     uuid references public.deal_files(id) on delete set null,
+  user_agent  text,
+  created_at  timestamptz not null default now()
+);
+
+create index if not exists deal_share_access_share_idx on public.deal_share_access (share_id);
+
+alter table public.deal_shares enable row level security;
+alter table public.deal_share_access enable row level security;
+
+do $$ begin create policy "deal_shares_all"       on public.deal_shares       for all using (true) with check (true); exception when duplicate_object then null; end $$;
+do $$ begin create policy "deal_share_access_all" on public.deal_share_access for all using (true) with check (true); exception when duplicate_object then null; end $$;
 
 -- ============ COMPARABLE TRANSACTIONS (COMPS) ============
 create table if not exists public.comps (

@@ -290,8 +290,8 @@ export default function Planner() {
             <div className="flex items-start gap-3 rounded-xl border border-valence-warning/30 bg-valence-warning/5 px-4 py-3">
               <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-valence-warning" />
               <div className="text-sm flex-1">
-                <p className="font-semibold text-white">{gError}</p>
-                <button onClick={() => signInWithGoogle().catch(() => {})} className="mt-1 text-[11px] font-semibold text-valence-blue hover:text-white">
+                <p className="font-semibold text-valence-text">{gError}</p>
+                <button onClick={() => signInWithGoogle().catch(() => {})} className="mt-1 text-[11px] font-semibold text-valence-blue hover:text-valence-text">
                   Reconnect Google →
                 </button>
               </div>
@@ -299,7 +299,7 @@ export default function Planner() {
           ) : gLoading && gEvents.length === 0 ? (
             <div className="flex flex-wrap gap-2">
               {Array.from({ length: 5 }).map((_, i) => (
-                <div key={i} className="h-8 w-20 rounded-full bg-white/[0.05] animate-pulse" />
+                <div key={i} className="h-8 w-20 rounded-full bg-valence-surface animate-pulse" />
               ))}
             </div>
           ) : (
@@ -312,7 +312,7 @@ export default function Planner() {
         <div className="flex items-start gap-3 rounded-xl border border-valence-blue/30 bg-valence-blue-soft/30 px-4 py-3">
           <Sparkles className="mt-0.5 h-4 w-4 shrink-0 text-valence-blue" />
           <div className="text-sm flex-1">
-            <p className="font-semibold text-white">Connect your Google account</p>
+            <p className="font-semibold text-valence-text">Connect your Google account</p>
             <p className="mt-0.5 text-[11px] text-valence-muted leading-relaxed">
               See your real calendar, find free slots, and send meeting proposals directly from your Gmail — all from ValanceOS.
             </p>
@@ -530,7 +530,7 @@ function TaskItem({ task, onToggle, onDelete }) {
   const pastDue = due && !task.completed && isPast(due) && !isToday(due)
 
   return (
-    <li className="group flex items-center gap-3 rounded-lg border border-transparent px-3 py-2 transition hover:border-valence-border hover:bg-white/[0.03]">
+    <li className="group flex items-center gap-3 rounded-lg border border-transparent px-3 py-2 transition hover:border-valence-border hover:bg-valence-surface">
       <button onClick={() => onToggle(task)} className="shrink-0" aria-label="Toggle task">
         {task.completed
           ? <CheckCircle2 className="h-4 w-4 text-valence-blue" />
@@ -555,7 +555,7 @@ function TaskItem({ task, onToggle, onDelete }) {
 function AiSummaryCard({ summary, loading, error, onRefresh, meetingCount, taskCount }) {
   const now = format(new Date(), "EEEE, d MMMM yyyy")
   return (
-    <section className="relative overflow-hidden rounded-2xl border border-valence-border bg-white/[0.03] p-6">
+    <section className="relative overflow-hidden rounded-2xl border border-valence-border bg-valence-surface p-6">
       <div className="absolute -right-20 -top-20 h-64 w-64 rounded-full bg-valence-blue/10 blur-3xl" aria-hidden />
       <div className="relative">
         <div className="flex items-start justify-between gap-4">
@@ -565,7 +565,7 @@ function AiSummaryCard({ summary, loading, error, onRefresh, meetingCount, taskC
             </div>
             <div>
               <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-valence-blue">Assistant</p>
-              <h3 className="text-lg font-semibold tracking-tight text-white">Your day in a paragraph</h3>
+              <h3 className="text-lg font-semibold tracking-tight text-valence-text">Your day in a paragraph</h3>
               <p className="text-xs text-valence-muted mt-0.5">{now} · {meetingCount} meeting{meetingCount === 1 ? '' : 's'} · {taskCount} priority task{taskCount === 1 ? '' : 's'}</p>
             </div>
           </div>
@@ -583,9 +583,9 @@ function AiSummaryCard({ summary, loading, error, onRefresh, meetingCount, taskC
             </p>
           ) : loading && !summary ? (
             <div className="space-y-2 animate-pulse">
-              <div className="h-3 w-full rounded bg-white/[0.06]" />
-              <div className="h-3 w-11/12 rounded bg-white/[0.05]" />
-              <div className="h-3 w-4/5 rounded bg-white/[0.05]" />
+              <div className="h-3 w-full rounded bg-valence-surface" />
+              <div className="h-3 w-11/12 rounded bg-valence-surface" />
+              <div className="h-3 w-4/5 rounded bg-valence-surface" />
             </div>
           ) : error ? (
             <p className="text-sm text-valence-danger">Couldn't reach Gemini: {error}</p>
@@ -607,14 +607,14 @@ function MeetingRow({ meeting, showDate = false, dealName }) {
   }[meeting.status] || 'text-valence-muted'
 
   return (
-    <div className="flex items-center gap-4 rounded-lg border border-valence-border bg-white/[0.02] px-4 py-3 hover:bg-white/[0.04] transition">
+    <div className="flex items-center gap-4 rounded-lg border border-valence-border bg-valence-surface px-4 py-3 hover:bg-valence-surface transition">
       <div className="w-16 shrink-0 text-right">
-        <p className="text-sm font-semibold tabular-nums text-white">{meeting.time?.slice(0,5)}</p>
+        <p className="text-sm font-semibold tabular-nums text-valence-text">{meeting.time?.slice(0,5)}</p>
         {showDate && <p className="text-[10px] text-valence-subtle">{format(parseISO(meeting.date), 'd MMM')}</p>}
       </div>
       <div className="h-8 w-px bg-valence-border" />
       <div className="flex-1 min-w-0">
-        <p className="truncate text-sm font-semibold text-white">{meeting.title}</p>
+        <p className="truncate text-sm font-semibold text-valence-text">{meeting.title}</p>
         <div className="mt-0.5 flex items-center gap-2 text-xs text-valence-muted">
           <User2 className="h-3 w-3" />
           <span className="truncate">{meeting.attendee_name}</span>
@@ -642,7 +642,7 @@ function EmptyInline({ icon: Icon, title, body }) {
         <Icon className="h-4 w-4 text-valence-blue" />
       </div>
       <div>
-        <p className="text-sm font-semibold text-white">{title}</p>
+        <p className="text-sm font-semibold text-valence-text">{title}</p>
         <p className="mt-0.5 text-xs text-valence-muted max-w-md">{body}</p>
       </div>
     </div>
@@ -742,7 +742,7 @@ function DraftedMessage({ drafted, onClose }) {
 
   return (
     <div className="space-y-4">
-      <div className="rounded-lg border border-valence-border bg-white/[0.02] p-4">
+      <div className="rounded-lg border border-valence-border bg-valence-surface p-4">
         <div className="flex flex-wrap items-center gap-3 text-xs text-valence-muted">
           <span className="vl-chip-blue">{meeting.status}</span>
           <span className="inline-flex items-center gap-1.5"><CalendarDays className="h-3 w-3" /> {format(parseISO(meeting.date), 'EEE, d MMM yyyy')}</span>
@@ -798,12 +798,12 @@ function ListSkeleton({ rows = 3 }) {
   return (
     <div className="space-y-2">
       {Array.from({ length: rows }).map((_, i) => (
-        <div key={i} className="flex items-center gap-3 rounded-lg border border-valence-border bg-white/[0.02] px-4 py-3 animate-pulse">
-          <div className="h-4 w-12 rounded bg-white/[0.06]" />
+        <div key={i} className="flex items-center gap-3 rounded-lg border border-valence-border bg-valence-surface px-4 py-3 animate-pulse">
+          <div className="h-4 w-12 rounded bg-valence-surface" />
           <div className="h-6 w-px bg-valence-border" />
           <div className="flex-1 space-y-2">
-            <div className="h-3 w-1/2 rounded bg-white/[0.06]" />
-            <div className="h-2.5 w-1/3 rounded bg-white/[0.04]" />
+            <div className="h-3 w-1/2 rounded bg-valence-surface" />
+            <div className="h-2.5 w-1/3 rounded bg-valence-surface" />
           </div>
         </div>
       ))}

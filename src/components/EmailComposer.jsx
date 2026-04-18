@@ -99,8 +99,8 @@ export default function EmailComposer({ open, onClose, deal, contact }) {
               onClick={() => run(id)}
               className={`flex w-full items-center gap-2 rounded-lg border px-3 py-2 text-left text-sm transition ${
                 scenario === id
-                  ? 'border-valence-blue/40 bg-valence-blue-soft text-white'
-                  : 'border-valence-border bg-white/[0.03] text-valence-muted hover:text-white hover:bg-white/[0.05]'
+                  ? 'border-valence-blue/40 bg-valence-blue-soft text-valence-text'
+                  : 'border-valence-border bg-valence-surface text-valence-muted hover:text-valence-text hover:bg-valence-surface'
               }`}
             >
               <Wand2 className={`h-3.5 w-3.5 ${scenario === id ? 'text-valence-blue' : ''}`} />
@@ -112,7 +112,7 @@ export default function EmailComposer({ open, onClose, deal, contact }) {
         {/* Editor */}
         <div className="space-y-3">
           {!body && !loading && (
-            <div className="rounded-lg border border-dashed border-valence-border bg-white/[0.02] px-5 py-8 text-center">
+            <div className="rounded-lg border border-dashed border-valence-border bg-valence-surface px-5 py-8 text-center">
               <Mail className="mx-auto h-5 w-5 text-valence-subtle" />
               <p className="mt-2 text-sm text-valence-muted">Pick a scenario to draft the email.</p>
             </div>
@@ -120,10 +120,10 @@ export default function EmailComposer({ open, onClose, deal, contact }) {
 
           {loading && (
             <div className="space-y-2 animate-pulse">
-              <div className="h-3 w-full rounded bg-white/[0.06]" />
-              <div className="h-3 w-11/12 rounded bg-white/[0.05]" />
-              <div className="h-3 w-4/5 rounded bg-white/[0.05]" />
-              <div className="h-3 w-3/4 rounded bg-white/[0.04]" />
+              <div className="h-3 w-full rounded bg-valence-surface" />
+              <div className="h-3 w-11/12 rounded bg-valence-surface" />
+              <div className="h-3 w-4/5 rounded bg-valence-surface" />
+              <div className="h-3 w-3/4 rounded bg-valence-surface" />
             </div>
           )}
 

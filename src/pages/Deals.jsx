@@ -21,6 +21,11 @@ import DealBrief from '../components/DealBrief.jsx'
 import EmailComposer from '../components/EmailComposer.jsx'
 import SimilarDeals from '../components/SimilarDeals.jsx'
 import TeaserImport from '../components/TeaserImport.jsx'
+import CIMGenerator from '../components/CIMGenerator.jsx'
+import TargetList from '../components/TargetList.jsx'
+import FinancialsCard from '../components/FinancialsCard.jsx'
+import ShareManager from '../components/ShareManager.jsx'
+import GmailSyncButton from '../components/GmailSyncButton.jsx'
 import { useToast } from '../components/Toast.jsx'
 import { useConfirm } from '../components/ConfirmDialog.jsx'
 
@@ -200,12 +205,12 @@ export default function Deals() {
       {/* Toolbar */}
       <div className="vl-card p-4">
         <div className="flex flex-wrap items-center gap-3">
-          <div className="flex flex-1 min-w-[240px] items-center gap-2 rounded-lg border border-valence-border bg-white/[0.03] px-3 py-2">
+          <div className="flex flex-1 min-w-[240px] items-center gap-2 rounded-lg border border-valence-border bg-valence-surface px-3 py-2">
             <Search className="h-3.5 w-3.5 text-valence-subtle" />
             <input
               value={q} onChange={e => setQ(e.target.value)}
               placeholder="Search by client, sector, lead, or notes…"
-              className="flex-1 bg-transparent text-sm text-white placeholder:text-valence-subtle outline-none"
+              className="flex-1 bg-transparent text-sm text-valence-text placeholder:text-valence-subtle outline-none"
             />
           </div>
 
@@ -214,13 +219,13 @@ export default function Deals() {
           <FilterPill label="Side"  value={fSide}  onChange={setFSide}  options={SIDES} />
           <FilterPill label="NDA"   value={fNda}   onChange={setFNda}   options={NDA} />
 
-          <div className="flex items-center rounded-lg border border-valence-border bg-white/[0.03] p-0.5">
+          <div className="flex items-center rounded-lg border border-valence-border bg-valence-surface p-0.5">
             <button onClick={() => setView('board')}
-              className={`inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-semibold transition ${view === 'board' ? 'bg-valence-blue-soft text-white' : 'text-valence-muted hover:text-white'}`}>
+              className={`inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-semibold transition ${view === 'board' ? 'bg-valence-blue-soft text-valence-text' : 'text-valence-muted hover:text-valence-text'}`}>
               <LayoutGrid className="h-3.5 w-3.5" /> Board
             </button>
             <button onClick={() => setView('table')}
-              className={`inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-semibold transition ${view === 'table' ? 'bg-valence-blue-soft text-white' : 'text-valence-muted hover:text-white'}`}>
+              className={`inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-semibold transition ${view === 'table' ? 'bg-valence-blue-soft text-valence-text' : 'text-valence-muted hover:text-valence-text'}`}>
               <TableIcon className="h-3.5 w-3.5" /> Table
             </button>
           </div>
@@ -293,25 +298,29 @@ export default function Deals() {
 function DealDrawerBody({ deal, onEdit, onDelete, onComposeEmail }) {
   const [tab, setTab] = useState('overview')
   const tabs = [
-    { id: 'overview', label: 'Overview',       icon: Briefcase },
-    { id: 'files',    label: 'Files',          icon: FolderOpen },
-    { id: 'contacts', label: 'Counterparties', icon: UsersIcon },
-    { id: 'activity', label: 'Activity',       icon: ActivityIcon },
-    { id: 'similar',  label: 'Similar',        icon: Sparkles },
-    { id: 'brief',    label: 'AI Brief',       icon: Sparkles }
+    { id: 'overview',   label: 'Overview',       icon: Briefcase },
+    { id: 'financials', label: 'Financials',     icon: TrendingUp },
+    { id: 'files',      label: 'Files',          icon: FolderOpen },
+    { id: 'contacts',   label: 'Counterparties', icon: UsersIcon },
+    { id: 'activity',   label: 'Activity',       icon: ActivityIcon },
+    { id: 'similar',    label: 'Similar',        icon: Sparkles },
+    { id: 'targets',    label: 'Targets',        icon: UsersIcon },
+    { id: 'cim',        label: 'CIM',            icon: FileText },
+    { id: 'brief',      label: 'AI Brief',       icon: Sparkles },
+    { id: 'share',      label: 'Share',          icon: ExternalLink }
   ]
 
   return (
     <div className="space-y-5">
       <DealHeader deal={deal} onEdit={onEdit} onDelete={onDelete} onCompose={() => onComposeEmail(null)} />
 
-      <div className="flex items-center gap-1 rounded-lg border border-valence-border bg-white/[0.02] p-1 overflow-x-auto">
+      <div className="flex items-center gap-1 rounded-lg border border-valence-border bg-valence-surface p-1 overflow-x-auto">
         {tabs.map(t => (
           <button
             key={t.id}
             onClick={() => setTab(t.id)}
             className={`inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-semibold transition whitespace-nowrap ${
-              tab === t.id ? 'bg-valence-blue-soft text-white' : 'text-valence-muted hover:text-white'
+              tab === t.id ? 'bg-valence-blue-soft text-valence-text' : 'text-valence-muted hover:text-valence-text'
             }`}
           >
             <t.icon className="h-3.5 w-3.5" /> {t.label}
@@ -320,12 +329,16 @@ function DealDrawerBody({ deal, onEdit, onDelete, onComposeEmail }) {
       </div>
 
       <div>
-        {tab === 'overview' && <DealOverview deal={deal} />}
-        {tab === 'files'    && <FileVault dealId={deal.id} />}
-        {tab === 'contacts' && <Contacts dealId={deal.id} onOpenComposer={onComposeEmail} />}
-        {tab === 'activity' && <ActivityTimeline dealId={deal.id} />}
-        {tab === 'similar'  && <SimilarDeals deal={deal} />}
-        {tab === 'brief'    && <DealBrief deal={deal} />}
+        {tab === 'overview'   && <DealOverview deal={deal} />}
+        {tab === 'financials' && <FinancialsCard deal={deal} />}
+        {tab === 'files'      && <FileVault dealId={deal.id} />}
+        {tab === 'contacts'   && <Contacts dealId={deal.id} onOpenComposer={onComposeEmail} />}
+        {tab === 'activity'   && <ActivityTimeline dealId={deal.id} />}
+        {tab === 'similar'    && <SimilarDeals deal={deal} />}
+        {tab === 'targets'    && <TargetList deal={deal} />}
+        {tab === 'cim'        && <CIMGenerator deal={deal} />}
+        {tab === 'brief'      && <DealBrief deal={deal} />}
+        {tab === 'share'      && <ShareManager deal={deal} />}
       </div>
     </div>
   )
@@ -354,6 +367,7 @@ function DealHeader({ deal, onEdit, onDelete, onCompose }) {
           </p>
         </div>
         <div className="flex items-center gap-1 shrink-0">
+          <GmailSyncButton dealId={deal.id} />
           <button onClick={onEdit} className="vl-btn-ghost" aria-label="Edit"><Edit3 className="h-4 w-4" /></button>
           <button onClick={onDelete} className="vl-btn-ghost text-valence-subtle hover:text-valence-danger" aria-label="Delete"><Trash2 className="h-4 w-4" /></button>
         </div>
@@ -379,7 +393,7 @@ function DealOverview({ deal }) {
           <span className="font-semibold uppercase tracking-wider text-valence-muted">Pipeline progress</span>
           <span className="text-valence-muted">{stageMeta(deal.stage).terminal ? deal.stage : `${Math.round(progress)}%`}</span>
         </div>
-        <div className="mt-2 h-1.5 w-full rounded-full bg-white/[0.05] overflow-hidden">
+        <div className="mt-2 h-1.5 w-full rounded-full bg-valence-surface overflow-hidden">
           <div
             className={`h-full rounded-full transition-all ${stageMeta(deal.stage).terminal
               ? (deal.stage === 'Closed' ? 'bg-valence-success' : deal.stage === 'Lost' ? 'bg-valence-danger' : 'bg-valence-warning')
@@ -401,7 +415,7 @@ function DealOverview({ deal }) {
 
       <div>
         <p className="vl-label">Notes</p>
-        <p className="whitespace-pre-wrap rounded-lg border border-valence-border bg-white/[0.03] px-4 py-3 text-sm leading-relaxed text-valence-text">
+        <p className="whitespace-pre-wrap rounded-lg border border-valence-border bg-valence-surface px-4 py-3 text-sm leading-relaxed text-valence-text">
           {deal.notes || <span className="text-valence-subtle">No notes yet.</span>}
         </p>
       </div>
@@ -410,7 +424,7 @@ function DealOverview({ deal }) {
         <div>
           <p className="vl-label">Linked deck</p>
           <a href={deal.deck_url} target="_blank" rel="noreferrer"
-             className="inline-flex items-center gap-2 rounded-lg border border-valence-border bg-white/[0.03] px-4 py-2.5 text-sm font-semibold text-valence-blue hover:border-valence-blue/40">
+             className="inline-flex items-center gap-2 rounded-lg border border-valence-border bg-valence-surface px-4 py-2.5 text-sm font-semibold text-valence-blue hover:border-valence-blue/40">
             <FileText className="h-4 w-4" /> Open deck <ExternalLink className="h-3.5 w-3.5" />
           </a>
         </div>
@@ -421,9 +435,9 @@ function DealOverview({ deal }) {
 
 function Field({ label, value, accent = false }) {
   return (
-    <div className={`rounded-lg border border-valence-border ${accent ? 'bg-valence-blue-soft/40' : 'bg-white/[0.02]'} px-3 py-2.5`}>
+    <div className={`rounded-lg border border-valence-border ${accent ? 'bg-valence-blue-soft/40' : 'bg-valence-surface'} px-3 py-2.5`}>
       <p className="text-[10px] font-semibold uppercase tracking-wider text-valence-muted">{label}</p>
-      <p className={`mt-0.5 text-sm font-semibold ${accent ? 'text-white' : 'text-valence-text'}`}>{value}</p>
+      <p className={`mt-0.5 text-sm font-semibold ${accent ? 'text-valence-text' : 'text-valence-text'}`}>{value}</p>
     </div>
   )
 }
@@ -448,14 +462,14 @@ function DealTable({ deals, onOpen }) {
           </thead>
           <tbody className="divide-y divide-valence-border">
             {deals.map(d => (
-              <tr key={d.id} onClick={() => onOpen(d)} className="cursor-pointer transition hover:bg-white/[0.03]">
+              <tr key={d.id} onClick={() => onOpen(d)} className="cursor-pointer transition hover:bg-valence-surface">
                 <td className="px-5 py-4">
                   <div className="flex items-center gap-3">
                     <div className="grid h-9 w-9 place-items-center rounded-lg bg-valence-blue-soft ring-1 ring-valence-blue/20">
                       <Briefcase className="h-4 w-4 text-valence-blue" />
                     </div>
                     <div>
-                      <p className="text-sm font-semibold text-white">{d.client_name}</p>
+                      <p className="text-sm font-semibold text-valence-text">{d.client_name}</p>
                       <p className="text-[11px] text-valence-muted line-clamp-1 max-w-[260px]">{d.notes || '—'}</p>
                     </div>
                   </div>
@@ -619,7 +633,7 @@ function BigStat({ label, value, sub, icon: Icon, accent = false }) {
         <span className="text-xs font-medium uppercase tracking-wider text-valence-muted">{label}</span>
         {Icon && <Icon className={`h-4 w-4 ${accent ? 'text-valence-blue' : 'text-valence-subtle'}`} />}
       </div>
-      <p className="mt-3 text-2xl font-semibold tracking-tight text-white">{value}</p>
+      <p className="mt-3 text-2xl font-semibold tracking-tight text-valence-text">{value}</p>
       {sub && <p className="mt-0.5 text-[11px] text-valence-muted">{sub}</p>}
     </div>
   )
@@ -627,12 +641,12 @@ function BigStat({ label, value, sub, icon: Icon, accent = false }) {
 
 function FilterPill({ label, value, onChange, options }) {
   return (
-    <label className="group relative flex items-center gap-2 rounded-lg border border-valence-border bg-white/[0.03] pl-3 pr-2 py-2 text-xs font-medium text-valence-muted transition focus-within:border-valence-blue focus-within:ring-2 focus-within:ring-valence-blue-ring">
+    <label className="group relative flex items-center gap-2 rounded-lg border border-valence-border bg-valence-surface pl-3 pr-2 py-2 text-xs font-medium text-valence-muted transition focus-within:border-valence-blue focus-within:ring-2 focus-within:ring-valence-blue-ring">
       <FilterIcon className="h-3 w-3" />
       <span className="text-[11px] uppercase tracking-wider">{label}</span>
-      <select value={value} onChange={e => onChange(e.target.value)} className="bg-transparent pr-1 text-sm font-semibold text-white outline-none">
-        <option className="bg-valence-surface text-white" value="All">All</option>
-        {options.map(o => <option key={o} className="bg-valence-surface text-white" value={o}>{o}</option>)}
+      <select value={value} onChange={e => onChange(e.target.value)} className="bg-transparent pr-1 text-sm font-semibold text-valence-text outline-none">
+        <option className="bg-valence-surface text-valence-text" value="All">All</option>
+        {options.map(o => <option key={o} className="bg-valence-surface text-valence-text" value={o}>{o}</option>)}
       </select>
     </label>
   )
@@ -658,12 +672,12 @@ function TableSkeleton() {
       <div className="divide-y divide-valence-border">
         {Array.from({ length: 6 }).map((_, i) => (
           <div key={i} className="flex items-center gap-4 px-5 py-4 animate-pulse">
-            <div className="h-9 w-9 rounded-lg bg-white/[0.05]" />
+            <div className="h-9 w-9 rounded-lg bg-valence-surface" />
             <div className="flex-1 space-y-2">
-              <div className="h-3 w-40 rounded bg-white/[0.06]" />
-              <div className="h-2.5 w-64 rounded bg-white/[0.04]" />
+              <div className="h-3 w-40 rounded bg-valence-surface" />
+              <div className="h-2.5 w-64 rounded bg-valence-surface" />
             </div>
-            <div className="h-5 w-16 rounded-full bg-white/[0.05]" />
+            <div className="h-5 w-16 rounded-full bg-valence-surface" />
           </div>
         ))}
       </div>

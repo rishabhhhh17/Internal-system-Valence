@@ -20,7 +20,7 @@ export default function Drawer({ open, onClose, title, children, footer }) {
       <div className="absolute inset-0 bg-black/60 backdrop-blur-sm animate-fade-in" onClick={onClose} />
       <div className="relative ml-auto flex h-full w-full max-w-[520px] animate-slide-in-right flex-col border-l border-valence-border-strong bg-valence-surface shadow-valence">
         <div className="flex items-start justify-between border-b border-valence-border px-6 py-4">
-          <h2 className="text-base font-semibold tracking-tight text-white">{title}</h2>
+          <h2 className="text-base font-semibold tracking-tight text-valence-text">{title}</h2>
           <button onClick={onClose} className="vl-btn-ghost -mr-2" aria-label="Close">
             <X className="h-4 w-4" />
           </button>

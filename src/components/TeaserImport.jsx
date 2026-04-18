@@ -36,7 +36,7 @@ export default function TeaserImport({ onExtracted }) {
       onDragOver={e => e.preventDefault()}
       onDrop={e => { e.preventDefault(); if (!busy) handle(e.dataTransfer.files?.[0]) }}
       className={`mb-4 flex items-center gap-3 rounded-xl border border-dashed px-4 py-3 transition cursor-pointer ${
-        busy ? 'border-valence-blue/50 bg-valence-blue-soft/30' : 'border-valence-border bg-white/[0.02] hover:border-valence-blue/40'
+        busy ? 'border-valence-blue/50 bg-valence-blue-soft/30' : 'border-valence-border bg-valence-surface hover:border-valence-blue/40'
       }`}
     >
       <input ref={inputRef} type="file" className="hidden" accept=".pdf,.docx,.txt" onChange={e => { const f = e.target.files?.[0]; e.target.value=''; handle(f) }} />
@@ -44,7 +44,7 @@ export default function TeaserImport({ onExtracted }) {
         {busy ? <Loader2 className="h-4 w-4 text-valence-blue animate-spin" /> : <Sparkles className="h-4 w-4 text-valence-blue" />}
       </div>
       <div className="flex-1 min-w-0">
-        <p className="text-sm font-semibold text-white">{busy ? label : 'Drop a teaser to auto-fill this form'}</p>
+        <p className="text-sm font-semibold text-valence-text">{busy ? label : 'Drop a teaser to auto-fill this form'}</p>
         <p className="text-[11px] text-valence-muted">
           {busy ? 'Keep the modal open while AI extracts client name, sector, ticket size, and notes.' : 'PDF, DOCX, TXT · AI reads it, fills in the fields, you review.'}
         </p>

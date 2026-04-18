@@ -41,7 +41,7 @@ export default function StaleDealsCard({ deals }) {
 
       {loading ? (
         <div className="space-y-2">
-          {Array.from({ length: 3 }).map((_, i) => <div key={i} className="h-14 rounded-lg bg-white/[0.04] animate-pulse" />)}
+          {Array.from({ length: 3 }).map((_, i) => <div key={i} className="h-14 rounded-lg bg-valence-surface animate-pulse" />)}
         </div>
       ) : stale.length === 0 ? (
         <p className="text-sm text-valence-muted py-2">Every active mandate has been touched in the last week. Nice.</p>
@@ -49,12 +49,12 @@ export default function StaleDealsCard({ deals }) {
         <ul className="space-y-2">
           {stale.map(d => (
             <li key={d.id}>
-              <Link to={`/deals?open=${d.id}`} className="group flex items-center gap-3 rounded-lg border border-valence-border bg-white/[0.02] px-4 py-3 transition hover:border-valence-border-strong hover:bg-white/[0.04]">
+              <Link to={`/deals?open=${d.id}`} className="group flex items-center gap-3 rounded-lg border border-valence-border bg-valence-surface px-4 py-3 transition hover:border-valence-border-strong hover:bg-valence-surface">
                 <div className="grid h-9 w-9 place-items-center rounded-lg bg-valence-warning/10 ring-1 ring-valence-warning/30 shrink-0">
                   <Briefcase className="h-4 w-4 text-valence-warning" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="truncate text-sm font-semibold text-white">{d.client_name}</p>
+                  <p className="truncate text-sm font-semibold text-valence-text">{d.client_name}</p>
                   <div className="mt-0.5 flex items-center gap-2 text-[11px] text-valence-muted">
                     <span className={`inline-flex rounded-full border px-1.5 py-0 text-[10px] font-semibold ${stageToneClasses(d.stage)}`}>
                       {d.stage}

@@ -51,10 +51,10 @@ export default function GoogleButton() {
     <div className="relative" ref={menuRef}>
       <button
         onClick={() => setOpen(o => !o)}
-        className="group flex items-center gap-2 rounded-full border border-valence-border bg-white/[0.03] p-0.5 pr-3 transition hover:border-valence-border-strong"
+        className="group flex items-center gap-2 rounded-full border border-valence-border bg-valence-surface p-0.5 pr-3 transition hover:border-valence-border-strong"
       >
         <Avatar profile={profile} />
-        <span className="hidden md:inline text-xs font-semibold text-white max-w-[140px] truncate">{profile.name}</span>
+        <span className="hidden md:inline text-xs font-semibold text-valence-text max-w-[140px] truncate">{profile.name}</span>
         {googleConnected
           ? <span className="h-1.5 w-1.5 rounded-full bg-valence-success shadow-[0_0_6px_#34d399]" title="Google connected" />
           : <span className="h-1.5 w-1.5 rounded-full bg-valence-warning" title="Google session expired" />
@@ -66,7 +66,7 @@ export default function GoogleButton() {
           <div className="flex items-center gap-3 border-b border-valence-border px-4 py-3.5">
             <Avatar profile={profile} size="lg" />
             <div className="min-w-0">
-              <p className="truncate text-sm font-semibold text-white">{profile.name}</p>
+              <p className="truncate text-sm font-semibold text-valence-text">{profile.name}</p>
               <p className="truncate text-[11px] text-valence-muted">{profile.email}</p>
             </div>
           </div>
@@ -82,16 +82,16 @@ export default function GoogleButton() {
 
           <div className="border-t border-valence-border px-2 py-2 space-y-1">
             {needsReconnect && (
-              <button onClick={connect} className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm font-semibold text-valence-warning hover:bg-white/[0.04]">
+              <button onClick={connect} className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm font-semibold text-valence-warning hover:bg-valence-surface">
                 <RefreshCw className="h-3.5 w-3.5" /> Reconnect Google
               </button>
             )}
             {!needsReconnect && googleConnected && (
-              <button onClick={connect} className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-valence-muted hover:bg-white/[0.04] hover:text-white">
+              <button onClick={connect} className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-valence-muted hover:bg-valence-surface hover:text-valence-text">
                 <RefreshCw className="h-3.5 w-3.5" /> Refresh Google scopes
               </button>
             )}
-            <button onClick={disconnect} disabled={busy} className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-valence-muted hover:bg-white/[0.04] hover:text-valence-danger">
+            <button onClick={disconnect} disabled={busy} className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-valence-muted hover:bg-valence-surface hover:text-valence-danger">
               <LogOut className="h-3.5 w-3.5" /> Sign out
             </button>
           </div>
@@ -120,7 +120,7 @@ function Avatar({ profile, size = 'md' }) {
   }
   const initials = (profile.name || profile.email || '?').split(' ').map(p => p[0]).slice(0, 2).join('').toUpperCase()
   return (
-    <div className={`${dim} rounded-full bg-gradient-to-br from-valence-blue to-[#1a85ff] grid place-items-center font-semibold text-white ring-1 ring-valence-border-strong`}>
+    <div className={`${dim} rounded-full bg-gradient-to-br from-valence-blue to-[#1a66cc] grid place-items-center font-semibold text-white ring-1 ring-valence-border-strong`}>
       {initials}
     </div>
   )

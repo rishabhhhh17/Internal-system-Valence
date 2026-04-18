@@ -33,25 +33,25 @@ export default function VelocityChart() {
         {bottleneck?.avgDays != null && (
           <div className="rounded-lg border border-valence-warning/30 bg-valence-warning/10 px-3 py-1.5 text-[11px] text-valence-warning">
             <AlertTriangle className="inline h-3 w-3 mr-1 -mt-0.5" />
-            Bottleneck: <b className="text-white">{bottleneck.stage}</b> · {Math.round(bottleneck.avgDays)}d avg
+            Bottleneck: <b className="text-valence-text">{bottleneck.stage}</b> · {Math.round(bottleneck.avgDays)}d avg
           </div>
         )}
       </div>
 
       <div className="mt-4 space-y-2">
         {loading ? Array.from({ length: 8 }).map((_, i) => (
-          <div key={i} className="h-7 rounded bg-white/[0.04] animate-pulse" />
+          <div key={i} className="h-7 rounded bg-valence-surface animate-pulse" />
         )) : rows.map(r => (
           <div key={r.stage} className="flex items-center gap-3">
             <span className={`inline-flex w-28 justify-center rounded-full border px-2 py-1 text-[10px] font-semibold shrink-0 ${stageToneClasses(r.stage)}`}>
               {r.stage}
             </span>
-            <div className="relative flex-1 h-6 rounded-md bg-white/[0.03] overflow-hidden">
+            <div className="relative flex-1 h-6 rounded-md bg-valence-surface overflow-hidden">
               <div
                 className="h-full rounded-md bg-gradient-to-r from-valence-blue/30 to-valence-blue/80 transition-all"
                 style={{ width: r.avgDays ? `${(r.avgDays / maxAvg) * 100}%` : '2%' }}
               />
-              <span className="absolute inset-0 flex items-center justify-end pr-2 text-[11px] font-semibold tabular-nums text-white">
+              <span className="absolute inset-0 flex items-center justify-end pr-2 text-[11px] font-semibold tabular-nums text-valence-text">
                 {r.avgDays != null ? `${Math.round(r.avgDays)}d` : '—'}
               </span>
             </div>

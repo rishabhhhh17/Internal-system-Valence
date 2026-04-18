@@ -67,23 +67,23 @@ export default function Contacts({ dealId, onOpenComposer }) {
       {adding && <AddForm onCancel={() => setAdding(false)} onSubmit={add} />}
 
       {loading ? (
-        <div className="space-y-2">{Array.from({ length: 2 }).map((_, i) => <div key={i} className="h-16 rounded-lg bg-white/[0.03] animate-pulse" />)}</div>
+        <div className="space-y-2">{Array.from({ length: 2 }).map((_, i) => <div key={i} className="h-16 rounded-lg bg-valence-surface animate-pulse" />)}</div>
       ) : contacts.length === 0 && !adding ? (
-        <div className="rounded-lg border border-valence-border bg-white/[0.02] px-5 py-6 text-center">
+        <div className="rounded-lg border border-valence-border bg-valence-surface px-5 py-6 text-center">
           <User2 className="mx-auto h-4 w-4 text-valence-subtle" />
           <p className="mt-2 text-sm text-valence-muted">No counterparties yet. Add founders, investors, or co-advisors.</p>
         </div>
       ) : (
         <ul className="space-y-2">
           {contacts.map(c => (
-            <li key={c.id} className="group rounded-lg border border-valence-border bg-white/[0.02] px-4 py-3 hover:bg-white/[0.04] transition">
+            <li key={c.id} className="group rounded-lg border border-valence-border bg-valence-surface px-4 py-3 hover:bg-valence-surface transition">
               <div className="flex items-start gap-3">
-                <div className="grid h-9 w-9 place-items-center rounded-full bg-gradient-to-br from-valence-blue to-[#1a85ff] text-xs font-semibold text-white ring-1 ring-valence-border-strong shrink-0">
+                <div className="grid h-9 w-9 place-items-center rounded-full bg-gradient-to-br from-valence-blue to-[#1a66cc] text-xs font-semibold text-white ring-1 ring-valence-border-strong shrink-0">
                   {initials(c.name)}
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
-                    <p className="truncate text-sm font-semibold text-white">{c.name}</p>
+                    <p className="truncate text-sm font-semibold text-valence-text">{c.name}</p>
                     {c.role && <span className="vl-chip-blue whitespace-nowrap">{c.role}</span>}
                   </div>
                   <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-valence-muted">
@@ -114,7 +114,7 @@ function AddForm({ onSubmit, onCancel }) {
   const [form, setForm] = useState({ name: '', email: '', phone: '', company: '', role: 'Founder / CEO', notes: '' })
   const set = (k, v) => setForm(s => ({ ...s, [k]: v }))
   return (
-    <form onSubmit={(e) => { e.preventDefault(); if (form.name.trim()) onSubmit(form) }} className="space-y-3 rounded-lg border border-valence-border bg-white/[0.03] p-4">
+    <form onSubmit={(e) => { e.preventDefault(); if (form.name.trim()) onSubmit(form) }} className="space-y-3 rounded-lg border border-valence-border bg-valence-surface p-4">
       <div className="grid grid-cols-2 gap-3">
         <input className="vl-input" value={form.name}    onChange={e => set('name', e.target.value)} placeholder="Full name" required autoFocus />
         <select className="vl-input" value={form.role}   onChange={e => set('role', e.target.value)}>

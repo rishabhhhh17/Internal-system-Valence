@@ -56,7 +56,7 @@ function ToastItem({ toast, onDismiss }) {
           <Icon className="h-4 w-4" />
         </div>
         <div className="min-w-0 flex-1">
-          {toast.title && <p className="text-sm font-semibold text-white">{toast.title}</p>}
+          {toast.title && <p className="text-sm font-semibold text-valence-text">{toast.title}</p>}
           <p className="text-sm leading-snug text-valence-text">{toast.message}</p>
         </div>
         <button onClick={onDismiss} className="vl-btn-ghost -mr-1 -mt-1" aria-label="Dismiss">

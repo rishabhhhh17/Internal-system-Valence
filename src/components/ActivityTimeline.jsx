@@ -61,7 +61,7 @@ export default function ActivityTimeline({ dealId }) {
       </div>
 
       {noteOpen && (
-        <form onSubmit={addNote} className="space-y-2 rounded-lg border border-valence-border bg-white/[0.03] p-3">
+        <form onSubmit={addNote} className="space-y-2 rounded-lg border border-valence-border bg-valence-surface p-3">
           <textarea
             value={note} onChange={e => setNote(e.target.value)}
             className="vl-input min-h-[72px]" placeholder="Log a note — what changed, what was agreed, what's next…"
@@ -75,9 +75,9 @@ export default function ActivityTimeline({ dealId }) {
       )}
 
       {loading ? (
-        <div className="space-y-2">{Array.from({ length: 3 }).map((_, i) => <div key={i} className="h-14 rounded-lg bg-white/[0.03] animate-pulse" />)}</div>
+        <div className="space-y-2">{Array.from({ length: 3 }).map((_, i) => <div key={i} className="h-14 rounded-lg bg-valence-surface animate-pulse" />)}</div>
       ) : items.length === 0 ? (
-        <div className="rounded-lg border border-valence-border bg-white/[0.02] px-5 py-6 text-center">
+        <div className="rounded-lg border border-valence-border bg-valence-surface px-5 py-6 text-center">
           <CircleDot className="mx-auto h-4 w-4 text-valence-subtle" />
           <p className="mt-2 text-sm text-valence-muted">Timeline is empty. Activity appears here automatically as you work.</p>
         </div>
@@ -90,7 +90,7 @@ export default function ActivityTimeline({ dealId }) {
                 <div className="absolute -left-[31px] top-1 grid h-6 w-6 place-items-center rounded-full border border-valence-border bg-valence-surface">
                   <Icon className="h-3 w-3 text-valence-blue" />
                 </div>
-                <div className="rounded-lg border border-valence-border bg-white/[0.02] px-4 py-2.5">
+                <div className="rounded-lg border border-valence-border bg-valence-surface px-4 py-2.5">
                   <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wider text-valence-blue">
                     {ACTIVITY_LABELS[item.kind] || item.kind}
                     <span className="text-valence-subtle font-normal normal-case tracking-normal">· {formatDistanceToNow(new Date(item.created_at), { addSuffix: true })}</span>

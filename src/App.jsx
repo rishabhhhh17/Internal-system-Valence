@@ -1,4 +1,4 @@
-import { Routes, Route, Navigate } from 'react-router-dom'
+import { Routes, Route, Navigate, useLocation } from 'react-router-dom'
 import Layout from './components/Layout.jsx'
 import Overview from './pages/Overview.jsx'
 import Deals from './pages/Deals.jsx'
@@ -6,8 +6,18 @@ import Knowledge from './pages/Knowledge.jsx'
 import Planner from './pages/Planner.jsx'
 import Drive from './pages/Drive.jsx'
 import Team from './pages/Team.jsx'
+import Share from './pages/Share.jsx'
 
 export default function App() {
+  const { pathname } = useLocation()
+  // Public share pages render without the sidebar/topbar chrome
+  if (pathname.startsWith('/share/')) {
+    return (
+      <Routes>
+        <Route path="/share/:code" element={<Share />} />
+      </Routes>
+    )
+  }
   return (
     <Layout>
       <Routes>

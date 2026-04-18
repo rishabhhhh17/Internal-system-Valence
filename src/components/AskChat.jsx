@@ -81,17 +81,15 @@ export default function AskChat() {
     <div className="flex flex-col space-y-5">
       {/* Hero */}
       {!hasAnyConversation && (
-        <section className="relative overflow-hidden rounded-2xl border border-valence-border bg-valence-hero p-6 lg:p-10">
-          <div className="absolute inset-0 bg-valence-grid opacity-40" aria-hidden />
-          <div className="relative">
-            <div className="inline-flex items-center gap-2 rounded-full border border-valence-blue/30 bg-valence-blue-soft px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-valence-blue">
-              <Sparkles className="h-3 w-3" /> Ask ValanceOS
-            </div>
-            <h1 className="mt-3 max-w-2xl text-2xl font-semibold tracking-tight text-white lg:text-3xl">
-              Ask anything. Grounded in everything Valence knows.
+        <section className="relative overflow-hidden rounded-2xl border border-valence-border bg-white vl-circles py-12 px-8 lg:px-12">
+          <div className="absolute inset-0 bg-valence-grid opacity-60" aria-hidden />
+          <div className="relative max-w-2xl">
+            <p className="vl-eyebrow"><Sparkles className="h-3 w-3" /> Ask ValanceOS</p>
+            <h1 className="mt-4 font-display text-display font-semibold text-valence-text">
+              Ask anything. Get answers grounded in your documents.
             </h1>
-            <p className="mt-2 max-w-2xl text-sm text-valence-muted">
-              Type a question in plain English. The answer is pulled from your memos, files, deal notes, and precedent comps — every fact cited back to its source.
+            <p className="mt-4 max-w-xl text-sm leading-relaxed text-valence-muted lg:text-base">
+              Plain-English questions. Answers drawn from memos, files, deal notes, and precedent comps — every fact cited back to the source.
             </p>
             {!isGeminiConfigured && (
               <p className="mt-3 inline-block rounded-md border border-valence-warning/30 bg-valence-warning/10 px-3 py-1.5 text-[11px] text-valence-warning">
@@ -104,7 +102,7 @@ export default function AskChat() {
                   key={s}
                   disabled={streaming || !isGeminiConfigured}
                   onClick={() => ask(s)}
-                  className="group rounded-full border border-valence-border bg-white/[0.03] px-3.5 py-1.5 text-[12px] font-medium text-valence-muted hover:border-valence-blue/40 hover:text-white hover:bg-valence-blue-soft/40 transition disabled:opacity-50"
+                  className="group rounded-full border border-valence-border bg-valence-surface px-3.5 py-1.5 text-[12px] font-medium text-valence-muted hover:border-valence-blue/40 hover:text-valence-text hover:bg-valence-blue-soft/40 transition disabled:opacity-50"
                 >
                   <Sparkles className="inline h-3 w-3 mr-1.5 text-valence-blue" />
                   {s}
@@ -149,7 +147,7 @@ export default function AskChat() {
             placeholder={isGeminiConfigured ? 'Ask anything about Valence deals, memos, files, comps…' : 'Add a Gemini key to unlock Ask'}
             disabled={!isGeminiConfigured || streaming}
             rows={1}
-            className="flex-1 resize-none bg-transparent px-3 py-2.5 text-sm text-white placeholder:text-valence-subtle outline-none max-h-40"
+            className="flex-1 resize-none bg-transparent px-3 py-2.5 text-sm text-valence-text placeholder:text-valence-subtle outline-none max-h-40"
           />
           <button
             type="submit"
@@ -186,8 +184,8 @@ function Message({ message, onOpenSource }) {
         <div className="grid h-8 w-8 place-items-center rounded-full bg-valence-blue-soft ring-1 ring-valence-blue/30 shrink-0 mt-0.5">
           <User2 className="h-4 w-4 text-valence-blue" />
         </div>
-        <div className="flex-1 rounded-2xl rounded-tl-sm border border-valence-border bg-white/[0.04] px-4 py-3">
-          <p className="text-sm leading-relaxed text-white whitespace-pre-wrap">{message.text}</p>
+        <div className="flex-1 rounded-2xl rounded-tl-sm border border-valence-border bg-valence-surface px-4 py-3">
+          <p className="text-sm leading-relaxed text-valence-text whitespace-pre-wrap">{message.text}</p>
         </div>
       </div>
     )
@@ -196,10 +194,10 @@ function Message({ message, onOpenSource }) {
   return (
     <div className="flex items-start gap-3">
       <div className="grid h-8 w-8 place-items-center rounded-full bg-gradient-to-br from-valence-blue to-[#1a85ff] ring-1 ring-valence-border-strong shrink-0 mt-0.5">
-        <Sparkles className="h-4 w-4 text-white" />
+        <Sparkles className="h-4 w-4 text-valence-text" />
       </div>
       <div className="flex-1 space-y-3">
-        <div className={`relative rounded-2xl rounded-tl-sm border px-4 py-3 ${message.error ? 'border-valence-danger/30 bg-valence-danger/10' : 'border-valence-border bg-white/[0.02]'}`}>
+        <div className={`relative rounded-2xl rounded-tl-sm border px-4 py-3 ${message.error ? 'border-valence-danger/30 bg-valence-danger/10' : 'border-valence-border bg-valence-surface'}`}>
           {message.text ? (
             <div className="text-sm leading-relaxed text-valence-text whitespace-pre-wrap">
               {renderWithCitations(message.text, message.sources || [], onOpenSource)}
@@ -238,7 +236,7 @@ function renderWithCitations(text, sources, onOpenSource) {
       <button
         key={i}
         onClick={() => onOpenSource(source)}
-        className="mx-0.5 inline-flex items-center rounded border border-valence-blue/40 bg-valence-blue-soft px-1.5 py-0 text-[10px] font-semibold text-valence-blue align-middle hover:bg-valence-blue/30 hover:text-white transition"
+        className="mx-0.5 inline-flex items-center rounded border border-valence-blue/40 bg-valence-blue-soft px-1.5 py-0 text-[10px] font-semibold text-valence-blue align-middle hover:bg-valence-blue/30 hover:text-valence-text transition"
         title={source ? `${sourceLabel(source.source_type)} · ${source.title}` : 'Unknown source'}
       >
         {m[1]}
@@ -250,7 +248,7 @@ function renderWithCitations(text, sources, onOpenSource) {
 function SourcesList({ sources, onOpenSource }) {
   return (
     <details className="group">
-      <summary className="cursor-pointer list-none inline-flex items-center gap-1.5 text-[11px] font-semibold text-valence-muted hover:text-white">
+      <summary className="cursor-pointer list-none inline-flex items-center gap-1.5 text-[11px] font-semibold text-valence-muted hover:text-valence-text">
         <Bot className="h-3 w-3" /> {sources.length} source{sources.length === 1 ? '' : 's'} · show
       </summary>
       <ul className="mt-2 space-y-1.5">
@@ -260,11 +258,11 @@ function SourcesList({ sources, onOpenSource }) {
             <li key={s.id}>
               <button
                 onClick={() => onOpenSource(s)}
-                className="group/item flex w-full items-start gap-2 rounded-lg border border-valence-border bg-white/[0.02] px-3 py-2 text-left transition hover:border-valence-border-strong hover:bg-white/[0.04]"
+                className="group/item flex w-full items-start gap-2 rounded-lg border border-valence-border bg-valence-surface px-3 py-2 text-left transition hover:border-valence-border-strong hover:bg-valence-surface"
               >
                 <span className="mt-0.5 grid h-5 w-5 shrink-0 place-items-center rounded bg-valence-blue-soft text-[9px] font-bold text-valence-blue">{i + 1}</span>
                 <div className="min-w-0 flex-1">
-                  <p className="truncate text-xs font-semibold text-white">{s.title}</p>
+                  <p className="truncate text-xs font-semibold text-valence-text">{s.title}</p>
                   <p className="mt-0.5 line-clamp-2 text-[11px] text-valence-muted" dangerouslySetInnerHTML={{ __html: cleanSnippet(s.snippet) }} />
                 </div>
                 <span className="inline-flex items-center gap-1 text-[10px] text-valence-subtle">

@@ -29,7 +29,7 @@ export default function SimilarDeals({ deal }) {
             <Sparkles className="h-4 w-4 text-valence-blue" />
           </div>
           <div>
-            <p className="text-sm font-semibold text-white">Pattern-matched past deals</p>
+            <p className="text-sm font-semibold text-valence-text">Pattern-matched past deals</p>
             <p className="mt-0.5 text-[11px] text-valence-muted">
               Ranked by sector, type, side, lead and ticket size. Click to jump to any one for context.
             </p>
@@ -39,10 +39,10 @@ export default function SimilarDeals({ deal }) {
 
       {loading ? (
         <div className="space-y-2">
-          {Array.from({ length: 3 }).map((_, i) => <div key={i} className="h-16 rounded-lg bg-white/[0.03] animate-pulse" />)}
+          {Array.from({ length: 3 }).map((_, i) => <div key={i} className="h-16 rounded-lg bg-valence-surface animate-pulse" />)}
         </div>
       ) : similar.length === 0 ? (
-        <p className="text-sm text-valence-muted rounded-lg border border-valence-border bg-white/[0.02] px-4 py-5 text-center">
+        <p className="text-sm text-valence-muted rounded-lg border border-valence-border bg-valence-surface px-4 py-5 text-center">
           No meaningful matches yet. As the pipeline grows, Valence will surface analogues here.
         </p>
       ) : (
@@ -53,13 +53,13 @@ export default function SimilarDeals({ deal }) {
               <li
                 key={d.id}
                 onClick={() => navigate(`/deals?open=${d.id}`)}
-                className="group cursor-pointer flex items-center gap-3 rounded-lg border border-valence-border bg-white/[0.02] px-4 py-3 transition hover:border-valence-border-strong hover:bg-white/[0.04]"
+                className="group cursor-pointer flex items-center gap-3 rounded-lg border border-valence-border bg-valence-surface px-4 py-3 transition hover:border-valence-border-strong hover:bg-valence-surface"
               >
                 <div className="grid h-9 w-9 place-items-center rounded-lg bg-valence-blue-soft ring-1 ring-valence-blue/20 shrink-0">
                   <Briefcase className="h-4 w-4 text-valence-blue" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="truncate text-sm font-semibold text-white">{d.client_name}</p>
+                  <p className="truncate text-sm font-semibold text-valence-text">{d.client_name}</p>
                   <div className="mt-0.5 flex flex-wrap items-center gap-2 text-[11px] text-valence-muted">
                     <span className={`inline-flex rounded-full border px-1.5 py-0 text-[10px] font-semibold ${stageToneClasses(d.stage)}`}>{d.stage}</span>
                     <span>{d.deal_type}</span>

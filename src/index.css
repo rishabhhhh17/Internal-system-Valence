@@ -4,7 +4,7 @@
 
 @layer base {
   :root {
-    color-scheme: dark;
+    color-scheme: light;
   }
 
   html, body, #root {
@@ -13,66 +13,130 @@
 
   body {
     @apply bg-valence-bg text-valence-text font-sans antialiased;
-    font-feature-settings: 'cv11', 'ss01', 'ss03';
+    font-feature-settings: 'ss01', 'cv11';
     letter-spacing: -0.01em;
   }
 
   ::selection {
-    background: rgba(51, 153, 255, 0.35);
-    color: #ffffff;
+    background: rgba(51, 153, 255, 0.22);
+    color: #0a0f1e;
   }
 
-  /* Scrollbar */
-  ::-webkit-scrollbar { width: 10px; height: 10px; }
-  ::-webkit-scrollbar-track { background: transparent; }
-  ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.08); border-radius: 8px; }
-  ::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.16); }
+  /* Scrollbar — subtle, light */
+  ::-webkit-scrollbar        { width: 10px; height: 10px; }
+  ::-webkit-scrollbar-track  { background: transparent; }
+  ::-webkit-scrollbar-thumb  { background: rgba(10, 15, 30, 0.12); border-radius: 8px; }
+  ::-webkit-scrollbar-thumb:hover { background: rgba(10, 15, 30, 0.22); }
+
+  /* Editorial display on surfaces that opt-in */
+  .font-display { font-family: 'Fraunces', 'Cormorant Garamond', Georgia, serif; }
 }
 
 @layer components {
+  /* ============ SURFACES ============ */
   .vl-card {
-    @apply rounded-xl border border-valence-border bg-white/[0.03] backdrop-blur-sm;
+    @apply rounded-xl border border-valence-border bg-white;
+  }
+  .vl-card-subtle {
+    @apply rounded-xl border border-valence-border bg-valence-surface;
   }
   .vl-card-hover {
-    @apply transition-all duration-200 hover:border-valence-border-strong hover:bg-white/[0.05];
+    @apply transition-all duration-200 hover:border-valence-border-strong hover:shadow-valence;
   }
+
+  /* ============ INPUTS ============ */
   .vl-input {
-    @apply w-full rounded-lg border border-valence-border bg-white/[0.03] px-3.5 py-2.5 text-sm text-valence-text placeholder:text-valence-subtle outline-none transition focus:border-valence-blue focus:ring-2 focus:ring-valence-blue-ring;
+    @apply w-full rounded-lg border border-valence-border bg-white px-3.5 py-2.5 text-sm text-valence-text placeholder:text-valence-subtle outline-none transition focus:border-valence-blue focus:ring-2 focus:ring-valence-blue-ring;
   }
   .vl-label {
-    @apply block text-xs font-medium uppercase tracking-wider text-valence-muted mb-1.5;
+    @apply block text-[10px] font-semibold uppercase tracking-[0.14em] text-valence-muted mb-1.5;
   }
+
+  /* ============ BUTTONS ============ */
   .vl-btn-primary {
+    @apply inline-flex items-center justify-center gap-2 rounded-lg bg-valence-ink px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-valence-ink-soft focus:outline-none focus:ring-2 focus:ring-valence-blue-ring disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+  .vl-btn-accent {
     @apply inline-flex items-center justify-center gap-2 rounded-lg bg-valence-blue px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-valence-blue-hover focus:outline-none focus:ring-2 focus:ring-valence-blue-ring disabled:opacity-50 disabled:cursor-not-allowed;
   }
   .vl-btn-secondary {
-    @apply inline-flex items-center justify-center gap-2 rounded-lg border border-valence-border bg-white/[0.03] px-4 py-2.5 text-sm font-semibold text-valence-text transition hover:border-valence-border-strong hover:bg-white/[0.06];
+    @apply inline-flex items-center justify-center gap-2 rounded-lg border border-valence-border bg-white px-4 py-2.5 text-sm font-semibold text-valence-text transition hover:border-valence-ink/30 hover:bg-valence-surface;
   }
   .vl-btn-ghost {
-    @apply inline-flex items-center justify-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-valence-muted transition hover:bg-white/[0.04] hover:text-valence-text;
+    @apply inline-flex items-center justify-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-valence-muted transition hover:bg-valence-surface hover:text-valence-text;
   }
+
+  /* ============ CHIPS ============ */
   .vl-chip {
-    @apply inline-flex items-center gap-1.5 rounded-full border border-valence-border bg-white/[0.04] px-2.5 py-1 text-xs font-medium text-valence-muted;
+    @apply inline-flex items-center gap-1.5 rounded-full border border-valence-border bg-white px-2.5 py-1 text-xs font-medium text-valence-muted;
   }
   .vl-chip-blue {
-    @apply inline-flex items-center gap-1.5 rounded-full border border-valence-blue/30 bg-valence-blue-soft px-2.5 py-1 text-xs font-semibold text-valence-blue;
+    @apply inline-flex items-center gap-1.5 rounded-full border border-valence-blue/30 bg-valence-blue-soft px-2.5 py-1 text-xs font-semibold text-valence-blue-deep;
   }
+  .vl-chip-ink {
+    @apply inline-flex items-center gap-1.5 rounded-full border border-valence-ink bg-valence-ink px-2.5 py-1 text-xs font-semibold text-white;
+  }
+
+  /* ============ DIVIDERS / MARKS ============ */
   .vl-divider {
-    @apply h-px w-full bg-gradient-to-r from-transparent via-valence-border to-transparent;
+    @apply h-px w-full bg-valence-border;
+  }
+  .vl-eyebrow {
+    @apply inline-flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-valence-blue;
+  }
+  .vl-eyebrow-ink {
+    @apply inline-flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-valence-muted;
   }
   .vl-section-title {
     @apply text-xl font-semibold tracking-tight text-valence-text;
   }
+
+  /* ============ KBD ============ */
   .vl-kbd {
-    @apply rounded border border-valence-border bg-white/[0.04] px-1.5 py-0.5 text-[10px] font-medium text-valence-muted;
+    @apply rounded border border-valence-border bg-white px-1.5 py-0.5 text-[10px] font-medium text-valence-muted;
+  }
+
+  /* ============ INK PANELS (dark contrast sections like site footer) ============ */
+  .vl-ink {
+    @apply bg-valence-ink text-white;
+  }
+  .vl-ink-card {
+    @apply rounded-xl bg-valence-ink text-white;
+  }
+
+  /* ============ DOT DIVIDER ============ */
+  .vl-dot::before {
+    content: '·';
+    @apply mx-2 text-valence-subtle;
   }
 }
 
-/* Global subtle grid background overlay */
+/* Subtle grid on hero surfaces — barely visible, editorial */
 .bg-valence-grid {
   background-image:
-    linear-gradient(rgba(255,255,255,0.025) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(255,255,255,0.025) 1px, transparent 1px);
+    linear-gradient(rgba(10,15,30,0.025) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(10,15,30,0.025) 1px, transparent 1px);
   background-size: 40px 40px;
   background-position: -1px -1px;
+}
+
+/* Decorative blue circular motif used in hero backgrounds */
+.vl-circles::before,
+.vl-circles::after {
+  content: '';
+  position: absolute;
+  pointer-events: none;
+  border-radius: 9999px;
+  background: radial-gradient(circle, #3399FF 0%, rgba(51,153,255,0) 70%);
+  opacity: 0.6;
+  filter: blur(18px);
+}
+.vl-circles::before {
+  width: 520px; height: 520px;
+  right: -180px; top: -140px;
+}
+.vl-circles::after {
+  width: 380px; height: 380px;
+  left: -120px; bottom: -180px;
+  opacity: 0.35;
 }

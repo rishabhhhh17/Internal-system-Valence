@@ -80,7 +80,7 @@ export default function ShortcutsOverlay() {
               <Keyboard className="h-4 w-4 text-valence-blue" />
             </div>
             <div>
-              <h2 className="text-base font-semibold text-white">Keyboard shortcuts</h2>
+              <h2 className="text-base font-semibold text-valence-text">Keyboard shortcuts</h2>
               <p className="text-[11px] text-valence-muted">Power-user paths. Press <span className="vl-kbd">?</span> anywhere.</p>
             </div>
           </div>

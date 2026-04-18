@@ -95,7 +95,7 @@ export default function DealBrief({ deal }) {
             <Sparkles className="h-4 w-4 text-valence-blue" />
           </div>
           <div className="flex-1">
-            <p className="text-sm font-semibold text-white">AI one-page brief</p>
+            <p className="text-sm font-semibold text-valence-text">AI one-page brief</p>
             <p className="mt-0.5 text-[11px] text-valence-muted">
               Pulls deal data, counterparties, files, and timeline to generate a crisp internal one-pager.
             </p>

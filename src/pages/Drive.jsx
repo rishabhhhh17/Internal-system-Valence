@@ -56,7 +56,7 @@ export default function Drive() {
             </div>
             <div>
               <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-valence-blue">Google Drive</p>
-              <h1 className="mt-2 max-w-2xl text-2xl font-semibold tracking-tight text-white lg:text-3xl">
+              <h1 className="mt-2 max-w-2xl text-2xl font-semibold tracking-tight text-valence-text lg:text-3xl">
                 Your Drive, inside ValanceOS.
               </h1>
               <p className="mt-2 max-w-xl text-sm text-valence-muted">
@@ -78,12 +78,12 @@ export default function Drive() {
 
       <div className="vl-card p-4">
         <div className="flex flex-wrap items-center gap-3">
-          <div className="flex flex-1 min-w-[260px] items-center gap-2 rounded-lg border border-valence-border bg-white/[0.03] px-3 py-2 focus-within:border-valence-blue focus-within:ring-2 focus-within:ring-valence-blue-ring transition">
+          <div className="flex flex-1 min-w-[260px] items-center gap-2 rounded-lg border border-valence-border bg-valence-surface px-3 py-2 focus-within:border-valence-blue focus-within:ring-2 focus-within:ring-valence-blue-ring transition">
             <Search className="h-4 w-4 text-valence-blue" />
             <input
               value={q} onChange={e => setQ(e.target.value)}
               placeholder="Search your Drive — file name, doc, sheet, PDF…"
-              className="flex-1 bg-transparent text-sm text-white placeholder:text-valence-subtle outline-none"
+              className="flex-1 bg-transparent text-sm text-valence-text placeholder:text-valence-subtle outline-none"
               autoFocus
             />
           </div>
@@ -98,8 +98,8 @@ export default function Drive() {
         <div className="flex items-start gap-3 rounded-xl border border-valence-warning/30 bg-valence-warning/5 px-4 py-3">
           <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-valence-warning" />
           <div className="text-sm flex-1">
-            <p className="font-semibold text-white">{error}</p>
-            <button onClick={() => signInWithGoogle().catch(() => {})} className="mt-1 text-[11px] font-semibold text-valence-blue hover:text-white">
+            <p className="font-semibold text-valence-text">{error}</p>
+            <button onClick={() => signInWithGoogle().catch(() => {})} className="mt-1 text-[11px] font-semibold text-valence-blue hover:text-valence-text">
               Reconnect Google →
             </button>
           </div>
@@ -107,7 +107,7 @@ export default function Drive() {
       ) : loading ? (
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {Array.from({ length: 6 }).map((_, i) => (
-            <div key={i} className="h-20 rounded-xl bg-white/[0.03] animate-pulse" />
+            <div key={i} className="h-20 rounded-xl bg-valence-surface animate-pulse" />
           ))}
         </div>
       ) : files.length === 0 ? (
@@ -135,11 +135,11 @@ function DriveCard({ file }) {
           <Icon className="h-4 w-4 text-valence-blue" />
         </div>
         <div className="min-w-0 flex-1">
-          <p className="truncate text-sm font-semibold text-white group-hover:text-valence-blue transition" title={file.name}>
+          <p className="truncate text-sm font-semibold text-valence-text group-hover:text-valence-blue transition" title={file.name}>
             {file.name}
           </p>
           <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] text-valence-muted">
-            <span className="inline-flex items-center rounded-md border border-valence-border bg-white/[0.03] px-1.5 py-0.5 font-semibold text-valence-blue">
+            <span className="inline-flex items-center rounded-md border border-valence-border bg-valence-surface px-1.5 py-0.5 font-semibold text-valence-blue">
               {typeLabel}
             </span>
             {file.size && <span>{formatBytes(Number(file.size))}</span>}

@@ -171,7 +171,7 @@ export default function CommandPalette() {
             ref={inputRef}
             value={q} onChange={e => setQ(e.target.value)}
             placeholder="Search deals, docs, meetings, counterparties…"
-            className="flex-1 bg-transparent text-sm text-white placeholder:text-valence-subtle outline-none"
+            className="flex-1 bg-transparent text-sm text-valence-text placeholder:text-valence-subtle outline-none"
           />
           <span className="vl-kbd">ESC</span>
         </div>
@@ -179,7 +179,7 @@ export default function CommandPalette() {
         <div className="max-h-[60vh] overflow-y-auto py-2">
           {results.length === 0 ? (
             <div className="px-4 py-8 text-center text-sm text-valence-muted">
-              Nothing found for <span className="text-white">"{q}"</span>.
+              Nothing found for <span className="text-valence-text">"{q}"</span>.
             </div>
           ) : grouped.map(([group, items]) => (
             <div key={group} className="px-2 pb-2">
@@ -193,13 +193,13 @@ export default function CommandPalette() {
                     key={`${group}-${r.title}-${myIdx}`}
                     onClick={() => pick(r)}
                     onMouseEnter={() => setIdx(myIdx)}
-                    className={`flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left transition ${active ? 'bg-valence-blue-soft ring-1 ring-valence-blue/30' : 'hover:bg-white/[0.04]'}`}
+                    className={`flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left transition ${active ? 'bg-valence-blue-soft ring-1 ring-valence-blue/30' : 'hover:bg-valence-surface'}`}
                   >
-                    <div className={`grid h-8 w-8 place-items-center rounded-md ${active ? 'bg-valence-blue/20 text-valence-blue' : 'bg-white/[0.04] text-valence-muted'}`}>
+                    <div className={`grid h-8 w-8 place-items-center rounded-md ${active ? 'bg-valence-blue/20 text-valence-blue' : 'bg-valence-surface text-valence-muted'}`}>
                       <Icon className="h-4 w-4" />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="truncate text-sm font-semibold text-white">{r.title}</p>
+                      <p className="truncate text-sm font-semibold text-valence-text">{r.title}</p>
                       {r.sub && <p className="truncate text-[11px] text-valence-muted">{r.sub}</p>}
                     </div>
                     {active && <CornerDownLeft className="h-3.5 w-3.5 text-valence-blue" />}

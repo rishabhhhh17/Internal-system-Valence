@@ -6,7 +6,7 @@ export default function EmptyState({ title, description, icon: Icon = Sparkles, 
       <div className="mb-4 grid h-12 w-12 place-items-center rounded-full bg-valence-blue-soft ring-1 ring-valence-blue/30">
         <Icon className="h-5 w-5 text-valence-blue" />
       </div>
-      <h3 className="text-base font-semibold text-white">{title}</h3>
+      <h3 className="text-base font-semibold text-valence-text">{title}</h3>
       {description && (
         <p className="mt-1 max-w-sm text-sm text-valence-muted">{description}</p>
       )}
