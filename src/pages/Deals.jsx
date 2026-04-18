@@ -4,7 +4,7 @@ import { format, parseISO } from 'date-fns'
 import {
   Plus, Search, Briefcase, FileText, ExternalLink, Edit3, Trash2,
   Filter as FilterIcon, Circle, Table as TableIcon, LayoutGrid, TrendingUp,
-  Mail, Users as UsersIcon, FolderOpen, Activity as ActivityIcon, Sparkles, Info
+  Mail, Users as UsersIcon, FolderOpen, Activity as ActivityIcon, Sparkles, Info, Download
 } from 'lucide-react'
 import { supabase, isSupabaseConfigured, subscribeTable } from '../lib/supabase.js'
 import { logActivity } from '../lib/activity.js'
@@ -230,6 +230,9 @@ export default function Deals() {
             </button>
           </div>
 
+          <button onClick={() => exportCSV(filtered)} className="vl-btn-secondary" title="Download filtered pipeline as CSV">
+            <Download className="h-4 w-4" /> Export
+          </button>
           <button onClick={() => setModal('new')} className="vl-btn-primary">
             <Plus className="h-4 w-4" /> New deal
           </button>
@@ -664,6 +667,27 @@ function NdaBadge({ status }) {
 function fmt(n) {
   if (n == null) return '—'
   return Number(n).toLocaleString()
+}
+
+function exportCSV(deals) {
+  if (!deals?.length) return
+  const header = ['Client','Type','Side','Stage','Sector','Ticket (USDm)','Retainer (USD)','Success %','NDA','Lead','Target close','Notes']
+  const rows = deals.map(d => [
+    d.client_name || '', d.deal_type || '', d.side || '', d.stage || '',
+    d.sector || '', d.ticket_size_usd_m ?? '', d.fee_retainer_usd ?? '',
+    d.fee_success_pct ?? '', d.nda_status || '', d.lead_owner || '',
+    d.target_close || '', (d.notes || '').replace(/\s+/g, ' ')
+  ])
+  const csv = [header, ...rows].map(r =>
+    r.map(f => `"${String(f).replace(/"/g, '""')}"`).join(',')
+  ).join('\n')
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = `valence_pipeline_${new Date().toISOString().slice(0,10)}.csv`
+  a.click()
+  URL.revokeObjectURL(url)
 }
 
 function TableSkeleton() {
