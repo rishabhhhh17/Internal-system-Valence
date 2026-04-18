@@ -81,15 +81,15 @@ export default function AskChat() {
     <div className="flex flex-col space-y-5">
       {/* Hero */}
       {!hasAnyConversation && (
-        <section className="relative overflow-hidden rounded-2xl border border-valence-border bg-white vl-circles py-12 px-8 lg:px-12">
-          <div className="absolute inset-0 bg-valence-grid opacity-60" aria-hidden />
-          <div className="relative max-w-2xl">
+        <section className="relative overflow-hidden rounded-2xl border border-valence-border bg-white vl-circles py-16 px-8 lg:py-24 lg:px-14">
+          <div className="absolute inset-0 bg-valence-grid opacity-50" aria-hidden />
+          <div className="relative max-w-2xl z-10">
             <p className="vl-eyebrow"><Sparkles className="h-3 w-3" /> Ask ValanceOS</p>
-            <h1 className="mt-4 font-display text-display font-semibold text-valence-text">
-              Ask anything. Get answers grounded in your documents.
+            <h1 className="mt-5 font-display text-display font-bold text-valence-text">
+              Ask anything. Answers grounded in your documents.
             </h1>
-            <p className="mt-4 max-w-xl text-sm leading-relaxed text-valence-muted lg:text-base">
-              Plain-English questions. Answers drawn from memos, files, deal notes, and precedent comps — every fact cited back to the source.
+            <p className="mt-5 max-w-xl text-sm leading-relaxed text-valence-muted lg:text-base">
+              Plain-English questions. Responses drawn from memos, files, deal notes, and precedent comps — every fact cited to source.
             </p>
             {!isGeminiConfigured && (
               <p className="mt-3 inline-block rounded-md border border-valence-warning/30 bg-valence-warning/10 px-3 py-1.5 text-[11px] text-valence-warning">

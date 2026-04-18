@@ -130,20 +130,20 @@ function SearchPortal({ onSelectTab }) {
   return (
     <div className="space-y-5">
       {/* Hero search */}
-      <section className="relative overflow-hidden rounded-2xl border border-valence-border bg-white vl-circles py-12 px-8 lg:px-12">
-        <div className="absolute inset-0 bg-valence-grid opacity-60" aria-hidden />
-        <div className="relative max-w-3xl">
+      <section className="relative overflow-hidden rounded-2xl border border-valence-border bg-white vl-circles py-16 px-8 lg:py-24 lg:px-14">
+        <div className="absolute inset-0 bg-valence-grid opacity-50" aria-hidden />
+        <div className="relative max-w-3xl z-10">
           <p className="vl-eyebrow">Firm-wide search</p>
-          <h1 className="mt-4 font-display text-display font-semibold text-valence-text">
+          <h1 className="mt-5 font-display text-display font-bold text-valence-text">
             Everything Valence knows, one search away.
           </h1>
-          <p className="mt-4 max-w-2xl text-sm leading-relaxed text-valence-muted lg:text-base">
+          <p className="mt-5 max-w-2xl text-sm leading-relaxed text-valence-muted lg:text-base">
             Memos, uploaded files, deal notes, precedent comps — indexed across the firm. {embeddingsEnabled()
-              ? 'AI reads your intent, not just your keywords.'
+              ? 'The AI reads your intent, not just your keywords.'
               : 'Add a Gemini key to unlock semantic search across meaning, not just text.'}
           </p>
 
-          <div className="mt-6 flex items-center gap-3 rounded-xl border border-valence-border bg-white px-4 py-3 focus-within:border-valence-blue focus-within:ring-2 focus-within:ring-valence-blue-ring transition shadow-valence">
+          <div className="mt-8 flex items-center gap-3 rounded-xl border border-valence-border bg-white px-4 py-3 focus-within:border-valence-blue focus-within:ring-2 focus-within:ring-valence-blue-ring transition shadow-valence">
             <Search className="h-4 w-4 text-valence-blue" />
             <input
               value={q} onChange={e => setQ(e.target.value)} autoFocus

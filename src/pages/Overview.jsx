@@ -61,18 +61,18 @@ export default function Overview() {
     <div className="space-y-12">
       <ConfigBanner />
 
-      {/* Editorial hero — mirrors the Valence website feel */}
-      <section className="relative overflow-hidden rounded-2xl border border-valence-border bg-white vl-circles py-14 px-8 lg:px-14 lg:py-20">
-        <div className="absolute inset-0 bg-valence-grid opacity-60" aria-hidden />
-        <div className="relative max-w-3xl">
+      {/* Editorial hero — mirrors valencegrowth.com rhythm */}
+      <section className="relative overflow-hidden rounded-2xl border border-valence-border bg-white vl-circles py-20 px-8 lg:px-16 lg:py-28">
+        <div className="absolute inset-0 bg-valence-grid opacity-50" aria-hidden />
+        <div className="relative max-w-3xl z-10">
           <p className="vl-eyebrow">Live workspace · {today}</p>
-          <h1 className="mt-5 font-display text-hero font-semibold text-valence-text">
-            A unified operating system for a boutique advisory firm.
+          <h1 className="mt-6 font-display text-hero font-bold text-valence-text">
+            One operating layer for a boutique advisory firm.
           </h1>
-          <p className="mt-5 max-w-2xl text-base leading-relaxed text-valence-muted lg:text-lg">
-            Pipeline, knowledge and the day ahead — brought together for the Valence core team across Mumbai and London.
+          <p className="mt-6 max-w-2xl text-base leading-relaxed text-valence-muted lg:text-lg">
+            Pipeline, knowledge, and the day ahead — unified for the Valence core team across Mumbai and London.
           </p>
-          <div className="mt-8 flex flex-wrap items-center gap-3">
+          <div className="mt-10 flex flex-wrap items-center gap-3">
             <Link to="/deals" className="vl-btn-primary">
               Open Deal Logger <ArrowUpRight className="h-4 w-4" />
             </Link>
@@ -97,10 +97,10 @@ export default function Overview() {
       {/* Funnel + Quick actions */}
       <section className="grid gap-8 lg:grid-cols-3">
         <div className="lg:col-span-2 vl-card p-8">
-          <div className="mb-6 flex items-end justify-between">
+          <div className="mb-8 flex items-end justify-between">
             <div>
               <p className="vl-eyebrow-ink">The funnel</p>
-              <h2 className="mt-2 font-display text-2xl font-semibold tracking-tight text-valence-text">
+              <h2 className="mt-2 font-display text-feature font-bold text-valence-text">
                 Every mandate, plainly placed.
               </h2>
             </div>
@@ -160,13 +160,13 @@ export default function Overview() {
 
 function StatCell({ label, value, sub, icon: Icon }) {
   return (
-    <div className="bg-white p-6">
+    <div className="bg-white p-7">
       <div className="flex items-center justify-between">
         <span className="vl-eyebrow-ink">{label}</span>
         <Icon className="h-4 w-4 text-valence-subtle" />
       </div>
-      <p className="mt-4 font-display text-3xl font-semibold tracking-tight text-valence-text">{value}</p>
-      {sub && <p className="mt-1 text-[11px] text-valence-muted">{sub}</p>}
+      <p className="mt-6 font-display text-4xl font-bold tracking-[-0.04em] text-valence-text tabular-nums">{value}</p>
+      {sub && <p className="mt-1.5 text-[11px] text-valence-muted">{sub}</p>}
     </div>
   )
 }

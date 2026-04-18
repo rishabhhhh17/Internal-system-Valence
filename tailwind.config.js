@@ -36,15 +36,16 @@ export default {
         }
       },
       fontFamily: {
-        // Body + UI: Inter (editorial cut)
+        // Body + UI + display: Inter throughout (tight-tracked for headlines)
         sans:    ['Inter', 'ui-sans-serif', 'system-ui', '-apple-system', 'sans-serif'],
-        // Display: Fraunces for hero headlines — classical, editorial, boutique
-        display: ['Fraunces', 'Cormorant Garamond', 'ui-serif', 'Georgia', 'serif']
+        display: ['Inter', 'ui-sans-serif', 'system-ui', '-apple-system', 'sans-serif']
       },
       fontSize: {
-        // Editorial scale — optimized for the Valence boutique feel
-        'hero':   ['clamp(2.5rem, 5vw + 0.5rem, 4.75rem)', { lineHeight: '1.04', letterSpacing: '-0.025em' }],
-        'display':['clamp(2rem, 3.5vw + 0.25rem, 3.25rem)',  { lineHeight: '1.08', letterSpacing: '-0.02em' }]
+        // Mirrors the valencegrowth.com rhythm — tight tracking, snug line-height,
+        // heavy weight expected.
+        'hero':    ['clamp(2.75rem, 5.5vw + 0.5rem, 5.5rem)',  { lineHeight: '1.02', letterSpacing: '-0.035em' }],
+        'display': ['clamp(2.25rem, 3.5vw + 0.25rem, 3.75rem)',{ lineHeight: '1.04', letterSpacing: '-0.03em'  }],
+        'feature': ['clamp(1.75rem, 2.2vw + 0.25rem, 2.5rem)', { lineHeight: '1.1',  letterSpacing: '-0.02em'  }]
       },
       boxShadow: {
         'valence':      '0 1px 2px rgba(10, 15, 30, 0.04), 0 8px 24px rgba(10, 15, 30, 0.06)',
