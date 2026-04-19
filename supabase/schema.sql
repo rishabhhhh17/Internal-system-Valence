@@ -414,6 +414,32 @@ drop trigger if exists index_deal_file_trg on public.deal_files;
 create trigger index_deal_file_trg after insert or update on public.deal_files
   for each row execute function public.index_deal_file();
 
+-- ============ DELETE-CASCADE for knowledge_chunks ============
+-- When a source row is deleted, purge its chunks. The insert/update triggers
+-- above only handle upsert; deletes otherwise leave orphan chunks.
+create or replace function public.unindex_source() returns trigger as $$
+declare st text;
+begin
+  st := case TG_TABLE_NAME
+    when 'documents'  then 'document'
+    when 'comps'      then 'comp'
+    when 'deals'      then 'deal'
+    when 'deal_files' then 'deal_file'
+  end;
+  delete from public.knowledge_chunks where source_type = st and source_id = old.id;
+  return old;
+end $$ language plpgsql;
+
+drop trigger if exists unindex_document_trg  on public.documents;
+drop trigger if exists unindex_comp_trg      on public.comps;
+drop trigger if exists unindex_deal_trg      on public.deals;
+drop trigger if exists unindex_deal_file_trg on public.deal_files;
+
+create trigger unindex_document_trg  after delete on public.documents  for each row execute function public.unindex_source();
+create trigger unindex_comp_trg      after delete on public.comps      for each row execute function public.unindex_source();
+create trigger unindex_deal_trg      after delete on public.deals      for each row execute function public.unindex_source();
+create trigger unindex_deal_file_trg after delete on public.deal_files for each row execute function public.unindex_source();
+
 -- ============ BACKFILL existing rows into knowledge_chunks ============
 insert into public.knowledge_chunks (source_type, source_id, title, content, chunk_index, metadata)
 select 'document', d.id, d.title, d.content, 0, jsonb_build_object('sector', d.sector, 'tags', d.tags)
