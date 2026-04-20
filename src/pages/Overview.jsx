@@ -83,7 +83,7 @@ export default function Overview() {
               Open Deal Logger <ArrowUpRight className="h-4 w-4" />
             </Link>
             <Link to="/knowledge" className="vl-btn-secondary">
-              <Sparkles className="h-4 w-4 text-valence-blue" /> Ask the firm
+              <Sparkles className="h-4 w-4 text-valence-blue" /> Ask ValenceOS
             </Link>
             <span className="inline-flex items-center gap-2 pl-2 text-xs text-valence-muted">
               <span className="vl-kbd">⌘K</span> to search · <span className="vl-kbd">?</span> for shortcuts
@@ -143,10 +143,10 @@ export default function Overview() {
         </div>
 
         <div className="space-y-3">
-          <QuickAction to="/knowledge" icon={Sparkles}     title="Ask the firm"       body="Plain-English questions, answers grounded in your memos, files, and deals." accent />
+          <QuickAction to="/knowledge" icon={Sparkles}     title="Ask ValenceOS"      body="Plain-English questions, answers grounded in firm-shared memos, files, and deals." accent />
           <QuickAction to="/deals"     icon={Briefcase}    title="Deal Logger"        body="Kanban, data rooms, AI briefs, and a similarity engine." />
           <QuickAction to="/planner"   icon={CalendarDays} title="Day Planner"        body="Real calendar, free slots, one-tap meeting proposals." />
-          <QuickAction to="/drive"     icon={FolderOpen}   title="Drive"              body="Your Google Drive, at your fingertips." />
+          <QuickAction to="/drive"     icon={FolderOpen}   title="Your Drive"         body="Private to you. Your personal Google Drive at your fingertips." />
           <QuickAction to="/team"      icon={Users}        title="Team"               body="Coverage, at a glance." />
         </div>
       </section>

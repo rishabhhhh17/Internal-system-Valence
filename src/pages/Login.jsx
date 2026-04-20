@@ -27,7 +27,7 @@ export default function Login() {
                 The operating layer for the firm.
               </h1>
               <p className="mt-6 max-w-lg text-base leading-relaxed text-valence-muted lg:text-lg">
-                Sign in with your Valence Google account to unlock the pipeline, the knowledge base, and the planner.
+                Sign in with your Valence Google account to unlock the pipeline, the firm's knowledge, and the planner.
               </p>
               <div className="mt-10 flex flex-wrap items-center gap-3">
                 <button
@@ -54,7 +54,7 @@ export default function Login() {
             <div className="vl-card p-8 space-y-5">
               <p className="vl-eyebrow-ink">What you unlock</p>
               <Item title="Deal Logger" body="Every mandate across Origination → Closed, with stage-gate checklists and deal-team economics." />
-              <Item title="Knowledge Base" body="Ask the firm in plain English. Memos, files, and comps indexed behind one search." />
+              <Item title="Knowledge" body="Ask plain-English questions. Memos, files, and comps indexed and cited." />
               <Item title="Day Planner" body="Your real Google Calendar, free-slot meeting proposals, and drafted follow-ups." />
               <Item title="Audit-grade" body="Every action stamped with your identity. RLS scopes every query to authenticated users only." />
             </div>

@@ -7,9 +7,9 @@ import CurrencyToggle from './CurrencyToggle.jsx'
 const titles = {
   '/':          { title: 'Overview',        sub: 'The firm at a glance — pipeline, activity, the day ahead.' },
   '/deals':     { title: 'Deal Logger',     sub: 'Every live mandate, tracked with institutional rigour.' },
-  '/knowledge': { title: 'Knowledge',       sub: 'The shared mind of the firm — searchable, citable, instant.' },
+  '/knowledge': { title: 'Knowledge',       sub: 'Firm-shared memos, files, comps — searchable, citable, instant.' },
   '/planner':   { title: 'Day Planner',     sub: 'Walk into your day prepared. Propose times in a tap.' },
-  '/drive':     { title: 'Drive',           sub: 'Your Google Drive, surfaced here.' },
+  '/drive':     { title: 'Drive',           sub: 'Your personal Google Drive. Private to you.' },
   '/team':      { title: 'Team',            sub: 'Coverage across sectors and geographies.' }
 }
 

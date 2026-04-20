@@ -9,12 +9,12 @@ import { supabase, isSupabaseConfigured } from '../lib/supabase.js'
 import { searchKnowledge } from '../lib/knowledge.js'
 
 const QUICK_NAV = [
-  { type: 'nav', title: 'Overview',       sub: 'Dashboard',        to: '/',          icon: LayoutDashboard },
-  { type: 'nav', title: 'Deal Logger',    sub: 'Pipeline & files', to: '/deals',     icon: Briefcase },
-  { type: 'nav', title: 'Knowledge Base', sub: 'Docs, files, comps', to: '/knowledge', icon: BookOpen },
-  { type: 'nav', title: 'Day Planner',    sub: 'Meetings & tasks', to: '/planner',   icon: CalendarDays },
-  { type: 'nav', title: 'Drive',          sub: 'Your Google Drive', to: '/drive',    icon: FolderOpen },
-  { type: 'nav', title: 'Team Directory', sub: 'The Valence team', to: '/team',      icon: Users }
+  { type: 'nav', title: 'Overview',       sub: 'Dashboard',              to: '/',          icon: LayoutDashboard },
+  { type: 'nav', title: 'Deal Logger',    sub: 'Pipeline & files',       to: '/deals',     icon: Briefcase },
+  { type: 'nav', title: 'Knowledge',      sub: 'Firm-shared memos, files, comps', to: '/knowledge', icon: BookOpen },
+  { type: 'nav', title: 'Day Planner',    sub: 'Meetings & tasks',       to: '/planner',   icon: CalendarDays },
+  { type: 'nav', title: 'Drive',          sub: 'Your personal Drive',    to: '/drive',     icon: FolderOpen },
+  { type: 'nav', title: 'Team',           sub: 'The Valence team',       to: '/team',      icon: Users }
 ]
 
 export default function CommandPalette() {

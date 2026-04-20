@@ -51,12 +51,13 @@ export default function Drive() {
         <section className="relative overflow-hidden rounded-2xl border border-valence-border bg-white vl-circles py-16 px-8 lg:py-24 lg:px-14">
           <div className="absolute inset-0 bg-valence-grid opacity-50" aria-hidden />
           <div className="relative max-w-2xl z-10">
-            <p className="vl-eyebrow">Google Drive</p>
+            <p className="vl-eyebrow">Your personal Drive</p>
             <h1 className="mt-5 font-display text-display font-bold text-valence-text">
               Your Drive, inside ValenceOS.
             </h1>
             <p className="mt-5 max-w-xl text-sm leading-relaxed text-valence-muted lg:text-base">
-              Connect your Google account once — search and open every file without leaving the app.
+              Private to you — the files in your Google Drive, searchable from here.
+              Firm-shared files live in <a href="/knowledge" className="font-semibold text-valence-blue hover:text-valence-blue-hover">Knowledge</a>.
             </p>
             <button onClick={() => signInWithGoogle().catch(e => toast.error(e.message))} className="mt-8 vl-btn-accent">
               <Sparkles className="h-4 w-4" /> Connect Google
@@ -70,6 +71,14 @@ export default function Drive() {
   return (
     <div className="space-y-6">
       <ConfigBanner />
+
+      {/* Page framing — distinguish from firm-shared Knowledge */}
+      <div className="rounded-xl border border-valence-border bg-white px-5 py-4">
+        <p className="vl-eyebrow-ink">Your personal Drive</p>
+        <p className="mt-1.5 text-sm text-valence-muted">
+          Private to you. Shared with nobody. Firm-wide documents live in <a href="/knowledge" className="font-semibold text-valence-blue hover:text-valence-blue-hover">Knowledge</a>.
+        </p>
+      </div>
 
       <div className="vl-card p-4">
         <div className="flex flex-wrap items-center gap-3">
