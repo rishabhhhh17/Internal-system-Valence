@@ -1,5 +1,5 @@
 import { NavLink } from 'react-router-dom'
-import { LayoutDashboard, Briefcase, BookOpen, CalendarDays, Users } from 'lucide-react'
+import { LayoutDashboard, Briefcase, BookOpen, CalendarDays, Users, BarChart3 } from 'lucide-react'
 import Logo from './Logo.jsx'
 
 const nav = [
@@ -7,6 +7,7 @@ const nav = [
   { to: '/deals',     label: 'Deal Logger',     icon: Briefcase },
   { to: '/knowledge', label: 'Knowledge',       icon: BookOpen },
   { to: '/planner',   label: 'Day Planner',     icon: CalendarDays },
+  { to: '/analytics', label: 'Analytics',       icon: BarChart3 },
   { to: '/team',      label: 'Team',            icon: Users }
 ]
 

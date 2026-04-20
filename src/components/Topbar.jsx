@@ -11,6 +11,7 @@ const titles = {
   '/knowledge/shared':  { title: 'Knowledge',       sub: 'Firm-shared memos, files, comps — searchable, citable, instant.' },
   '/knowledge/private': { title: 'Private',         sub: 'Your personal Google Drive. Private to you.' },
   '/planner':           { title: 'Day Planner',     sub: 'Walk into your day prepared. Propose times in a tap.' },
+  '/analytics':         { title: 'Analytics',       sub: 'Pipeline, conversion, fees, velocity — the firm in numbers.' },
   '/team':              { title: 'Team',            sub: 'Coverage across sectors and geographies.' }
 }
 
