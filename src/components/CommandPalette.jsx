@@ -9,12 +9,13 @@ import { supabase, isSupabaseConfigured } from '../lib/supabase.js'
 import { searchKnowledge } from '../lib/knowledge.js'
 
 const QUICK_NAV = [
-  { type: 'nav', title: 'Overview',       sub: 'Dashboard',              to: '/',          icon: LayoutDashboard },
-  { type: 'nav', title: 'Deal Logger',    sub: 'Pipeline & files',       to: '/deals',     icon: Briefcase },
-  { type: 'nav', title: 'Knowledge',      sub: 'Firm-shared memos, files, comps', to: '/knowledge', icon: BookOpen },
-  { type: 'nav', title: 'Day Planner',    sub: 'Meetings & tasks',       to: '/planner',   icon: CalendarDays },
-  { type: 'nav', title: 'Drive',          sub: 'Your personal Drive',    to: '/drive',     icon: FolderOpen },
-  { type: 'nav', title: 'Team',           sub: 'The Valence team',       to: '/team',      icon: Users }
+  { type: 'nav', title: 'Overview',       sub: 'Dashboard',                          to: '/',                  icon: LayoutDashboard },
+  { type: 'nav', title: 'Deal Logger',    sub: 'Pipeline & files',                   to: '/deals',             icon: Briefcase },
+  { type: 'nav', title: 'Knowledge',      sub: 'Firm-shared or private',             to: '/knowledge',         icon: BookOpen },
+  { type: 'nav', title: 'Firm Knowledge', sub: 'Memos, files, comps',                to: '/knowledge/shared',  icon: BookOpen },
+  { type: 'nav', title: 'Private',        sub: 'Your personal Drive',                to: '/knowledge/private', icon: FolderOpen },
+  { type: 'nav', title: 'Day Planner',    sub: 'Meetings & tasks',                   to: '/planner',           icon: CalendarDays },
+  { type: 'nav', title: 'Team',           sub: 'The Valence team',                   to: '/team',              icon: Users }
 ]
 
 export default function CommandPalette() {
@@ -97,7 +98,7 @@ export default function CommandPalette() {
     }
     for (const doc of data.docs) {
       if (match(doc.title, needle) || match(doc.sector, needle) || (doc.tags || []).some(t => match(t, needle)))
-        out.push({ type: 'doc', title: doc.title, sub: doc.sector || 'Document', to: `/knowledge?open=${doc.id}`, icon: BookOpen, group: 'Knowledge' })
+        out.push({ type: 'doc', title: doc.title, sub: doc.sector || 'Document', to: `/knowledge/shared?open=${doc.id}`, icon: BookOpen, group: 'Knowledge' })
     }
     for (const m of data.meetings) {
       if (match(m.title, needle) || match(m.attendee_name, needle))
@@ -113,7 +114,7 @@ export default function CommandPalette() {
     }
     for (const f of data.files) {
       if (match(f.name, needle) || match(f.sector, needle) || (f.tags || []).some(t => match(t, needle)))
-        out.push({ type: 'file', title: f.name, sub: f.sector || 'File', to: `/knowledge`, icon: FileIcon, group: 'Files' })
+        out.push({ type: 'file', title: f.name, sub: f.sector || 'File', to: `/knowledge/shared`, icon: FileIcon, group: 'Files' })
     }
     // Knowledge Base full-content hits (dedupe against what we already added)
     const haveIds = new Set(out.map(o => `${o.type}:${o.title}`))
@@ -125,9 +126,9 @@ export default function CommandPalette() {
         if (!haveIds.has('deal:' + h.title))
           out.push({ type: 'deal', title: h.title, sub: 'Deal note match', to: `/deals?open=${h.source_id}`, icon: Briefcase, group: 'In content' })
       } else if (h.source_type === 'file') {
-        out.push({ type: 'file', title: h.title, sub: 'File content match', to: `/knowledge`, icon: FileIcon, group: 'In content' })
+        out.push({ type: 'file', title: h.title, sub: 'File content match', to: `/knowledge/shared`, icon: FileIcon, group: 'In content' })
       } else if (h.source_type === 'comp') {
-        out.push({ type: 'comp', title: h.title, sub: 'Precedent comp', to: `/knowledge`, icon: BookOpen, group: 'In content' })
+        out.push({ type: 'comp', title: h.title, sub: 'Precedent comp', to: `/knowledge/shared`, icon: BookOpen, group: 'In content' })
       }
     }
     return out.slice(0, 50)
