@@ -72,11 +72,11 @@ export async function loadShareByCode(code) {
     return { ...share, _expired: true }
   }
 
-  // Fetch deal summary (non-sensitive fields only)
-  const { data: deal } = await supabase
-    .from('deals')
-    .select('id, client_name, deal_type, stage, sector, side, notes')
-    .eq('id', share.deal_id).maybeSingle()
+  // Fetch deal summary via a security-definer RPC that only exposes the
+  // seven non-sensitive columns needed to render the share page. Direct
+  // reads against `deals` are blocked by RLS for anon viewers.
+  const { data: dealRows } = await supabase.rpc('get_shared_deal', { p_share_code: code })
+  const deal = (dealRows && dealRows[0]) || null
 
   // Fetch files — either the allow-list or all files for the deal
   let filesQ = supabase.from('deal_files').select('*').eq('deal_id', share.deal_id).order('created_at', { ascending: false })

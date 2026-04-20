@@ -593,6 +593,37 @@ $$ language sql stable;
 
 grant execute on function public.search_knowledge(text, vector, int, text[]) to anon, authenticated;
 
+-- ============ PUBLIC SHARE RPC ============
+-- Returns only the 7 non-sensitive deal columns needed by the /share/:code
+-- page. Runs as security definer so it bypasses RLS on `deals` — the
+-- sensitive columns (fee_*, ticket_size_usd_m, financials, cim_draft,
+-- created_by, etc.) are never exposed.
+create or replace function public.get_shared_deal(p_share_code text)
+returns table (
+  id          uuid,
+  client_name text,
+  deal_type   text,
+  stage       text,
+  sector      text,
+  side        text,
+  notes       text
+)
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select d.id, d.client_name, d.deal_type, d.stage, d.sector, d.side, d.notes
+  from public.deals d
+  join public.deal_shares s on s.deal_id = d.id
+  where s.share_code = p_share_code
+    and s.revoked = false
+    and (s.expires_at is null or s.expires_at > now())
+  limit 1;
+$$;
+
+grant execute on function public.get_shared_deal(text) to anon, authenticated;
+
 -- ============ STORAGE ============
 -- After running this SQL, create a public bucket called "deal-files" in
 -- Supabase Studio → Storage → New bucket. A public bucket is sufficient on
