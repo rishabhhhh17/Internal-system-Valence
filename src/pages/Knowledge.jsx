@@ -49,10 +49,15 @@ export default function Knowledge() {
 
       {/* Page framing — tell the user what this page IS and what it isn't */}
       <div className="rounded-xl border border-valence-border bg-white px-5 py-4">
-        <p className="vl-eyebrow-ink">Firm-shared knowledge</p>
-        <p className="mt-1.5 text-sm text-valence-muted">
-          Everything the team shares with the firm lives here. Your personal files live in <a href="/drive" className="font-semibold text-valence-blue hover:text-valence-blue-hover">Drive</a>.
-        </p>
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <p className="vl-eyebrow-ink">Firm-shared knowledge</p>
+            <p className="mt-1.5 text-sm text-valence-muted">
+              Everything the team shares with the firm lives here. Your personal files live in <a href="/knowledge/private" className="font-semibold text-valence-blue hover:text-valence-blue-hover">Private</a>.
+            </p>
+          </div>
+          <a href="/knowledge" className="shrink-0 text-xs font-semibold text-valence-muted hover:text-valence-text">← Knowledge</a>
+        </div>
       </div>
 
       <div className="flex items-center gap-1 rounded-lg border border-valence-border bg-valence-surface p-1 w-fit overflow-x-auto">

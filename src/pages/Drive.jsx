@@ -57,7 +57,7 @@ export default function Drive() {
             </h1>
             <p className="mt-5 max-w-xl text-sm leading-relaxed text-valence-muted lg:text-base">
               Private to you — the files in your Google Drive, searchable from here.
-              Firm-shared files live in <a href="/knowledge" className="font-semibold text-valence-blue hover:text-valence-blue-hover">Knowledge</a>.
+              Firm-shared files live in <a href="/knowledge/shared" className="font-semibold text-valence-blue hover:text-valence-blue-hover">Knowledge</a>.
             </p>
             <button onClick={() => signInWithGoogle().catch(e => toast.error(e.message))} className="mt-8 vl-btn-accent">
               <Sparkles className="h-4 w-4" /> Connect Google
@@ -74,10 +74,15 @@ export default function Drive() {
 
       {/* Page framing — distinguish from firm-shared Knowledge */}
       <div className="rounded-xl border border-valence-border bg-white px-5 py-4">
-        <p className="vl-eyebrow-ink">Your personal Drive</p>
-        <p className="mt-1.5 text-sm text-valence-muted">
-          Private to you. Shared with nobody. Firm-wide documents live in <a href="/knowledge" className="font-semibold text-valence-blue hover:text-valence-blue-hover">Knowledge</a>.
-        </p>
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <p className="vl-eyebrow-ink">Private — your Drive</p>
+            <p className="mt-1.5 text-sm text-valence-muted">
+              Private to you. Shared with nobody. Firm-wide documents live in <a href="/knowledge/shared" className="font-semibold text-valence-blue hover:text-valence-blue-hover">Knowledge</a>.
+            </p>
+          </div>
+          <a href="/knowledge" className="shrink-0 text-xs font-semibold text-valence-muted hover:text-valence-text">← Knowledge</a>
+        </div>
       </div>
 
       <div className="vl-card p-4">

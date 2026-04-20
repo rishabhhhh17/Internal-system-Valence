@@ -27,7 +27,7 @@ export default function Footer() {
 
           <FooterCol title="Team" items={[
             { label: 'Directory', to: '/team' },
-            { label: 'Drive',     to: '/drive' }
+            { label: 'Private',   to: '/knowledge/private' }
           ]} />
 
           <div>

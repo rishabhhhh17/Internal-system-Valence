@@ -1,5 +1,5 @@
 import { NavLink } from 'react-router-dom'
-import { LayoutDashboard, Briefcase, BookOpen, CalendarDays, Users, FolderOpen } from 'lucide-react'
+import { LayoutDashboard, Briefcase, BookOpen, CalendarDays, Users } from 'lucide-react'
 import Logo from './Logo.jsx'
 
 const nav = [
@@ -7,13 +7,12 @@ const nav = [
   { to: '/deals',     label: 'Deal Logger',     icon: Briefcase },
   { to: '/knowledge', label: 'Knowledge',       icon: BookOpen },
   { to: '/planner',   label: 'Day Planner',     icon: CalendarDays },
-  { to: '/drive',     label: 'Drive',           icon: FolderOpen },
   { to: '/team',      label: 'Team',            icon: Users }
 ]
 
 export default function Sidebar() {
   return (
-    <aside className="hidden lg:flex lg:w-64 shrink-0 flex-col border-r border-valence-border bg-white">
+    <aside className="hidden lg:flex lg:sticky lg:top-0 lg:h-screen lg:w-64 shrink-0 flex-col border-r border-valence-border bg-white">
       <div className="flex h-16 items-center px-5 border-b border-valence-border">
         <Logo />
       </div>

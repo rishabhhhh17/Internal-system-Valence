@@ -11,7 +11,7 @@ const GROUPS = [
       ['G then D', 'Go to Deals'],
       ['G then K', 'Go to Knowledge'],
       ['G then P', 'Go to Planner'],
-      ['G then V', 'Go to Drive'],
+      ['G then V', 'Go to Private (your Drive)'],
       ['G then T', 'Go to Team'],
       ['G then O', 'Go to Overview']
     ]
@@ -55,7 +55,7 @@ export default function ShortcutsOverlay() {
       } else if (window._valenceLastG && Date.now() - window._valenceLastG < 1200) {
         const tag = (e.target?.tagName || '').toLowerCase()
         if (tag === 'input' || tag === 'textarea' || tag === 'select') return
-        const map = { d: '/deals', k: '/knowledge', p: '/planner', v: '/drive', t: '/team', o: '/' }
+        const map = { d: '/deals', k: '/knowledge', p: '/planner', v: '/knowledge/private', t: '/team', o: '/' }
         const path = map[e.key.toLowerCase()]
         if (path) {
           window._valenceLastG = 0

@@ -3,6 +3,7 @@ import Layout from './components/Layout.jsx'
 import Overview from './pages/Overview.jsx'
 import Deals from './pages/Deals.jsx'
 import Knowledge from './pages/Knowledge.jsx'
+import KnowledgeLanding from './pages/KnowledgeLanding.jsx'
 import Planner from './pages/Planner.jsx'
 import Drive from './pages/Drive.jsx'
 import Team from './pages/Team.jsx'
@@ -36,9 +37,11 @@ export default function App() {
       <Routes>
         <Route path="/" element={<Overview />} />
         <Route path="/deals" element={<Deals />} />
-        <Route path="/knowledge" element={<Knowledge />} />
+        <Route path="/knowledge" element={<KnowledgeLanding />} />
+        <Route path="/knowledge/shared" element={<Knowledge />} />
+        <Route path="/knowledge/private" element={<Drive />} />
+        <Route path="/drive" element={<Navigate to="/knowledge/private" replace />} />
         <Route path="/planner" element={<Planner />} />
-        <Route path="/drive" element={<Drive />} />
         <Route path="/team" element={<Team />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
