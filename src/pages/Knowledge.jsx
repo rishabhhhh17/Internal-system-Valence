@@ -36,17 +36,35 @@ export default function Knowledge() {
     if (t === 'ask') next.delete('tab'); else next.set('tab', t)
     setParams(next, { replace: true })
   }
+  const tabMeta = {
+    ask:    { label: 'Ask',    body: 'Ask plain-English questions. Answers cite the firm\'s memos, files, deals, and comps.' },
+    search: { label: 'Search', body: 'One search across every memo, file, deal note, comp and deal file indexed by the firm.' },
+    memos:  { label: 'Memos',  body: 'Short written notes shared with the firm — sector theses, frameworks, playbooks.' },
+    files:  { label: 'Files',  body: 'Uploaded documents shared with the whole firm (PDFs, decks, research).' },
+    comps:  { label: 'Comps',  body: 'Precedent transactions — targets, acquirers, multiples. Used for benchmarking.' }
+  }
   return (
     <div className="space-y-6">
       <ConfigBanner />
 
+      {/* Page framing — tell the user what this page IS and what it isn't */}
+      <div className="rounded-xl border border-valence-border bg-white px-5 py-4">
+        <p className="vl-eyebrow-ink">Firm-shared knowledge</p>
+        <p className="mt-1.5 text-sm text-valence-muted">
+          Everything the team shares with the firm lives here. Your personal files live in <a href="/drive" className="font-semibold text-valence-blue hover:text-valence-blue-hover">Drive</a>.
+        </p>
+      </div>
+
       <div className="flex items-center gap-1 rounded-lg border border-valence-border bg-valence-surface p-1 w-fit overflow-x-auto">
-        <TabButton active={tab === 'ask'}    onClick={() => setTab('ask')}    icon={Bot}>Ask AI</TabButton>
+        <TabButton active={tab === 'ask'}    onClick={() => setTab('ask')}    icon={Bot}>Ask</TabButton>
         <TabButton active={tab === 'search'} onClick={() => setTab('search')} icon={Sparkles}>Search</TabButton>
         <TabButton active={tab === 'memos'}  onClick={() => setTab('memos')}  icon={BookOpen}>Memos</TabButton>
         <TabButton active={tab === 'files'}  onClick={() => setTab('files')}  icon={FileIcon}>Files</TabButton>
         <TabButton active={tab === 'comps'}  onClick={() => setTab('comps')}  icon={TableIcon}>Comps</TabButton>
       </div>
+
+      {/* Sub-section helper: one clear sentence about this view */}
+      <p className="text-xs text-valence-muted -mt-2">{tabMeta[tab]?.body}</p>
 
       {tab === 'ask'    && <AskChat />}
       {tab === 'search' && <SearchPortal onSelectTab={setTab} />}

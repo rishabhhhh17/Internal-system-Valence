@@ -4,7 +4,7 @@ import { LayoutDashboard, Briefcase, BookOpen, CalendarDays, Users, Search } fro
 const items = [
   { to: '/',          label: 'Home',      icon: LayoutDashboard },
   { to: '/deals',     label: 'Deals',     icon: Briefcase },
-  { to: '/knowledge', label: 'Know',      icon: BookOpen },
+  { to: '/knowledge', label: 'Ask',       icon: BookOpen },
   { to: '/planner',   label: 'Day',       icon: CalendarDays },
   { to: '/team',      label: 'Team',      icon: Users }
 ]
