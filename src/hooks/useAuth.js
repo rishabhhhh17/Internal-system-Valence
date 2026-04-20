@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback } from 'react'
 import { supabase, isSupabaseConfigured } from '../lib/supabase.js'
+import { setUserContext, clearUserContext } from '../lib/sentry.js'
 
 // Returns the current Supabase session and profile derived from a Google sign-in.
 export function useAuth() {
@@ -14,6 +15,12 @@ export function useAuth() {
     })
     const { data: sub } = supabase.auth.onAuthStateChange((_event, s) => {
       if (active) setSession(s)
+      if (s?.user) {
+        const m = s.user.user_metadata || {}
+        setUserContext({ email: s.user.email, name: m.full_name || m.name || s.user.email })
+      } else {
+        clearUserContext()
+      }
     })
     return () => { active = false; sub.subscription.unsubscribe() }
   }, [])
