@@ -339,6 +339,266 @@ export function avgTicket(deals) {
   return active.reduce((s, d) => s + Number(d.ticket_size_usd_m || 0), 0) / active.length
 }
 
+// ─── IB-grade analytics helpers ──────────────────────────────────────────
+
+// Days a deal has been in its current stage. Uses last stage_change activity
+// if available, otherwise updated_at, otherwise created_at.
+export function stageAgingList(deals, activities = []) {
+  // Map each deal to its latest stage_change timestamp.
+  const lastChange = new Map()
+  for (const a of activities) {
+    if (a.kind !== 'stage_change' || !a.deal_id) continue
+    const prev = lastChange.get(a.deal_id)
+    const t = new Date(a.created_at)
+    if (!prev || t > prev) lastChange.set(a.deal_id, t)
+  }
+  const now = new Date()
+  return deals
+    .filter(d => !stageMeta(d.stage).terminal)
+    .map(d => {
+      const since = lastChange.get(d.id) || new Date(d.updated_at || d.created_at || now)
+      const days = Math.max(0, differenceInDays(now, since))
+      return { ...d, _stageDays: days }
+    })
+    .sort((a, b) => b._stageDays - a._stageDays)
+}
+
+// Bucket deals by ticket size. Default IB buckets in USD millions.
+export function dealSizeHistogram(deals, buckets = [
+  { label: '< $50M',    min: 0,   max: 50 },
+  { label: '$50–150M',  min: 50,  max: 150 },
+  { label: '$150–500M', min: 150, max: 500 },
+  { label: '$500M+',    min: 500, max: Infinity }
+]) {
+  const out = buckets.map(b => ({ ...b, count: 0, valueUsdM: 0 }))
+  for (const d of deals) {
+    const v = Number(d.ticket_size_usd_m)
+    if (!v) continue
+    const b = out.find(x => v >= x.min && v < x.max)
+    if (b) { b.count += 1; b.valueUsdM += v }
+  }
+  return out
+}
+
+// Sector × Stage concentration matrix. Rows = sectors, Cols = active stages.
+export function sectorStageMatrix(deals) {
+  const sectors = [...new Set(deals.map(d => d.sector || 'Other'))]
+  const stages = ACTIVE_STAGES.map(s => s.id)
+  const matrix = sectors.map(sector => ({
+    sector,
+    cells: stages.map(stage => ({
+      stage,
+      count: deals.filter(d => (d.sector || 'Other') === sector && d.stage === stage).length
+    })),
+    total: deals.filter(d => (d.sector || 'Other') === sector).length
+  })).sort((a, b) => b.total - a.total)
+  return { sectors: matrix, stages }
+}
+
+// Fee composition — retainer vs success share of total weighted fees.
+export function feeComposition(deals) {
+  let retainer = 0, success = 0
+  for (const d of deals) {
+    const p = STAGE_PROBABILITY[d.stage] ?? 0
+    if (p === 0) continue
+    const retainerUsd = Number(d.fee_retainer_usd) || 0
+    const successUsd  = ((Number(d.ticket_size_usd_m) || 0) * 1_000_000) * ((Number(d.fee_success_pct) || 0) / 100)
+    retainer += retainerUsd * p
+    success  += successUsd * p
+  }
+  const total = retainer + success
+  return {
+    retainer, success, total,
+    retainerShare: total ? retainer / total : 0,
+    successShare:  total ? success / total : 0
+  }
+}
+
+// Blended fee yield: weighted fees as a % of weighted transaction value.
+export function blendedFeeYield(deals) {
+  let weightedFee = 0, weightedValue = 0
+  for (const d of deals) {
+    const p = STAGE_PROBABILITY[d.stage] ?? 0
+    if (p === 0) continue
+    weightedFee   += expectedFee(d) * p
+    weightedValue += ((Number(d.ticket_size_usd_m) || 0) * 1_000_000) * p
+  }
+  return weightedValue ? weightedFee / weightedValue : null
+}
+
+// Client concentration — top N clients ranked by weighted fee contribution.
+// Returns an array plus a herfindahl-lite concentration index (0..1).
+export function clientConcentration(deals, { top = 5 } = {}) {
+  const byClient = new Map()
+  for (const d of deals) {
+    const k = d.client_name || 'Unnamed'
+    const p = STAGE_PROBABILITY[d.stage] ?? 0
+    if (p === 0) continue
+    const w = expectedFee(d) * p
+    const existing = byClient.get(k) || { client: k, weightedFee: 0, deals: 0 }
+    existing.weightedFee += w
+    existing.deals += 1
+    byClient.set(k, existing)
+  }
+  const all = [...byClient.values()].sort((a, b) => b.weightedFee - a.weightedFee)
+  const total = all.reduce((s, x) => s + x.weightedFee, 0)
+  const withShare = all.map(x => ({ ...x, share: total ? x.weightedFee / total : 0 }))
+  const topN = withShare.slice(0, top)
+  // Simple concentration: sum of squared shares (HHI / 10000 normalized to 0..1)
+  const hhi = withShare.reduce((s, x) => s + x.share * x.share, 0)
+  return { all: withShare, top: topN, total, hhi }
+}
+
+// Productivity per banker — count + weighted fees + win rate.
+export function bankerProductivity(deals) {
+  const byOwner = new Map()
+  for (const d of deals) {
+    const k = d.lead_owner || 'Unassigned'
+    const p = STAGE_PROBABILITY[d.stage] ?? 0
+    const w = expectedFee(d) * p
+    const existing = byOwner.get(k) || { owner: k, total: 0, active: 0, closed: 0, lost: 0, weightedFee: 0 }
+    existing.total += 1
+    if (!stageMeta(d.stage).terminal) existing.active += 1
+    if (d.stage === 'Closed') existing.closed += 1
+    if (d.stage === 'Lost')   existing.lost += 1
+    existing.weightedFee += w
+    byOwner.set(k, existing)
+  }
+  return [...byOwner.values()]
+    .map(x => ({ ...x, winRate: (x.closed + x.lost) ? x.closed / (x.closed + x.lost) : null }))
+    .sort((a, b) => b.weightedFee - a.weightedFee)
+}
+
+// Cumulative mandates over N months — used for the "book building" curve.
+export function bookBuildingCurve(deals, { months = 12, now = new Date() } = {}) {
+  const points = []
+  for (let i = months - 1; i >= 0; i--) {
+    const d = new Date(now)
+    d.setDate(1)
+    d.setMonth(d.getMonth() - i)
+    points.push({ label: d.toLocaleDateString('en', { month: 'short' }), date: d, cumulative: 0, added: 0 })
+  }
+  let cum = 0
+  // Pre-sort deals by created_at
+  const sorted = [...deals]
+    .filter(d => d.created_at)
+    .sort((a, b) => new Date(a.created_at) - new Date(b.created_at))
+  const startOf = points[0].date
+  // Add deals that existed before the window as baseline
+  for (const d of sorted) {
+    if (new Date(d.created_at) < startOf) cum += 1
+  }
+  for (let i = 0; i < points.length; i++) {
+    const p = points[i]
+    const next = points[i + 1]?.date || new Date(now.getTime() + 86400_000)
+    const added = sorted.filter(d => {
+      const t = new Date(d.created_at)
+      return t >= p.date && t < next
+    }).length
+    cum += added
+    p.added = added
+    p.cumulative = cum
+  }
+  // Fallback: if no dates at all, synthesise a realistic ramp
+  const totalAdded = points.reduce((s, p) => s + p.added, 0)
+  let illustrative = false
+  if (totalAdded === 0 && deals.length) {
+    illustrative = true
+    const perMonth = Math.max(1, Math.round(deals.length / months))
+    let c = Math.max(0, deals.length - perMonth * months)
+    for (let i = 0; i < points.length; i++) {
+      const jitter = Math.round(Math.sin(i * 1.7) * 1)
+      const added = Math.max(0, perMonth + jitter)
+      c += added
+      points[i].added = added
+      points[i].cumulative = c
+    }
+  }
+  return { points, illustrative }
+}
+
+// Origination source mix. Reads `origination_source` if present; otherwise
+// returns null so the UI can hide the section or mark it illustrative.
+export function originationMix(deals) {
+  const buckets = new Map()
+  let anyReal = false
+  for (const d of deals) {
+    const k = d.origination_source
+    if (!k) continue
+    anyReal = true
+    const p = STAGE_PROBABILITY[d.stage] ?? 0
+    const existing = buckets.get(k) || { source: k, count: 0, weightedFee: 0 }
+    existing.count += 1
+    existing.weightedFee += expectedFee(d) * p
+    buckets.set(k, existing)
+  }
+  if (!anyReal) {
+    // Plausible default mix for a boutique advisory — flagged illustrative.
+    return {
+      illustrative: true,
+      items: [
+        { source: 'Existing client', count: Math.max(1, Math.round(deals.length * 0.35)), weightedFee: 0 },
+        { source: 'Referral',        count: Math.max(1, Math.round(deals.length * 0.25)), weightedFee: 0 },
+        { source: 'Outbound',        count: Math.max(1, Math.round(deals.length * 0.20)), weightedFee: 0 },
+        { source: 'Inbound / RFP',   count: Math.max(0, Math.round(deals.length * 0.10)), weightedFee: 0 },
+        { source: 'Sponsor network', count: Math.max(0, Math.round(deals.length * 0.10)), weightedFee: 0 }
+      ]
+    }
+  }
+  const items = [...buckets.values()].sort((a, b) => b.count - a.count)
+  return { illustrative: false, items }
+}
+
+// Side (buy/sell) split for mandates where `side` is set.
+export function sideMix(deals) {
+  let sell = 0, buy = 0, unknown = 0
+  for (const d of deals) {
+    if (d.side === 'Sell') sell += 1
+    else if (d.side === 'Buy') buy += 1
+    else unknown += 1
+  }
+  return { sell, buy, unknown }
+}
+
+// Data hygiene / risk flags — issues that hurt the dashboard's trustworthiness.
+// Returns a list of { severity, message, deal_id? } for display.
+export function riskFlags(deals) {
+  const flags = []
+  for (const d of deals) {
+    if (!d.lead_owner)
+      flags.push({ severity: 'warn',  message: `${d.client_name || 'Deal'} — no lead owner assigned`, deal_id: d.id })
+    if (!d.sector)
+      flags.push({ severity: 'info',  message: `${d.client_name || 'Deal'} — sector not tagged`, deal_id: d.id })
+    if (!stageMeta(d.stage).terminal && !d.ticket_size_usd_m)
+      flags.push({ severity: 'warn',  message: `${d.client_name || 'Deal'} — ticket size missing`, deal_id: d.id })
+    if (!stageMeta(d.stage).terminal && !d.fee_success_pct && !d.fee_retainer_usd)
+      flags.push({ severity: 'high',  message: `${d.client_name || 'Deal'} — fee structure missing`, deal_id: d.id })
+    if (d.stage === 'Closing' && !d.expected_close_date)
+      flags.push({ severity: 'high',  message: `${d.client_name || 'Deal'} — Closing with no expected close date`, deal_id: d.id })
+    if (['Mandate','Preparation','Marketing','Diligence'].includes(d.stage) && d.nda_status === 'Pending')
+      flags.push({ severity: 'info',  message: `${d.client_name || 'Deal'} — NDA still pending past Mandate`, deal_id: d.id })
+  }
+  return flags
+}
+
+// Scope deals by a time window. Kind: 'QTD', 'YTD', 'LTM', 'ALL'.
+export function scopeDeals(deals, kind = 'ALL', { now = new Date() } = {}) {
+  if (kind === 'ALL') return deals
+  const start = new Date(now)
+  if (kind === 'QTD') {
+    start.setMonth(Math.floor(now.getMonth() / 3) * 3, 1)
+    start.setHours(0, 0, 0, 0)
+  } else if (kind === 'YTD') {
+    start.setMonth(0, 1); start.setHours(0, 0, 0, 0)
+  } else if (kind === 'LTM') {
+    start.setFullYear(now.getFullYear() - 1)
+  }
+  return deals.filter(d => {
+    const t = d.created_at ? new Date(d.created_at) : null
+    return !t || t >= start
+  })
+}
+
 // Similar past deals via in-memory vector cosine similarity against a target
 // chunk's embedding. If no embedding, falls back to sector + type heuristic.
 export function similarDealsHeuristic(target, candidates, { limit = 4 } = {}) {
