@@ -15,7 +15,7 @@ const titles = {
 
 export default function Topbar() {
   const { pathname } = useLocation()
-  const meta = titles[pathname] || { title: 'ValanceOS', sub: '' }
+  const meta = titles[pathname] || { title: 'ValenceOS', sub: '' }
 
   return (
     <header className="sticky top-0 z-30 flex h-16 items-center gap-4 border-b border-valence-border bg-white/80 px-5 backdrop-blur lg:px-8">

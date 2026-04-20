@@ -13,6 +13,7 @@ import ConfigBanner from '../components/ConfigBanner.jsx'
 import VelocityChart from '../components/VelocityChart.jsx'
 import StaleDealsCard from '../components/StaleDealsCard.jsx'
 import ExpertsWidget from '../components/ExpertsWidget.jsx'
+import MorningBriefing from '../components/MorningBriefing.jsx'
 
 const demoDeals = [
   { client_name: 'Nimbus Health',    deal_type: 'M&A',   stage: 'Diligence',   nda_status: 'Signed',  sector: 'Healthcare',     ticket_size_usd_m: 180, fee_success_pct: 1.75, fee_retainer_usd: 50000 },
@@ -62,6 +63,9 @@ export default function Overview() {
   return (
     <div className="space-y-12">
       <ConfigBanner />
+
+      {/* Chief-of-staff briefing: greeting + day summary + meetings + tasks + free slots */}
+      <MorningBriefing />
 
       {/* Editorial hero — mirrors valencegrowth.com rhythm */}
       <section className="relative overflow-hidden rounded-2xl border border-valence-border bg-white vl-circles py-20 px-8 lg:px-16 lg:py-28">

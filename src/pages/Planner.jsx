@@ -278,7 +278,7 @@ export default function Planner() {
             <div>
               <h2 className="vl-section-title">Free in your day</h2>
               <p className="text-xs text-valence-muted mt-0.5">
-                Tap a slot to propose it to a counterparty — ValanceOS drafts the message and sends it from your Gmail.
+                Tap a slot to propose it to a counterparty — ValenceOS drafts the message and sends it from your Gmail.
               </p>
             </div>
             <button onClick={loadGoogleEvents} disabled={gLoading} className="vl-btn-ghost" aria-label="Refresh">
@@ -314,7 +314,7 @@ export default function Planner() {
           <div className="text-sm flex-1">
             <p className="font-semibold text-valence-text">Connect your Google account</p>
             <p className="mt-0.5 text-[11px] text-valence-muted leading-relaxed">
-              See your real calendar, find free slots, and send meeting proposals directly from your Gmail — all from ValanceOS.
+              See your real calendar, find free slots, and send meeting proposals directly from your Gmail — all from ValenceOS.
             </p>
           </div>
           <button onClick={() => signInWithGoogle().catch(e => toast.error(e.message))} className="vl-btn-primary shrink-0">
@@ -348,7 +348,7 @@ export default function Planner() {
               <EmptyInline
                 icon={CalendarDays}
                 title="No meetings today"
-                body="Use the scheduler to propose a time to a counterparty. ValanceOS drafts the message for you."
+                body="Use the scheduler to propose a time to a counterparty. ValenceOS drafts the message for you."
               />
             ) : (
               <div className="space-y-2">
@@ -448,7 +448,7 @@ export default function Planner() {
         open={meetingModal}
         onClose={() => setMeetingModal(false)}
         title="Schedule a meeting"
-        description="Pick a time. ValanceOS will draft a professional message to send to the counterparty."
+        description="Pick a time. ValenceOS will draft a professional message to send to the counterparty."
         size="lg"
       >
         <MeetingForm deals={deals} onCancel={() => setMeetingModal(false)} onSubmit={addMeeting} />

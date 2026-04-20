@@ -53,7 +53,7 @@ export default function Drive() {
           <div className="relative max-w-2xl z-10">
             <p className="vl-eyebrow">Google Drive</p>
             <h1 className="mt-5 font-display text-display font-bold text-valence-text">
-              Your Drive, inside ValanceOS.
+              Your Drive, inside ValenceOS.
             </h1>
             <p className="mt-5 max-w-xl text-sm leading-relaxed text-valence-muted lg:text-base">
               Connect your Google account once — search and open every file without leaving the app.

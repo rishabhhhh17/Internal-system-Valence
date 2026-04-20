@@ -1,4 +1,4 @@
--- ValanceOS — Supabase schema
+-- ValenceOS — Supabase schema
 -- Run this in the Supabase SQL editor to create all tables used by the app.
 -- Safe to run multiple times (idempotent).
 
@@ -149,51 +149,62 @@ create table if not exists public.deal_files (
 
 create index if not exists deal_files_deal_idx on public.deal_files (deal_id);
 
--- ============ STAGE CHECKLIST ============
--- Ticked items persist here; item vocabulary lives in src/lib/checklists.js.
+-- ============ STAGE-GATE CHECKLIST ============
+-- One row per (deal, stage, item_key). The app reads a canonical template from
+-- src/lib/checklists.js and persists only the user-toggled state here.
 create table if not exists public.deal_checklist (
   id          uuid primary key default gen_random_uuid(),
   deal_id     uuid not null references public.deals(id) on delete cascade,
   stage       text not null,
   item_key    text not null,
-  is_done     boolean not null default true,
+  done        boolean not null default false,
   done_by     text,
-  done_at     timestamptz not null default now(),
+  done_at     timestamptz,
+  created_at  timestamptz not null default now(),
   unique (deal_id, stage, item_key)
 );
-create index if not exists deal_checklist_deal_idx on public.deal_checklist (deal_id, stage);
 
-alter table public.deal_checklist enable row level security;
-do $$ begin create policy "deal_checklist_all" on public.deal_checklist for all using (true) with check (true); exception when duplicate_object then null; end $$;
+create index if not exists deal_checklist_deal_idx  on public.deal_checklist (deal_id);
+create index if not exists deal_checklist_stage_idx on public.deal_checklist (deal_id, stage);
 
--- ============ DEAL TEAM (internal staffing per mandate) ============
+-- ============ DEAL TEAM (internal coverage + economics split) ============
 create table if not exists public.deal_team (
   id          uuid primary key default gen_random_uuid(),
   deal_id     uuid not null references public.deals(id) on delete cascade,
-  name        text not null,
-  role        text not null,            -- Lead Partner / Deputy / Associate / Analyst / Legal / Co-advisor
-  email       text,
-  share_pct   numeric,                  -- origination + execution credit (sums across team)
+  member_name text not null,
+  member_email text,
+  role        text,      -- Lead, Execution, Analyst, Sponsor, Advisor, etc.
+  share_pct   numeric,   -- internal economics split, 0-100
   created_at  timestamptz not null default now()
 );
+
 create index if not exists deal_team_deal_idx on public.deal_team (deal_id);
 
-alter table public.deal_team enable row level security;
-do $$ begin create policy "deal_team_all" on public.deal_team for all using (true) with check (true); exception when duplicate_object then null; end $$;
-
--- ============ DEAL COMMENTS (per-deal discussion thread) ============
+-- ============ DEAL COMMENTS (internal threaded discussion) ============
 create table if not exists public.deal_comments (
   id          uuid primary key default gen_random_uuid(),
   deal_id     uuid not null references public.deals(id) on delete cascade,
-  author      text not null,
+  author      text,                       -- free-form (email or name)
   body        text not null,
   mentions    text[] not null default '{}',
   created_at  timestamptz not null default now()
 );
-create index if not exists deal_comments_deal_idx on public.deal_comments (deal_id, created_at desc);
 
-alter table public.deal_comments enable row level security;
-do $$ begin create policy "deal_comments_all" on public.deal_comments for all using (true) with check (true); exception when duplicate_object then null; end $$;
+create index if not exists deal_comments_deal_idx    on public.deal_comments (deal_id);
+create index if not exists deal_comments_created_idx on public.deal_comments (created_at desc);
+
+alter table public.deal_checklist enable row level security;
+alter table public.deal_team      enable row level security;
+alter table public.deal_comments  enable row level security;
+
+-- Drop legacy permissive policies
+drop policy if exists "deal_checklist_all" on public.deal_checklist;
+drop policy if exists "deal_team_all"      on public.deal_team;
+drop policy if exists "deal_comments_all"  on public.deal_comments;
+
+do $$ begin create policy "deal_checklist_auth" on public.deal_checklist for all to authenticated using (true) with check (true); exception when duplicate_object then null; end $$;
+do $$ begin create policy "deal_team_auth"      on public.deal_team      for all to authenticated using (true) with check (true); exception when duplicate_object then null; end $$;
+do $$ begin create policy "deal_comments_auth"  on public.deal_comments  for all to authenticated using (true) with check (true); exception when duplicate_object then null; end $$;
 
 -- ============ EXTERNAL DATA ROOM SHARES ============
 -- Each row is a shareable link to a specific deal's data room, scoped to
@@ -232,8 +243,46 @@ create index if not exists deal_share_access_share_idx on public.deal_share_acce
 alter table public.deal_shares enable row level security;
 alter table public.deal_share_access enable row level security;
 
-do $$ begin create policy "deal_shares_all"       on public.deal_shares       for all using (true) with check (true); exception when duplicate_object then null; end $$;
-do $$ begin create policy "deal_share_access_all" on public.deal_share_access for all using (true) with check (true); exception when duplicate_object then null; end $$;
+-- Drop legacy permissive policies
+drop policy if exists "deal_shares_all"       on public.deal_shares;
+drop policy if exists "deal_share_access_all" on public.deal_share_access;
+
+-- Authenticated users: full access
+do $$ begin create policy "deal_shares_auth_all"       on public.deal_shares       for all to authenticated using (true) with check (true); exception when duplicate_object then null; end $$;
+do $$ begin create policy "deal_share_access_auth_all" on public.deal_share_access for all to authenticated using (true) with check (true); exception when duplicate_object then null; end $$;
+
+-- Public exception: anon can SELECT active shares (must know the share_code)
+do $$ begin create policy "deal_shares_public_read"
+  on public.deal_shares for select to anon
+  using (revoked = false and (expires_at is null or expires_at > now()));
+exception when duplicate_object then null; end $$;
+
+-- Public exception: anon can SELECT files that are listed on an active share
+do $$ begin create policy "deal_files_public_read"
+  on public.deal_files for select to anon
+  using (
+    exists (
+      select 1 from public.deal_shares s
+      where s.deal_id = deal_files.deal_id
+        and s.revoked = false
+        and (s.expires_at is null or s.expires_at > now())
+        and (coalesce(array_length(s.file_ids, 1), 0) = 0 or deal_files.id = any(s.file_ids))
+    )
+  );
+exception when duplicate_object then null; end $$;
+
+-- Public exception: anon can INSERT view/download events on an active share
+do $$ begin create policy "deal_share_access_public_insert"
+  on public.deal_share_access for insert to anon
+  with check (
+    exists (
+      select 1 from public.deal_shares s
+      where s.id = deal_share_access.share_id
+        and s.revoked = false
+        and (s.expires_at is null or s.expires_at > now())
+    )
+  );
+exception when duplicate_object then null; end $$;
 
 -- ============ COMPARABLE TRANSACTIONS (COMPS) ============
 create table if not exists public.comps (
@@ -253,7 +302,10 @@ create table if not exists public.comps (
 create index if not exists comps_sector_idx on public.comps (sector);
 create index if not exists comps_year_idx   on public.comps (year desc);
 
--- ============ RLS (internal tool — permissive anon policies) ============
+-- ============ RLS (locked to authenticated users) ============
+-- The permissive `*_all using(true)` policies have been retired. Internal
+-- tables require `authenticated` role (any signed-in user). Public share
+-- exceptions live in hardening.sql and below in the deal_shares section.
 alter table public.deals       enable row level security;
 alter table public.documents   enable row level security;
 alter table public.meetings    enable row level security;
@@ -263,14 +315,24 @@ alter table public.activities  enable row level security;
 alter table public.deal_files  enable row level security;
 alter table public.comps       enable row level security;
 
-do $$ begin create policy "deals_all"      on public.deals      for all using (true) with check (true); exception when duplicate_object then null; end $$;
-do $$ begin create policy "documents_all"  on public.documents  for all using (true) with check (true); exception when duplicate_object then null; end $$;
-do $$ begin create policy "meetings_all"   on public.meetings   for all using (true) with check (true); exception when duplicate_object then null; end $$;
-do $$ begin create policy "tasks_all"      on public.tasks      for all using (true) with check (true); exception when duplicate_object then null; end $$;
-do $$ begin create policy "contacts_all"   on public.contacts   for all using (true) with check (true); exception when duplicate_object then null; end $$;
-do $$ begin create policy "activities_all" on public.activities for all using (true) with check (true); exception when duplicate_object then null; end $$;
-do $$ begin create policy "deal_files_all" on public.deal_files for all using (true) with check (true); exception when duplicate_object then null; end $$;
-do $$ begin create policy "comps_all"      on public.comps      for all using (true) with check (true); exception when duplicate_object then null; end $$;
+-- Drop legacy permissive policies if they exist from older schema runs
+drop policy if exists "deals_all"      on public.deals;
+drop policy if exists "documents_all"  on public.documents;
+drop policy if exists "meetings_all"   on public.meetings;
+drop policy if exists "tasks_all"      on public.tasks;
+drop policy if exists "contacts_all"   on public.contacts;
+drop policy if exists "activities_all" on public.activities;
+drop policy if exists "deal_files_all" on public.deal_files;
+drop policy if exists "comps_all"      on public.comps;
+
+do $$ begin create policy "deals_auth"      on public.deals      for all to authenticated using (true) with check (true); exception when duplicate_object then null; end $$;
+do $$ begin create policy "documents_auth"  on public.documents  for all to authenticated using (true) with check (true); exception when duplicate_object then null; end $$;
+do $$ begin create policy "meetings_auth"   on public.meetings   for all to authenticated using (true) with check (true); exception when duplicate_object then null; end $$;
+do $$ begin create policy "tasks_auth"      on public.tasks      for all to authenticated using (true) with check (true); exception when duplicate_object then null; end $$;
+do $$ begin create policy "contacts_auth"   on public.contacts   for all to authenticated using (true) with check (true); exception when duplicate_object then null; end $$;
+do $$ begin create policy "activities_auth" on public.activities for all to authenticated using (true) with check (true); exception when duplicate_object then null; end $$;
+do $$ begin create policy "deal_files_auth" on public.deal_files for all to authenticated using (true) with check (true); exception when duplicate_object then null; end $$;
+do $$ begin create policy "comps_auth"      on public.comps      for all to authenticated using (true) with check (true); exception when duplicate_object then null; end $$;
 
 -- ============ KNOWLEDGE FILES (uploaded by anyone, firm-wide) ============
 create table if not exists public.knowledge_files (
@@ -291,7 +353,8 @@ create index if not exists knowledge_files_sector_idx on public.knowledge_files 
 create index if not exists knowledge_files_tags_idx   on public.knowledge_files using gin (tags);
 
 alter table public.knowledge_files enable row level security;
-do $$ begin create policy "knowledge_files_all" on public.knowledge_files for all using (true) with check (true); exception when duplicate_object then null; end $$;
+drop policy if exists "knowledge_files_all" on public.knowledge_files;
+do $$ begin create policy "knowledge_files_auth" on public.knowledge_files for all to authenticated using (true) with check (true); exception when duplicate_object then null; end $$;
 
 -- ============ KNOWLEDGE CHUNKS (unified search index — vector + full-text) ============
 -- Every searchable item in the app lands here as one or more chunks.
@@ -326,7 +389,8 @@ create trigger knowledge_chunks_tsv before insert or update on public.knowledge_
   for each row execute function public.knowledge_chunks_tsv_trigger();
 
 alter table public.knowledge_chunks enable row level security;
-do $$ begin create policy "knowledge_chunks_all" on public.knowledge_chunks for all using (true) with check (true); exception when duplicate_object then null; end $$;
+drop policy if exists "knowledge_chunks_all" on public.knowledge_chunks;
+do $$ begin create policy "knowledge_chunks_auth" on public.knowledge_chunks for all to authenticated using (true) with check (true); exception when duplicate_object then null; end $$;
 
 -- ============ AUTO-INDEX TRIGGERS ============
 -- Documents → knowledge_chunks
@@ -407,6 +471,32 @@ end $$ language plpgsql;
 drop trigger if exists index_deal_file_trg on public.deal_files;
 create trigger index_deal_file_trg after insert or update on public.deal_files
   for each row execute function public.index_deal_file();
+
+-- ============ DELETE-CASCADE for knowledge_chunks ============
+-- When a source row is deleted, purge its chunks. The insert/update triggers
+-- above only handle upsert; deletes otherwise leave orphan chunks.
+create or replace function public.unindex_source() returns trigger as $$
+declare st text;
+begin
+  st := case TG_TABLE_NAME
+    when 'documents'  then 'document'
+    when 'comps'      then 'comp'
+    when 'deals'      then 'deal'
+    when 'deal_files' then 'deal_file'
+  end;
+  delete from public.knowledge_chunks where source_type = st and source_id = old.id;
+  return old;
+end $$ language plpgsql;
+
+drop trigger if exists unindex_document_trg  on public.documents;
+drop trigger if exists unindex_comp_trg      on public.comps;
+drop trigger if exists unindex_deal_trg      on public.deals;
+drop trigger if exists unindex_deal_file_trg on public.deal_files;
+
+create trigger unindex_document_trg  after delete on public.documents  for each row execute function public.unindex_source();
+create trigger unindex_comp_trg      after delete on public.comps      for each row execute function public.unindex_source();
+create trigger unindex_deal_trg      after delete on public.deals      for each row execute function public.unindex_source();
+create trigger unindex_deal_file_trg after delete on public.deal_files for each row execute function public.unindex_source();
 
 -- ============ BACKFILL existing rows into knowledge_chunks ============
 insert into public.knowledge_chunks (source_type, source_id, title, content, chunk_index, metadata)
@@ -503,6 +593,37 @@ $$ language sql stable;
 
 grant execute on function public.search_knowledge(text, vector, int, text[]) to anon, authenticated;
 
+-- ============ PUBLIC SHARE RPC ============
+-- Returns only the 7 non-sensitive deal columns needed by the /share/:code
+-- page. Runs as security definer so it bypasses RLS on `deals` — the
+-- sensitive columns (fee_*, ticket_size_usd_m, financials, cim_draft,
+-- created_by, etc.) are never exposed.
+create or replace function public.get_shared_deal(p_share_code text)
+returns table (
+  id          uuid,
+  client_name text,
+  deal_type   text,
+  stage       text,
+  sector      text,
+  side        text,
+  notes       text
+)
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select d.id, d.client_name, d.deal_type, d.stage, d.sector, d.side, d.notes
+  from public.deals d
+  join public.deal_shares s on s.deal_id = d.id
+  where s.share_code = p_share_code
+    and s.revoked = false
+    and (s.expires_at is null or s.expires_at > now())
+  limit 1;
+$$;
+
+grant execute on function public.get_shared_deal(text) to anon, authenticated;
+
 -- ============ STORAGE ============
 -- After running this SQL, create a public bucket called "deal-files" in
 -- Supabase Studio → Storage → New bucket. A public bucket is sufficient on
@@ -533,3 +654,52 @@ exception when others then null; end $$;
 do $$ begin
   create policy "knowledge_files_delete" on storage.objects for delete using (bucket_id = 'knowledge-files');
 exception when others then null; end $$;
+
+-- ============ AUDIT COLUMNS (created_by / updated_by) ============
+-- Populated automatically: created_by defaults to auth.uid() on insert;
+-- updated_by is stamped by the set_audit_update trigger on each update.
+alter table public.deals           add column if not exists created_by uuid default auth.uid();
+alter table public.deals           add column if not exists updated_by uuid;
+alter table public.deals           add column if not exists updated_at timestamptz not null default now();
+alter table public.documents       add column if not exists created_by uuid default auth.uid();
+alter table public.documents       add column if not exists updated_by uuid;
+alter table public.documents       add column if not exists updated_at timestamptz not null default now();
+alter table public.meetings        add column if not exists created_by uuid default auth.uid();
+alter table public.meetings        add column if not exists updated_by uuid;
+alter table public.tasks           add column if not exists created_by uuid default auth.uid();
+alter table public.tasks           add column if not exists updated_by uuid;
+alter table public.contacts        add column if not exists created_by uuid default auth.uid();
+alter table public.contacts        add column if not exists updated_by uuid;
+alter table public.activities      add column if not exists created_by uuid default auth.uid();
+alter table public.deal_files      add column if not exists created_by uuid default auth.uid();
+alter table public.comps           add column if not exists created_by uuid default auth.uid();
+alter table public.comps           add column if not exists updated_by uuid;
+alter table public.comps           add column if not exists updated_at timestamptz not null default now();
+alter table public.knowledge_files add column if not exists created_by uuid default auth.uid();
+alter table public.deal_checklist  add column if not exists created_by uuid default auth.uid();
+alter table public.deal_checklist  add column if not exists updated_by uuid;
+alter table public.deal_checklist  add column if not exists updated_at timestamptz not null default now();
+alter table public.deal_team       add column if not exists created_by uuid default auth.uid();
+alter table public.deal_team       add column if not exists updated_by uuid;
+alter table public.deal_team       add column if not exists updated_at timestamptz not null default now();
+alter table public.deal_comments   add column if not exists created_by uuid default auth.uid();
+alter table public.deal_shares     add column if not exists created_by_uid uuid default auth.uid();
+
+create or replace function public.set_audit_update() returns trigger as $$
+begin
+  new.updated_at := now();
+  new.updated_by := auth.uid();
+  return new;
+end $$ language plpgsql;
+
+drop trigger if exists deals_audit_update          on public.deals;
+drop trigger if exists documents_audit_update      on public.documents;
+drop trigger if exists comps_audit_update          on public.comps;
+drop trigger if exists deal_checklist_audit_update on public.deal_checklist;
+drop trigger if exists deal_team_audit_update      on public.deal_team;
+
+create trigger deals_audit_update          before update on public.deals          for each row execute function public.set_audit_update();
+create trigger documents_audit_update      before update on public.documents      for each row execute function public.set_audit_update();
+create trigger comps_audit_update          before update on public.comps          for each row execute function public.set_audit_update();
+create trigger deal_checklist_audit_update before update on public.deal_checklist for each row execute function public.set_audit_update();
+create trigger deal_team_audit_update      before update on public.deal_team      for each row execute function public.set_audit_update();

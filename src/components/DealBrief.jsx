@@ -81,7 +81,7 @@ export default function DealBrief({ deal }) {
     </div>
   </header>
   ${paragraphs}
-  <footer>Generated ${new Date().toLocaleString()} · ValanceOS</footer>
+  <footer>Generated ${new Date().toLocaleString()} · ValenceOS</footer>
 </body></html>`)
     win.document.close()
     setTimeout(() => { win.focus(); win.print() }, 120)

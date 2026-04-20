@@ -5,18 +5,24 @@ import App from './App.jsx'
 import { ToastProvider } from './components/Toast.jsx'
 import { ConfirmProvider } from './components/ConfirmDialog.jsx'
 import { CurrencyProvider } from './hooks/useCurrency.jsx'
+import ErrorBoundary from './components/ErrorBoundary.jsx'
+import { initSentry } from './lib/sentry.js'
 import './index.css'
+
+initSentry()
 
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
-    <BrowserRouter>
-      <CurrencyProvider>
-        <ToastProvider>
-          <ConfirmProvider>
-            <App />
-          </ConfirmProvider>
-        </ToastProvider>
-      </CurrencyProvider>
-    </BrowserRouter>
+    <ErrorBoundary>
+      <BrowserRouter>
+        <CurrencyProvider>
+          <ToastProvider>
+            <ConfirmProvider>
+              <App />
+            </ConfirmProvider>
+          </ToastProvider>
+        </CurrencyProvider>
+      </BrowserRouter>
+    </ErrorBoundary>
   </React.StrictMode>
 )

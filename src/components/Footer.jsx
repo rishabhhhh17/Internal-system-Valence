@@ -49,7 +49,7 @@ export default function Footer() {
           <p>Confidential · Internal use only · {new Date().getFullYear()} Valence Growth Partners</p>
           <p className="inline-flex items-center gap-2">
             <span className="h-1.5 w-1.5 rounded-full bg-valence-blue shadow-[0_0_8px_#3399FF]" />
-            Powered by ValanceOS
+            Powered by ValenceOS
           </p>
         </div>
       </div>

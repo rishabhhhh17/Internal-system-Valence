@@ -1,4 +1,4 @@
--- ValanceOS — rich demo data.
+-- ValenceOS — rich demo data.
 -- Re-runnable: clears the demo rows first (by known client_name / title) then
 -- reinserts. Safe to run multiple times. Preserves any real data you've added.
 

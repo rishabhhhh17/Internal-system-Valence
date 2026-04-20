@@ -84,7 +84,7 @@ export default function AskChat() {
         <section className="relative overflow-hidden rounded-2xl border border-valence-border bg-white vl-circles py-16 px-8 lg:py-24 lg:px-14">
           <div className="absolute inset-0 bg-valence-grid opacity-50" aria-hidden />
           <div className="relative max-w-2xl z-10">
-            <p className="vl-eyebrow"><Sparkles className="h-3 w-3" /> Ask ValanceOS</p>
+            <p className="vl-eyebrow"><Sparkles className="h-3 w-3" /> Ask ValenceOS</p>
             <h1 className="mt-5 font-display text-display font-bold text-valence-text">
               Ask anything. Answers grounded in your documents.
             </h1>

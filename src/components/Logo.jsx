@@ -11,7 +11,7 @@ export default function Logo({ compact = false, inverted = false, className = ''
       {!compact && (
         <div className="flex flex-col leading-none">
           <span className={`text-[15px] font-semibold tracking-tight ${titleClass}`}>
-            Valance<span className="text-valence-blue">OS</span>
+            Valence<span className="text-valence-blue">OS</span>
           </span>
           <span className={`mt-1 text-[10px] uppercase tracking-[0.2em] ${kickerClass}`}>
             Growth Partners
