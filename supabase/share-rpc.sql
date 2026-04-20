@@ -1,5 +1,5 @@
 -- ============================================================
--- ValanceOS · Public share RPC
+-- ValenceOS · Public share RPC
 -- ============================================================
 -- The RLS lockdown blocks anon reads on `deals`. The public data-room
 -- page at /share/:code still needs 7 non-sensitive columns (name,

@@ -151,7 +151,7 @@ function ProposeTimeModal({ open, slot, onClose, onSent }) {
 
           <div className="flex items-center justify-between">
             <p className="text-[11px] text-valence-muted">
-              Tap a slot, fill in the recipient, and ValanceOS drafts the message.
+              Tap a slot, fill in the recipient, and ValenceOS drafts the message.
             </p>
             <button onClick={autodraft} disabled={drafting || !title.trim()} className="vl-btn-secondary">
               {drafting ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}

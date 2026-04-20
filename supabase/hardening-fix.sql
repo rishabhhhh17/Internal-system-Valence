@@ -1,5 +1,5 @@
 -- ============================================================
--- ValanceOS · Hardening fix — drop ALL stale anon policies
+-- ValenceOS · Hardening fix — drop ALL stale anon policies
 -- ============================================================
 -- Our audit found that deals/documents/tasks/meetings still allow
 -- anon reads. That means there's at least one leftover permissive

@@ -1,5 +1,5 @@
 -- ============================================================
--- ValanceOS · Security + Audit hardening
+-- ValenceOS · Security + Audit hardening
 -- ============================================================
 -- Run this ONCE after schema.sql to:
 --   1. Add created_by / updated_by columns on every mutable table

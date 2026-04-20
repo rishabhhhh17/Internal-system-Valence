@@ -155,7 +155,7 @@ function Shell({ children }) {
       <header className="border-b border-valence-border bg-white">
         <div className="mx-auto flex h-16 max-w-3xl items-center px-5">
           <Logo />
-          <span className="ml-auto text-[11px] text-valence-muted">Delivered via ValanceOS</span>
+          <span className="ml-auto text-[11px] text-valence-muted">Delivered via ValenceOS</span>
         </div>
       </header>
       {children}

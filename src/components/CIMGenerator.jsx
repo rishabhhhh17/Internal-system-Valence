@@ -99,7 +99,7 @@ export default function CIMGenerator({ deal }) {
     <div class="sub" style="margin-top:6px;">${safe(deal?.deal_type || '')} · ${safe(deal?.side || '')} · ${safe(deal?.sector || '')}</div>
   </header>
   ${sections}
-  <footer>Generated ${new Date().toLocaleString()} · ValanceOS · draft for internal review</footer>
+  <footer>Generated ${new Date().toLocaleString()} · ValenceOS · draft for internal review</footer>
 </body></html>`)
     win.document.close()
     setTimeout(() => { win.focus(); win.print() }, 120)

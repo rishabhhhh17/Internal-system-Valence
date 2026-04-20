@@ -1,8 +1,8 @@
-# ValanceOS
+# ValenceOS
 
 The unified internal operating platform for **Valence Growth Partners** — a global investment advisory firm based in Mumbai and London.
 
-ValanceOS gives the core team a single place to track live mandates across the full IB funnel, store deal files, capture institutional knowledge, plan the day, and coordinate outreach — all styled to match the Valence brand.
+ValenceOS gives the core team a single place to track live mandates across the full IB funnel, store deal files, capture institutional knowledge, plan the day, and coordinate outreach — all styled to match the Valence brand.
 
 ---
 
@@ -104,23 +104,23 @@ The app runs on in-memory demo data until the env keys are filled in — every s
 
 ### 4. Google Workspace (Calendar + Drive + Gmail)
 
-This is what turns ValanceOS into a real morning command center: the Planner reads your actual Google Calendar, the Drive tab browses your Drive, and meeting proposals / deal emails send from your Gmail.
+This is what turns ValenceOS into a real morning command center: the Planner reads your actual Google Calendar, the Drive tab browses your Drive, and meeting proposals / deal emails send from your Gmail.
 
 #### 4a. Google Cloud Console (once per firm, ~10 minutes)
 
-1. Open [console.cloud.google.com](https://console.cloud.google.com) → create a project called **ValanceOS**.
+1. Open [console.cloud.google.com](https://console.cloud.google.com) → create a project called **ValenceOS**.
 2. **APIs & Services → Library** — enable all three:
    - Google Calendar API
    - Google Drive API
    - Gmail API
 3. **APIs & Services → OAuth consent screen**:
    - User type: **External**
-   - App name: **ValanceOS**, user support email: *your email*
+   - App name: **ValenceOS**, user support email: *your email*
    - Scopes: add `.../auth/calendar`, `.../auth/drive.readonly`, `.../auth/gmail.send`
-   - **Test users**: add every team email that will use ValanceOS (otherwise Google blocks sign-in)
+   - **Test users**: add every team email that will use ValenceOS (otherwise Google blocks sign-in)
 4. **APIs & Services → Credentials → + Create Credentials → OAuth client ID**:
    - Application type: **Web application**
-   - Name: ValanceOS
+   - Name: ValenceOS
    - **Authorized redirect URIs**: add `https://<your-project-ref>.supabase.co/auth/v1/callback` (find the exact URL in Supabase → Auth → URL Configuration)
    - Copy the **Client ID** and **Client Secret** for the next step.
 
@@ -133,7 +133,7 @@ This is what turns ValanceOS into a real morning command center: the Planner rea
 
 #### 4c. Per-user
 
-Each team member just clicks **Connect Google** in the ValanceOS topbar the first time. Grants Calendar + Drive + Gmail access in one consent flow. Session persists.
+Each team member just clicks **Connect Google** in the ValenceOS topbar the first time. Grants Calendar + Drive + Gmail access in one consent flow. Session persists.
 
 ### 5. Deploy on Vercel
 1. Push to GitHub, import in Vercel. Framework = Vite (auto-detected).

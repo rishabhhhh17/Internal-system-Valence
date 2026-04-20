@@ -1,4 +1,4 @@
-# ValanceOS · Backup & Disaster Recovery
+# ValenceOS · Backup & Disaster Recovery
 
 Three layers. The first two are free and automatic. The third is a belt-and-braces manual dump you can run from any machine.
 
@@ -43,10 +43,10 @@ Three layers. The first two are free and automatic. The third is a belt-and-brac
 supabase db dump \
   --db-url "$SUPABASE_DB_URL" \
   --data-only \
-  --file "valance-$(date +%Y%m%d).sql"
+  --file "valence-$(date +%Y%m%d).sql"
 
 # Upload to Drive (or S3, GCS, etc.)
-gdrive files upload "valance-$(date +%Y%m%d).sql"
+gdrive files upload "valence-$(date +%Y%m%d).sql"
 ```
 
 The `SUPABASE_DB_URL` connection string is at Studio → Project Settings → Database → Connection string (use the **pooler** URL for CLI).
@@ -77,7 +77,7 @@ Required repo secrets:
 
 1. Create a fresh Supabase project
 2. Run `supabase/schema.sql` then `supabase/hardening.sql` to provision structure
-3. `psql "$NEW_DB_URL" < valance-YYYYMMDD.sql` to restore data
+3. `psql "$NEW_DB_URL" < valence-YYYYMMDD.sql` to restore data
 4. Switch env vars + redeploy
 
 ---
