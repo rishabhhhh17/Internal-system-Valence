@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import {
   Search, Briefcase, BookOpen, CalendarDays, Users, CheckCircle2,
   CornerDownLeft, Sparkles, LayoutDashboard, ArrowRight, File as FileIcon,
-  FolderOpen
+  FolderOpen, BarChart3
 } from 'lucide-react'
 import { supabase, isSupabaseConfigured } from '../lib/supabase.js'
 import { searchKnowledge } from '../lib/knowledge.js'
@@ -15,6 +15,7 @@ const QUICK_NAV = [
   { type: 'nav', title: 'Firm Knowledge', sub: 'Memos, files, comps',                to: '/knowledge/shared',  icon: BookOpen },
   { type: 'nav', title: 'Private',        sub: 'Your personal Drive',                to: '/knowledge/private', icon: FolderOpen },
   { type: 'nav', title: 'Day Planner',    sub: 'Meetings & tasks',                   to: '/planner',           icon: CalendarDays },
+  { type: 'nav', title: 'Analytics',      sub: 'Pipeline, fees, velocity',           to: '/analytics',         icon: BarChart3 },
   { type: 'nav', title: 'Team',           sub: 'The Valence team',                   to: '/team',              icon: Users }
 ]
 

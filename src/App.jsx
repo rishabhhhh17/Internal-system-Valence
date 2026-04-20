@@ -7,6 +7,7 @@ import KnowledgeLanding from './pages/KnowledgeLanding.jsx'
 import Planner from './pages/Planner.jsx'
 import Drive from './pages/Drive.jsx'
 import Team from './pages/Team.jsx'
+import Analytics from './pages/Analytics.jsx'
 import Share from './pages/Share.jsx'
 import Login from './pages/Login.jsx'
 import { useAuth } from './hooks/useAuth.js'
@@ -42,6 +43,7 @@ export default function App() {
         <Route path="/knowledge/private" element={<Drive />} />
         <Route path="/drive" element={<Navigate to="/knowledge/private" replace />} />
         <Route path="/planner" element={<Planner />} />
+        <Route path="/analytics" element={<Analytics />} />
         <Route path="/team" element={<Team />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
