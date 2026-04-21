@@ -1,17 +1,50 @@
+import { useEffect, useState } from 'react'
 import { NavLink } from 'react-router-dom'
 import { LayoutDashboard, Briefcase, BookOpen, CalendarDays, Users, BarChart3 } from 'lucide-react'
 import Logo from './Logo.jsx'
+import { supabase, isSupabaseConfigured, subscribeTable } from '../lib/supabase.js'
+
+const TERMINAL_STAGES = new Set(['Closed', 'Lost', 'On Hold'])
 
 const nav = [
   { to: '/',          label: 'Overview',        icon: LayoutDashboard },
-  { to: '/deals',     label: 'Deal Logger',     icon: Briefcase },
+  { to: '/deals',     label: 'Deal Logger',     icon: Briefcase,     badgeKey: 'activeDeals' },
   { to: '/knowledge', label: 'Knowledge',       icon: BookOpen },
-  { to: '/planner',   label: 'Day Planner',     icon: CalendarDays },
+  { to: '/planner',   label: 'Day Planner',     icon: CalendarDays,  badgeKey: 'todayMeetings' },
   { to: '/analytics', label: 'Analytics',       icon: BarChart3 },
   { to: '/team',      label: 'Team',            icon: Users }
 ]
 
+function useSidebarCounts() {
+  const [counts, setCounts] = useState({ activeDeals: 0, todayMeetings: 0 })
+
+  async function load() {
+    if (!isSupabaseConfigured) return
+    const todayIso = new Date().toISOString().slice(0, 10)
+    const [d, m] = await Promise.all([
+      supabase.from('deals').select('stage'),
+      supabase.from('meetings').select('id', { count: 'exact', head: true }).eq('date', todayIso)
+    ])
+    const active = (d.data || []).filter(x => !TERMINAL_STAGES.has(x.stage)).length
+    setCounts({ activeDeals: active, todayMeetings: m.count || 0 })
+  }
+
+  useEffect(() => {
+    load()
+    if (!isSupabaseConfigured) return
+    const offs = [
+      subscribeTable('deals', load),
+      subscribeTable('meetings', load)
+    ]
+    return () => offs.forEach(o => o?.())
+  }, [])
+
+  return counts
+}
+
 export default function Sidebar() {
+  const counts = useSidebarCounts()
+
   return (
     <aside className="hidden lg:flex lg:sticky lg:top-0 lg:h-screen lg:w-64 shrink-0 flex-col border-r border-valence-border bg-white">
       <div className="flex h-16 items-center px-5 border-b border-valence-border">
@@ -22,27 +55,39 @@ export default function Sidebar() {
         <div className="px-3 pb-3 vl-eyebrow-ink">
           Workspace
         </div>
-        {nav.map(({ to, label, icon: Icon }) => (
-          <NavLink
-            key={to}
-            to={to}
-            end={to === '/'}
-            className={({ isActive }) =>
-              `group flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition ${
-                isActive
-                  ? 'bg-valence-ink text-white'
-                  : 'text-valence-muted hover:bg-valence-surface hover:text-valence-text'
-              }`
-            }
-          >
-            {({ isActive }) => (
-              <>
-                <Icon className={`h-4 w-4 ${isActive ? 'text-valence-blue' : 'text-valence-subtle group-hover:text-valence-text'}`} />
-                <span className="tracking-tight">{label}</span>
-              </>
-            )}
-          </NavLink>
-        ))}
+        {nav.map(({ to, label, icon: Icon, badgeKey }) => {
+          const badge = badgeKey ? counts[badgeKey] : 0
+          return (
+            <NavLink
+              key={to}
+              to={to}
+              end={to === '/'}
+              className={({ isActive }) =>
+                `group flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition ${
+                  isActive
+                    ? 'bg-valence-ink text-white'
+                    : 'text-valence-muted hover:bg-valence-surface hover:text-valence-text'
+                }`
+              }
+            >
+              {({ isActive }) => (
+                <>
+                  <Icon className={`h-4 w-4 ${isActive ? 'text-valence-blue' : 'text-valence-subtle group-hover:text-valence-text'}`} />
+                  <span className="flex-1 tracking-tight">{label}</span>
+                  {badge > 0 && (
+                    <span className={`inline-flex items-center justify-center rounded-full px-1.5 py-0 text-[10px] font-semibold tabular-nums ${
+                      isActive
+                        ? 'bg-white/15 text-white'
+                        : 'bg-valence-blue-soft text-valence-blue'
+                    }`}>
+                      {badge > 99 ? '99+' : badge}
+                    </span>
+                  )}
+                </>
+              )}
+            </NavLink>
+          )
+        })}
       </nav>
 
       <div className="px-3 pb-5">
