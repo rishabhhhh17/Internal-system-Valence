@@ -47,10 +47,15 @@ export default function Footer() {
 
         <div className="mt-14 flex flex-wrap items-center justify-between gap-4 border-t border-white/10 pt-6 text-[11px] text-white/50">
           <p>Confidential · Internal use only · {new Date().getFullYear()} Valence Growth Partners</p>
-          <p className="inline-flex items-center gap-2">
-            <span className="h-1.5 w-1.5 rounded-full bg-valence-blue shadow-[0_0_8px_#3399FF]" />
-            Powered by ValenceOS
-          </p>
+          <div className="flex items-center gap-5">
+            <a href="/collateral.html" target="_blank" rel="noreferrer" className="text-white/60 hover:text-white transition">
+              Product collateral ↗
+            </a>
+            <p className="inline-flex items-center gap-2">
+              <span className="h-1.5 w-1.5 rounded-full bg-valence-blue shadow-[0_0_8px_#3399FF]" />
+              Powered by ValenceOS
+            </p>
+          </div>
         </div>
       </div>
     </footer>

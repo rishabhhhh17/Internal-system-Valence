@@ -21,10 +21,21 @@ import ConfigBanner from '../components/ConfigBanner.jsx'
 import VelocityChart from '../components/VelocityChart.jsx'
 import StaleDealsCard from '../components/StaleDealsCard.jsx'
 import ExpertsWidget from '../components/ExpertsWidget.jsx'
+import InfoDot from '../components/InfoDot.jsx'
 
-// Annual fee target the firm is tracking against. Shown in the commit gauge.
-// In prod this'd move to a settings row; demo uses a sensible boutique target.
-const ANNUAL_FEE_TARGET_USD = 5_000_000
+// Annual fee target the firm is tracking against. Editable in the commit gauge
+// — persisted to localStorage so it survives reloads.
+const TARGET_KEY = 'valence.analytics.annualTargetUsd'
+const DEFAULT_ANNUAL_FEE_TARGET_USD = 5_000_000
+function readTarget() {
+  try {
+    const v = Number(localStorage.getItem(TARGET_KEY))
+    return Number.isFinite(v) && v > 0 ? v : DEFAULT_ANNUAL_FEE_TARGET_USD
+  } catch { return DEFAULT_ANNUAL_FEE_TARGET_USD }
+}
+function writeTarget(v) {
+  try { localStorage.setItem(TARGET_KEY, String(v)) } catch {}
+}
 
 // Richer demo dataset — 18 deals with repeat clients, dates, sides, origination
 // sources, and full fee structures. Built so every chart has real data to chew on.
@@ -33,23 +44,23 @@ const daysAgo = (n) => { const d = new Date(now); d.setDate(d.getDate() - n); re
 const daysFwd = (n) => { const d = new Date(now); d.setDate(d.getDate() + n); return d.toISOString().slice(0,10) }
 
 const DEMO_DEALS = [
-  { id: 'd1',  client_name: 'Nimbus Health',       deal_type: 'M&A',   side: 'Sell', stage: 'Diligence',   nda_status: 'Signed',  sector: 'Healthcare',     ticket_size_usd_m: 180, fee_success_pct: 1.75, fee_retainer_usd: 50000,  lead_owner: 'Rishabh Kapadia', origination_source: 'Existing client',  created_at: daysAgo(210), expected_close_date: daysFwd(75) },
+  { id: 'd1',  client_name: 'Nimbus Health',       deal_type: 'M&A',   side: 'Sell', stage: 'Diligence',   nda_status: 'Signed',  sector: 'Healthcare',     ticket_size_usd_m: 180, fee_success_pct: 1.75, fee_retainer_usd: 50000,  lead_owner: 'Neha Jain', origination_source: 'Existing client',  created_at: daysAgo(210), expected_close_date: daysFwd(75) },
   { id: 'd2',  client_name: 'Arclight Capital',    deal_type: 'PE/VC', side: 'Buy',  stage: 'Origination', nda_status: 'Pending', sector: 'Infrastructure', ticket_size_usd_m: 120, fee_success_pct: 2.00, fee_retainer_usd: 25000,  lead_owner: 'Priya Mehta',     origination_source: 'Referral',         created_at: daysAgo(24) },
   { id: 'd3',  client_name: 'Quantum Edge',        deal_type: 'ECM',   side: 'Sell', stage: 'Marketing',   nda_status: 'Signed',  sector: 'Fintech',        ticket_size_usd_m: 250, fee_success_pct: 2.50, fee_retainer_usd: 75000,  lead_owner: 'James Whitfield', origination_source: 'Referral',         created_at: daysAgo(95),  expected_close_date: daysFwd(150) },
   { id: 'd4',  client_name: 'Meridian EdTech',     deal_type: 'PE/VC', side: 'Sell', stage: 'Negotiation', nda_status: 'Signed',  sector: 'EdTech',         ticket_size_usd_m:  35, fee_success_pct: 3.50, fee_retainer_usd: 20000,  lead_owner: 'Priya Mehta',     origination_source: 'Outbound',         created_at: daysAgo(160), expected_close_date: daysFwd(45) },
-  { id: 'd5',  client_name: 'Orion Realty',        deal_type: 'PE/VC', side: 'Sell', stage: 'Closing',     nda_status: 'Signed',  sector: 'Real Estate',    ticket_size_usd_m: 320, fee_success_pct: 1.50, fee_retainer_usd: 80000,  lead_owner: 'Rishabh Kapadia', origination_source: 'Existing client',  created_at: daysAgo(275), expected_close_date: daysFwd(25) },
+  { id: 'd5',  client_name: 'Orion Realty',        deal_type: 'PE/VC', side: 'Sell', stage: 'Closing',     nda_status: 'Signed',  sector: 'Real Estate',    ticket_size_usd_m: 320, fee_success_pct: 1.50, fee_retainer_usd: 80000,  lead_owner: 'Neha Jain', origination_source: 'Existing client',  created_at: daysAgo(275), expected_close_date: daysFwd(25) },
   { id: 'd6',  client_name: 'Aegis Logistics',     deal_type: 'M&A',   side: 'Sell', stage: 'Preparation', nda_status: 'Signed',  sector: 'Logistics',      ticket_size_usd_m: 210, fee_success_pct: 1.85, fee_retainer_usd: 60000,  lead_owner: 'Oliver Hayes',    origination_source: 'Inbound / RFP',    created_at: daysAgo(60),  expected_close_date: daysFwd(180) },
-  { id: 'd7',  client_name: 'Solstice Solar',      deal_type: 'PE/VC', side: 'Sell', stage: 'Mandate',     nda_status: 'Signed',  sector: 'Renewables',     ticket_size_usd_m:  90, fee_success_pct: 2.25, fee_retainer_usd: 30000,  lead_owner: 'Rishabh Kapadia', origination_source: 'Sponsor network',  created_at: daysAgo(42),  expected_close_date: daysFwd(170) },
+  { id: 'd7',  client_name: 'Solstice Solar',      deal_type: 'PE/VC', side: 'Sell', stage: 'Mandate',     nda_status: 'Signed',  sector: 'Renewables',     ticket_size_usd_m:  90, fee_success_pct: 2.25, fee_retainer_usd: 30000,  lead_owner: 'Neha Jain', origination_source: 'Sponsor network',  created_at: daysAgo(42),  expected_close_date: daysFwd(170) },
   { id: 'd8',  client_name: 'Kestrel Biotech',     deal_type: 'M&A',   side: 'Buy',  stage: 'Pitch',       nda_status: 'Pending', sector: 'Healthcare',     ticket_size_usd_m:  75, fee_success_pct: 2.75,                            lead_owner: 'James Whitfield', origination_source: 'Outbound',         created_at: daysAgo(14) },
   { id: 'd9',  client_name: 'Pelican Foods',       deal_type: 'PE/VC', side: 'Sell', stage: 'Diligence',   nda_status: 'Signed',  sector: 'Consumer',       ticket_size_usd_m:  55, fee_success_pct: 3.00, fee_retainer_usd: 25000,  lead_owner: 'Priya Mehta',     origination_source: 'Referral',         created_at: daysAgo(120), expected_close_date: daysFwd(90) },
   { id: 'd10', client_name: 'Silverline Hotels',   deal_type: 'M&A',   side: 'Sell', stage: 'Closed',      nda_status: 'Signed',  sector: 'Hospitality',    ticket_size_usd_m: 140, fee_success_pct: 1.80, fee_retainer_usd: 50000,  lead_owner: 'Oliver Hayes',    origination_source: 'Existing client',  created_at: daysAgo(330) },
-  { id: 'd11', client_name: 'Halcyon Pharma',      deal_type: 'M&A',   side: 'Sell', stage: 'Closed',      nda_status: 'Signed',  sector: 'Healthcare',     ticket_size_usd_m: 195, fee_success_pct: 2.00, fee_retainer_usd: 60000,  lead_owner: 'Rishabh Kapadia', origination_source: 'Existing client',  created_at: daysAgo(290) },
+  { id: 'd11', client_name: 'Halcyon Pharma',      deal_type: 'M&A',   side: 'Sell', stage: 'Closed',      nda_status: 'Signed',  sector: 'Healthcare',     ticket_size_usd_m: 195, fee_success_pct: 2.00, fee_retainer_usd: 60000,  lead_owner: 'Neha Jain', origination_source: 'Existing client',  created_at: daysAgo(290) },
   { id: 'd12', client_name: 'Brightline Mobility', deal_type: 'PE/VC', side: 'Sell', stage: 'Lost',        nda_status: 'Signed',  sector: 'Mobility',       ticket_size_usd_m:  65, fee_success_pct: 2.50,                            lead_owner: 'Priya Mehta',     origination_source: 'Inbound / RFP',    created_at: daysAgo(180) },
   { id: 'd13', client_name: 'Copperfield Infra',   deal_type: 'PE/VC', side: 'Buy',  stage: 'On Hold',     nda_status: 'Signed',  sector: 'Infrastructure', ticket_size_usd_m: 280, fee_success_pct: 1.75, fee_retainer_usd: 75000,  lead_owner: 'James Whitfield', origination_source: 'Sponsor network',  created_at: daysAgo(220) },
   { id: 'd14', client_name: 'Tidewater Logistics', deal_type: 'ECM',   side: 'Sell', stage: 'Marketing',   nda_status: 'Signed',  sector: 'Logistics',      ticket_size_usd_m: 410, fee_success_pct: 1.25, fee_retainer_usd: 100000, lead_owner: 'Oliver Hayes',    origination_source: 'Existing client',  created_at: daysAgo(72),  expected_close_date: daysFwd(120) },
-  { id: 'd15', client_name: 'Lumen Fintech',       deal_type: 'PE/VC', side: 'Sell', stage: 'Origination', nda_status: 'Pending', sector: 'Fintech',        ticket_size_usd_m:  45, fee_success_pct: 3.25,                            lead_owner: 'Rishabh Kapadia', origination_source: 'Outbound',         created_at: daysAgo(8) },
-  { id: 'd16', client_name: 'Nimbus Health',       deal_type: 'ECM',   side: 'Sell', stage: 'Preparation', nda_status: 'Signed',  sector: 'Healthcare',     ticket_size_usd_m: 110, fee_success_pct: 2.00, fee_retainer_usd: 40000,  lead_owner: 'Rishabh Kapadia', origination_source: 'Existing client',  created_at: daysAgo(35),  expected_close_date: daysFwd(200) },
-  { id: 'd17', client_name: 'Halcyon Pharma',      deal_type: 'PE/VC', side: 'Buy',  stage: 'Diligence',   nda_status: 'Signed',  sector: 'Healthcare',     ticket_size_usd_m:  95, fee_success_pct: 2.75, fee_retainer_usd: 35000,  lead_owner: 'Rishabh Kapadia', origination_source: 'Existing client',  created_at: daysAgo(110), expected_close_date: daysFwd(65) },
+  { id: 'd15', client_name: 'Lumen Fintech',       deal_type: 'PE/VC', side: 'Sell', stage: 'Origination', nda_status: 'Pending', sector: 'Fintech',        ticket_size_usd_m:  45, fee_success_pct: 3.25,                            lead_owner: 'Neha Jain', origination_source: 'Outbound',         created_at: daysAgo(8) },
+  { id: 'd16', client_name: 'Nimbus Health',       deal_type: 'ECM',   side: 'Sell', stage: 'Preparation', nda_status: 'Signed',  sector: 'Healthcare',     ticket_size_usd_m: 110, fee_success_pct: 2.00, fee_retainer_usd: 40000,  lead_owner: 'Neha Jain', origination_source: 'Existing client',  created_at: daysAgo(35),  expected_close_date: daysFwd(200) },
+  { id: 'd17', client_name: 'Halcyon Pharma',      deal_type: 'PE/VC', side: 'Buy',  stage: 'Diligence',   nda_status: 'Signed',  sector: 'Healthcare',     ticket_size_usd_m:  95, fee_success_pct: 2.75, fee_retainer_usd: 35000,  lead_owner: 'Neha Jain', origination_source: 'Existing client',  created_at: daysAgo(110), expected_close_date: daysFwd(65) },
   { id: 'd18', client_name: 'Evermark Retail',     deal_type: 'M&A',   side: 'Sell', stage: 'Pitch',       nda_status: 'Pending', sector: 'Consumer',       ticket_size_usd_m: 160, fee_success_pct: 1.90,                            lead_owner: 'Sophie Laurent',  origination_source: 'Outbound',         created_at: daysAgo(18) }
 ]
 
@@ -66,6 +77,7 @@ export default function Analytics() {
   const [activities, setActivities] = useState([])
   const [sectorFilter, setSectorFilter] = useState('all')
   const [period, setPeriod]         = useState('LTM')
+  const [annualTarget, setAnnualTarget] = useState(() => readTarget())
   const [simDiligenceUplift, setSimDiligenceUplift]       = useState(15)
   const [simNegotiationUplift, setSimNegotiationUplift]   = useState(5)
 
@@ -144,7 +156,14 @@ export default function Analytics() {
   }, [filteredDeals, forecast.weighted, simDiligenceUplift, simNegotiationUplift])
 
   const updatedLabel = format(new Date(), "d MMM yyyy · HH:mm")
-  const targetProgress = Math.min(1, (forecast.recognised + committedUsd) / ANNUAL_FEE_TARGET_USD)
+  const targetProgress = annualTarget > 0 ? Math.min(1, (forecast.recognised + committedUsd) / annualTarget) : 0
+
+  function saveTarget(next) {
+    const v = Number(next)
+    if (!Number.isFinite(v) || v <= 0) return
+    setAnnualTarget(v)
+    writeTarget(v)
+  }
 
   return (
     <div className="space-y-10">
@@ -204,14 +223,14 @@ export default function Analytics() {
 
       {/* ── Executive KPI strip ── */}
       <section className="grid grid-cols-2 gap-px bg-valence-border rounded-2xl overflow-hidden border border-valence-border md:grid-cols-4 lg:grid-cols-8">
-        <KPI label="Pipeline value" value={money(pipelineValue)} sub={`${active.length} active`} icon={TrendingUp} accent />
-        <KPI label="Weighted fees"  value={amount(forecast.weighted)} sub="Probability-adjusted" icon={DollarSign} />
-        <KPI label="Recognised"     value={amount(forecast.recognised)} sub="Closed · booked" icon={Trophy} />
-        <KPI label="Committed"      value={amount(committedUsd)} sub="Closing + Negotiation" icon={ShieldAlert} />
-        <KPI label="Win rate"       value={winLoss.rate != null ? `${Math.round(winLoss.rate * 100)}%` : '—'} sub={`${winLoss.closed}W · ${winLoss.lost}L`} icon={Target} />
-        <KPI label="Avg ticket"     value={avg ? money(avg) : '—'} sub="Active mandates" icon={Briefcase} />
-        <KPI label="Blended yield"  value={feeYield != null ? `${(feeYield * 100).toFixed(2)}%` : '—'} sub="Fee ÷ tx value" icon={Percent} />
-        <KPI label="Fees / banker"  value={amount(forecast.weighted / uniqueBankers)} sub={`${uniqueBankers} banker${uniqueBankers === 1 ? '' : 's'}`} icon={Users} />
+        <KPI label="Pipeline value" info="Sum of ticket sizes across all non-terminal mandates." value={money(pipelineValue)} sub={`${active.length} active`} icon={TrendingUp} accent />
+        <KPI label="Weighted fees"  info="Expected fee on each deal multiplied by its stage probability, then summed." value={amount(forecast.weighted)} sub="Probability-adjusted" icon={DollarSign} />
+        <KPI label="Recognised"     info="Fees on deals that have actually closed — revenue already booked." value={amount(forecast.recognised)} sub="Closed · booked" icon={Trophy} />
+        <KPI label="Committed"      info="Near-certain fees: 95% of Closing, 85% of Negotiation, plus all Closed deals." value={amount(committedUsd)} sub="Closing + Negotiation" icon={ShieldAlert} />
+        <KPI label="Win rate"       info="Closed ÷ (Closed + Lost) among terminal deals in scope." value={winLoss.rate != null ? `${Math.round(winLoss.rate * 100)}%` : '—'} sub={`${winLoss.closed}W · ${winLoss.lost}L`} icon={Target} />
+        <KPI label="Avg ticket"     info="Mean transaction value across active mandates with size tagged." value={avg ? money(avg) : '—'} sub="Active mandates" icon={Briefcase} />
+        <KPI label="Blended yield"  info="Total weighted fees divided by total weighted transaction value — the firm's effective fee rate." value={feeYield != null ? `${(feeYield * 100).toFixed(2)}%` : '—'} sub="Fee ÷ tx value" icon={Percent} />
+        <KPI label="Fees / banker"  info="Weighted fees divided by number of distinct lead owners — productivity per head." value={amount(forecast.weighted / uniqueBankers)} sub={`${uniqueBankers} banker${uniqueBankers === 1 ? '' : 's'}`} icon={Users} />
       </section>
 
       {/* ── Target commitment gauge ── */}
@@ -219,7 +238,8 @@ export default function Analytics() {
         progress={targetProgress}
         recognised={forecast.recognised}
         committed={committedUsd}
-        target={ANNUAL_FEE_TARGET_USD}
+        target={annualTarget}
+        onTargetChange={saveTarget}
         weighted={forecast.weighted}
         amount={amount}
       />
@@ -326,7 +346,7 @@ export default function Analytics() {
           <span>
             Period · <b className="text-valence-text">{period}</b>. Scope · <b className="text-valence-text">{sectorFilter === 'all' ? 'all sectors' : sectorFilter}</b>.
             Sections marked <span className="rounded bg-valence-warning/10 px-1 text-valence-warning">Illustrative</span> use modelled series where real traces are thin — they respect current stage distributions, fee structures, and deal counts.
-            Target tracker shows {amount(ANNUAL_FEE_TARGET_USD)} annual — recognised + committed vs goal.
+            Target tracker shows {amount(annualTarget)} annual — recognised + committed vs goal.
           </span>
         </p>
       </div>
@@ -367,11 +387,14 @@ function CardTitle({ icon: Icon, title, subtitle, right }) {
   )
 }
 
-function KPI({ label, value, sub, icon: Icon, accent = false }) {
+function KPI({ label, value, sub, icon: Icon, accent = false, info }) {
   return (
     <div className={`bg-white p-5 ${accent ? 'ring-1 ring-valence-blue/20' : ''}`}>
       <div className="flex items-center justify-between">
-        <span className="vl-eyebrow-ink">{label}</span>
+        <span className="vl-eyebrow-ink inline-flex items-center gap-1.5">
+          {label}
+          {info && <InfoDot text={info} />}
+        </span>
         <Icon className={`h-3.5 w-3.5 ${accent ? 'text-valence-blue' : 'text-valence-subtle'}`} />
       </div>
       <p className="mt-3 font-display text-2xl font-bold tracking-[-0.02em] text-valence-text tabular-nums">{value}</p>
@@ -391,11 +414,20 @@ function IllustrativeBadge() {
 /* ═══════════════════════════════════════════════════════════════════════
    Target gauge
    ═══════════════════════════════════════════════════════════════════════ */
-function TargetGauge({ progress, recognised, committed, target, weighted, amount }) {
+function TargetGauge({ progress, recognised, committed, target, onTargetChange, weighted, amount }) {
+  const [editing, setEditing] = useState(false)
+  const [draft, setDraft]     = useState(String(Math.round(target / 1_000_000)))
   const pct = Math.round(progress * 100)
   const circumference = 2 * Math.PI * 64
   const offset = circumference * (1 - progress)
   const pipelineCover = target > 0 ? (weighted + recognised) / target : 0
+
+  function commit() {
+    const m = Number(draft)
+    if (Number.isFinite(m) && m > 0) onTargetChange?.(m * 1_000_000)
+    setEditing(false)
+  }
+
   return (
     <section className="vl-card p-8 relative overflow-hidden">
       <div className="absolute -right-16 -top-16 h-56 w-56 rounded-full bg-valence-blue/10 blur-3xl" aria-hidden />
@@ -415,9 +447,38 @@ function TargetGauge({ progress, recognised, committed, target, weighted, amount
             <text x="80" y="98" textAnchor="middle" className="fill-valence-muted" style={{ font: "600 10px ui-sans-serif" }}>to target</text>
           </svg>
           <div>
-            <p className="vl-eyebrow-ink flex items-center gap-1.5"><Gauge className="h-3 w-3 text-valence-blue" /> Commit vs annual target</p>
+            <p className="vl-eyebrow-ink flex items-center gap-1.5">
+              <Gauge className="h-3 w-3 text-valence-blue" /> Commit vs annual target
+              <InfoDot text="Recognised + committed fees tracked against an annual goal. Click the goal number to edit." />
+            </p>
             <p className="mt-2 font-display text-3xl font-bold tabular-nums text-valence-text">{amount(recognised + committed)}</p>
-            <p className="text-sm text-valence-muted">of {amount(target)} goal</p>
+            <p className="text-sm text-valence-muted">
+              of{' '}
+              {editing ? (
+                <span className="inline-flex items-center gap-1">
+                  <span className="text-valence-muted">$</span>
+                  <input
+                    type="number" min="1" step="0.5"
+                    value={draft}
+                    onChange={e => setDraft(e.target.value)}
+                    onKeyDown={e => { if (e.key === 'Enter') commit(); if (e.key === 'Escape') setEditing(false) }}
+                    onBlur={commit}
+                    autoFocus
+                    className="w-20 rounded border border-valence-blue/40 bg-white px-1.5 py-0.5 text-sm font-semibold tabular-nums text-valence-text outline-none focus:ring-2 focus:ring-valence-blue-ring"
+                  />
+                  <span className="text-valence-muted">M</span>
+                </span>
+              ) : (
+                <button
+                  onClick={() => { setDraft(String(Math.round(target / 1_000_000))); setEditing(true) }}
+                  className="font-semibold text-valence-text underline decoration-dotted underline-offset-2 hover:text-valence-blue transition"
+                  title="Click to edit target"
+                >
+                  {amount(target)}
+                </button>
+              )}
+              {' '}goal
+            </p>
           </div>
         </div>
         <div className="grid gap-3 self-center text-sm">
