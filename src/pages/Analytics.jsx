@@ -4,7 +4,7 @@ import { format } from 'date-fns'
 import {
   BarChart3, TrendingUp, TrendingDown, DollarSign, Briefcase, Trophy,
   Activity, MapPin, Sparkles, ArrowRight, Info, CalendarDays, PieChart,
-  AlertTriangle, Zap, Filter, Printer, Layers, Users,
+  AlertTriangle, Zap, Building2, Filter, Printer, Layers, Users,
   Hourglass, Scale, ShieldAlert, Flame, Globe2, Crown,
   Handshake, FileSearch, CalendarClock
 } from 'lucide-react'

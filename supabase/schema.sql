@@ -703,3 +703,284 @@ create trigger documents_audit_update      before update on public.documents    
 create trigger comps_audit_update          before update on public.comps          for each row execute function public.set_audit_update();
 create trigger deal_checklist_audit_update before update on public.deal_checklist for each row execute function public.set_audit_update();
 create trigger deal_team_audit_update      before update on public.deal_team      for each row execute function public.set_audit_update();
+
+-- ============ INTERACTIONS (Phase 1.1) ============
+create table if not exists public.interactions (
+  id uuid primary key default gen_random_uuid(),
+  interaction_purpose text not null check (interaction_purpose in
+    ('pitch_for_mandate','counterparty_outreach','relationship_building','referral')),
+  type text not null check (type in
+    ('intro_call','pitch_meeting','coffee','email_thread','referral_in','referral_out','event','phone_call','other')),
+  counterparty_name    text not null,
+  counterparty_company text,
+  counterparty_role    text,
+  deal_id              uuid references public.deals(id) on delete set null,
+  outcome              text not null check (outcome in
+    ('to_followup','in_progress','converted_to_mandate','pitched_lost','interested','passed','referred_out','stay_warm','closed')),
+  notes                text,
+  follow_up_date       date,
+  lead_owner           text,
+  created_by           uuid default auth.uid(),
+  created_at           timestamptz not null default now(),
+  updated_at           timestamptz not null default now()
+);
+create index if not exists interactions_purpose_idx        on public.interactions (interaction_purpose);
+create index if not exists interactions_outcome_idx        on public.interactions (outcome);
+create index if not exists interactions_deal_id_idx        on public.interactions (deal_id);
+create index if not exists interactions_follow_up_date_idx on public.interactions (follow_up_date);
+create index if not exists interactions_created_at_idx     on public.interactions (created_at desc);
+
+alter table public.interactions enable row level security;
+
+drop policy if exists interactions_select_authenticated on public.interactions;
+create policy interactions_select_authenticated on public.interactions
+  for select using (auth.role() = 'authenticated');
+
+drop policy if exists interactions_write_authenticated on public.interactions;
+create policy interactions_write_authenticated on public.interactions
+  for all using (auth.role() = 'authenticated') with check (auth.role() = 'authenticated');
+
+drop trigger if exists interactions_audit_update on public.interactions;
+create trigger interactions_audit_update before update on public.interactions
+  for each row execute function public.set_audit_update();
+-- ValenceOS · Phase 1.4 — Fund CRM
+-- Idempotent. Paste this whole file into the Supabase SQL editor.
+
+create table if not exists public.funds (
+  id uuid primary key default gen_random_uuid(),
+  name text not null,
+  fund_type text not null check (fund_type in ('VC','PE','Growth','Family Office','Sovereign','Hedge Fund','Strategic Corp Dev','Other')),
+  hq_city    text,
+  hq_country text,
+  aum_usd_m  numeric,
+  check_size_min_usd_m numeric,
+  check_size_max_usd_m numeric,
+  sectors    text[] default '{}',
+  stages     text[] default '{}',
+  geographies text[] default '{}',
+  website    text,
+  warmth     text default 'cold' check (warmth in ('hot','warm','cold','dormant')),
+  last_touched_at date,
+  notes      text,
+  created_by uuid default auth.uid(),
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+create index if not exists funds_warmth_idx     on public.funds (warmth);
+create index if not exists funds_fund_type_idx  on public.funds (fund_type);
+create index if not exists funds_last_touched_idx on public.funds (last_touched_at desc);
+
+create table if not exists public.fund_contacts (
+  id uuid primary key default gen_random_uuid(),
+  fund_id uuid not null references public.funds(id) on delete cascade,
+  name text not null,
+  role text,
+  email text,
+  phone text,
+  linkedin_url text,
+  notes text,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+create index if not exists fund_contacts_fund_id_idx on public.fund_contacts (fund_id);
+
+create table if not exists public.deal_fund_pings (
+  id uuid primary key default gen_random_uuid(),
+  deal_id uuid not null references public.deals(id) on delete cascade,
+  fund_id uuid not null references public.funds(id) on delete cascade,
+  status text default 'shortlisted' check (status in ('shortlisted','reached_out','meeting_set','passed','interested','in_dd','offered')),
+  pinged_at timestamptz default now(),
+  notes text,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  unique (deal_id, fund_id)
+);
+create index if not exists deal_fund_pings_deal_id_idx on public.deal_fund_pings (deal_id);
+create index if not exists deal_fund_pings_fund_id_idx on public.deal_fund_pings (fund_id);
+
+alter table public.funds            enable row level security;
+alter table public.fund_contacts    enable row level security;
+alter table public.deal_fund_pings  enable row level security;
+
+drop policy if exists funds_select_authenticated on public.funds;
+create policy funds_select_authenticated on public.funds
+  for select using (auth.role() = 'authenticated');
+drop policy if exists funds_write_authenticated on public.funds;
+create policy funds_write_authenticated on public.funds
+  for all using (auth.role() = 'authenticated') with check (auth.role() = 'authenticated');
+
+drop policy if exists fund_contacts_select_authenticated on public.fund_contacts;
+create policy fund_contacts_select_authenticated on public.fund_contacts
+  for select using (auth.role() = 'authenticated');
+drop policy if exists fund_contacts_write_authenticated on public.fund_contacts;
+create policy fund_contacts_write_authenticated on public.fund_contacts
+  for all using (auth.role() = 'authenticated') with check (auth.role() = 'authenticated');
+
+drop policy if exists deal_fund_pings_select_authenticated on public.deal_fund_pings;
+create policy deal_fund_pings_select_authenticated on public.deal_fund_pings
+  for select using (auth.role() = 'authenticated');
+drop policy if exists deal_fund_pings_write_authenticated on public.deal_fund_pings;
+create policy deal_fund_pings_write_authenticated on public.deal_fund_pings
+  for all using (auth.role() = 'authenticated') with check (auth.role() = 'authenticated');
+
+drop trigger if exists funds_audit_update           on public.funds;
+create trigger funds_audit_update before update on public.funds
+  for each row execute function public.set_audit_update();
+
+drop trigger if exists fund_contacts_audit_update   on public.fund_contacts;
+create trigger fund_contacts_audit_update before update on public.fund_contacts
+  for each row execute function public.set_audit_update();
+
+drop trigger if exists deal_fund_pings_audit_update on public.deal_fund_pings;
+create trigger deal_fund_pings_audit_update before update on public.deal_fund_pings
+  for each row execute function public.set_audit_update();
+-- ValenceOS · Phase 1.5 — AI Quick Screener
+-- Idempotent. Paste this whole file into the Supabase SQL editor.
+
+create table if not exists public.screener_criteria (
+  id uuid primary key default gen_random_uuid(),
+  name text not null,
+  is_default boolean not null default false,
+  config jsonb not null default '{}',
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create table if not exists public.screener_runs (
+  id uuid primary key default gen_random_uuid(),
+  mode text not null check (mode in ('fund_match','mandate_fit')),
+  input_summary text,
+  pdf_filename text,
+  output jsonb,
+  deal_id uuid references public.deals(id) on delete set null,
+  created_by uuid default auth.uid(),
+  created_at timestamptz not null default now()
+);
+create index if not exists screener_runs_mode_idx       on public.screener_runs (mode);
+create index if not exists screener_runs_created_at_idx on public.screener_runs (created_at desc);
+
+alter table public.screener_criteria enable row level security;
+alter table public.screener_runs     enable row level security;
+
+drop policy if exists screener_criteria_select_authenticated on public.screener_criteria;
+create policy screener_criteria_select_authenticated on public.screener_criteria
+  for select using (auth.role() = 'authenticated');
+drop policy if exists screener_criteria_write_authenticated on public.screener_criteria;
+create policy screener_criteria_write_authenticated on public.screener_criteria
+  for all using (auth.role() = 'authenticated') with check (auth.role() = 'authenticated');
+
+drop policy if exists screener_runs_select_authenticated on public.screener_runs;
+create policy screener_runs_select_authenticated on public.screener_runs
+  for select using (auth.role() = 'authenticated');
+drop policy if exists screener_runs_write_authenticated on public.screener_runs;
+create policy screener_runs_write_authenticated on public.screener_runs
+  for all using (auth.role() = 'authenticated') with check (auth.role() = 'authenticated');
+-- ValenceOS · Phase 1.6 — Smart Intake Portal
+-- Idempotent. Paste into the Supabase SQL editor.
+-- After running, create a public storage bucket called "intake-decks" in
+-- the Supabase dashboard so the public form can upload pitch decks.
+
+create table if not exists public.intake_submissions (
+  id uuid primary key default gen_random_uuid(),
+  company_name   text not null,
+  contact_name   text not null,
+  contact_email  text not null,
+  contact_phone  text,
+  sector         text,
+  deal_side      text,
+  ev_ask_usd_m   numeric,
+  situation      text,
+  deck_url       text,
+  source         text,
+  status         text not null default 'new' check (status in ('new','reviewed','converted','passed','spam')),
+  ai_screener_output jsonb,
+  deal_id        uuid references public.deals(id) on delete set null,
+  created_at     timestamptz not null default now(),
+  updated_at     timestamptz not null default now()
+);
+create index if not exists intake_submissions_status_idx     on public.intake_submissions (status);
+create index if not exists intake_submissions_created_at_idx on public.intake_submissions (created_at desc);
+
+alter table public.intake_submissions enable row level security;
+
+-- Authenticated users (the firm) can read and update.
+drop policy if exists intake_submissions_select_authenticated on public.intake_submissions;
+create policy intake_submissions_select_authenticated on public.intake_submissions
+  for select using (auth.role() = 'authenticated');
+
+drop policy if exists intake_submissions_update_authenticated on public.intake_submissions;
+create policy intake_submissions_update_authenticated on public.intake_submissions
+  for update using (auth.role() = 'authenticated');
+
+-- Anon visitors can ONLY insert (the public intake form). They cannot read
+-- or modify rows; the only path is one-shot creation.
+drop policy if exists intake_submissions_insert_anon on public.intake_submissions;
+create policy intake_submissions_insert_anon on public.intake_submissions
+  for insert to anon with check (true);
+
+drop trigger if exists intake_submissions_audit_update on public.intake_submissions;
+create trigger intake_submissions_audit_update before update on public.intake_submissions
+  for each row execute function public.set_audit_update();
+-- ValenceOS · Phase 1.7 — Meeting Intelligence
+-- Idempotent. Paste into the Supabase SQL editor.
+
+create table if not exists public.meeting_intelligence (
+  id uuid primary key default gen_random_uuid(),
+  deal_id      uuid references public.deals(id) on delete cascade,
+  meeting_id   uuid references public.meetings(id),
+  source       text check (source in ('otter','fireflies','granola','manual','other')),
+  transcript_text text,
+  transcript_url  text,
+  founder_highlights jsonb default '[]',
+  red_flags          jsonb default '[]',
+  claims_to_verify   jsonb default '[]',
+  action_items       jsonb default '[]',
+  summary            text,
+  created_by uuid default auth.uid(),
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+create index if not exists meeting_intelligence_deal_id_idx    on public.meeting_intelligence (deal_id);
+create index if not exists meeting_intelligence_meeting_id_idx on public.meeting_intelligence (meeting_id);
+create index if not exists meeting_intelligence_created_at_idx on public.meeting_intelligence (created_at desc);
+
+alter table public.meeting_intelligence enable row level security;
+
+drop policy if exists meeting_intelligence_select_authenticated on public.meeting_intelligence;
+create policy meeting_intelligence_select_authenticated on public.meeting_intelligence
+  for select using (auth.role() = 'authenticated');
+drop policy if exists meeting_intelligence_write_authenticated on public.meeting_intelligence;
+create policy meeting_intelligence_write_authenticated on public.meeting_intelligence
+  for all using (auth.role() = 'authenticated') with check (auth.role() = 'authenticated');
+
+drop trigger if exists meeting_intelligence_audit_update on public.meeting_intelligence;
+create trigger meeting_intelligence_audit_update before update on public.meeting_intelligence
+  for each row execute function public.set_audit_update();
+-- ValenceOS · Phase 1.8 — Doc enhancements (watermark + share access logs)
+-- Idempotent. Paste into the Supabase SQL editor.
+
+alter table public.deal_files add column if not exists watermark_enabled boolean default false;
+
+create table if not exists public.share_access_logs (
+  id uuid primary key default gen_random_uuid(),
+  share_code text not null,
+  file_id uuid references public.deal_files(id) on delete set null,
+  viewer_ip   text,
+  viewer_email text,
+  user_agent  text,
+  duration_seconds int,
+  opened_at  timestamptz not null default now()
+);
+create index if not exists share_access_logs_share_code_idx on public.share_access_logs (share_code);
+create index if not exists share_access_logs_opened_at_idx  on public.share_access_logs (opened_at desc);
+
+alter table public.share_access_logs enable row level security;
+
+drop policy if exists share_access_logs_select_authenticated on public.share_access_logs;
+create policy share_access_logs_select_authenticated on public.share_access_logs
+  for select using (auth.role() = 'authenticated');
+
+-- Anon visitors with a valid share code can write a single access log row.
+drop policy if exists share_access_logs_insert_anon on public.share_access_logs;
+create policy share_access_logs_insert_anon on public.share_access_logs
+  for insert to anon with check (true);

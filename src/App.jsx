@@ -2,6 +2,14 @@ import { Routes, Route, Navigate, useLocation } from 'react-router-dom'
 import Layout from './components/Layout.jsx'
 import Overview from './pages/Overview.jsx'
 import Deals from './pages/Deals.jsx'
+import Mandates from './pages/Mandates.jsx'
+import Timeline from './pages/Timeline.jsx'
+import Funds from './pages/Funds.jsx'
+import Screener from './pages/Screener.jsx'
+import Intake from './pages/Intake.jsx'
+import IntakeThanks from './pages/IntakeThanks.jsx'
+import InboxIntake from './pages/InboxIntake.jsx'
+import Interactions from './pages/Interactions.jsx'
 import Knowledge from './pages/Knowledge.jsx'
 import KnowledgeLanding from './pages/KnowledgeLanding.jsx'
 import Planner from './pages/Planner.jsx'
@@ -26,6 +34,16 @@ export default function App() {
     )
   }
 
+  // Public intake routes render without chrome and without auth, like /share
+  if (pathname === '/intake' || pathname === '/intake/thanks') {
+    return (
+      <Routes>
+        <Route path="/intake" element={<Intake />} />
+        <Route path="/intake/thanks" element={<IntakeThanks />} />
+      </Routes>
+    )
+  }
+
   // If Supabase isn't configured (or is configured but unreachable), fall
   // through to the workspace so the ConfigBanner can tell the user what's
   // wrong. Otherwise require a session.
@@ -39,6 +57,12 @@ export default function App() {
       <Routes>
         <Route path="/" element={<Overview />} />
         <Route path="/deals" element={<Deals />} />
+        <Route path="/mandates" element={<Mandates />} />
+        <Route path="/timeline" element={<Timeline />} />
+        <Route path="/funds" element={<Funds />} />
+        <Route path="/screen" element={<Screener />} />
+        <Route path="/inbox/intake" element={<InboxIntake />} />
+        <Route path="/interactions" element={<Interactions />} />
         <Route path="/knowledge" element={<KnowledgeLanding />} />
         <Route path="/knowledge/shared" element={<Knowledge />} />
         <Route path="/knowledge/private" element={<Drive />} />

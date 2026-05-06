@@ -4,6 +4,7 @@ import { format } from 'date-fns'
 import { Download, FileText, AlertTriangle, Lock, CheckCircle2, Loader2 } from 'lucide-react'
 import { loadShareByCode, logAccess } from '../lib/shares.js'
 import { publicUrlFor, formatBytes } from '../lib/storage.js'
+import { supabase, isSupabaseConfigured } from '../lib/supabase.js'
 import Logo from '../components/Logo.jsx'
 
 // Public page rendered at /share/:code — no sidebar, no Valence chrome.
@@ -20,6 +21,13 @@ export default function Share() {
         setState({ loading: false, share })
         if (!share._revoked && !share._expired) {
           logAccess({ shareId: share.id, event: 'view' })
+          // Phase 1.8 — also write a richer audit row to share_access_logs.
+          if (isSupabaseConfigured) {
+            supabase.from('share_access_logs').insert({
+              share_code: code,
+              user_agent: navigator.userAgent || null
+            }).catch(() => {})
+          }
         }
       } catch (e) {
         setState({ loading: false, error: e.message || 'Could not load share.' })
@@ -63,9 +71,11 @@ export default function Share() {
 
   const deal = share.deal
   const files = share.files || []
+  const watermarkOn = files.some(f => f.watermark_enabled)
+  const watermarkLabel = `${code} · ${format(new Date(), "d MMM yyyy HH:mm")}`
 
   return (
-    <Shell>
+    <Shell watermark={watermarkOn ? watermarkLabel : null}>
       <div className="mx-auto w-full max-w-3xl space-y-8 py-10 px-5">
         <section className="rounded-2xl border border-valence-border bg-white vl-circles px-8 py-10 relative overflow-hidden">
           <div className="relative">
@@ -149,9 +159,9 @@ export default function Share() {
   )
 }
 
-function Shell({ children }) {
+function Shell({ children, watermark }) {
   return (
-    <div className="min-h-screen bg-valence-bg text-valence-text">
+    <div className="relative min-h-screen bg-valence-bg text-valence-text">
       <header className="border-b border-valence-border bg-white">
         <div className="mx-auto flex h-16 max-w-3xl items-center px-5">
           <Logo />
@@ -164,6 +174,19 @@ function Shell({ children }) {
           Confidential · for the intended recipient only. Forwarding or downloading is audited.
         </div>
       </footer>
+      {watermark && (
+        <div className="pointer-events-none fixed inset-0 z-50 select-none overflow-hidden">
+          <div className="absolute inset-0 grid grid-cols-3 grid-rows-6 gap-0">
+            {Array.from({ length: 18 }).map((_, i) => (
+              <div key={i} className="grid place-items-center">
+                <span className="rotate-[-30deg] whitespace-nowrap text-[10px] font-semibold uppercase tracking-[0.3em] text-valence-ink/[0.08]">
+                  {watermark}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   )
 }

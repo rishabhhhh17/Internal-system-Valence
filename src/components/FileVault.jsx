@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { Upload, FileText, Download, Trash2, Paperclip, AlertTriangle } from 'lucide-react'
+import { Upload, FileText, Download, Trash2, Paperclip, AlertTriangle, Droplets } from 'lucide-react'
 import { format } from 'date-fns'
 import { supabase, isSupabaseConfigured, checkDealFilesBucket, resetBucketStatus } from '../lib/supabase.js'
 import { uploadDealFile, publicUrlFor, deleteDealFile, formatBytes } from '../lib/storage.js'
@@ -61,6 +61,19 @@ export default function FileVault({ dealId }) {
     const file = e.target.files?.[0]
     e.target.value = ''
     handleFile(file)
+  }
+
+  async function toggleWatermark(f) {
+    const next = !f.watermark_enabled
+    setFiles(prev => prev.map(x => x.id === f.id ? { ...x, watermark_enabled: next } : x))
+    if (!isSupabaseConfigured) return
+    const { error } = await supabase.from('deal_files').update({ watermark_enabled: next }).eq('id', f.id)
+    if (error) {
+      setFiles(prev => prev.map(x => x.id === f.id ? { ...x, watermark_enabled: !next } : x))
+      toast.error(error.message)
+    } else {
+      toast.success(next ? 'Watermark on when shared' : 'Watermark off')
+    }
   }
 
   async function remove(f) {
@@ -151,6 +164,14 @@ export default function FileVault({ dealId }) {
                   <span>{format(new Date(f.created_at), 'd MMM yyyy')}</span>
                 </div>
               </div>
+              <button
+                onClick={() => toggleWatermark(f)}
+                title={f.watermark_enabled ? 'Watermark on when shared' : 'Watermark off when shared'}
+                className={`vl-btn-ghost ${f.watermark_enabled ? 'text-valence-blue' : 'text-valence-subtle hover:text-valence-blue'}`}
+                aria-label="Toggle watermark"
+              >
+                <Droplets className="h-3.5 w-3.5" />
+              </button>
               <a href={publicUrlFor(f.path)} target="_blank" rel="noreferrer" className="vl-btn-ghost" aria-label="Download">
                 <Download className="h-3.5 w-3.5" />
               </a>
