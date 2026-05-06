@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { NavLink } from 'react-router-dom'
-import { LayoutDashboard, Briefcase, BookOpen, CalendarDays, Users, BarChart3, MessageSquare, Handshake, GanttChartSquare } from 'lucide-react'
+import { LayoutDashboard, Briefcase, BookOpen, CalendarDays, Users, BarChart3, MessageSquare, Handshake, GanttChartSquare, Building2 } from 'lucide-react'
 import Logo from './Logo.jsx'
 import { supabase, isSupabaseConfigured, subscribeTable } from '../lib/supabase.js'
 
@@ -12,12 +12,24 @@ const nav = [
   { to: '/deals',        label: 'Deal Logger',  icon: Briefcase,     badgeKey: 'activeDeals' },
   { to: '/mandates',     label: 'Live Mandates',icon: Handshake,     badgeKey: 'liveMandates' },
   { to: '/timeline',     label: 'Timeline',     icon: GanttChartSquare },
-  { to: '/interactions', label: 'Interactions', icon: MessageSquare, badgeKey: 'pendingFollowUps' },
+  { to: '/interactions', label: 'Interactions', icon: MessageSquare, badgeKey: 'pendingFollowUps', section: 'Relationships' },
+  { to: '/funds',        label: 'Fund CRM',     icon: Building2,                                 section: 'Relationships' },
   { to: '/knowledge',    label: 'Knowledge',    icon: BookOpen },
   { to: '/planner',      label: 'Day Planner',  icon: CalendarDays,  badgeKey: 'todayMeetings' },
   { to: '/analytics',    label: 'Analytics',    icon: BarChart3 },
   { to: '/team',         label: 'Team',         icon: Users }
 ]
+
+function groupNav(items) {
+  const out = []
+  const seen = new Map()
+  for (const item of items) {
+    const section = item.section || 'Workspace'
+    if (!seen.has(section)) { seen.set(section, out.length); out.push([section, []]) }
+    out[seen.get(section)][1].push(item)
+  }
+  return out
+}
 
 function useSidebarCounts() {
   const [counts, setCounts] = useState({ activeDeals: 0, todayMeetings: 0, pendingFollowUps: 0, liveMandates: 0 })
@@ -59,43 +71,45 @@ export default function Sidebar() {
         <Logo />
       </div>
 
-      <nav className="flex-1 px-3 py-6 space-y-0.5">
-        <div className="px-3 pb-3 vl-eyebrow-ink">
-          Workspace
-        </div>
-        {nav.map(({ to, label, icon: Icon, badgeKey }) => {
-          const badge = badgeKey ? counts[badgeKey] : 0
-          return (
-            <NavLink
-              key={to}
-              to={to}
-              end={to === '/'}
-              className={({ isActive }) =>
-                `group flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition ${
-                  isActive
-                    ? 'bg-valence-ink text-white'
-                    : 'text-valence-muted hover:bg-valence-surface hover:text-valence-text'
-                }`
-              }
-            >
-              {({ isActive }) => (
-                <>
-                  <Icon className={`h-4 w-4 ${isActive ? 'text-valence-blue' : 'text-valence-subtle group-hover:text-valence-text'}`} />
-                  <span className="flex-1 tracking-tight">{label}</span>
-                  {badge > 0 && (
-                    <span className={`inline-flex items-center justify-center rounded-full px-1.5 py-0 text-[10px] font-semibold tabular-nums ${
+      <nav className="flex-1 px-3 py-6 space-y-0.5 overflow-y-auto">
+        {groupNav(nav).map(([sectionLabel, items], gi) => (
+          <div key={sectionLabel} className={gi === 0 ? '' : 'pt-4'}>
+            <div className="px-3 pb-3 vl-eyebrow-ink">{sectionLabel}</div>
+            {items.map(({ to, label, icon: Icon, badgeKey }) => {
+              const badge = badgeKey ? counts[badgeKey] : 0
+              return (
+                <NavLink
+                  key={to}
+                  to={to}
+                  end={to === '/'}
+                  className={({ isActive }) =>
+                    `group flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition ${
                       isActive
-                        ? 'bg-white/15 text-white'
-                        : 'bg-valence-blue-soft text-valence-blue'
-                    }`}>
-                      {badge > 99 ? '99+' : badge}
-                    </span>
+                        ? 'bg-valence-ink text-white'
+                        : 'text-valence-muted hover:bg-valence-surface hover:text-valence-text'
+                    }`
+                  }
+                >
+                  {({ isActive }) => (
+                    <>
+                      <Icon className={`h-4 w-4 ${isActive ? 'text-valence-blue' : 'text-valence-subtle group-hover:text-valence-text'}`} />
+                      <span className="flex-1 tracking-tight">{label}</span>
+                      {badge > 0 && (
+                        <span className={`inline-flex items-center justify-center rounded-full px-1.5 py-0 text-[10px] font-semibold tabular-nums ${
+                          isActive
+                            ? 'bg-white/15 text-white'
+                            : 'bg-valence-blue-soft text-valence-blue'
+                        }`}>
+                          {badge > 99 ? '99+' : badge}
+                        </span>
+                      )}
+                    </>
                   )}
-                </>
-              )}
-            </NavLink>
-          )
-        })}
+                </NavLink>
+              )
+            })}
+          </div>
+        ))}
       </nav>
 
       <div className="px-3 pb-5">

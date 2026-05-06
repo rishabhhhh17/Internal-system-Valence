@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import {
   Search, Briefcase, BookOpen, CalendarDays, Users, CheckCircle2,
   CornerDownLeft, Sparkles, LayoutDashboard, ArrowRight, File as FileIcon,
-  FolderOpen, BarChart3, MessageSquare
+  FolderOpen, BarChart3, MessageSquare, Building2
 } from 'lucide-react'
 import { supabase, isSupabaseConfigured } from '../lib/supabase.js'
 import { searchKnowledge } from '../lib/knowledge.js'
@@ -14,6 +14,7 @@ const QUICK_NAV = [
   { type: 'nav', title: 'Live Mandates',  sub: 'Active book by stage',               to: '/mandates',          icon: Briefcase },
   { type: 'nav', title: 'Timeline',       sub: 'Gantt of every active mandate',      to: '/timeline',          icon: BarChart3 },
   { type: 'nav', title: 'Interactions',   sub: 'Pre-mandate touchpoints',            to: '/interactions',      icon: MessageSquare },
+  { type: 'nav', title: 'Fund CRM',       sub: 'Who writes the cheques',             to: '/funds',             icon: Building2 },
   { type: 'nav', title: 'Knowledge',      sub: 'Firm-shared or private',             to: '/knowledge',         icon: BookOpen },
   { type: 'nav', title: 'Firm Knowledge', sub: 'Memos, files, comps',                to: '/knowledge/shared',  icon: BookOpen },
   { type: 'nav', title: 'Private',        sub: 'Your personal Drive',                to: '/knowledge/private', icon: FolderOpen },
@@ -26,7 +27,7 @@ export default function CommandPalette() {
   const [open, setOpen] = useState(false)
   const [q, setQ]       = useState('')
   const [idx, setIdx]   = useState(0)
-  const [data, setData] = useState({ deals: [], docs: [], tasks: [], meetings: [], contacts: [], files: [], interactions: [] })
+  const [data, setData] = useState({ deals: [], docs: [], tasks: [], meetings: [], contacts: [], files: [], interactions: [], funds: [] })
   const [kbHits, setKbHits] = useState([])
   const kbReqRef = useRef(0)
   const inputRef = useRef(null)
@@ -53,14 +54,15 @@ export default function CommandPalette() {
     if (!open) return
     if (!isSupabaseConfigured) return
     ;(async () => {
-      const [d, doc, t, m, c, f, i] = await Promise.all([
+      const [d, doc, t, m, c, f, i, fn] = await Promise.all([
         supabase.from('deals').select('id, client_name, deal_type, stage, sector').limit(100),
         supabase.from('documents').select('id, title, sector, tags').limit(100),
         supabase.from('tasks').select('id, title, completed').limit(100),
         supabase.from('meetings').select('id, title, attendee_name, date, time').limit(100),
         supabase.from('contacts').select('id, name, company, role, deal_id').limit(200),
         supabase.from('knowledge_files').select('id, name, sector, tags').limit(100),
-        supabase.from('interactions').select('id, counterparty_name, counterparty_company, interaction_purpose, outcome').limit(200)
+        supabase.from('interactions').select('id, counterparty_name, counterparty_company, interaction_purpose, outcome').limit(200),
+        supabase.from('funds').select('id, name, fund_type, hq_city, hq_country').limit(200)
       ])
       setData({
         deals:    d.data    || [],
@@ -69,7 +71,8 @@ export default function CommandPalette() {
         meetings: m.data    || [],
         contacts: c.data    || [],
         files:    f.data    || [],
-        interactions: i.data || []
+        interactions: i.data || [],
+        funds:    fn.data   || []
       })
     })()
   }, [open])
@@ -127,6 +130,18 @@ export default function CommandPalette() {
           to: '/interactions',
           icon: MessageSquare,
           group: 'Interactions'
+        })
+      }
+    }
+    for (const fn of data.funds) {
+      if (match(fn.name, needle) || match(fn.fund_type, needle) || match(fn.hq_city, needle)) {
+        out.push({
+          type: 'fund',
+          title: fn.name,
+          sub: [fn.fund_type, [fn.hq_city, fn.hq_country].filter(Boolean).join(', ')].filter(Boolean).join(' · '),
+          to: '/funds',
+          icon: Building2,
+          group: 'Funds'
         })
       }
     }

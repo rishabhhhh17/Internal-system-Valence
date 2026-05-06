@@ -5,7 +5,7 @@ import {
   Plus, Search, Briefcase, FileText, ExternalLink, Edit3, Trash2,
   Filter as FilterIcon, Circle, Table as TableIcon, LayoutGrid, TrendingUp,
   Mail, Users as UsersIcon, FolderOpen, Activity as ActivityIcon, Sparkles, Info, Download,
-  ListChecks, MessageSquare, UserCircle
+  ListChecks, MessageSquare, UserCircle, Building2
 } from 'lucide-react'
 import { supabase, isSupabaseConfigured, subscribeTable } from '../lib/supabase.js'
 import { logActivity } from '../lib/activity.js'
@@ -26,6 +26,7 @@ import CIMGenerator from '../components/CIMGenerator.jsx'
 import TargetList from '../components/TargetList.jsx'
 import FinancialsCard from '../components/FinancialsCard.jsx'
 import ShareManager from '../components/ShareManager.jsx'
+import FundShortlist from '../components/FundShortlist.jsx'
 import GmailSyncButton from '../components/GmailSyncButton.jsx'
 import StageGate from '../components/StageGate.jsx'
 import DealTeam from '../components/DealTeam.jsx'
@@ -343,6 +344,7 @@ function DealDrawerBody({ deal, onEdit, onDelete, onComposeEmail }) {
     { id: 'financials', label: 'Financials',     icon: TrendingUp },
     { id: 'files',      label: 'Files',          icon: FolderOpen },
     { id: 'contacts',   label: 'Counterparties', icon: UsersIcon },
+    { id: 'funds',      label: 'Funds',          icon: Building2 },
     { id: 'activity',   label: 'Activity',       icon: ActivityIcon },
     { id: 'comments',   label: 'Discussion',     icon: MessageSquare },
     { id: 'similar',    label: 'Similar',        icon: Sparkles },
@@ -387,6 +389,7 @@ function DealDrawerBody({ deal, onEdit, onDelete, onComposeEmail }) {
         {tab === 'financials' && <FinancialsCard deal={deal} />}
         {tab === 'files'      && <FileVault dealId={deal.id} />}
         {tab === 'contacts'   && <Contacts dealId={deal.id} onOpenComposer={onComposeEmail} />}
+        {tab === 'funds'      && <FundShortlist deal={deal} />}
         {tab === 'activity'   && <ActivityTimeline dealId={deal.id} />}
         {tab === 'comments'   && <DealComments deal={deal} />}
         {tab === 'similar'    && <SimilarDeals deal={deal} />}
