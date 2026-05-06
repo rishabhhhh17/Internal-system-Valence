@@ -309,15 +309,12 @@ export default function Planner() {
       )}
 
       {!googleConnected && isSupabaseConfigured && (
-        <div className="flex items-start gap-3 rounded-xl border border-valence-blue/30 bg-valence-blue-soft/30 px-4 py-3">
-          <Sparkles className="mt-0.5 h-4 w-4 shrink-0 text-valence-blue" />
-          <div className="text-sm flex-1">
-            <p className="font-semibold text-valence-text">Connect your Google account</p>
-            <p className="mt-0.5 text-[11px] text-valence-muted leading-relaxed">
-              See your real calendar, find free slots, and send meeting proposals directly from your Gmail — all from ValenceOS.
-            </p>
-          </div>
-          <button onClick={() => signInWithGoogle().catch(e => toast.error(e.message))} className="vl-btn-primary shrink-0">
+        <div className="flex items-center gap-3 rounded-lg border border-valence-border bg-valence-surface px-4 py-2.5">
+          <Sparkles className="h-3.5 w-3.5 shrink-0 text-valence-subtle" />
+          <p className="flex-1 text-[12px] text-valence-muted">
+            Connect Google to surface your live calendar and send meeting invites from here.
+          </p>
+          <button onClick={() => signInWithGoogle().catch(e => toast.error(e.message))} className="vl-btn-ghost shrink-0 text-[11px]">
             Connect Google
           </button>
         </div>
@@ -579,7 +576,7 @@ function AiSummaryCard({ summary, loading, error, onRefresh, meetingCount, taskC
         <div className="mt-4">
           {!isGeminiConfigured ? (
             <p className="text-sm leading-relaxed text-valence-muted">
-              Set <span className="vl-kbd">VITE_GEMINI_API_KEY</span> in your <span className="vl-kbd">.env</span> to unlock the daily assistant. In the meantime: {meetingCount} meeting{meetingCount === 1 ? '' : 's'} and {taskCount} priority task{taskCount === 1 ? '' : 's'} queued for today.
+              The daily assistant is offline right now. Today on the board: {meetingCount} meeting{meetingCount === 1 ? '' : 's'} and {taskCount} priority task{taskCount === 1 ? '' : 's'}.
             </p>
           ) : loading && !summary ? (
             <div className="space-y-2 animate-pulse">
@@ -760,7 +757,7 @@ function DraftedMessage({ drafted, onClose }) {
         />
         {!isGeminiConfigured && (
           <p className="mt-2 text-[11px] text-valence-muted">
-            Add <span className="vl-kbd">VITE_GEMINI_API_KEY</span> to let the assistant write the message for you. This is a sensible fallback template.
+            The assistant is offline — this is a sensible fallback template. Edit before sending.
           </p>
         )}
       </div>
