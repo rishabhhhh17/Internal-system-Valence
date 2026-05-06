@@ -6,15 +6,28 @@ import { setUserContext, clearUserContext } from '../lib/sentry.js'
 export function useAuth() {
   const [session, setSession] = useState(null)
   const [loading, setLoading] = useState(true)
+  const [authUnavailable, setAuthUnavailable] = useState(false)
 
   useEffect(() => {
     if (!isSupabaseConfigured) { setLoading(false); return }
     let active = true
-    supabase.auth.getSession().then(({ data }) => {
-      if (active) { setSession(data.session); setLoading(false) }
-    })
+    supabase.auth.getSession()
+      .then(({ data, error }) => {
+        if (!active) return
+        if (error) setAuthUnavailable(true)
+        setSession(data?.session || null)
+        setLoading(false)
+      })
+      .catch(() => {
+        if (!active) return
+        setAuthUnavailable(true)
+        setLoading(false)
+      })
     const { data: sub } = supabase.auth.onAuthStateChange((_event, s) => {
-      if (active) setSession(s)
+      if (active) {
+        setSession(s)
+        if (s) setAuthUnavailable(false)
+      }
       if (s?.user) {
         const m = s.user.user_metadata || {}
         setUserContext({ email: s.user.email, name: m.full_name || m.name || s.user.email })
@@ -42,5 +55,5 @@ export function useAuth() {
     setSession(data.session)
   }, [])
 
-  return { session, profile, loading, googleConnected, provider, refresh }
+  return { session, profile, loading, googleConnected, provider, refresh, authUnavailable }
 }
