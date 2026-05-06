@@ -1,14 +1,16 @@
 import { useEffect, useState } from 'react'
 import { NavLink } from 'react-router-dom'
-import { LayoutDashboard, Briefcase, BookOpen, CalendarDays, Users, BarChart3, MessageSquare } from 'lucide-react'
+import { LayoutDashboard, Briefcase, BookOpen, CalendarDays, Users, BarChart3, MessageSquare, Handshake } from 'lucide-react'
 import Logo from './Logo.jsx'
 import { supabase, isSupabaseConfigured, subscribeTable } from '../lib/supabase.js'
 
-const TERMINAL_STAGES = new Set(['Closed', 'Lost', 'On Hold'])
+const TERMINAL_STAGES  = new Set(['Closed', 'Lost', 'On Hold'])
+const LIVE_MANDATE_STAGES = new Set(['Mandate', 'Preparation', 'Marketing', 'Diligence', 'Negotiation', 'Closing'])
 
 const nav = [
   { to: '/',             label: 'Overview',     icon: LayoutDashboard },
   { to: '/deals',        label: 'Deal Logger',  icon: Briefcase,     badgeKey: 'activeDeals' },
+  { to: '/mandates',     label: 'Live Mandates',icon: Handshake,     badgeKey: 'liveMandates' },
   { to: '/interactions', label: 'Interactions', icon: MessageSquare, badgeKey: 'pendingFollowUps' },
   { to: '/knowledge',    label: 'Knowledge',    icon: BookOpen },
   { to: '/planner',      label: 'Day Planner',  icon: CalendarDays,  badgeKey: 'todayMeetings' },
@@ -17,7 +19,7 @@ const nav = [
 ]
 
 function useSidebarCounts() {
-  const [counts, setCounts] = useState({ activeDeals: 0, todayMeetings: 0, pendingFollowUps: 0 })
+  const [counts, setCounts] = useState({ activeDeals: 0, todayMeetings: 0, pendingFollowUps: 0, liveMandates: 0 })
 
   async function load() {
     if (!isSupabaseConfigured) return
@@ -27,8 +29,10 @@ function useSidebarCounts() {
       supabase.from('meetings').select('id', { count: 'exact', head: true }).eq('date', todayIso),
       supabase.from('interactions').select('id', { count: 'exact', head: true }).not('follow_up_date', 'is', null).lte('follow_up_date', todayIso)
     ])
-    const active = (d.data || []).filter(x => !TERMINAL_STAGES.has(x.stage)).length
-    setCounts({ activeDeals: active, todayMeetings: m.count || 0, pendingFollowUps: i.count || 0 })
+    const stageRows = d.data || []
+    const active = stageRows.filter(x => !TERMINAL_STAGES.has(x.stage)).length
+    const live = stageRows.filter(x => LIVE_MANDATE_STAGES.has(x.stage)).length
+    setCounts({ activeDeals: active, todayMeetings: m.count || 0, pendingFollowUps: i.count || 0, liveMandates: live })
   }
 
   useEffect(() => {
