@@ -1,6 +1,17 @@
 import { useMemo, useRef, useEffect } from 'react'
 import { format, parseISO, differenceInCalendarDays, addDays, startOfMonth, addMonths } from 'date-fns'
-import { stageToneClasses } from '../lib/stages.js'
+
+// Vivid, distinct color per active stage so a partner can scan a row and
+// know what's happening without reading labels. Past = filled, current =
+// solid + ring, future = dashed outline of the same hue.
+const STAGE_PALETTE = {
+  Mandate:     { bg: 'bg-sky-100',     border: 'border-sky-300',     text: 'text-sky-800',     ring: 'ring-sky-400',     ghost: 'border-sky-300/60' },
+  Preparation: { bg: 'bg-violet-100',  border: 'border-violet-300',  text: 'text-violet-800',  ring: 'ring-violet-400',  ghost: 'border-violet-300/60' },
+  Marketing:   { bg: 'bg-amber-100',   border: 'border-amber-300',   text: 'text-amber-800',   ring: 'ring-amber-400',   ghost: 'border-amber-300/60' },
+  Diligence:   { bg: 'bg-emerald-100', border: 'border-emerald-300', text: 'text-emerald-800', ring: 'ring-emerald-400', ghost: 'border-emerald-300/60' },
+  Negotiation: { bg: 'bg-orange-100',  border: 'border-orange-300',  text: 'text-orange-800',  ring: 'ring-orange-400',  ghost: 'border-orange-300/60' },
+  Closing:     { bg: 'bg-rose-100',    border: 'border-rose-300',    text: 'text-rose-800',    ring: 'ring-rose-400',    ghost: 'border-rose-300/60' }
+}
 
 // Default per-stage durations, in days. Used to project future stages forward
 // from the current stage's start when no expected_close_date pulls them.
@@ -195,15 +206,20 @@ export default function TimelineGantt({ deals, activities, zoom = 'months', onOp
                   const x = Math.max(0, differenceInCalendarDays(seg.start, range.start)) * cfg.px
                   const w = Math.max(2, differenceInCalendarDays(seg.end, seg.start)) * cfg.px
                   return (
-                    <button
-                      key={i}
-                      onClick={() => onOpenDeal?.(deal)}
-                      title={`${deal.client_name} · ${seg.stage} · ${format(seg.start, 'd MMM')} → ${format(seg.end, 'd MMM')}`}
-                      className={`absolute top-3 h-8 rounded-md border text-[10px] font-semibold tracking-tight transition hover:brightness-105 ${segmentClass(seg)}`}
-                      style={{ left: x, width: w }}
-                    >
-                      {w > 60 && <span className="px-2 truncate">{seg.stage}</span>}
-                    </button>
+                    <div key={i} className="absolute top-3 h-8" style={{ left: x, width: w }}>
+                      <button
+                        onClick={() => onOpenDeal?.(deal)}
+                        title={`${deal.client_name} · ${seg.stage} · ${format(seg.start, 'd MMM')} → ${format(seg.end, 'd MMM')}`}
+                        className={`relative h-full w-full rounded-md border text-[10px] font-semibold tracking-tight transition hover:brightness-105 ${segmentClass(seg)}`}
+                      >
+                        {w > 60 && <span className="px-2 truncate block">{seg.stage}</span>}
+                        {seg.kind === 'current' && (
+                          <span className="absolute -top-2 left-1/2 -translate-x-1/2 inline-flex items-center gap-1 rounded-full bg-valence-ink text-white px-1.5 py-0 text-[9px] font-bold uppercase tracking-[0.14em] shadow-valence whitespace-nowrap">
+                            We are here
+                          </span>
+                        )}
+                      </button>
+                    </div>
                   )
                 })}
               </div>
@@ -216,10 +232,11 @@ export default function TimelineGantt({ deals, activities, zoom = 'months', onOp
 }
 
 function segmentClass(seg) {
-  const tone = stageToneClasses(seg.stage)
-  if (seg.kind === 'past') return `${tone} opacity-90`
-  if (seg.kind === 'current') return `${tone} ring-1 ring-valence-blue animate-pulse`
-  return 'border-dashed border-valence-border bg-white text-valence-muted'
+  const p = STAGE_PALETTE[seg.stage]
+  if (!p) return 'border-valence-border bg-valence-surface text-valence-muted'
+  if (seg.kind === 'past')    return `${p.bg} ${p.border} ${p.text} opacity-80`
+  if (seg.kind === 'current') return `${p.bg} ${p.border} ${p.text} ring-2 ${p.ring}`
+  return `bg-white border-dashed ${p.ghost} ${p.text}`
 }
 
 function normalizeSide(side) {

@@ -2,13 +2,16 @@ import { useEffect, useMemo, useState } from 'react'
 import { Plus, Search, Filter, LayoutGrid, Table as TableIcon, Building2, ArrowUpRight } from 'lucide-react'
 import { supabase, isSupabaseConfigured } from '../lib/supabase.js'
 import { FUND_TYPES, WARMTH_LEVELS, warmthTone, fundTypeLabel, DEMO_FUNDS } from '../lib/funds.js'
+import { useViewMode } from '../hooks/useViewMode.jsx'
 import ConfigBanner from '../components/ConfigBanner.jsx'
 import EmptyState from '../components/EmptyState.jsx'
 import FundDrawer from '../components/FundDrawer.jsx'
+import ViewModeToggle from '../components/ViewModeToggle.jsx'
 import { useToast } from '../components/Toast.jsx'
 
 export default function Funds() {
   const toast = useToast()
+  const { isSimple } = useViewMode('funds')
   const [rows, setRows] = useState([])
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState(null)
@@ -84,10 +87,13 @@ export default function Funds() {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <div className="inline-flex items-center rounded-full border border-valence-border bg-white p-0.5">
-            <button onClick={() => setView('grid')}  className={`rounded-full px-2.5 py-1 transition ${view === 'grid'  ? 'bg-valence-ink text-white' : 'text-valence-muted hover:text-valence-text'}`} title="Card view"><LayoutGrid className="h-3.5 w-3.5" /></button>
-            <button onClick={() => setView('table')} className={`rounded-full px-2.5 py-1 transition ${view === 'table' ? 'bg-valence-ink text-white' : 'text-valence-muted hover:text-valence-text'}`} title="Table view"><TableIcon className="h-3.5 w-3.5" /></button>
-          </div>
+          <ViewModeToggle pageKey="funds" />
+          {!isSimple && (
+            <div className="inline-flex items-center rounded-full border border-valence-border bg-white p-0.5">
+              <button onClick={() => setView('grid')}  className={`rounded-full px-2.5 py-1 transition ${view === 'grid'  ? 'bg-valence-ink text-white' : 'text-valence-muted hover:text-valence-text'}`} title="Card view"><LayoutGrid className="h-3.5 w-3.5" /></button>
+              <button onClick={() => setView('table')} className={`rounded-full px-2.5 py-1 transition ${view === 'table' ? 'bg-valence-ink text-white' : 'text-valence-muted hover:text-valence-text'}`} title="Table view"><TableIcon className="h-3.5 w-3.5" /></button>
+            </div>
+          )}
           <button onClick={() => setDrawer('new')} className="vl-btn-primary"><Plus className="h-4 w-4" /> New fund</button>
         </div>
       </div>
@@ -113,7 +119,7 @@ export default function Funds() {
         <EmptyState icon={Building2} title="No funds yet" description="Add your first fund to start the relationship CRM." action={<button onClick={() => setDrawer('new')} className="vl-btn-primary"><Plus className="h-4 w-4" /> New fund</button>} />
       ) : filtered.length === 0 ? (
         <EmptyState icon={Building2} title="No funds match your filters" description="Clear a filter or broaden your search." />
-      ) : view === 'grid' ? (
+      ) : isSimple || view === 'grid' ? (
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
           {filtered.map(f => <FundCard key={f.id} fund={f} onOpen={() => setDrawer({ row: f })} />)}
         </div>

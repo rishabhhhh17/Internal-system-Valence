@@ -6,13 +6,16 @@ import { supabase, isSupabaseConfigured } from '../lib/supabase.js'
 import {
   PURPOSES, DEMO_INTERACTIONS, purposeLabel, typeLabel, outcomeLabel, outcomeTone
 } from '../lib/interactions.js'
+import { useViewMode } from '../hooks/useViewMode.jsx'
 import ConfigBanner from '../components/ConfigBanner.jsx'
 import EmptyState from '../components/EmptyState.jsx'
 import InteractionDrawer from '../components/InteractionDrawer.jsx'
+import ViewModeToggle from '../components/ViewModeToggle.jsx'
 import { useToast } from '../components/Toast.jsx'
 
 export default function Interactions() {
   const toast = useToast()
+  const { isDetailed } = useViewMode('interactions')
   const [rows, setRows]           = useState([])
   const [loading, setLoading]     = useState(true)
   const [loadError, setLoadError] = useState(null)
@@ -106,9 +109,12 @@ export default function Interactions() {
             Convert to origination the moment one becomes a mandate.
           </p>
         </div>
-        <button onClick={() => setDrawer('new')} className="vl-btn-primary">
-          <Plus className="h-4 w-4" /> Log interaction
-        </button>
+        <div className="flex items-center gap-3">
+          <ViewModeToggle pageKey="interactions" />
+          <button onClick={() => setDrawer('new')} className="vl-btn-primary">
+            <Plus className="h-4 w-4" /> Log interaction
+          </button>
+        </div>
       </div>
 
       {/* Filter strip */}
@@ -153,6 +159,7 @@ export default function Interactions() {
             <InteractionRow
               key={r.id}
               row={r}
+              isDetailed={isDetailed}
               onOpen={() => setDrawer({ row: r })}
               onConvert={() => convertToOrigination(r)}
             />
@@ -184,7 +191,7 @@ function PurposeChip({ label, active, onClick }) {
   )
 }
 
-function InteractionRow({ row, onOpen, onConvert }) {
+function InteractionRow({ row, onOpen, onConvert, isDetailed = true }) {
   const ago = row.created_at ? formatDistanceToNowStrict(new Date(row.created_at), { addSuffix: true }) : ''
   const due = row.follow_up_date ? format(parseISO(row.follow_up_date), 'd MMM') : null
   const overdue = row.follow_up_date ? differenceInCalendarDays(parseISO(row.follow_up_date), new Date()) < 0 : false
@@ -215,7 +222,7 @@ function InteractionRow({ row, onOpen, onConvert }) {
               </span></>
             )}
           </div>
-          {row.notes && <p className="mt-2 line-clamp-2 text-xs leading-relaxed text-valence-muted">{row.notes}</p>}
+          {isDetailed && row.notes && <p className="mt-2 line-clamp-2 text-xs leading-relaxed text-valence-muted">{row.notes}</p>}
         </button>
         <div className="flex flex-col items-end gap-2 shrink-0 text-[11px] text-valence-subtle">
           <span>{ago}</span>

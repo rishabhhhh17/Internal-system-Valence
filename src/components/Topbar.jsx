@@ -5,6 +5,7 @@ import Logo from './Logo.jsx'
 import GoogleButton from './GoogleButton.jsx'
 import CurrencyToggle from './CurrencyToggle.jsx'
 import NotificationCenter, { useNotifications } from './NotificationCenter.jsx'
+import TutorialButton from './Tutorial.jsx'
 
 const titles = {
   '/':                  { title: 'Overview',        sub: 'Your morning briefing.' },
@@ -97,6 +98,7 @@ export default function Topbar() {
           )}
         </button>
 
+        <TutorialButton />
         <CurrencyToggle />
         <GoogleButton />
       </header>
