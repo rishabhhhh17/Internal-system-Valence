@@ -1,14 +1,17 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Filter, GanttChartSquare } from 'lucide-react'
 import { supabase, isSupabaseConfigured } from '../lib/supabase.js'
+import { useViewMode } from '../hooks/useViewMode.jsx'
 import ConfigBanner from '../components/ConfigBanner.jsx'
 import EmptyState from '../components/EmptyState.jsx'
 import TimelineGantt from '../components/TimelineGantt.jsx'
+import ViewModeToggle from '../components/ViewModeToggle.jsx'
 
 const LIVE_STAGES = ['Mandate', 'Preparation', 'Marketing', 'Diligence', 'Negotiation', 'Closing']
 const ZOOM_OPTIONS = ['weeks', 'months', 'quarters']
 
 export default function Timeline() {
+  const { isDetailed } = useViewMode('timeline')
   const [deals, setDeals]           = useState([])
   const [activities, setActivities] = useState([])
   const [loading, setLoading]       = useState(true)
@@ -73,25 +76,30 @@ export default function Timeline() {
             Future stages projected from target close — adjust the zoom for the right altitude.
           </p>
         </div>
-        <div className="inline-flex items-center rounded-full border border-valence-border bg-white p-0.5">
-          {ZOOM_OPTIONS.map(z => (
-            <button
-              key={z}
-              onClick={() => setZoom(z)}
-              className={`rounded-full px-3 py-1 text-[11px] font-semibold capitalize transition ${
-                zoom === z ? 'bg-valence-ink text-white' : 'text-valence-muted hover:text-valence-text'
-              }`}
-            >{z}</button>
-          ))}
+        <div className="flex items-center gap-3">
+          <ViewModeToggle pageKey="timeline" />
+          <div className="inline-flex items-center rounded-full border border-valence-border bg-white p-0.5">
+            {ZOOM_OPTIONS.map(z => (
+              <button
+                key={z}
+                onClick={() => setZoom(z)}
+                className={`rounded-full px-3 py-1 text-[11px] font-semibold capitalize transition ${
+                  zoom === z ? 'bg-valence-ink text-white' : 'text-valence-muted hover:text-valence-text'
+                }`}
+              >{z}</button>
+            ))}
+          </div>
         </div>
       </div>
 
-      {/* Filter strip */}
-      <div className="flex flex-wrap items-center gap-3">
-        <FilterRow label="Lead owner" value={ownerFilter}  onChange={setOwnerFilter}  options={['All', ...owners]} />
-        <FilterRow label="Sector"     value={sectorFilter} onChange={setSectorFilter} options={['All', ...sectors]} />
-        <FilterRow label="Side"       value={sideFilter}   onChange={setSideFilter}   options={['All', ...sides]} />
-      </div>
+      {/* Filter strip — Detailed view only. Simple keeps the chrome quiet. */}
+      {isDetailed && (
+        <div className="flex flex-wrap items-center gap-3">
+          <FilterRow label="Lead owner" value={ownerFilter}  onChange={setOwnerFilter}  options={['All', ...owners]} />
+          <FilterRow label="Sector"     value={sectorFilter} onChange={setSectorFilter} options={['All', ...sectors]} />
+          <FilterRow label="Side"       value={sideFilter}   onChange={setSideFilter}   options={['All', ...sides]} />
+        </div>
+      )}
 
       {loading ? (
         <div className="vl-card p-10 grid place-items-center text-sm text-valence-muted">Drawing the timeline…</div>

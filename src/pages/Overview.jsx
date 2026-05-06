@@ -7,13 +7,16 @@ import {
 } from 'lucide-react'
 import { supabase, isSupabaseConfigured } from '../lib/supabase.js'
 import { stageMeta } from '../lib/stages.js'
+import { useViewMode } from '../hooks/useViewMode.jsx'
 import ConfigBanner from '../components/ConfigBanner.jsx'
 import MorningBriefing from '../components/MorningBriefing.jsx'
+import ViewModeToggle from '../components/ViewModeToggle.jsx'
 
 const ACTIVE_MANDATE_STAGES = ['Mandate', 'Preparation', 'Marketing', 'Diligence', 'Negotiation', 'Closing']
 const STALE_THRESHOLD_DAYS = 30
 
 export default function Overview() {
+  const { isDetailed } = useViewMode('overview')
   const [deals, setDeals] = useState([])
   const [activities, setActivities] = useState([])
 
@@ -34,6 +37,9 @@ export default function Overview() {
 
   return (
     <div className="space-y-10">
+      <div className="flex justify-end">
+        <ViewModeToggle pageKey="overview" />
+      </div>
       <ConfigBanner />
 
       <MorningBriefing />
@@ -57,8 +63,8 @@ export default function Overview() {
         </div>
       </section>
 
-      {/* Needs attention — operational triage list */}
-      <section className="vl-card p-6">
+      {/* Needs attention — operational triage list. Detailed view only. */}
+      {isDetailed && <section className="vl-card p-6">
         <div className="mb-4 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <AlertTriangle className="h-3.5 w-3.5 text-valence-warning" />
@@ -88,7 +94,7 @@ export default function Overview() {
             ))}
           </ul>
         )}
-      </section>
+      </section>}
 
       {/* Quiet jump row — two lightweight shortcuts */}
       <section className="grid gap-4 md:grid-cols-2">
