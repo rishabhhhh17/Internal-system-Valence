@@ -12,6 +12,7 @@ const QUICK_NAV = [
   { type: 'nav', title: 'Overview',       sub: 'Dashboard',                          to: '/',                  icon: LayoutDashboard },
   { type: 'nav', title: 'Deal Logger',    sub: 'Pipeline & files',                   to: '/deals',             icon: Briefcase },
   { type: 'nav', title: 'Live Mandates',  sub: 'Active book by stage',               to: '/mandates',          icon: Briefcase },
+  { type: 'nav', title: 'Timeline',       sub: 'Gantt of every active mandate',      to: '/timeline',          icon: BarChart3 },
   { type: 'nav', title: 'Interactions',   sub: 'Pre-mandate touchpoints',            to: '/interactions',      icon: MessageSquare },
   { type: 'nav', title: 'Knowledge',      sub: 'Firm-shared or private',             to: '/knowledge',         icon: BookOpen },
   { type: 'nav', title: 'Firm Knowledge', sub: 'Memos, files, comps',                to: '/knowledge/shared',  icon: BookOpen },

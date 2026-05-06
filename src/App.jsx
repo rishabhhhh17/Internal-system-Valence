@@ -3,6 +3,7 @@ import Layout from './components/Layout.jsx'
 import Overview from './pages/Overview.jsx'
 import Deals from './pages/Deals.jsx'
 import Mandates from './pages/Mandates.jsx'
+import Timeline from './pages/Timeline.jsx'
 import Interactions from './pages/Interactions.jsx'
 import Knowledge from './pages/Knowledge.jsx'
 import KnowledgeLanding from './pages/KnowledgeLanding.jsx'
@@ -42,6 +43,7 @@ export default function App() {
         <Route path="/" element={<Overview />} />
         <Route path="/deals" element={<Deals />} />
         <Route path="/mandates" element={<Mandates />} />
+        <Route path="/timeline" element={<Timeline />} />
         <Route path="/interactions" element={<Interactions />} />
         <Route path="/knowledge" element={<KnowledgeLanding />} />
         <Route path="/knowledge/shared" element={<Knowledge />} />
