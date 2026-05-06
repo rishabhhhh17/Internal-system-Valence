@@ -27,6 +27,7 @@ import TargetList from '../components/TargetList.jsx'
 import FinancialsCard from '../components/FinancialsCard.jsx'
 import ShareManager from '../components/ShareManager.jsx'
 import FundShortlist from '../components/FundShortlist.jsx'
+import MeetingIntelligence from '../components/MeetingIntelligence.jsx'
 import GmailSyncButton from '../components/GmailSyncButton.jsx'
 import StageGate from '../components/StageGate.jsx'
 import DealTeam from '../components/DealTeam.jsx'
@@ -345,6 +346,7 @@ function DealDrawerBody({ deal, onEdit, onDelete, onComposeEmail }) {
     { id: 'files',      label: 'Files',          icon: FolderOpen },
     { id: 'contacts',   label: 'Counterparties', icon: UsersIcon },
     { id: 'funds',      label: 'Funds',          icon: Building2 },
+    { id: 'meeting',    label: 'Meeting intel',  icon: Sparkles },
     { id: 'activity',   label: 'Activity',       icon: ActivityIcon },
     { id: 'comments',   label: 'Discussion',     icon: MessageSquare },
     { id: 'similar',    label: 'Similar',        icon: Sparkles },
@@ -390,6 +392,7 @@ function DealDrawerBody({ deal, onEdit, onDelete, onComposeEmail }) {
         {tab === 'files'      && <FileVault dealId={deal.id} />}
         {tab === 'contacts'   && <Contacts dealId={deal.id} onOpenComposer={onComposeEmail} />}
         {tab === 'funds'      && <FundShortlist deal={deal} />}
+        {tab === 'meeting'    && <MeetingIntelligence deal={deal} />}
         {tab === 'activity'   && <ActivityTimeline dealId={deal.id} />}
         {tab === 'comments'   && <DealComments deal={deal} />}
         {tab === 'similar'    && <SimilarDeals deal={deal} />}
