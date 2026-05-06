@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { NavLink } from 'react-router-dom'
-import { LayoutDashboard, Briefcase, BookOpen, CalendarDays, Users, BarChart3, MessageSquare, Handshake, GanttChartSquare, Building2 } from 'lucide-react'
+import { LayoutDashboard, Briefcase, BookOpen, CalendarDays, Users, BarChart3, MessageSquare, Handshake, GanttChartSquare, Building2, Sparkles } from 'lucide-react'
 import Logo from './Logo.jsx'
 import { supabase, isSupabaseConfigured, subscribeTable } from '../lib/supabase.js'
 
@@ -14,6 +14,7 @@ const nav = [
   { to: '/timeline',     label: 'Timeline',     icon: GanttChartSquare },
   { to: '/interactions', label: 'Interactions', icon: MessageSquare, badgeKey: 'pendingFollowUps', section: 'Relationships' },
   { to: '/funds',        label: 'Fund CRM',     icon: Building2,                                 section: 'Relationships' },
+  { to: '/screen',       label: 'Quick Screener',icon: Sparkles,                                 section: 'AI' },
   { to: '/knowledge',    label: 'Knowledge',    icon: BookOpen },
   { to: '/planner',      label: 'Day Planner',  icon: CalendarDays,  badgeKey: 'todayMeetings' },
   { to: '/analytics',    label: 'Analytics',    icon: BarChart3 },
