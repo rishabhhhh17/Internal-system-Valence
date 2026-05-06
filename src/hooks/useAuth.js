@@ -11,17 +11,25 @@ export function useAuth() {
   useEffect(() => {
     if (!isSupabaseConfigured) { setLoading(false); return }
     let active = true
+    let settled = false
+    const settle = (sess, unavailable = false) => {
+      if (!active || settled) return
+      settled = true
+      if (unavailable) setAuthUnavailable(true)
+      setSession(sess)
+      setLoading(false)
+    }
+    // Bail fast if Supabase is unreachable. supabase-js retries internally for
+    // ~30s before giving up; we don't want users staring at a splash that long.
+    const timeout = setTimeout(() => settle(null, true), 2500)
     supabase.auth.getSession()
       .then(({ data, error }) => {
-        if (!active) return
-        if (error) setAuthUnavailable(true)
-        setSession(data?.session || null)
-        setLoading(false)
+        clearTimeout(timeout)
+        settle(data?.session || null, Boolean(error))
       })
       .catch(() => {
-        if (!active) return
-        setAuthUnavailable(true)
-        setLoading(false)
+        clearTimeout(timeout)
+        settle(null, true)
       })
     const { data: sub } = supabase.auth.onAuthStateChange((_event, s) => {
       if (active) {
