@@ -15,7 +15,7 @@ import { isSupabaseConfigured } from './lib/supabase.js'
 
 export default function App() {
   const { pathname } = useLocation()
-  const { session, loading } = useAuth()
+  const { session, loading, authUnavailable } = useAuth()
 
   // Public share pages render without chrome and without auth
   if (pathname.startsWith('/share/')) {
@@ -26,9 +26,10 @@ export default function App() {
     )
   }
 
-  // If Supabase isn't configured, fall through to the workspace so the
-  // ConfigBanner can tell the user what to set. Otherwise require a session.
-  if (isSupabaseConfigured) {
+  // If Supabase isn't configured (or is configured but unreachable), fall
+  // through to the workspace so the ConfigBanner can tell the user what's
+  // wrong. Otherwise require a session.
+  if (isSupabaseConfigured && !authUnavailable) {
     if (loading) return <BootSplash />
     if (!session) return <Login />
   }
