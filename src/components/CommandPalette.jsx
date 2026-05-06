@@ -16,6 +16,7 @@ const QUICK_NAV = [
   { type: 'nav', title: 'Interactions',   sub: 'Pre-mandate touchpoints',            to: '/interactions',      icon: MessageSquare },
   { type: 'nav', title: 'Fund CRM',       sub: 'Who writes the cheques',             to: '/funds',             icon: Building2 },
   { type: 'nav', title: 'Quick Screener', sub: 'AI fund-match or mandate-fit',       to: '/screen',            icon: Sparkles },
+  { type: 'nav', title: 'Intake inbox',   sub: 'Inbound mandate submissions',        to: '/inbox/intake',      icon: BookOpen },
   { type: 'nav', title: 'Knowledge',      sub: 'Firm-shared or private',             to: '/knowledge',         icon: BookOpen },
   { type: 'nav', title: 'Firm Knowledge', sub: 'Memos, files, comps',                to: '/knowledge/shared',  icon: BookOpen },
   { type: 'nav', title: 'Private',        sub: 'Your personal Drive',                to: '/knowledge/private', icon: FolderOpen },
