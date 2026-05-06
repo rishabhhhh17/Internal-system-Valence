@@ -44,10 +44,11 @@ export default function App() {
     )
   }
 
-  // If Supabase isn't configured (or is configured but unreachable), fall
-  // through to the workspace so the ConfigBanner can tell the user what's
-  // wrong. Otherwise require a session.
-  if (isSupabaseConfigured && !authUnavailable) {
+  // Demo mode: auth gate is OFF for now. The workspace renders without a
+  // session — pages fall back to demo data when Supabase RLS blocks anon
+  // reads. To re-enable Google sign-in, restore the gate below and wire
+  // OAuth in Supabase + Google Cloud Console.
+  if (false && isSupabaseConfigured && !authUnavailable) {
     if (loading) return <BootSplash />
     if (!session) return <Login />
   }
