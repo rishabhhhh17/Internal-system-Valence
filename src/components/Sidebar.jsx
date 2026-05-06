@@ -1,32 +1,34 @@
 import { useEffect, useState } from 'react'
 import { NavLink } from 'react-router-dom'
-import { LayoutDashboard, Briefcase, BookOpen, CalendarDays, Users, BarChart3 } from 'lucide-react'
+import { LayoutDashboard, Briefcase, BookOpen, CalendarDays, Users, BarChart3, MessageSquare } from 'lucide-react'
 import Logo from './Logo.jsx'
 import { supabase, isSupabaseConfigured, subscribeTable } from '../lib/supabase.js'
 
 const TERMINAL_STAGES = new Set(['Closed', 'Lost', 'On Hold'])
 
 const nav = [
-  { to: '/',          label: 'Overview',        icon: LayoutDashboard },
-  { to: '/deals',     label: 'Deal Logger',     icon: Briefcase,     badgeKey: 'activeDeals' },
-  { to: '/knowledge', label: 'Knowledge',       icon: BookOpen },
-  { to: '/planner',   label: 'Day Planner',     icon: CalendarDays,  badgeKey: 'todayMeetings' },
-  { to: '/analytics', label: 'Analytics',       icon: BarChart3 },
-  { to: '/team',      label: 'Team',            icon: Users }
+  { to: '/',             label: 'Overview',     icon: LayoutDashboard },
+  { to: '/deals',        label: 'Deal Logger',  icon: Briefcase,     badgeKey: 'activeDeals' },
+  { to: '/interactions', label: 'Interactions', icon: MessageSquare, badgeKey: 'pendingFollowUps' },
+  { to: '/knowledge',    label: 'Knowledge',    icon: BookOpen },
+  { to: '/planner',      label: 'Day Planner',  icon: CalendarDays,  badgeKey: 'todayMeetings' },
+  { to: '/analytics',    label: 'Analytics',    icon: BarChart3 },
+  { to: '/team',         label: 'Team',         icon: Users }
 ]
 
 function useSidebarCounts() {
-  const [counts, setCounts] = useState({ activeDeals: 0, todayMeetings: 0 })
+  const [counts, setCounts] = useState({ activeDeals: 0, todayMeetings: 0, pendingFollowUps: 0 })
 
   async function load() {
     if (!isSupabaseConfigured) return
     const todayIso = new Date().toISOString().slice(0, 10)
-    const [d, m] = await Promise.all([
+    const [d, m, i] = await Promise.all([
       supabase.from('deals').select('stage'),
-      supabase.from('meetings').select('id', { count: 'exact', head: true }).eq('date', todayIso)
+      supabase.from('meetings').select('id', { count: 'exact', head: true }).eq('date', todayIso),
+      supabase.from('interactions').select('id', { count: 'exact', head: true }).not('follow_up_date', 'is', null).lte('follow_up_date', todayIso)
     ])
     const active = (d.data || []).filter(x => !TERMINAL_STAGES.has(x.stage)).length
-    setCounts({ activeDeals: active, todayMeetings: m.count || 0 })
+    setCounts({ activeDeals: active, todayMeetings: m.count || 0, pendingFollowUps: i.count || 0 })
   }
 
   useEffect(() => {
@@ -34,7 +36,8 @@ function useSidebarCounts() {
     if (!isSupabaseConfigured) return
     const offs = [
       subscribeTable('deals', load),
-      subscribeTable('meetings', load)
+      subscribeTable('meetings', load),
+      subscribeTable('interactions', load)
     ]
     return () => offs.forEach(o => o?.())
   }, [])

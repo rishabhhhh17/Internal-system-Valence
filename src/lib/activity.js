@@ -25,5 +25,6 @@ export const ACTIVITY_LABELS = {
   file_upload:    'File uploaded',
   email_drafted:  'Email drafted',
   contact_added:  'Counterparty added',
-  brief_generated:'Brief generated'
+  brief_generated:'Brief generated',
+  interaction:    'Interaction logged'
 }
