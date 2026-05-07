@@ -1,6 +1,6 @@
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom'
 import Layout from './components/Layout.jsx'
-import Overview from './pages/Overview.jsx'
+import DailyNote from './pages/DailyNote.jsx'
 import Deals from './pages/Deals.jsx'
 import Mandates from './pages/Mandates.jsx'
 import Timeline from './pages/Timeline.jsx'
@@ -56,7 +56,7 @@ export default function App() {
   return (
     <Layout>
       <Routes>
-        <Route path="/" element={<Overview />} />
+        <Route path="/" element={<DailyNote />} />
         <Route path="/deals" element={<Deals />} />
         <Route path="/mandates" element={<Mandates />} />
         <Route path="/timeline" element={<Timeline />} />

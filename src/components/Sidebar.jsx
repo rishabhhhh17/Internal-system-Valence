@@ -8,7 +8,7 @@ const TERMINAL_STAGES  = new Set(['Closed', 'Lost', 'On Hold'])
 const LIVE_MANDATE_STAGES = new Set(['Mandate', 'Preparation', 'Marketing', 'Diligence', 'Negotiation', 'Closing'])
 
 const nav = [
-  { to: '/',             label: 'Overview',     icon: LayoutDashboard },
+  { to: '/',             label: 'Today',        icon: LayoutDashboard },
   { to: '/deals',        label: 'Deal Logger',  icon: Briefcase,     badgeKey: 'activeDeals' },
   { to: '/mandates',     label: 'Live Mandates',icon: Handshake,     badgeKey: 'liveMandates' },
   { to: '/timeline',     label: 'Timeline',     icon: GanttChartSquare },
