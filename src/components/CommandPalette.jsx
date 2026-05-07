@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import {
   Search, Briefcase, BookOpen, CalendarDays, Users, CheckCircle2,
   CornerDownLeft, Sparkles, LayoutDashboard, ArrowRight, File as FileIcon,
-  FolderOpen, BarChart3, MessageSquare, Building2
+  FolderOpen, BarChart3, MessageSquare, Building2, UserCircle
 } from 'lucide-react'
 import { supabase, isSupabaseConfigured } from '../lib/supabase.js'
 import { searchKnowledge } from '../lib/knowledge.js'
@@ -14,6 +14,7 @@ const QUICK_NAV = [
   { type: 'nav', title: 'Live Mandates',  sub: 'Active book by stage',               to: '/mandates',          icon: Briefcase },
   { type: 'nav', title: 'Timeline',       sub: 'Gantt of every active mandate',      to: '/timeline',          icon: BarChart3 },
   { type: 'nav', title: 'Interactions',   sub: 'Pre-mandate touchpoints',            to: '/interactions',      icon: MessageSquare },
+  { type: 'nav', title: 'People',         sub: 'Persona-driven CRM',                 to: '/people',            icon: UserCircle },
   { type: 'nav', title: 'Fund CRM',       sub: 'Who writes the cheques',             to: '/funds',             icon: Building2 },
   { type: 'nav', title: 'Quick Screener', sub: 'AI fund-match or mandate-fit',       to: '/screen',            icon: Sparkles },
   { type: 'nav', title: 'Intake inbox',   sub: 'Inbound mandate submissions',        to: '/inbox/intake',      icon: BookOpen },
@@ -29,7 +30,7 @@ export default function CommandPalette() {
   const [open, setOpen] = useState(false)
   const [q, setQ]       = useState('')
   const [idx, setIdx]   = useState(0)
-  const [data, setData] = useState({ deals: [], docs: [], tasks: [], meetings: [], contacts: [], files: [], interactions: [], funds: [] })
+  const [data, setData] = useState({ deals: [], docs: [], tasks: [], meetings: [], contacts: [], files: [], interactions: [], funds: [], people: [] })
   const [kbHits, setKbHits] = useState([])
   const kbReqRef = useRef(0)
   const inputRef = useRef(null)
@@ -56,15 +57,16 @@ export default function CommandPalette() {
     if (!open) return
     if (!isSupabaseConfigured) return
     ;(async () => {
-      const [d, doc, t, m, c, f, i, fn] = await Promise.all([
-        supabase.from('deals').select('id, client_name, deal_type, stage, sector').limit(100),
+      const [d, doc, t, m, c, f, i, fn, p] = await Promise.all([
+        supabase.from('deals').select('id, client_name, stage, sector').limit(100),
         supabase.from('documents').select('id, title, sector, tags').limit(100),
         supabase.from('tasks').select('id, title, completed').limit(100),
         supabase.from('meetings').select('id, title, attendee_name, date, time').limit(100),
         supabase.from('contacts').select('id, name, company, role, deal_id').limit(200),
         supabase.from('knowledge_files').select('id, name, sector, tags').limit(100),
         supabase.from('interactions').select('id, counterparty_name, counterparty_company, interaction_purpose, outcome').limit(200),
-        supabase.from('funds').select('id, name, fund_type, hq_city, hq_country').limit(200)
+        supabase.from('funds').select('id, name, fund_type, hq_city, hq_country').limit(200),
+        supabase.from('people').select('id, full_name, role, company, city, country').limit(500)
       ])
       setData({
         deals:    d.data    || [],
@@ -74,7 +76,8 @@ export default function CommandPalette() {
         contacts: c.data    || [],
         files:    f.data    || [],
         interactions: i.data || [],
-        funds:    fn.data   || []
+        funds:    fn.data   || [],
+        people:   p.data    || []
       })
     })()
   }, [open])
@@ -144,6 +147,18 @@ export default function CommandPalette() {
           to: '/funds',
           icon: Building2,
           group: 'Funds'
+        })
+      }
+    }
+    for (const p of data.people) {
+      if (match(p.full_name, needle) || match(p.role, needle) || match(p.company, needle) || match(p.city, needle)) {
+        out.push({
+          type: 'person',
+          title: p.full_name,
+          sub: [p.role, p.company, [p.city, p.country].filter(Boolean).join(', ')].filter(Boolean).join(' · '),
+          to: '/people',
+          icon: UserCircle,
+          group: 'People'
         })
       }
     }

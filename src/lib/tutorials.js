@@ -52,6 +52,16 @@ const TUTORIALS = {
       { title: 'Needs follow-up',      body: 'Toggle in the top-right shows only interactions whose follow_up_date is on or before today.' }
     ]
   },
+  '/people': {
+    title: 'People CRM',
+    blurb: 'Persona-driven directory of every person Valence knows. Top-level — equal weight to Funds.',
+    steps: [
+      { title: 'Persona fields',    body: 'How to talk to them, relationship history, what they care about, favours bank, things to avoid, mutuals. All visible to the whole team — no permission tiers.' },
+      { title: 'Card vs table',     body: 'Card view is the partner read; table view is the analyst read. Tag chips at the top scope by Investor / Founder / Co-advisor / etc.' },
+      { title: 'Linked work',       body: 'Open any person: drawer tabs surface every interaction logged with them, every deal they\'re a counterparty on, and (Phase 2) every KB note that mentions them.' },
+      { title: 'Add inline',        body: 'When logging an interaction, the counterparty picker autocompletes from People. If the person doesn\'t exist, "Create Person" adds them on the spot.' }
+    ]
+  },
   '/funds': {
     title: 'Fund CRM',
     blurb: 'The universe of funds Valence covers — sectors, stages, cheque sizes, warmth.',

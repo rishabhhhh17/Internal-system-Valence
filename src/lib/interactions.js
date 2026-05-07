@@ -13,6 +13,7 @@ export const TYPES = [
   { id: 'pitch_meeting', label: 'Pitch meeting' },
   { id: 'coffee',        label: 'Coffee' },
   { id: 'email_thread',  label: 'Email thread' },
+  { id: 'whatsapp',      label: 'WhatsApp' },
   { id: 'referral_in',   label: 'Referral in' },
   { id: 'referral_out',  label: 'Referral out' },
   { id: 'event',         label: 'Event' },
