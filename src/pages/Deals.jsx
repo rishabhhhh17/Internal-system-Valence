@@ -64,6 +64,7 @@ export default function Deals() {
   const [params, setParams] = useSearchParams()
   const [deals, setDeals] = useState([])
   const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState(null)
   const [q, setQ] = useState('')
   const [fStage, setFStage] = useState('All')
   const [fType, setFType]   = useState('All')
@@ -102,13 +103,26 @@ export default function Deals() {
 
   async function load() {
     setLoading(true)
+    setLoadError(null)
     if (!isSupabaseConfigured) {
       setDeals(demo); setLoading(false); return
     }
-    const { data, error } = await supabase.from('deals').select('*').order('created_at', { ascending: false })
-    if (error) console.error(error)
-    setDeals(data || [])
-    setLoading(false)
+    try {
+      // Race the Supabase fetch against a 10s timeout so the skeleton never hangs.
+      const fetchPromise = supabase.from('deals').select('*').order('created_at', { ascending: false })
+      const timeoutPromise = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('Request timed out — check your connection or Supabase status.')), 10_000)
+      )
+      const { data, error } = await Promise.race([fetchPromise, timeoutPromise])
+      if (error) throw error
+      setDeals(data || [])
+    } catch (err) {
+      console.error(err)
+      setLoadError(err?.message || 'Couldn\'t load deals.')
+      setDeals([])
+    } finally {
+      setLoading(false)
+    }
   }
 
   const filtered = useMemo(() => {
@@ -249,6 +263,20 @@ export default function Deals() {
       {/* Main content */}
       {loading ? (
         <TableSkeleton />
+      ) : loadError ? (
+        <EmptyState
+          icon={Briefcase}
+          title="Couldn't load deals"
+          description={loadError}
+          action={<button onClick={load} className="vl-btn-primary">Retry</button>}
+        />
+      ) : deals.length === 0 ? (
+        <EmptyState
+          icon={Briefcase}
+          title="No deals yet"
+          description="Log your first mandate to populate the pipeline."
+          action={<button onClick={() => setModal('new')} className="vl-btn-primary"><Plus className="h-4 w-4" /> New deal</button>}
+        />
       ) : filtered.length === 0 ? (
         <EmptyState
           icon={Briefcase}

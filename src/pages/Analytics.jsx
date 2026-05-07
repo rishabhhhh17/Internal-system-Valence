@@ -2,18 +2,19 @@ import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { format } from 'date-fns'
 import {
-  BarChart3, TrendingUp, TrendingDown, DollarSign, Briefcase, Target, Trophy,
+  BarChart3, TrendingUp, TrendingDown, DollarSign, Briefcase, Trophy,
   Activity, MapPin, Sparkles, ArrowRight, Info, CalendarDays, PieChart,
-  AlertTriangle, Zap, Building2, Filter, Printer, Layers, Percent, Users,
-  Hourglass, Scale, ShieldAlert, Flame, Globe2, Crown, Gauge
+  AlertTriangle, Zap, Filter, Printer, Layers, Users,
+  Hourglass, Scale, ShieldAlert, Flame, Globe2, Crown,
+  Handshake, FileSearch, CalendarClock
 } from 'lucide-react'
 import { supabase, isSupabaseConfigured } from '../lib/supabase.js'
 import { STAGES, ACTIVE_STAGES, stageMeta, stageToneClasses } from '../lib/stages.js'
 import {
   forecastPipeline, expectedFee, distribution, conversionLadder, feeByQuarter,
-  geographyMix, winRateTrend, activityHeatmap, winLossSummary, avgTicket,
+  geographyMix, winRateTrend, activityHeatmap,
   stageAgingList, dealSizeHistogram, sectorStageMatrix, feeComposition,
-  blendedFeeYield, clientConcentration, bankerProductivity, bookBuildingCurve,
+  clientConcentration, bankerProductivity, bookBuildingCurve,
   originationMix, sideMix, riskFlags, scopeDeals, STAGE_PROBABILITY
 } from '../lib/insights.js'
 import { useCurrency } from '../hooks/useCurrency.jsx'
@@ -23,19 +24,7 @@ import StaleDealsCard from '../components/StaleDealsCard.jsx'
 import ExpertsWidget from '../components/ExpertsWidget.jsx'
 import InfoDot from '../components/InfoDot.jsx'
 
-// Annual fee target the firm is tracking against. Editable in the commit gauge
-// — persisted to localStorage so it survives reloads.
-const TARGET_KEY = 'valence.analytics.annualTargetUsd'
-const DEFAULT_ANNUAL_FEE_TARGET_USD = 5_000_000
-function readTarget() {
-  try {
-    const v = Number(localStorage.getItem(TARGET_KEY))
-    return Number.isFinite(v) && v > 0 ? v : DEFAULT_ANNUAL_FEE_TARGET_USD
-  } catch { return DEFAULT_ANNUAL_FEE_TARGET_USD }
-}
-function writeTarget(v) {
-  try { localStorage.setItem(TARGET_KEY, String(v)) } catch {}
-}
+const STALE_THRESHOLD_DAYS = 30
 
 // Richer demo dataset — 18 deals with repeat clients, dates, sides, origination
 // sources, and full fee structures. Built so every chart has real data to chew on.
@@ -77,7 +66,6 @@ export default function Analytics() {
   const [activities, setActivities] = useState([])
   const [sectorFilter, setSectorFilter] = useState('all')
   const [period, setPeriod]         = useState('LTM')
-  const [annualTarget, setAnnualTarget] = useState(() => readTarget())
   const [simDiligenceUplift, setSimDiligenceUplift]       = useState(15)
   const [simNegotiationUplift, setSimNegotiationUplift]   = useState(5)
 
@@ -103,25 +91,8 @@ export default function Analytics() {
 
   // ── Core aggregates ──
   const active         = useMemo(() => filteredDeals.filter(d => !stageMeta(d.stage).terminal),                         [filteredDeals])
-  const pipelineValue  = useMemo(() => active.reduce((s, d) => s + (Number(d.ticket_size_usd_m) || 0), 0),              [active])
   const forecast       = useMemo(() => forecastPipeline(filteredDeals),                                                 [filteredDeals])
-  const winLoss        = useMemo(() => winLossSummary(filteredDeals),                                                   [filteredDeals])
-  const avg            = useMemo(() => avgTicket(filteredDeals),                                                        [filteredDeals])
-  const feeYield       = useMemo(() => blendedFeeYield(filteredDeals),                                                  [filteredDeals])
   const composition    = useMemo(() => feeComposition(filteredDeals),                                                   [filteredDeals])
-  const mandatesYtd    = useMemo(() => filteredDeals.filter(d => d.created_at && new Date(d.created_at).getFullYear() === new Date().getFullYear()).length, [filteredDeals])
-  const uniqueBankers  = useMemo(() => new Set(filteredDeals.map(d => d.lead_owner).filter(Boolean)).size || 1,         [filteredDeals])
-
-  // ── Committed (fees booked or near-certain) vs target ──
-  const committedUsd = useMemo(() => {
-    let sum = 0
-    for (const d of filteredDeals) {
-      if (d.stage === 'Closed') sum += expectedFee(d)
-      else if (d.stage === 'Closing') sum += expectedFee(d) * 0.95
-      else if (d.stage === 'Negotiation') sum += expectedFee(d) * 0.85
-    }
-    return sum
-  }, [filteredDeals])
 
   // ── Distributions & deeper cuts ──
   const sectorDist   = useMemo(() => distribution(filteredDeals, d => d.sector),       [filteredDeals])
@@ -156,14 +127,28 @@ export default function Analytics() {
   }, [filteredDeals, forecast.weighted, simDiligenceUplift, simNegotiationUplift])
 
   const updatedLabel = format(new Date(), "d MMM yyyy · HH:mm")
-  const targetProgress = annualTarget > 0 ? Math.min(1, (forecast.recognised + committedUsd) / annualTarget) : 0
 
-  function saveTarget(next) {
-    const v = Number(next)
-    if (!Number.isFinite(v) || v <= 0) return
-    setAnnualTarget(v)
-    writeTarget(v)
-  }
+  // ── Pipeline health (operational, not money) ──
+  const pipelineHealth = useMemo(() => {
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+    const horizon = new Date(today)
+    horizon.setDate(horizon.getDate() + 30)
+    const closing30 = filteredDeals.filter(d => {
+      if (!['Closing', 'Negotiation'].includes(d.stage)) return false
+      const iso = d.expected_close_date || d.target_close
+      if (!iso) return false
+      const t = new Date(iso)
+      return !Number.isNaN(t.getTime()) && t >= today && t <= horizon
+    }).length
+
+    const activeAging = aging.filter(d => !stageMeta(d.stage).terminal)
+    const avgDays = activeAging.length
+      ? Math.round(activeAging.reduce((s, d) => s + (d._stageDays || 0), 0) / activeAging.length)
+      : 0
+    const stalled = activeAging.filter(d => (d._stageDays || 0) > STALE_THRESHOLD_DAYS).length
+    return { activeCount: active.length, avgDays, closing30, stalled }
+  }, [filteredDeals, aging, active])
 
   return (
     <div className="space-y-10">
@@ -221,28 +206,13 @@ export default function Analytics() {
         ))}
       </div>
 
-      {/* ── Executive KPI strip ── */}
-      <section className="grid grid-cols-2 gap-px bg-valence-border rounded-2xl overflow-hidden border border-valence-border md:grid-cols-4 lg:grid-cols-8">
-        <KPI label="Pipeline value" info="Sum of ticket sizes across all non-terminal mandates." value={money(pipelineValue)} sub={`${active.length} active`} icon={TrendingUp} accent />
-        <KPI label="Weighted fees"  info="Expected fee on each deal multiplied by its stage probability, then summed." value={amount(forecast.weighted)} sub="Probability-adjusted" icon={DollarSign} />
-        <KPI label="Recognised"     info="Fees on deals that have actually closed — revenue already booked." value={amount(forecast.recognised)} sub="Closed · booked" icon={Trophy} />
-        <KPI label="Committed"      info="Near-certain fees: 95% of Closing, 85% of Negotiation, plus all Closed deals." value={amount(committedUsd)} sub="Closing + Negotiation" icon={ShieldAlert} />
-        <KPI label="Win rate"       info="Closed ÷ (Closed + Lost) among terminal deals in scope." value={winLoss.rate != null ? `${Math.round(winLoss.rate * 100)}%` : '—'} sub={`${winLoss.closed}W · ${winLoss.lost}L`} icon={Target} />
-        <KPI label="Avg ticket"     info="Mean transaction value across active mandates with size tagged." value={avg ? money(avg) : '—'} sub="Active mandates" icon={Briefcase} />
-        <KPI label="Blended yield"  info="Total weighted fees divided by total weighted transaction value — the firm's effective fee rate." value={feeYield != null ? `${(feeYield * 100).toFixed(2)}%` : '—'} sub="Fee ÷ tx value" icon={Percent} />
-        <KPI label="Fees / banker"  info="Weighted fees divided by number of distinct lead owners — productivity per head." value={amount(forecast.weighted / uniqueBankers)} sub={`${uniqueBankers} banker${uniqueBankers === 1 ? '' : 's'}`} icon={Users} />
+      {/* ── Pipeline health · operational, not money ── */}
+      <section className="grid grid-cols-2 gap-px bg-valence-border rounded-2xl overflow-hidden border border-valence-border md:grid-cols-4">
+        <KPI label="Active mandates"      info="Mandates not in a terminal stage (Closed / On Hold / Lost)." value={pipelineHealth.activeCount}              sub="Engaged through Closing"        icon={Handshake} accent />
+        <KPI label="Avg days in stage"    info="Mean days each active mandate has sat in its current stage."  value={pipelineHealth.avgDays}                  sub="Lower is healthier"             icon={Hourglass} />
+        <KPI label="Closing in 30 days"   info="Closing or Negotiation mandates with target close inside 30d." value={pipelineHealth.closing30}                sub="Eyes on these"                  icon={CalendarClock} />
+        <KPI label="Stale mandates"       info={`Active mandates that have spent more than ${STALE_THRESHOLD_DAYS} days in their current stage.`} value={pipelineHealth.stalled} sub={`> ${STALE_THRESHOLD_DAYS}d in stage`} icon={Flame} />
       </section>
-
-      {/* ── Target commitment gauge ── */}
-      <TargetGauge
-        progress={targetProgress}
-        recognised={forecast.recognised}
-        committed={committedUsd}
-        target={annualTarget}
-        onTargetChange={saveTarget}
-        weighted={forecast.weighted}
-        amount={amount}
-      />
 
       {/* ══════ PIPELINE ══════ */}
       <SectionHeading kicker="I" title="Pipeline" subtitle="What's on the board and where it's stuck" icon={Layers} />
@@ -346,7 +316,6 @@ export default function Analytics() {
           <span>
             Period · <b className="text-valence-text">{period}</b>. Scope · <b className="text-valence-text">{sectorFilter === 'all' ? 'all sectors' : sectorFilter}</b>.
             Sections marked <span className="rounded bg-valence-warning/10 px-1 text-valence-warning">Illustrative</span> use modelled series where real traces are thin — they respect current stage distributions, fee structures, and deal counts.
-            Target tracker shows {amount(annualTarget)} annual — recognised + committed vs goal.
           </span>
         </p>
       </div>
@@ -408,103 +377,6 @@ function IllustrativeBadge() {
     <span className="inline-flex items-center gap-1 rounded-full border border-valence-warning/30 bg-valence-warning/10 px-2 py-0.5 text-[10px] font-semibold text-valence-warning">
       <AlertTriangle className="h-2.5 w-2.5" /> Illustrative
     </span>
-  )
-}
-
-/* ═══════════════════════════════════════════════════════════════════════
-   Target gauge
-   ═══════════════════════════════════════════════════════════════════════ */
-function TargetGauge({ progress, recognised, committed, target, onTargetChange, weighted, amount }) {
-  const [editing, setEditing] = useState(false)
-  const [draft, setDraft]     = useState(String(Math.round(target / 1_000_000)))
-  const pct = Math.round(progress * 100)
-  const circumference = 2 * Math.PI * 64
-  const offset = circumference * (1 - progress)
-  const pipelineCover = target > 0 ? (weighted + recognised) / target : 0
-
-  function commit() {
-    const m = Number(draft)
-    if (Number.isFinite(m) && m > 0) onTargetChange?.(m * 1_000_000)
-    setEditing(false)
-  }
-
-  return (
-    <section className="vl-card p-8 relative overflow-hidden">
-      <div className="absolute -right-16 -top-16 h-56 w-56 rounded-full bg-valence-blue/10 blur-3xl" aria-hidden />
-      <div className="relative grid gap-8 md:grid-cols-[auto_1fr]">
-        <div className="flex items-center gap-6">
-          <svg viewBox="0 0 160 160" className="h-36 w-36">
-            <circle cx="80" cy="80" r="64" fill="none" stroke="currentColor" className="text-valence-border" strokeWidth="12" />
-            <circle
-              cx="80" cy="80" r="64" fill="none"
-              stroke="#3399FF" strokeWidth="12" strokeLinecap="round"
-              strokeDasharray={circumference}
-              strokeDashoffset={offset}
-              transform="rotate(-90 80 80)"
-              className="transition-all duration-700"
-            />
-            <text x="80" y="78" textAnchor="middle" className="fill-valence-text" style={{ font: "700 28px var(--font-display, ui-sans-serif)" }}>{pct}%</text>
-            <text x="80" y="98" textAnchor="middle" className="fill-valence-muted" style={{ font: "600 10px ui-sans-serif" }}>to target</text>
-          </svg>
-          <div>
-            <p className="vl-eyebrow-ink flex items-center gap-1.5">
-              <Gauge className="h-3 w-3 text-valence-blue" /> Commit vs annual target
-              <InfoDot text="Recognised + committed fees tracked against an annual goal. Click the goal number to edit." />
-            </p>
-            <p className="mt-2 font-display text-3xl font-bold tabular-nums text-valence-text">{amount(recognised + committed)}</p>
-            <p className="text-sm text-valence-muted">
-              of{' '}
-              {editing ? (
-                <span className="inline-flex items-center gap-1">
-                  <span className="text-valence-muted">$</span>
-                  <input
-                    type="number" min="1" step="0.5"
-                    value={draft}
-                    onChange={e => setDraft(e.target.value)}
-                    onKeyDown={e => { if (e.key === 'Enter') commit(); if (e.key === 'Escape') setEditing(false) }}
-                    onBlur={commit}
-                    autoFocus
-                    className="w-20 rounded border border-valence-blue/40 bg-white px-1.5 py-0.5 text-sm font-semibold tabular-nums text-valence-text outline-none focus:ring-2 focus:ring-valence-blue-ring"
-                  />
-                  <span className="text-valence-muted">M</span>
-                </span>
-              ) : (
-                <button
-                  onClick={() => { setDraft(String(Math.round(target / 1_000_000))); setEditing(true) }}
-                  className="font-semibold text-valence-text underline decoration-dotted underline-offset-2 hover:text-valence-blue transition"
-                  title="Click to edit target"
-                >
-                  {amount(target)}
-                </button>
-              )}
-              {' '}goal
-            </p>
-          </div>
-        </div>
-        <div className="grid gap-3 self-center text-sm">
-          <TargetRow label="Recognised · closed"    value={amount(recognised)}  color="bg-valence-success" pct={target ? recognised / target : 0} />
-          <TargetRow label="Committed · closing/negot." value={amount(committed)}  color="bg-valence-blue"    pct={target ? committed / target : 0} />
-          <TargetRow label="Probable · full weighted"  value={amount(weighted)}    color="bg-valence-blue/40" pct={Math.min(1.5, pipelineCover)} ghost />
-          <div className="mt-1 text-[11px] text-valence-muted">
-            Pipeline coverage · <b className="text-valence-text tabular-nums">{(pipelineCover * 100).toFixed(0)}%</b> of target if every weighted probability lands.
-          </div>
-        </div>
-      </div>
-    </section>
-  )
-}
-
-function TargetRow({ label, value, color, pct, ghost = false }) {
-  return (
-    <div>
-      <div className="flex items-center justify-between text-xs mb-1">
-        <span className="text-valence-muted">{label}</span>
-        <span className="font-semibold tabular-nums text-valence-text">{value}</span>
-      </div>
-      <div className="relative h-2 rounded-full bg-valence-surface overflow-hidden">
-        <div className={`absolute inset-y-0 left-0 rounded-full ${color} ${ghost ? 'opacity-40' : ''}`} style={{ width: `${Math.min(100, pct * 100)}%` }} />
-      </div>
-    </div>
   )
 }
 

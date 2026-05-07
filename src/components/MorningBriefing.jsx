@@ -23,7 +23,9 @@ export default function MorningBriefing() {
   const dateLabel = format(today, 'EEEE, d MMMM yyyy')
   const hour = today.getHours()
   const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening'
-  const firstName = (profile?.name || profile?.email || 'there').split(/\s|@/)[0]
+  const rawName = profile?.name || profile?.email || ''
+  const firstName = rawName ? rawName.split(/\s|@/)[0] : ''
+  const headline = firstName ? `${greeting}, ${firstName}.` : `${greeting}.`
 
   // Load today's meetings + open tasks from Supabase
   useEffect(() => {
@@ -86,7 +88,7 @@ export default function MorningBriefing() {
           <div>
             <p className="vl-eyebrow-ink">Your briefing</p>
             <h2 className="mt-1 font-display text-2xl font-semibold text-valence-text lg:text-3xl">
-              {greeting}, {firstName}.
+              {headline}
             </h2>
             <p className="mt-0.5 text-xs text-valence-muted">{dateLabel}</p>
           </div>
