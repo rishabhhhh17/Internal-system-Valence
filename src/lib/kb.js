@@ -193,6 +193,57 @@ export function renderMentionToken(entityType, entityId, lookups) {
   return map[entityId] || `${entityType}:${entityId.slice(0, 8)}…`
 }
 
+// ============ QUICK NOTES — shared firm-wide folder ============
+// Quick notes don't belong to any one mandate — they're written from a
+// Person or Fund profile. We park them in a single firm-wide folder so
+// they're discoverable in the global KB search, mentions still cross-link
+// to the entity they're about, and a partner can browse "Quick notes from
+// People" inside the Knowledge tree.
+
+const QUICK_NOTES_FOLDER_NAME = 'Quick notes'
+
+export async function ensureQuickNotesFolder(supabase) {
+  // Idempotent: returns the existing firm-wide Quick-notes folder, or
+  // creates one and returns it.
+  const { data: existing } = await supabase
+    .from('kb_folders')
+    .select('*')
+    .is('mandate_id', null)
+    .eq('folder_type', 'firm_wide')
+    .eq('name', QUICK_NOTES_FOLDER_NAME)
+    .maybeSingle()
+  if (existing) return existing
+  const { data, error } = await supabase
+    .from('kb_folders')
+    .insert({ name: QUICK_NOTES_FOLDER_NAME, folder_type: 'firm_wide', mandate_id: null, sort_order: 0 })
+    .select()
+    .single()
+  if (error) throw error
+  return data
+}
+
+// Quick-create a note about a specific entity. Pre-pends a wikilink to the
+// entity so kb_mentions resolves the link and the note shows up on the
+// entity's Mentions tab automatically.
+export async function createQuickNoteForEntity(supabase, { entityType, entityId, entityName, title, body }) {
+  if (!entityType || !entityId) throw new Error('Missing entity reference')
+  const folder = await ensureQuickNotesFolder(supabase)
+  // Prefix the body with the wikilink. If the user already included one,
+  // don't double-up.
+  const wikilink = `[[${entityType}:${entityId}|${entityName || entityType}]]`
+  const finalBody = (body && body.includes(wikilink)) ? body : `${wikilink}\n\n${body || ''}`.trim()
+  const { data, error } = await supabase
+    .from('kb_notes')
+    .insert({ folder_id: folder.id, title: title || 'Untitled note', body: finalBody, tags: parseTags(finalBody) })
+    .select()
+    .single()
+  if (error) throw error
+  // Sync mentions + embed in the background. Failures don't block; the row exists.
+  try { await syncMentions(supabase, data.id, finalBody) } catch (e) { console.warn('mentions sync failed', e) }
+  try { await embedNote(supabase, data) } catch (e) { console.warn('embed failed', e) }
+  return data
+}
+
 // ============ EMBEDDING + HYBRID SEARCH ============
 import { embedText, embedQuery, embeddingsEnabled } from './embeddings.js'
 

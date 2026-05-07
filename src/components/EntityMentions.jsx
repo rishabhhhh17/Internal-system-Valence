@@ -1,23 +1,34 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { format } from 'date-fns'
-import { FileText, FolderTree, ArrowUpRight } from 'lucide-react'
+import { FileText, FolderTree, ArrowUpRight, Plus, X, Loader2 } from 'lucide-react'
 import { supabase, isSupabaseConfigured } from '../lib/supabase.js'
+import { createQuickNoteForEntity } from '../lib/kb.js'
+import { useToast } from './Toast.jsx'
 
 // Lists every kb_note that mentions this entity, grouped by mandate folder
 // so the user sees "Physis was mentioned in: Green Protein (3), HoV (1)".
 // Used by PersonDrawer Notes tab and FundDrawer Mentions section.
 
-export default function EntityMentions({ entityType, entityId }) {
+export default function EntityMentions({ entityType, entityId, entityName }) {
+  const toast = useToast()
   const [rows, setRows] = useState([])
   const [folders, setFolders] = useState({})  // folder_id → folder row
   const [loading, setLoading] = useState(true)
+  const [reloadKey, setReloadKey] = useState(0)
+
+  // Inline composer state
+  const [composerOpen, setComposerOpen] = useState(false)
+  const [draftTitle, setDraftTitle]     = useState('')
+  const [draftBody, setDraftBody]       = useState('')
+  const [saving, setSaving]             = useState(false)
 
   useEffect(() => {
     if (!entityType || !entityId) { setRows([]); setLoading(false); return }
     if (!isSupabaseConfigured) {
       setRows([]); setFolders({}); setLoading(false); return
     }
+    // reloadKey is incremented after a quick-note is saved so the list refreshes.
     ;(async () => {
       setLoading(true)
       // Step 1: pull mention rows for this entity, joined to the note.
@@ -54,7 +65,34 @@ export default function EntityMentions({ entityType, entityId }) {
       setRows(noteRows)
       setLoading(false)
     })()
-  }, [entityType, entityId])
+  }, [entityType, entityId, reloadKey])
+
+  async function saveQuickNote() {
+    const title = draftTitle.trim()
+    const body  = draftBody.trim()
+    if (!title && !body) return toast.error('Add a title or some text first')
+    if (!isSupabaseConfigured) {
+      // Demo: just close the composer with a friendly message.
+      toast.success('Note saved (demo mode — connect Supabase to persist)')
+      setComposerOpen(false); setDraftTitle(''); setDraftBody('')
+      return
+    }
+    setSaving(true)
+    try {
+      await createQuickNoteForEntity(supabase, {
+        entityType, entityId, entityName,
+        title: title || (body.slice(0, 60) || 'Untitled note'),
+        body
+      })
+      toast.success('Note saved')
+      setComposerOpen(false); setDraftTitle(''); setDraftBody('')
+      setReloadKey(k => k + 1)
+    } catch (err) {
+      toast.error(err?.message || 'Could not save the note')
+    } finally {
+      setSaving(false)
+    }
+  }
 
   const grouped = useMemo(() => {
     const map = new Map()
@@ -70,21 +108,61 @@ export default function EntityMentions({ entityType, entityId }) {
     return Array.from(map.values()).sort((a, b) => b.notes.length - a.notes.length)
   }, [rows, folders])
 
-  if (loading) return <div className="rounded-lg border border-dashed border-valence-border bg-valence-surface px-5 py-8 text-center text-sm text-valence-muted">Loading mentions…</div>
-
-  if (rows.length === 0) {
-    return (
-      <div className="rounded-lg border border-dashed border-valence-border bg-valence-surface px-5 py-8 text-center text-sm text-valence-muted">
-        No notes mention this {entityType} yet. Use <span className="vl-kbd">[[</span> in any KB note to link them — they'll surface here automatically.
-      </div>
-    )
-  }
-
   return (
     <div className="space-y-4">
-      <p className="text-[11px] text-valence-muted">
-        {rows.length} note{rows.length === 1 ? '' : 's'} across {grouped.length} mandate{grouped.length === 1 ? '' : 's'}.
-      </p>
+      {/* Inline quick-note composer — always available */}
+      {composerOpen ? (
+        <div className="rounded-xl border border-valence-blue/30 bg-valence-blue-soft/20 p-4 space-y-3">
+          <div className="flex items-center justify-between">
+            <p className="vl-eyebrow-ink inline-flex items-center gap-1.5">
+              <Plus className="h-3 w-3 text-valence-blue" /> New note about {entityName || `this ${entityType}`}
+            </p>
+            <button onClick={() => { setComposerOpen(false); setDraftTitle(''); setDraftBody('') }} className="grid h-6 w-6 place-items-center text-valence-subtle hover:text-valence-text">
+              <X className="h-3.5 w-3.5" />
+            </button>
+          </div>
+          <input
+            value={draftTitle}
+            onChange={e => setDraftTitle(e.target.value)}
+            placeholder="Title (optional — first line of body becomes the title if blank)"
+            className="vl-input bg-white"
+            autoFocus
+          />
+          <textarea
+            value={draftBody}
+            onChange={e => setDraftBody(e.target.value)}
+            placeholder={`Just start typing. The wikilink to ${entityName || 'this ' + entityType} is added automatically. Use [[ for other people / funds / mandates and #tag for folder-local concepts.`}
+            className="vl-input min-h-[160px] leading-relaxed bg-white font-mono text-[13px]"
+          />
+          <div className="flex items-center justify-between">
+            <p className="text-[11px] text-valence-muted">Saves into the firm-wide <span className="font-semibold text-valence-text">Quick notes</span> folder. Cross-links to {entityName || `this ${entityType}`}.</p>
+            <button onClick={saveQuickNote} disabled={saving} className="vl-btn-primary text-xs">
+              {saving ? <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Saving…</> : 'Save note'}
+            </button>
+          </div>
+        </div>
+      ) : (
+        <div className="flex items-center justify-between">
+          <p className="text-[11px] text-valence-muted">
+            {loading ? 'Loading mentions…' : (rows.length === 0
+              ? `No notes mention this ${entityType} yet.`
+              : `${rows.length} note${rows.length === 1 ? '' : 's'} across ${grouped.length} mandate${grouped.length === 1 ? '' : 's'}.`)}
+          </p>
+          <button onClick={() => setComposerOpen(true)} className="vl-btn-primary text-xs">
+            <Plus className="h-3.5 w-3.5" /> Add note
+          </button>
+        </div>
+      )}
+
+      {loading && !composerOpen && (
+        <div className="rounded-lg border border-dashed border-valence-border bg-valence-surface px-5 py-6 text-center text-sm text-valence-muted">Loading mentions…</div>
+      )}
+      {!loading && rows.length === 0 && !composerOpen && (
+        <div className="rounded-lg border border-dashed border-valence-border bg-valence-surface px-5 py-6 text-center text-sm text-valence-muted">
+          No notes mention this {entityType} yet. Use <span className="vl-kbd">[[</span> in any KB note to link them — or click <span className="font-semibold text-valence-text">Add note</span> above.
+        </div>
+      )}
+
       {grouped.map(g => (
         <div key={g.mandateId || 'firm'} className="rounded-xl border border-valence-border bg-white">
           <header className="flex items-center justify-between border-b border-valence-border px-4 py-2.5 bg-valence-surface">

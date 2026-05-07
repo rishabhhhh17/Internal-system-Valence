@@ -188,7 +188,7 @@ export default function PersonDrawer({ open, onClose, existing, onSubmit }) {
       )}
 
       {tab === 'notes' && existing && (
-        <EntityMentions entityType="person" entityId={existing.id} />
+        <EntityMentions entityType="person" entityId={existing.id} entityName={existing.full_name} />
       )}
 
       {tab === 'files' && existing && (
