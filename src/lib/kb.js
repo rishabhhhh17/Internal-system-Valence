@@ -193,6 +193,53 @@ export function renderMentionToken(entityType, entityId, lookups) {
   return map[entityId] || `${entityType}:${entityId.slice(0, 8)}…`
 }
 
+// ============ EMBEDDING + HYBRID SEARCH ============
+import { embedText, embedQuery, embeddingsEnabled } from './embeddings.js'
+
+// Generate a fresh embedding for a saved note and write it back. Best-effort
+// — embeddings need a Gemini key; without one we skip silently and rely on
+// the keyword half of the hybrid search.
+export async function embedNote(supabase, note) {
+  if (!note?.id) return
+  if (!embeddingsEnabled()) return
+  const text = [note.title, note.body, note.transcript].filter(Boolean).join('\n\n')
+  if (!text.trim()) return
+  try {
+    const vec = await embedText(text)
+    if (!vec) return
+    await supabase.from('kb_notes').update({ embedding: vec }).eq('id', note.id)
+  } catch (e) {
+    console.warn('embedNote failed', e)
+  }
+}
+
+// Hybrid search across kb_notes. Calls the search_kb_notes RPC defined in
+// phase-2.5-kb-extras.sql. When a Gemini key is set we send a query
+// embedding for the vector half; otherwise the RPC falls back to keyword
+// matching only.
+//
+// Optional folderFilterIds scopes the search to one mandate's folder tree
+// (the page passes the entire tree of folder IDs for the active mandate).
+export async function searchKbNotes(supabase, queryText, { folderFilterIds = null, matchCount = 12 } = {}) {
+  let queryEmbedding = null
+  if (embeddingsEnabled() && queryText && queryText.trim().length > 2) {
+    try { queryEmbedding = await embedQuery(queryText) }
+    catch (e) { console.warn('embedQuery failed, falling back to keyword-only', e) }
+  }
+
+  const { data, error } = await supabase.rpc('search_kb_notes', {
+    query_text: queryText || '',
+    query_embedding: queryEmbedding,
+    folder_filter_ids: folderFilterIds,
+    match_count: matchCount
+  })
+  if (error) {
+    console.warn('search_kb_notes RPC failed', error)
+    return []
+  }
+  return data || []
+}
+
 // ============ DEMO FALLBACK ============
 // When Supabase isn't configured the KB UI shows this minimal in-memory tree
 // so the page renders. It's a single mandate (HoV Mushrooms) with the both

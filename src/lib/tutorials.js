@@ -123,6 +123,8 @@ const TUTORIALS = {
       { title: 'Default folders',  body: 'Each new mandate auto-spawns a folder tree based on its deal type — Fundraise gets Investor Meetings; M&A sell-side gets Buyer Meetings; Advisory gets Engagement Notes / Research / Deliverables.' },
       { title: 'Smart linking',    body: 'In any note, type [[ to autocomplete a Person, Fund, or other Mandate. The link is bidirectional — opening that entity later shows every note that mentions them.' },
       { title: 'Folder-local tags', body: 'Use #tag inside a note for concepts that belong to this folder only. CAC tagged in Green Protein won\'t leak into HoV.' },
+      { title: 'Voice memos',      body: 'In any note, hit Record (or Upload audio) to attach a voice memo. Click "Transcribe & summarise" to run Gemini on demand — the audio stays as-is until you ask.' },
+      { title: 'Hybrid search',    body: 'The bar at the top searches notes by keyword, semantic meaning, and recency together. Toggle "This mandate" vs "All mandates" to scope.' },
       { title: 'Add and rename',   body: 'Hover any folder for a + / pencil / trash. Add sub-folders, rename anything, delete what isn\'t useful. The mandate root is locked from deletion.' }
     ]
   },
