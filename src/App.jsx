@@ -5,6 +5,7 @@ import Deals from './pages/Deals.jsx'
 import Mandates from './pages/Mandates.jsx'
 import Timeline from './pages/Timeline.jsx'
 import Funds from './pages/Funds.jsx'
+import People from './pages/People.jsx'
 import Screener from './pages/Screener.jsx'
 import Intake from './pages/Intake.jsx'
 import IntakeThanks from './pages/IntakeThanks.jsx'
@@ -61,6 +62,7 @@ export default function App() {
         <Route path="/mandates" element={<Mandates />} />
         <Route path="/timeline" element={<Timeline />} />
         <Route path="/funds" element={<Funds />} />
+        <Route path="/people" element={<People />} />
         <Route path="/screen" element={<Screener />} />
         <Route path="/inbox/intake" element={<InboxIntake />} />
         <Route path="/interactions" element={<Interactions />} />

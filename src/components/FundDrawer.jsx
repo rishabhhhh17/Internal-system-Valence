@@ -1,12 +1,15 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Globe, Mail, Phone, ExternalLink, Sparkles } from 'lucide-react'
+import { Link } from 'react-router-dom'
+import { Globe, Mail, Phone, ExternalLink, Sparkles, UserCircle } from 'lucide-react'
 import Drawer from './Drawer.jsx'
 import { supabase, isSupabaseConfigured } from '../lib/supabase.js'
 import { FUND_TYPES, WARMTH_LEVELS, warmthTone, fundTypeLabel } from '../lib/funds.js'
+import { DEMO_PEOPLE } from '../lib/people.js'
 
 const TABS = [
   { id: 'overview', label: 'Overview' },
   { id: 'contacts', label: 'Contacts' },
+  { id: 'people',   label: 'People' },
   { id: 'deals',    label: 'Deals' },
   { id: 'notes',    label: 'Notes' }
 ]
@@ -28,6 +31,7 @@ export default function FundDrawer({ open, onClose, existing, onSubmit }) {
   const [form, setForm] = useState(BLANK)
   const [contacts, setContacts] = useState([])
   const [pings, setPings] = useState([])
+  const [peopleAtFund, setPeopleAtFund] = useState([])
 
   useEffect(() => {
     if (!open) return
@@ -36,16 +40,23 @@ export default function FundDrawer({ open, onClose, existing, onSubmit }) {
   }, [open, existing])
 
   useEffect(() => {
-    if (!open || !existing?.id || !isSupabaseConfigured) return
+    if (!open || !existing?.id) return
+    if (!isSupabaseConfigured) {
+      // demo fallback — match People CRM rows whose company === fund.name
+      setPeopleAtFund(DEMO_PEOPLE.filter(p => p.company === existing.name))
+      return
+    }
     ;(async () => {
-      const [c, p] = await Promise.all([
+      const [c, p, pp] = await Promise.all([
         supabase.from('fund_contacts').select('*').eq('fund_id', existing.id).order('created_at', { ascending: false }),
-        supabase.from('deal_fund_pings').select('*, deals(client_name, stage)').eq('fund_id', existing.id).order('pinged_at', { ascending: false })
+        supabase.from('deal_fund_pings').select('*, deals(client_name, stage)').eq('fund_id', existing.id).order('pinged_at', { ascending: false }),
+        supabase.from('people').select('*').eq('fund_id', existing.id).order('full_name')
       ])
       setContacts(c.data || [])
       setPings(p.data || [])
+      setPeopleAtFund(pp.data || [])
     })()
-  }, [open, existing?.id])
+  }, [open, existing?.id, existing?.name])
 
   function update(patch) { setForm(f => ({ ...f, ...patch })) }
 
@@ -134,6 +145,31 @@ export default function FundDrawer({ open, onClose, existing, onSubmit }) {
       )}
 
       {tab === 'contacts' && existing && <ContactsTab fundId={existing.id} contacts={contacts} setContacts={setContacts} />}
+
+      {tab === 'people' && existing && (
+        peopleAtFund.length === 0 ? (
+          <div className="rounded-lg border border-dashed border-valence-border bg-valence-surface px-5 py-8 text-center text-sm text-valence-muted">
+            No People CRM rows linked to this fund yet. Add a person and set their Fund to <b>{existing.name}</b> to see them here.
+          </div>
+        ) : (
+          <ul className="divide-y divide-valence-border/60 rounded-xl border border-valence-border bg-white">
+            {peopleAtFund.map(p => (
+              <li key={p.id} className="px-4 py-3">
+                <div className="flex items-center justify-between gap-3">
+                  <div className="min-w-0">
+                    <Link to="/people" className="text-sm font-semibold text-valence-text hover:text-valence-blue inline-flex items-center gap-1.5">
+                      <UserCircle className="h-3.5 w-3.5 text-valence-blue" /> {p.full_name}
+                    </Link>
+                    <p className="mt-0.5 text-[11px] text-valence-muted">{[p.role, [p.city, p.country].filter(Boolean).join(', ')].filter(Boolean).join(' · ') || '—'}</p>
+                  </div>
+                  {p.tags?.[0] && <span className="text-[10px] font-semibold text-valence-muted">{p.tags[0]}</span>}
+                </div>
+                {p.how_to_talk && <p className="mt-1.5 text-[11px] italic text-valence-muted line-clamp-2">"{p.how_to_talk}"</p>}
+              </li>
+            ))}
+          </ul>
+        )
+      )}
 
       {tab === 'deals' && existing && (
         <div className="space-y-2">
