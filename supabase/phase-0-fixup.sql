@@ -1,36 +1,40 @@
--- ValenceOS · Phase 0 v2 — FIXUP for the three errors hit while applying
--- the migration on demo-1.
+-- ValenceOS · Phase 0 v2 — FIXUP for the errors hit while applying the
+-- migration on demo-1.
 --
 -- 1. The existing deals_stage_check constraint hardcoded the OLD 11 stages,
---    so trying to update a row to 'Pitching' / 'Pre-Mandate' fails. We drop
---    the old constraint and add a new one with the 7-stage list.
--- 2. expected_close_date column missing — add it.
--- 3. origination_source column missing — add it.
+--    so trying to update a row to 'Pitching' / 'Pre-Mandate' fails with
+--    23514 ("check constraint violated").
+-- 2. expected_close_date column was missing on the deals table.
+-- 3. origination_source column was missing on the deals table.
+--
+-- ORDER MATTERS: drop the constraint FIRST, migrate the data, only then
+-- add the new constraint — otherwise the existing old-stage rows trip
+-- the new check.
 --
 -- Idempotent. Paste end-to-end into Supabase SQL Editor and run.
--- Run this ONCE BEFORE re-running phase-0-stage-migration.sql.
 
 -- ============ MISSING COLUMNS ============
 alter table public.deals
   add column if not exists expected_close_date date,
   add column if not exists origination_source  text;
 
--- ============ STAGE CHECK CONSTRAINT ============
--- Drop the old constraint regardless of name, then add the new one.
+-- ============ DROP THE OLD STAGE CONSTRAINT ============
 alter table public.deals drop constraint if exists deals_stage_check;
-alter table public.deals
-  add constraint deals_stage_check
-  check (stage in ('Origination','Pitching','Pre-Mandate','Mandate','Closed','On Hold','Lost'));
 
--- ============ DATA MIGRATION ============
--- Now that the constraint allows the new stage names, collapse old stages.
+-- ============ DATA MIGRATION (now safe, no constraint blocking) ============
 update public.deals set stage = 'Pitching' where stage = 'Pitch';
 update public.deals set stage = 'Mandate'
   where stage in ('Preparation','Marketing','Diligence','Negotiation','Closing');
 update public.deals set stage = 'Origination'
   where stage not in ('Origination','Pitching','Pre-Mandate','Mandate','Closed','On Hold','Lost');
 
--- Capture the migration in the activity log (only once per deal).
+-- ============ ADD THE NEW STAGE CONSTRAINT ============
+-- All rows now sit in one of the 7 valid stages, so this won't trip.
+alter table public.deals
+  add constraint deals_stage_check
+  check (stage in ('Origination','Pitching','Pre-Mandate','Mandate','Closed','On Hold','Lost'));
+
+-- ============ AUDIT LOG ============
 insert into public.activities (deal_id, kind, body, created_at)
 select d.id, 'stage_change', 'Pipeline migrated to 7-stage model', now()
 from public.deals d
