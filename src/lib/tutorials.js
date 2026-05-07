@@ -109,9 +109,21 @@ const TUTORIALS = {
   },
   '/knowledge': {
     title: 'Knowledge',
-    blurb: 'Choose between firm-shared knowledge and your private Drive.',
+    blurb: 'Three tracks: per-mandate folders, firm-shared playbooks, and your private Drive.',
     steps: [
-      { title: 'Firm vs Private',      body: 'Firm-shared lives in Supabase and is search-able by every team member. Private lives in your Google Drive — only you see it.' }
+      { title: 'Mandate folders',  body: 'Each mandate gets its own folder hierarchy — investor / buyer meetings, diligence, internal notes. Created automatically when a deal is logged.' },
+      { title: 'Firm-shared',      body: 'Memos, playbooks, and precedent comps that the whole team uses. Searchable across the firm.' },
+      { title: 'Private',          body: 'Your personal Google Drive surfaced inside ValenceOS. Visible only to you.' }
+    ]
+  },
+  '/knowledge/mandates': {
+    title: 'Mandate notes',
+    blurb: 'Three-pane: pick a mandate, drill into its folder tree, write notes that auto-link to People / Funds / other Mandates.',
+    steps: [
+      { title: 'Default folders',  body: 'Each new mandate auto-spawns a folder tree based on its deal type — Fundraise gets Investor Meetings; M&A sell-side gets Buyer Meetings; Advisory gets Engagement Notes / Research / Deliverables.' },
+      { title: 'Smart linking',    body: 'In any note, type [[ to autocomplete a Person, Fund, or other Mandate. The link is bidirectional — opening that entity later shows every note that mentions them.' },
+      { title: 'Folder-local tags', body: 'Use #tag inside a note for concepts that belong to this folder only. CAC tagged in Green Protein won\'t leak into HoV.' },
+      { title: 'Add and rename',   body: 'Hover any folder for a + / pencil / trash. Add sub-folders, rename anything, delete what isn\'t useful. The mandate root is locked from deletion.' }
     ]
   },
   '/team': {
