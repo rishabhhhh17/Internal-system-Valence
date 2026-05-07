@@ -5,28 +5,21 @@ import { format, parseISO, differenceInCalendarDays, addDays, startOfMonth, addM
 // know what's happening without reading labels. Past = filled, current =
 // solid + ring, future = dashed outline of the same hue.
 const STAGE_PALETTE = {
-  Mandate:     { bg: 'bg-sky-100',     border: 'border-sky-300',     text: 'text-sky-800',     ring: 'ring-sky-400',     ghost: 'border-sky-300/60' },
-  Preparation: { bg: 'bg-violet-100',  border: 'border-violet-300',  text: 'text-violet-800',  ring: 'ring-violet-400',  ghost: 'border-violet-300/60' },
-  Marketing:   { bg: 'bg-amber-100',   border: 'border-amber-300',   text: 'text-amber-800',   ring: 'ring-amber-400',   ghost: 'border-amber-300/60' },
-  Diligence:   { bg: 'bg-emerald-100', border: 'border-emerald-300', text: 'text-emerald-800', ring: 'ring-emerald-400', ghost: 'border-emerald-300/60' },
-  Negotiation: { bg: 'bg-orange-100',  border: 'border-orange-300',  text: 'text-orange-800',  ring: 'ring-orange-400',  ghost: 'border-orange-300/60' },
-  Closing:     { bg: 'bg-rose-100',    border: 'border-rose-300',    text: 'text-rose-800',    ring: 'ring-rose-400',    ghost: 'border-rose-300/60' }
+  'Pre-Mandate': { bg: 'bg-violet-100',  border: 'border-violet-300',  text: 'text-violet-800',  ring: 'ring-violet-400',  ghost: 'border-violet-300/60' },
+  'Mandate':     { bg: 'bg-emerald-100', border: 'border-emerald-300', text: 'text-emerald-800', ring: 'ring-emerald-400', ghost: 'border-emerald-300/60' }
 }
 
-// Default per-stage durations, in days. Used to project future stages forward
-// from the current stage's start when no expected_close_date pulls them.
+// Default per-stage durations, in days. The new model has only two live
+// stages — Pre-Mandate (paperwork) and Mandate (execution). Mandate is
+// long because it absorbs what used to be Preparation through Closing.
 export const STAGE_DEFAULT_DAYS = {
-  Mandate:     7,
-  Preparation: 21,
-  Marketing:   28,
-  Diligence:   35,
-  Negotiation: 21,
-  Closing:     14
+  'Pre-Mandate': 14,
+  'Mandate':     90
 }
 
-// The full ordered list of stages a live mandate progresses through. Used to
+// The ordered list of stages a live mandate progresses through. Used to
 // derive past / current / future segments deterministically.
-const LIVE_STAGES = ['Mandate', 'Preparation', 'Marketing', 'Diligence', 'Negotiation', 'Closing']
+const LIVE_STAGES = ['Pre-Mandate', 'Mandate']
 
 const ZOOMS = {
   weeks:    { px: 12,  monthLabel: false, weekLabel: true,  monthsRange: { back: 6, fwd: 9 } },

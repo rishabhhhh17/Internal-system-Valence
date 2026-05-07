@@ -9,7 +9,7 @@ import { supabase, isSupabaseConfigured } from '../lib/supabase.js'
 import { searchKnowledge } from '../lib/knowledge.js'
 
 const QUICK_NAV = [
-  { type: 'nav', title: 'Overview',       sub: 'Dashboard',                          to: '/',                  icon: LayoutDashboard },
+  { type: 'nav', title: 'Today',          sub: 'Daily note · priorities · meetings',  to: '/',                  icon: LayoutDashboard },
   { type: 'nav', title: 'Deal Logger',    sub: 'Pipeline & files',                   to: '/deals',             icon: Briefcase },
   { type: 'nav', title: 'Live Mandates',  sub: 'Active book by stage',               to: '/mandates',          icon: Briefcase },
   { type: 'nav', title: 'Timeline',       sub: 'Gantt of every active mandate',      to: '/timeline',          icon: BarChart3 },

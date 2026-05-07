@@ -984,3 +984,63 @@ create policy share_access_logs_select_authenticated on public.share_access_logs
 drop policy if exists share_access_logs_insert_anon on public.share_access_logs;
 create policy share_access_logs_insert_anon on public.share_access_logs
   for insert to anon with check (true);
+
+-- ============ PHASE 0 v2 — STAGE MIGRATION (idempotent) ============
+update public.deals set stage = 'Pitching' where stage = 'Pitch';
+update public.deals set stage = 'Mandate'
+  where stage in ('Preparation','Marketing','Diligence','Negotiation','Closing');
+update public.deals set stage = 'Origination'
+  where stage not in ('Origination','Pitching','Pre-Mandate','Mandate','Closed','On Hold','Lost');
+
+-- ============ PHASE 0 v2 — DEAL TYPE MODEL ============
+alter table public.deals
+  add column if not exists deal_types                 text[] not null default '{}',
+  add column if not exists deal_subtype               text,
+  add column if not exists target_raise_usd_m         numeric,
+  add column if not exists target_valuation_usd_m     numeric,
+  add column if not exists company_stage              text,
+  add column if not exists ma_side                    text,
+  add column if not exists acquisition_brief          text,
+  add column if not exists target_exit_usd_m          numeric,
+  add column if not exists target_exit_valuation_usd_m numeric,
+  add column if not exists exit_investor_name         text,
+  add column if not exists engagement_brief           text;
+
+do $$ begin
+  alter table public.deals
+    add constraint deals_deal_subtype_chk
+    check (deal_subtype is null or deal_subtype in ('fundraise','m_and_a','exit'));
+exception when duplicate_object then null; end $$;
+
+do $$ begin
+  alter table public.deals
+    add constraint deals_ma_side_chk
+    check (ma_side is null or ma_side in ('buy','sell','undecided'));
+exception when duplicate_object then null; end $$;
+
+-- ============ PHASE 0 v2 — DAILY NOTES ============
+create table if not exists public.daily_notes (
+  id          uuid primary key default gen_random_uuid(),
+  user_id     uuid not null,
+  date        date not null,
+  body        text not null default '',
+  ai_summary  jsonb,
+  created_by  uuid default auth.uid(),
+  created_at  timestamptz not null default now(),
+  updated_at  timestamptz not null default now(),
+  unique (user_id, date)
+);
+create index if not exists daily_notes_user_date_idx on public.daily_notes (user_id, date desc);
+alter table public.daily_notes enable row level security;
+drop policy if exists daily_notes_select_authenticated on public.daily_notes;
+create policy daily_notes_select_authenticated on public.daily_notes
+  for select using (auth.role() = 'authenticated');
+drop policy if exists daily_notes_write_authenticated on public.daily_notes;
+create policy daily_notes_write_authenticated on public.daily_notes
+  for all using (auth.role() = 'authenticated') with check (auth.role() = 'authenticated');
+drop policy if exists demo_anon_select on public.daily_notes;
+create policy demo_anon_select on public.daily_notes
+  for select to anon using (true);
+drop policy if exists demo_anon_write on public.daily_notes;
+create policy demo_anon_write on public.daily_notes
+  for all to anon using (true) with check (true);

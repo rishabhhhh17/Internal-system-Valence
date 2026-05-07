@@ -4,13 +4,13 @@
 
 const TUTORIALS = {
   '/': {
-    title: 'The Overview',
-    blurb: 'Your morning page. Built so a partner can read it in 30 seconds.',
+    title: 'Today — your daily note',
+    blurb: 'A single page per day. Auto-generated meetings + priorities + waiting-on at the top, free-form body below.',
     steps: [
-      { title: 'Your briefing',    body: 'A 3-sentence read of your day — meetings, tasks, free slots. Tap the refresh icon to regenerate.' },
-      { title: 'Pipeline pulse',   body: 'Four operational counters — live mandates, in diligence, closing this month, and stalled deals. No money on this strip.' },
-      { title: 'Needs attention',  body: 'A short triage list — stale mandates, near-close deals, missing owners. Click any item to jump straight to the deal.' },
-      { title: 'View modes',       body: 'Use the Simple / Detailed toggle in the page header to switch between a calm summary and the full briefing.' }
+      { title: 'Today\'s meetings', body: 'Pulled from your Google Calendar. Top of the page so the day starts with what is fixed.' },
+      { title: 'Priorities',       body: 'Heuristic ranking — stale mandates, near-close mandates, overdue follow-ups. When a Gemini key is set this becomes an LLM read.' },
+      { title: 'Waiting on',       body: 'Mandates blocked on someone else (NDA out, response due, etc.). Click to open the deal.' },
+      { title: 'Free-form body',   body: 'Write into today\'s note. Auto-saves. In Phase 2, [[wikilinks]] auto-link people / funds / mandates across the system.' }
     ]
   },
   '/deals': {

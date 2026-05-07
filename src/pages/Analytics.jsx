@@ -9,7 +9,7 @@ import {
   Handshake, FileSearch, CalendarClock
 } from 'lucide-react'
 import { supabase, isSupabaseConfigured } from '../lib/supabase.js'
-import { STAGES, ACTIVE_STAGES, stageMeta, stageToneClasses } from '../lib/stages.js'
+import { STAGES, ACTIVE_STAGES, stageMeta, stageToneClasses, migrateStage } from '../lib/stages.js'
 import {
   forecastPipeline, expectedFee, distribution, conversionLadder, feeByQuarter,
   geographyMix, winRateTrend, activityHeatmap,
@@ -62,7 +62,10 @@ const PERIODS = [
 
 export default function Analytics() {
   const { money, amount, currency } = useCurrency()
-  const [deals, setDeals]           = useState(DEMO_DEALS)
+  // The demo array still uses old stage names; migrate them on init so the
+  // component doesn't need a 18-row data rewrite. Live data from Supabase
+  // is already migrated by the Phase 0 SQL.
+  const [deals, setDeals]           = useState(() => DEMO_DEALS.map(d => ({ ...d, stage: migrateStage(d.stage) })))
   const [activities, setActivities] = useState([])
   const [sectorFilter, setSectorFilter] = useState('all')
   const [period, setPeriod]         = useState('LTM')
@@ -112,15 +115,18 @@ export default function Analytics() {
   const origin       = useMemo(() => originationMix(filteredDeals),                    [filteredDeals])
   const flags        = useMemo(() => riskFlags(filteredDeals),                         [filteredDeals])
 
-  // ── What-if: uplift on Diligence + Negotiation ──
+  // ── What-if: uplift on Pre-Mandate + Mandate conversion ──
+  // Old model had separate sliders for Diligence and Negotiation; the new
+  // model collapses both into Mandate, so the second slider now lifts
+  // Pre-Mandate conversion and the first lifts in-Mandate close-rate.
   const whatIf = useMemo(() => {
     const baseline = forecast.weighted
     let scenario = 0
     for (const d of filteredDeals) {
       const fee = expectedFee(d)
       let p = STAGE_PROBABILITY[d.stage] ?? 0
-      if (d.stage === 'Diligence')   p = Math.min(1, p * (1 + simDiligenceUplift / 100))
-      if (d.stage === 'Negotiation') p = Math.min(1, p * (1 + simNegotiationUplift / 100))
+      if (d.stage === 'Mandate')     p = Math.min(1, p * (1 + simDiligenceUplift / 100))
+      if (d.stage === 'Pre-Mandate') p = Math.min(1, p * (1 + simNegotiationUplift / 100))
       scenario += fee * p
     }
     return { baseline, scenario, delta: scenario - baseline }
@@ -135,7 +141,7 @@ export default function Analytics() {
     const horizon = new Date(today)
     horizon.setDate(horizon.getDate() + 30)
     const closing30 = filteredDeals.filter(d => {
-      if (!['Closing', 'Negotiation'].includes(d.stage)) return false
+      if (d.stage !== 'Mandate') return false
       const iso = d.expected_close_date || d.target_close
       if (!iso) return false
       const t = new Date(iso)
