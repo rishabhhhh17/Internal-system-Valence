@@ -190,7 +190,7 @@ export default function FundDrawer({ open, onClose, existing, onSubmit }) {
       )}
 
       {tab === 'mentions' && existing && (
-        <EntityMentions entityType="fund" entityId={existing.id} />
+        <EntityMentions entityType="fund" entityId={existing.id} entityName={existing.name} />
       )}
 
       {tab === 'notes' && (
