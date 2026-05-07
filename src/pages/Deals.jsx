@@ -21,7 +21,6 @@ import ActivityTimeline from '../components/ActivityTimeline.jsx'
 import DealBrief from '../components/DealBrief.jsx'
 import EmailComposer from '../components/EmailComposer.jsx'
 import SimilarDeals from '../components/SimilarDeals.jsx'
-import TeaserImport from '../components/TeaserImport.jsx'
 import CIMGenerator from '../components/CIMGenerator.jsx'
 import TargetList from '../components/TargetList.jsx'
 import FinancialsCard from '../components/FinancialsCard.jsx'
@@ -37,26 +36,44 @@ import { useToast } from '../components/Toast.jsx'
 import { useConfirm } from '../components/ConfirmDialog.jsx'
 import { useCurrency } from '../hooks/useCurrency.jsx'
 
-const NDA    = ['Signed', 'Pending', 'Not Required']
-const TYPES  = ['M&A', 'ECM', 'PE/VC', 'DCM']
-const SIDES  = ['Buy-side', 'Sell-side', 'Advisory']
+const NDA = ['Signed', 'Pending', 'Not Required']
+
+// New deal-type taxonomy. A mandate can be Transaction, Advisory, or both.
+// Transaction requires a sub-type (fundraise / m_and_a / exit).
+const TOP_TYPES   = [
+  { id: 'transaction', label: 'Transaction', blurb: 'Fundraise, M&A, or exit — the deal closes a transaction.' },
+  { id: 'advisory',    label: 'Advisory',    blurb: 'Consulting work — geography expansion, vertical entry, distribution, etc.' }
+]
+const SUBTYPES = [
+  { id: 'fundraise', label: 'Fundraise', blurb: 'Equity, fund, or project capital.' },
+  { id: 'm_and_a',   label: 'M&A',       blurb: 'Buy-side or sell-side advisory.' },
+  { id: 'exit',      label: 'Exit',      blurb: 'Liquidity for an existing investor.' }
+]
+const MA_SIDES = [
+  { id: 'sell',      label: 'Sell-side' },
+  { id: 'buy',       label: 'Buy-side' },
+  { id: 'undecided', label: 'Not yet decided' }
+]
 
 const SECTORS = [
   'Healthcare','BFSI','Fintech','Infrastructure','Consumer','Consumer Tech',
   'EdTech','Energy','Real Estate','Logistics','Technology','Other'
 ]
 
+// Demo dataset — used when Supabase isn't configured. Mirrors the new schema.
 const demo = [
-  { id: 'd1', client_name: 'Nimbus Health',    deal_type: 'M&A',   stage: 'Diligence',   nda_status: 'Signed',      side: 'Sell-side', sector: 'Healthcare',     ticket_size_usd_m: 180, fee_retainer_usd: 50000, fee_success_pct: 1.75, target_close: '2026-07-01', lead_owner: 'Neha Jain',    deck_url: 'https://example.com/nimbus.pdf',  notes: 'Founders open to strategic exit; EBITDA ~12M.', created_at: new Date().toISOString() },
-  { id: 'd2', client_name: 'Arclight Capital', deal_type: 'PE/VC', stage: 'Origination', nda_status: 'Pending',     side: 'Buy-side',  sector: 'Infrastructure', ticket_size_usd_m: 120, fee_retainer_usd: null,  fee_success_pct: 2.00, target_close: '2026-08-15', lead_owner: 'Rohan Gupta',  deck_url: null,                              notes: 'Early conversations. Thesis fit on Series B infra.', created_at: new Date().toISOString() },
-  { id: 'd3', client_name: 'Quantum Edge',     deal_type: 'ECM',   stage: 'Marketing',   nda_status: 'Signed',      side: 'Sell-side', sector: 'Fintech',        ticket_size_usd_m: 250, fee_retainer_usd: 75000, fee_success_pct: 2.50, target_close: '2026-06-10', lead_owner: 'Arjun Mehta',  deck_url: 'https://example.com/qedge.pdf',   notes: 'Pre-IPO roadshow kicking off Q2.', created_at: new Date().toISOString() },
-  { id: 'd4', client_name: 'Helios Infra',     deal_type: 'DCM',   stage: 'Closed',      nda_status: 'Signed',      side: 'Sell-side', sector: 'Infrastructure', ticket_size_usd_m: 150, fee_retainer_usd: 40000, fee_success_pct: 0.80, target_close: '2026-03-20', lead_owner: 'Rishi Kapoor', deck_url: 'https://example.com/helios.pdf',  notes: 'INR 1,200 Cr bond issuance closed last week.', created_at: new Date().toISOString() },
-  { id: 'd5', client_name: 'LumenAI',          deal_type: 'PE/VC', stage: 'On Hold',     nda_status: 'Signed',      side: 'Sell-side', sector: 'Consumer Tech',  ticket_size_usd_m:  45, fee_retainer_usd: 25000, fee_success_pct: 3.00, target_close: '2026-10-01', lead_owner: 'Vikram Patel', deck_url: null,                              notes: 'Waiting on updated financials before next round.', created_at: new Date().toISOString() },
-  { id: 'd6', client_name: 'Kavya Foods',      deal_type: 'M&A',   stage: 'Pitch',       nda_status: 'Not Required',side: 'Sell-side', sector: 'Consumer',       ticket_size_usd_m:  80, fee_retainer_usd: null,  fee_success_pct: 2.00, target_close: '2026-09-10', lead_owner: 'Priya Sharma', deck_url: null,                              notes: 'Family business — first contact made.', created_at: new Date().toISOString() },
-  { id: 'd7', client_name: 'Meridian EdTech',  deal_type: 'PE/VC', stage: 'Negotiation', nda_status: 'Signed',      side: 'Sell-side', sector: 'EdTech',         ticket_size_usd_m:  35, fee_retainer_usd: 20000, fee_success_pct: 3.50, target_close: '2026-07-20', lead_owner: 'Ananya Roy',   deck_url: null,                              notes: 'Series C. 5 funds in diligence; shortlist of 2.', created_at: new Date().toISOString() },
-  { id: 'd8', client_name: 'Polaris Energy',   deal_type: 'DCM',   stage: 'Preparation', nda_status: 'Signed',      side: 'Sell-side', sector: 'Energy',         ticket_size_usd_m: 200, fee_retainer_usd: 60000, fee_success_pct: 1.25, target_close: '2026-06-05', lead_owner: 'Karan Singh',  deck_url: null,                              notes: 'USD notes issuance. Investor docs in review.', created_at: new Date().toISOString() },
-  { id: 'd9', client_name: 'Veda Biotech',     deal_type: 'M&A',   stage: 'Mandate',     nda_status: 'Signed',      side: 'Sell-side', sector: 'Healthcare',     ticket_size_usd_m:  65, fee_retainer_usd: 30000, fee_success_pct: 2.75, target_close: '2026-08-05', lead_owner: 'Neha Jain',    deck_url: null,                              notes: 'Engagement letter signed last week. Teaser drafting.', created_at: new Date().toISOString() },
-  { id: 'd10', client_name: 'Orion Realty',    deal_type: 'PE/VC', stage: 'Closing',     nda_status: 'Signed',      side: 'Buy-side',  sector: 'Real Estate',    ticket_size_usd_m: 320, fee_retainer_usd: 80000, fee_success_pct: 1.50, target_close: '2026-05-12', lead_owner: 'Vikram Patel', deck_url: null,                              notes: 'Term sheet agreed. Final SPA negotiations.', created_at: new Date().toISOString() }
+  { id: 'd1', client_name: 'Nimbus Health',    stage: 'Mandate',     nda_status: 'Signed',      sector: 'Healthcare',     deal_types: ['transaction'],            deal_subtype: 'm_and_a',  ma_side: 'sell', acquisition_brief: null,                                                                                                  target_raise_usd_m: null, target_valuation_usd_m: null, company_stage: null, target_exit_usd_m: null, exit_investor_name: null, engagement_brief: null, target_close: '2026-07-01', lead_owner: 'Neha Jain',       notes: 'Founders open to strategic exit; EBITDA ~12M.',       created_at: new Date().toISOString() },
+  { id: 'd2', client_name: 'Arclight Capital', stage: 'Origination', nda_status: 'Pending',     sector: 'Infrastructure', deal_types: ['transaction'],            deal_subtype: 'm_and_a',  ma_side: 'buy',  acquisition_brief: 'Looking for $100–250M EV infra assets in renewables. Operating, not greenfield. India + SEA only.',          target_raise_usd_m: null, target_valuation_usd_m: null, company_stage: null, target_exit_usd_m: null, exit_investor_name: null, engagement_brief: null, target_close: '2026-08-15', lead_owner: 'Rohan Gupta',     notes: 'Early conversations. Thesis fit on Series B infra.',  created_at: new Date().toISOString() },
+  { id: 'd3', client_name: 'Quantum Edge',     stage: 'Mandate',     nda_status: 'Signed',      sector: 'Fintech',        deal_types: ['transaction'],            deal_subtype: 'fundraise', ma_side: null,  acquisition_brief: null,                                                                                                  target_raise_usd_m: 80,   target_valuation_usd_m: 250,  company_stage: 'Series C', target_exit_usd_m: null, exit_investor_name: null, engagement_brief: null, target_close: '2026-06-10', lead_owner: 'Arjun Mehta',    notes: 'Pre-IPO roadshow kicking off Q2.',                    created_at: new Date().toISOString() },
+  { id: 'd4', client_name: 'Helios Infra',     stage: 'Closed',      nda_status: 'Signed',      sector: 'Infrastructure', deal_types: ['transaction'],            deal_subtype: 'fundraise', ma_side: null,  acquisition_brief: null,                                                                                                  target_raise_usd_m: 150,  target_valuation_usd_m: null, company_stage: 'Project finance', target_exit_usd_m: null, exit_investor_name: null, engagement_brief: null, target_close: '2026-03-20', lead_owner: 'Rishi Kapoor',    notes: 'INR 1,200 Cr bond issuance closed last week.',        created_at: new Date().toISOString() },
+  { id: 'd5', client_name: 'LumenAI',          stage: 'On Hold',     nda_status: 'Signed',      sector: 'Consumer Tech',  deal_types: ['transaction'],            deal_subtype: 'fundraise', ma_side: null,  acquisition_brief: null,                                                                                                  target_raise_usd_m: 45,   target_valuation_usd_m: 120,  company_stage: 'Series B', target_exit_usd_m: null, exit_investor_name: null, engagement_brief: null, target_close: '2026-10-01', lead_owner: 'Vikram Patel',   notes: 'Waiting on updated financials before next round.',    created_at: new Date().toISOString() },
+  { id: 'd6', client_name: 'Kavya Foods',      stage: 'Pitching',    nda_status: 'Not Required', sector: 'Consumer',      deal_types: ['transaction','advisory'], deal_subtype: 'm_and_a',  ma_side: 'sell', acquisition_brief: 'Family business open to strategic acquirer; wants $80M+ EV.',                                          target_raise_usd_m: null, target_valuation_usd_m: null, company_stage: null, target_exit_usd_m: null, exit_investor_name: null, engagement_brief: 'Also helping the founder design a vending-machine distribution play for premium Q-commerce dark stores.', target_close: '2026-09-10', lead_owner: 'Priya Sharma', notes: 'Family business — first contact made.',                created_at: new Date().toISOString() },
+  { id: 'd7', client_name: 'Meridian EdTech',  stage: 'Mandate',     nda_status: 'Signed',      sector: 'EdTech',         deal_types: ['transaction'],            deal_subtype: 'fundraise', ma_side: null,  acquisition_brief: null,                                                                                                  target_raise_usd_m: 35,   target_valuation_usd_m: 120,  company_stage: 'Series C', target_exit_usd_m: null, exit_investor_name: null, engagement_brief: null, target_close: '2026-07-20', lead_owner: 'Ananya Roy',     notes: 'Series C. 5 funds in diligence; shortlist of 2.',     created_at: new Date().toISOString() },
+  { id: 'd8', client_name: 'Polaris Energy',   stage: 'Mandate',     nda_status: 'Signed',      sector: 'Energy',         deal_types: ['transaction'],            deal_subtype: 'fundraise', ma_side: null,  acquisition_brief: null,                                                                                                  target_raise_usd_m: 200,  target_valuation_usd_m: null, company_stage: 'Project finance', target_exit_usd_m: null, exit_investor_name: null, engagement_brief: null, target_close: '2026-06-05', lead_owner: 'Karan Singh',    notes: 'USD notes issuance. Investor docs in review.',         created_at: new Date().toISOString() },
+  { id: 'd9', client_name: 'Veda Biotech',     stage: 'Pre-Mandate', nda_status: 'Signed',      sector: 'Healthcare',     deal_types: ['transaction'],            deal_subtype: 'm_and_a',  ma_side: 'sell', acquisition_brief: 'Looking for strategic acquirer in oncology diagnostics. Open to PE rollup option as plan B.',           target_raise_usd_m: null, target_valuation_usd_m: null, company_stage: null, target_exit_usd_m: null, exit_investor_name: null, engagement_brief: null, target_close: '2026-08-05', lead_owner: 'Neha Jain',       notes: 'Engagement letter signed last week. Teaser drafting.', created_at: new Date().toISOString() },
+  { id: 'd10', client_name: 'Orion Realty',    stage: 'Mandate',     nda_status: 'Signed',      sector: 'Real Estate',    deal_types: ['transaction'],            deal_subtype: 'exit',     ma_side: null,  acquisition_brief: null,                                                                                                  target_raise_usd_m: null, target_valuation_usd_m: null, company_stage: null, target_exit_usd_m: 320, exit_investor_name: 'Brookfield', engagement_brief: null, target_close: '2026-05-12', lead_owner: 'Vikram Patel',                                                                                                              notes: 'Term sheet agreed. Final SPA negotiations.',           created_at: new Date().toISOString() },
+  { id: 'd11', client_name: 'HoV Mushrooms',   stage: 'Mandate',     nda_status: 'Signed',      sector: 'Consumer',       deal_types: ['transaction','advisory'], deal_subtype: 'fundraise', ma_side: null,  acquisition_brief: null,                                                                                                  target_raise_usd_m: 12,   target_valuation_usd_m: 60,   company_stage: 'Series A',  target_exit_usd_m: null, exit_investor_name: null, engagement_brief: 'D2C → B2B expansion (restaurants, hotels, grocers). Dubai market entry. New product line: peppers for premium Q-commerce dark stores.', target_close: '2026-09-30', lead_owner: 'Trishant Patel', notes: 'Started as a fundraise, broadened into Dubai entry + product-line work.', created_at: new Date().toISOString() },
+  { id: 'd12', client_name: 'Saffron Studios', stage: 'Mandate',     nda_status: 'Signed',      sector: 'Media',          deal_types: ['advisory'],               deal_subtype: null,        ma_side: null,  acquisition_brief: null,                                                                                                  target_raise_usd_m: null, target_valuation_usd_m: null, company_stage: null, target_exit_usd_m: null, exit_investor_name: null, engagement_brief: 'Helping a film studio raise project finance for their next slate. Equity capital, not debt.', target_close: '2026-07-15', lead_owner: 'Manav Kapoor',   notes: 'Project capital — equity slate finance for the studio.', created_at: new Date().toISOString() }
 ]
 
 export default function Deals() {
@@ -69,9 +86,9 @@ export default function Deals() {
   const [loadError, setLoadError] = useState(null)
   const [q, setQ] = useState('')
   const [fStage, setFStage] = useState('All')
-  const [fType, setFType]   = useState('All')
+  const [fTopType, setFTopType] = useState('All')   // 'All' | 'transaction' | 'advisory'
+  const [fSubtype, setFSubtype] = useState('All')   // 'All' | 'fundraise' | 'm_and_a' | 'exit'
   const [fNda, setFNda]     = useState('All')
-  const [fSide, setFSide]   = useState('All')
   const [view, setView]     = useState('board') // 'board' | 'table'
 
   const [drawer, setDrawer] = useState(null)
@@ -129,30 +146,33 @@ export default function Deals() {
 
   const filtered = useMemo(() => {
     const needle = q.trim().toLowerCase()
-    return deals.filter(d =>
-      (fStage === 'All' || d.stage === fStage) &&
-      (fType  === 'All' || d.deal_type === fType) &&
-      (fNda   === 'All' || d.nda_status === fNda) &&
-      (fSide  === 'All' || d.side === fSide) &&
-      (!needle ||
-        d.client_name.toLowerCase().includes(needle) ||
-        (d.notes   || '').toLowerCase().includes(needle) ||
-        (d.sector  || '').toLowerCase().includes(needle) ||
-        (d.lead_owner || '').toLowerCase().includes(needle))
-    )
-  }, [deals, q, fStage, fType, fNda, fSide])
+    return deals.filter(d => {
+      const types = Array.isArray(d.deal_types) ? d.deal_types : []
+      if (fStage !== 'All'   && d.stage !== fStage) return false
+      if (fTopType !== 'All' && !types.includes(fTopType)) return false
+      if (fSubtype !== 'All' && d.deal_subtype !== fSubtype) return false
+      if (fNda   !== 'All'   && d.nda_status !== fNda) return false
+      if (!needle) return true
+      return (d.client_name || '').toLowerCase().includes(needle)
+        || (d.notes || '').toLowerCase().includes(needle)
+        || (d.sector || '').toLowerCase().includes(needle)
+        || (d.lead_owner || '').toLowerCase().includes(needle)
+        || (d.acquisition_brief || '').toLowerCase().includes(needle)
+        || (d.engagement_brief || '').toLowerCase().includes(needle)
+    })
+  }, [deals, q, fStage, fTopType, fSubtype, fNda])
 
   const metrics = useMemo(() => {
-    const active = deals.filter(d => !stageMeta(d.stage).terminal)
-    const pipelineValue = active.reduce((s, d) => s + (Number(d.ticket_size_usd_m) || 0), 0)
-    const closed = deals.filter(d => d.stage === 'Closed')
-    const closedValue = closed.reduce((s, d) => s + (Number(d.ticket_size_usd_m) || 0), 0)
+    const active      = deals.filter(d => !stageMeta(d.stage).terminal)
+    const origination = deals.filter(d => d.stage === 'Origination')
+    const preMandate  = deals.filter(d => d.stage === 'Pre-Mandate')
+    const closed      = deals.filter(d => d.stage === 'Closed')
     return {
       total: deals.length,
       active: active.length,
-      closed: closed.length,
-      pipelineValue,
-      closedValue
+      origination: origination.length,
+      preMandate: preMandate.length,
+      closed: closed.length
     }
   }, [deals])
 
@@ -173,7 +193,9 @@ export default function Deals() {
     } else {
       const { data, error } = await supabase.from('deals').insert(payload).select().single()
       if (error) return toast.error(error.message)
-      await logActivity({ dealId: data.id, kind: 'created', body: `${payload.deal_type} · ${payload.side || 'Advisory'}` })
+      const typeLabel = (payload.deal_types || []).join(' + ') || 'mandate'
+      const subtypeLabel = payload.deal_subtype ? ` · ${payload.deal_subtype}` : ''
+      await logActivity({ dealId: data.id, kind: 'created', body: `New ${typeLabel}${subtypeLabel}` })
       toast.success(`${payload.client_name} logged.`)
     }
     setModal(null)
@@ -217,12 +239,12 @@ export default function Deals() {
     <div className="space-y-6">
       <ConfigBanner />
 
-      {/* Pipeline metrics */}
+      {/* Pipeline counters — operational, not money */}
       <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
-        <BigStat label="Pipeline value" value={money(metrics.pipelineValue)} sub={`${metrics.active} active deal${metrics.active === 1 ? '' : 's'}`} accent icon={TrendingUp} />
-        <BigStat label="Closed value"   value={money(metrics.closedValue)} sub={`${metrics.closed} closed`} icon={Briefcase} />
-        <BigStat label="Active funnel"  value={metrics.active} sub="Currently in play" icon={ActivityIcon} />
-        <BigStat label="Total mandates" value={metrics.total} sub="All-time" icon={FolderOpen} />
+        <BigStat label="Active mandates"  value={metrics.active} sub="Engaged through Mandate" accent icon={TrendingUp} />
+        <BigStat label="In origination"   value={metrics.origination} sub="Talks have started" icon={Briefcase} />
+        <BigStat label="In pre-mandate"   value={metrics.preMandate} sub="Paperwork underway" icon={ActivityIcon} />
+        <BigStat label="Closed"           value={metrics.closed} sub="All-time wins" icon={FolderOpen} />
       </div>
 
       {/* Toolbar */}
@@ -237,10 +259,10 @@ export default function Deals() {
             />
           </div>
 
-          <FilterPill label="Stage" value={fStage} onChange={setFStage} options={STAGE_IDS} />
-          <FilterPill label="Type"  value={fType}  onChange={setFType}  options={TYPES} />
-          <FilterPill label="Side"  value={fSide}  onChange={setFSide}  options={SIDES} />
-          <FilterPill label="NDA"   value={fNda}   onChange={setFNda}   options={NDA} />
+          <FilterPill label="Stage"   value={fStage}   onChange={setFStage}   options={STAGE_IDS} />
+          <FilterPill label="Type"    value={fTopType} onChange={setFTopType} options={['transaction', 'advisory']} />
+          <FilterPill label="Subtype" value={fSubtype} onChange={setFSubtype} options={['fundraise', 'm_and_a', 'exit']} />
+          <FilterPill label="NDA"     value={fNda}     onChange={setFNda}     options={NDA} />
 
           <div className="flex items-center rounded-lg border border-valence-border bg-valence-surface p-0.5">
             <button onClick={() => setView('board')}
@@ -418,8 +440,11 @@ function DealHeader({ deal, onEdit, onDelete, onCompose }) {
             <span className={`inline-flex items-center rounded-full border px-2.5 py-1 text-[11px] font-semibold ${stageToneClasses(deal.stage)}`} title={meta.desc}>
               {deal.stage}
             </span>
-            <span className="vl-chip">{deal.deal_type}</span>
-            {deal.side && <span className="vl-chip">{deal.side}</span>}
+            {(Array.isArray(deal.deal_types) ? deal.deal_types : []).map(t => (
+              <span key={t} className="vl-chip capitalize">{t === 'm_and_a' ? 'M&A' : t}</span>
+            ))}
+            {deal.deal_subtype && <span className="vl-chip">{deal.deal_subtype === 'm_and_a' ? 'M&A' : deal.deal_subtype.replace(/_/g, ' ')}</span>}
+            {deal.ma_side && deal.deal_subtype === 'm_and_a' && <span className="vl-chip">{deal.ma_side === 'sell' ? 'Sell-side' : deal.ma_side === 'buy' ? 'Buy-side' : 'Side TBD'}</span>}
             <NdaBadge status={deal.nda_status} />
           </div>
           <p className="mt-1 text-[11px] text-valence-muted" title={meta.desc}>
@@ -438,13 +463,12 @@ function DealHeader({ deal, onEdit, onDelete, onCompose }) {
 }
 
 function DealOverview({ deal }) {
-  const money = deal.ticket_size_usd_m ? `$${Number(deal.ticket_size_usd_m).toLocaleString()}M` : '—'
-  const fee = [
-    deal.fee_retainer_usd  ? `$${Number(deal.fee_retainer_usd).toLocaleString()} retainer` : null,
-    deal.fee_success_pct   ? `${deal.fee_success_pct}% success` : null
-  ].filter(Boolean).join(' + ') || '—'
   const progressDeals = ACTIVE_STAGES.findIndex(s => s.id === deal.stage)
   const progress = progressDeals >= 0 ? ((progressDeals + 1) / ACTIVE_STAGES.length) * 100 : 0
+
+  const types = Array.isArray(deal.deal_types) ? deal.deal_types : []
+  const isTransaction = types.includes('transaction')
+  const isAdvisory    = types.includes('advisory')
 
   return (
     <div className="space-y-5">
@@ -464,15 +488,52 @@ function DealOverview({ deal }) {
         </div>
       </div>
 
-      {/* Grid of fields */}
+      {/* Universal fields */}
       <div className="grid grid-cols-2 gap-3">
-        <Field label="Sector"         value={deal.sector || '—'} />
-        <Field label="Lead owner"     value={deal.lead_owner || '—'} />
-        <Field label="Deal size"      value={money} accent />
-        <Field label="Fee structure"  value={fee} />
-        <Field label="Target close"   value={deal.target_close ? format(parseISO(deal.target_close), 'd MMM yyyy') : '—'} />
-        <Field label="Logged"         value={format(new Date(deal.created_at), 'd MMM yyyy')} />
+        <Field label="Sector"       value={deal.sector || '—'} />
+        <Field label="Lead owner"   value={deal.lead_owner || '—'} />
+        <Field label="Type"         value={types.length ? types.map(t => t === 'm_and_a' ? 'M&A' : (t.charAt(0).toUpperCase() + t.slice(1))).join(' + ') : '—'} accent />
+        <Field label="Subtype"      value={deal.deal_subtype ? humanSubtype(deal.deal_subtype) : '—'} />
+        <Field label="Target close" value={deal.target_close ? format(parseISO(String(deal.target_close).slice(0,10)), 'd MMM yyyy') : '—'} />
+        <Field label="Logged"       value={format(new Date(deal.created_at), 'd MMM yyyy')} />
       </div>
+
+      {/* Transaction-conditional blocks */}
+      {isTransaction && deal.deal_subtype === 'fundraise' && (
+        <div className="grid grid-cols-2 gap-3">
+          <Field label="Target raise (USD M)"     value={deal.target_raise_usd_m ?? '—'} />
+          <Field label="Target valuation (USD M)" value={deal.target_valuation_usd_m ?? '—'} />
+          <Field label="Company stage"            value={deal.company_stage || '—'} />
+        </div>
+      )}
+      {isTransaction && deal.deal_subtype === 'm_and_a' && (
+        <div className="space-y-3">
+          <Field label="M&A side" value={deal.ma_side ? humanSide(deal.ma_side) : '—'} />
+          <div>
+            <p className="vl-label">Acquisition brief</p>
+            <p className="whitespace-pre-wrap rounded-lg border border-valence-border bg-valence-surface px-4 py-3 text-sm leading-relaxed text-valence-text">
+              {deal.acquisition_brief || <span className="text-valence-subtle">No brief captured.</span>}
+            </p>
+          </div>
+        </div>
+      )}
+      {isTransaction && deal.deal_subtype === 'exit' && (
+        <div className="grid grid-cols-2 gap-3">
+          <Field label="Target exit (USD M)"           value={deal.target_exit_usd_m ?? '—'} />
+          <Field label="Target exit valuation (USD M)" value={deal.target_exit_valuation_usd_m ?? '—'} />
+          <Field label="Investor being exited"         value={deal.exit_investor_name || '—'} />
+        </div>
+      )}
+
+      {/* Advisory-conditional block */}
+      {isAdvisory && (
+        <div>
+          <p className="vl-label">Engagement brief</p>
+          <p className="whitespace-pre-wrap rounded-lg border border-valence-border bg-valence-surface px-4 py-3 text-sm leading-relaxed text-valence-text">
+            {deal.engagement_brief || <span className="text-valence-subtle">No engagement brief captured.</span>}
+          </p>
+        </div>
+      )}
 
       <div>
         <p className="vl-label">Notes</p>
@@ -480,18 +541,21 @@ function DealOverview({ deal }) {
           {deal.notes || <span className="text-valence-subtle">No notes yet.</span>}
         </p>
       </div>
-
-      {deal.deck_url && (
-        <div>
-          <p className="vl-label">Linked deck</p>
-          <a href={deal.deck_url} target="_blank" rel="noreferrer"
-             className="inline-flex items-center gap-2 rounded-lg border border-valence-border bg-valence-surface px-4 py-2.5 text-sm font-semibold text-valence-blue hover:border-valence-blue/40">
-            <FileText className="h-4 w-4" /> Open deck <ExternalLink className="h-3.5 w-3.5" />
-          </a>
-        </div>
-      )}
     </div>
   )
+}
+
+function humanSubtype(s) {
+  if (s === 'm_and_a')   return 'M&A'
+  if (s === 'fundraise') return 'Fundraise'
+  if (s === 'exit')      return 'Exit'
+  return s
+}
+function humanSide(s) {
+  if (s === 'buy')       return 'Buy-side'
+  if (s === 'sell')      return 'Sell-side'
+  if (s === 'undecided') return 'Not yet decided'
+  return s
 }
 
 function Field({ label, value, accent = false }) {
@@ -514,9 +578,8 @@ function DealTable({ deals, onOpen }) {
               <th className="px-5 py-3.5">Client</th>
               <th className="px-5 py-3.5">Stage</th>
               <th className="px-5 py-3.5">Type</th>
-              <th className="px-5 py-3.5">Side</th>
+              <th className="px-5 py-3.5">Subtype</th>
               <th className="px-5 py-3.5">Sector</th>
-              <th className="px-5 py-3.5">Size</th>
               <th className="px-5 py-3.5">Lead</th>
               <th className="px-5 py-3.5">NDA</th>
             </tr>
@@ -540,10 +603,16 @@ function DealTable({ deals, onOpen }) {
                     {d.stage}
                   </span>
                 </td>
-                <td className="px-5 py-4"><span className="vl-chip">{d.deal_type}</span></td>
-                <td className="px-5 py-4 text-xs text-valence-muted">{d.side || '—'}</td>
+                <td className="px-5 py-4">
+                  <div className="flex flex-wrap gap-1">
+                    {(Array.isArray(d.deal_types) ? d.deal_types : []).map(t => (
+                      <span key={t} className="vl-chip capitalize">{t === 'm_and_a' ? 'M&A' : t}</span>
+                    ))}
+                    {(!d.deal_types || d.deal_types.length === 0) && <span className="text-xs text-valence-subtle">—</span>}
+                  </div>
+                </td>
+                <td className="px-5 py-4 text-xs text-valence-muted">{d.deal_subtype === 'm_and_a' ? 'M&A' : (d.deal_subtype ? d.deal_subtype.replace(/_/g, ' ') : '—')}</td>
                 <td className="px-5 py-4 text-xs text-valence-muted">{d.sector || '—'}</td>
-                <td className="px-5 py-4 text-xs font-semibold text-valence-blue">{d.ticket_size_usd_m ? money(d.ticket_size_usd_m) : '—'}</td>
                 <td className="px-5 py-4 text-xs text-valence-muted">{d.lead_owner || '—'}</td>
                 <td className="px-5 py-4"><NdaBadge status={d.nda_status} /></td>
               </tr>
@@ -558,77 +627,84 @@ function DealTable({ deals, onOpen }) {
 // ============ FORM ============
 function DealForm({ initial, onSubmit, onCancel }) {
   const [form, setForm] = useState({
-    client_name:      initial?.client_name      || '',
-    deal_type:        initial?.deal_type        || 'M&A',
-    stage:            initial?.stage            || 'Origination',
-    nda_status:       initial?.nda_status       || 'Pending',
-    side:             initial?.side             || 'Sell-side',
-    sector:           initial?.sector           || '',
-    ticket_size_usd_m:initial?.ticket_size_usd_m ?? '',
-    fee_retainer_usd: initial?.fee_retainer_usd ?? '',
-    fee_success_pct:  initial?.fee_success_pct  ?? '',
-    target_close:     initial?.target_close     || '',
-    lead_owner:       initial?.lead_owner       || '',
-    deck_url:         initial?.deck_url         || '',
-    notes:            initial?.notes            || ''
+    client_name:                  initial?.client_name        || '',
+    stage:                        initial?.stage              || 'Origination',
+    nda_status:                   initial?.nda_status         || 'Pending',
+    sector:                       initial?.sector             || '',
+    deal_types:                   initial?.deal_types         || ['transaction'],
+    deal_subtype:                 initial?.deal_subtype       || 'fundraise',
+    target_raise_usd_m:           initial?.target_raise_usd_m ?? '',
+    target_valuation_usd_m:       initial?.target_valuation_usd_m ?? '',
+    company_stage:                initial?.company_stage      || '',
+    ma_side:                      initial?.ma_side            || 'sell',
+    acquisition_brief:            initial?.acquisition_brief  || '',
+    target_exit_usd_m:            initial?.target_exit_usd_m  ?? '',
+    target_exit_valuation_usd_m:  initial?.target_exit_valuation_usd_m ?? '',
+    exit_investor_name:           initial?.exit_investor_name || '',
+    engagement_brief:             initial?.engagement_brief   || '',
+    target_close:                 initial?.target_close       || '',
+    lead_owner:                   initial?.lead_owner         || '',
+    notes:                        initial?.notes              || ''
   })
   const [submitting, setSubmitting] = useState(false)
-
   const set = (k, v) => setForm(s => ({ ...s, [k]: v }))
+
+  function toggleType(id) {
+    setForm(s => {
+      const has = s.deal_types.includes(id)
+      const next = has ? s.deal_types.filter(t => t !== id) : [...s.deal_types, id]
+      // ensure at least one type stays selected
+      return { ...s, deal_types: next.length ? next : s.deal_types }
+    })
+  }
+
+  const isTransaction = form.deal_types.includes('transaction')
+  const isAdvisory    = form.deal_types.includes('advisory')
 
   async function handleSubmit(e) {
     e.preventDefault()
     if (!form.client_name.trim()) return
     setSubmitting(true)
+    const num = (v) => v === '' || v == null ? null : Number(v)
+    const txt = (v) => (v || '').trim() || null
+
     const payload = {
-      ...form,
-      ticket_size_usd_m: form.ticket_size_usd_m === '' ? null : Number(form.ticket_size_usd_m),
-      fee_retainer_usd:  form.fee_retainer_usd  === '' ? null : Number(form.fee_retainer_usd),
-      fee_success_pct:   form.fee_success_pct   === '' ? null : Number(form.fee_success_pct),
-      target_close:      form.target_close || null,
-      sector:            form.sector.trim() || null,
-      lead_owner:        form.lead_owner.trim() || null,
-      deck_url:          form.deck_url.trim() || null,
-      notes:             form.notes.trim() || null
+      client_name:        form.client_name.trim(),
+      stage:              form.stage,
+      nda_status:         form.nda_status,
+      sector:             txt(form.sector),
+      deal_types:         form.deal_types,
+      deal_subtype:       isTransaction ? form.deal_subtype : null,
+      target_close:       form.target_close || null,
+      lead_owner:         txt(form.lead_owner),
+      notes:              txt(form.notes),
+      // transaction · fundraise
+      target_raise_usd_m:           isTransaction && form.deal_subtype === 'fundraise' ? num(form.target_raise_usd_m) : null,
+      target_valuation_usd_m:       isTransaction && form.deal_subtype === 'fundraise' ? num(form.target_valuation_usd_m) : null,
+      company_stage:                isTransaction && form.deal_subtype === 'fundraise' ? txt(form.company_stage) : null,
+      // transaction · m_and_a
+      ma_side:                      isTransaction && form.deal_subtype === 'm_and_a'   ? form.ma_side : null,
+      acquisition_brief:            isTransaction && form.deal_subtype === 'm_and_a'   ? txt(form.acquisition_brief) : null,
+      // transaction · exit
+      target_exit_usd_m:            isTransaction && form.deal_subtype === 'exit'      ? num(form.target_exit_usd_m) : null,
+      target_exit_valuation_usd_m:  isTransaction && form.deal_subtype === 'exit'      ? num(form.target_exit_valuation_usd_m) : null,
+      exit_investor_name:           isTransaction && form.deal_subtype === 'exit'      ? txt(form.exit_investor_name) : null,
+      // advisory
+      engagement_brief:             isAdvisory ? txt(form.engagement_brief) : null
     }
     await onSubmit(payload)
     setSubmitting(false)
   }
 
-  function applyExtracted(data) {
-    setForm(s => ({
-      ...s,
-      client_name:      data.client_name || s.client_name,
-      deal_type:        data.deal_type   || s.deal_type,
-      side:             data.side        || s.side,
-      sector:           data.sector      || s.sector,
-      ticket_size_usd_m:data.ticket_size_usd_m != null ? String(data.ticket_size_usd_m) : s.ticket_size_usd_m,
-      notes:            data.notes       || s.notes
-    }))
-  }
-
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
-      {!initial && <TeaserImport onExtracted={applyExtracted} />}
-      {!initial && (
-        <ConflictBanner clientName={form.client_name} sector={form.sector} side={form.side} />
-      )}
+    <form onSubmit={handleSubmit} className="space-y-5">
+      {!initial && <ConflictBanner clientName={form.client_name} sector={form.sector} />}
+
+      {/* Universal block */}
       <div className="grid grid-cols-2 gap-4">
         <div className="col-span-2">
-          <label className="vl-label">Client name</label>
-          <input value={form.client_name} onChange={e => set('client_name', e.target.value)} className="vl-input" placeholder="e.g. Nimbus Health" required autoFocus />
-        </div>
-        <div>
-          <label className="vl-label">Deal type</label>
-          <select className="vl-input" value={form.deal_type} onChange={e => set('deal_type', e.target.value)}>
-            {TYPES.map(t => <option key={t} className="bg-valence-surface" value={t}>{t}</option>)}
-          </select>
-        </div>
-        <div>
-          <label className="vl-label">Side</label>
-          <select className="vl-input" value={form.side} onChange={e => set('side', e.target.value)}>
-            {SIDES.map(s => <option key={s} className="bg-valence-surface" value={s}>{s}</option>)}
-          </select>
+          <label className="vl-label">Client / company name</label>
+          <input value={form.client_name} onChange={e => set('client_name', e.target.value)} className="vl-input" placeholder="e.g. HoV Mushrooms" required autoFocus />
         </div>
         <div>
           <label className="vl-label">Stage</label>
@@ -645,7 +721,7 @@ function DealForm({ initial, onSubmit, onCancel }) {
         </div>
         <div>
           <label className="vl-label">Sector</label>
-          <input className="vl-input" list="sectors" value={form.sector} onChange={e => set('sector', e.target.value)} placeholder="e.g. Healthcare" />
+          <input className="vl-input" list="sectors" value={form.sector} onChange={e => set('sector', e.target.value)} placeholder="e.g. Consumer" />
           <datalist id="sectors">{SECTORS.map(s => <option key={s} value={s} />)}</datalist>
         </div>
         <div>
@@ -653,29 +729,155 @@ function DealForm({ initial, onSubmit, onCancel }) {
           <input className="vl-input" value={form.lead_owner} onChange={e => set('lead_owner', e.target.value)} placeholder="Name of the lead banker" />
         </div>
         <div>
-          <label className="vl-label">Deal size <span className="text-valence-subtle normal-case tracking-normal">(USD M)</span></label>
-          <input className="vl-input" type="number" step="1" value={form.ticket_size_usd_m} onChange={e => set('ticket_size_usd_m', e.target.value)} placeholder="e.g. 180" />
-        </div>
-        <div>
-          <label className="vl-label">Retainer <span className="text-valence-subtle normal-case tracking-normal">(USD)</span></label>
-          <input className="vl-input" type="number" step="1000" value={form.fee_retainer_usd} onChange={e => set('fee_retainer_usd', e.target.value)} placeholder="e.g. 50000" />
-        </div>
-        <div>
-          <label className="vl-label">Success fee %</label>
-          <input className="vl-input" type="number" step="0.05" value={form.fee_success_pct} onChange={e => set('fee_success_pct', e.target.value)} placeholder="e.g. 2.00" />
-        </div>
-        <div>
           <label className="vl-label">Target close</label>
           <input className="vl-input" type="date" value={form.target_close} onChange={e => set('target_close', e.target.value)} />
         </div>
-        <div className="col-span-2">
-          <label className="vl-label">Deck URL</label>
-          <input className="vl-input" value={form.deck_url} onChange={e => set('deck_url', e.target.value)} placeholder="https://…" type="url" />
+      </div>
+
+      {/* Deal type chips */}
+      <div>
+        <label className="vl-label">Mandate type</label>
+        <div className="mt-1.5 grid grid-cols-2 gap-2">
+          {TOP_TYPES.map(t => {
+            const active = form.deal_types.includes(t.id)
+            return (
+              <button
+                type="button"
+                key={t.id}
+                onClick={() => toggleType(t.id)}
+                aria-pressed={active}
+                className={`rounded-lg border px-3 py-2 text-left text-xs transition ${
+                  active
+                    ? 'border-valence-blue/40 bg-valence-blue-soft text-valence-text'
+                    : 'border-valence-border bg-white text-valence-muted hover:text-valence-text'
+                }`}
+              >
+                <p className="font-semibold">{t.label}</p>
+                <p className="mt-0.5 text-[11px] leading-snug text-valence-subtle">{t.blurb}</p>
+              </button>
+            )
+          })}
         </div>
-        <div className="col-span-2">
-          <label className="vl-label">Internal notes</label>
-          <textarea value={form.notes} onChange={e => set('notes', e.target.value)} className="vl-input min-h-[100px] resize-y" placeholder="Context, next steps, stakeholders…" />
+        <p className="mt-1.5 text-[11px] text-valence-muted">A mandate can be one or both. Both is fine.</p>
+      </div>
+
+      {/* Transaction-conditional block */}
+      {isTransaction && (
+        <div className="space-y-4 rounded-xl border border-valence-blue/20 bg-valence-blue-soft/20 p-4">
+          <div>
+            <label className="vl-label">Transaction sub-type</label>
+            <div className="mt-1.5 grid grid-cols-3 gap-2">
+              {SUBTYPES.map(s => {
+                const active = form.deal_subtype === s.id
+                return (
+                  <button
+                    type="button"
+                    key={s.id}
+                    onClick={() => set('deal_subtype', s.id)}
+                    aria-pressed={active}
+                    className={`rounded-lg border px-3 py-2 text-left text-xs transition ${
+                      active
+                        ? 'border-valence-blue/40 bg-white text-valence-text shadow-sm'
+                        : 'border-valence-border bg-white/60 text-valence-muted hover:text-valence-text'
+                    }`}
+                  >
+                    <p className="font-semibold">{s.label}</p>
+                    <p className="mt-0.5 text-[11px] leading-snug text-valence-subtle">{s.blurb}</p>
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+
+          {form.deal_subtype === 'fundraise' && (
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="vl-label">Target raise (USD M)</label>
+                <input type="number" className="vl-input" value={form.target_raise_usd_m} onChange={e => set('target_raise_usd_m', e.target.value)} placeholder="e.g. 80" />
+              </div>
+              <div>
+                <label className="vl-label">Target valuation (USD M)</label>
+                <input type="number" className="vl-input" value={form.target_valuation_usd_m} onChange={e => set('target_valuation_usd_m', e.target.value)} placeholder="e.g. 250" />
+              </div>
+              <div className="col-span-2">
+                <label className="vl-label">Company stage</label>
+                <input className="vl-input" value={form.company_stage} onChange={e => set('company_stage', e.target.value)} placeholder="Seed · Series A · Growth · Project finance · …" />
+              </div>
+            </div>
+          )}
+
+          {form.deal_subtype === 'm_and_a' && (
+            <>
+              <div>
+                <label className="vl-label">M&A side</label>
+                <div className="mt-1.5 grid grid-cols-3 gap-2">
+                  {MA_SIDES.map(s => {
+                    const active = form.ma_side === s.id
+                    return (
+                      <button
+                        type="button"
+                        key={s.id}
+                        onClick={() => set('ma_side', s.id)}
+                        aria-pressed={active}
+                        className={`rounded-lg border px-3 py-2 text-xs font-semibold transition ${
+                          active ? 'border-valence-blue/40 bg-white text-valence-text shadow-sm' : 'border-valence-border bg-white/60 text-valence-muted hover:text-valence-text'
+                        }`}
+                      >
+                        {s.label}
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
+              <div>
+                <label className="vl-label">Acquisition brief</label>
+                <textarea
+                  className="vl-input min-h-[120px] leading-relaxed"
+                  value={form.acquisition_brief}
+                  onChange={e => set('acquisition_brief', e.target.value)}
+                  placeholder='e.g. "$100M topline IT services company, $5–10M EBITDA, serving financial services clients, NOT Web3, cybersecurity acceptable."'
+                />
+                <p className="mt-1 text-[11px] text-valence-muted">M&A asks are usually a spec, not a number. Be specific about what they want.</p>
+              </div>
+            </>
+          )}
+
+          {form.deal_subtype === 'exit' && (
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="vl-label">Target exit (USD M)</label>
+                <input type="number" className="vl-input" value={form.target_exit_usd_m} onChange={e => set('target_exit_usd_m', e.target.value)} placeholder="e.g. 320" />
+              </div>
+              <div>
+                <label className="vl-label">Target exit valuation (USD M)</label>
+                <input type="number" className="vl-input" value={form.target_exit_valuation_usd_m} onChange={e => set('target_exit_valuation_usd_m', e.target.value)} placeholder="optional" />
+              </div>
+              <div className="col-span-2">
+                <label className="vl-label">Investor being exited</label>
+                <input className="vl-input" value={form.exit_investor_name} onChange={e => set('exit_investor_name', e.target.value)} placeholder="e.g. Brookfield" />
+              </div>
+            </div>
+          )}
         </div>
+      )}
+
+      {/* Advisory-conditional block */}
+      {isAdvisory && (
+        <div className="space-y-3 rounded-xl border border-valence-warning/20 bg-valence-warning/5 p-4">
+          <label className="vl-label">Engagement brief</label>
+          <textarea
+            className="vl-input min-h-[120px] leading-relaxed bg-white"
+            value={form.engagement_brief}
+            onChange={e => set('engagement_brief', e.target.value)}
+            placeholder='e.g. "Help break into Dubai market — distribution + first-customer outreach. Also exploring vending-machine product line for premium Q-commerce dark stores."'
+          />
+          <p className="text-[11px] text-valence-muted">What does the client actually need? Geography, vertical, product, distribution — describe it the way they said it.</p>
+        </div>
+      )}
+
+      <div>
+        <label className="vl-label">Internal notes</label>
+        <textarea value={form.notes} onChange={e => set('notes', e.target.value)} className="vl-input min-h-[100px] resize-y" placeholder="Context, next steps, stakeholders…" />
       </div>
 
       <div className="flex items-center justify-end gap-3 pt-2">

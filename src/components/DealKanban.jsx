@@ -1,7 +1,6 @@
 import { useMemo, useRef, useState } from 'react'
-import { Briefcase, TrendingUp, MoreHorizontal, Move } from 'lucide-react'
+import { Briefcase, MoreHorizontal, Move } from 'lucide-react'
 import { STAGES, STAGE_IDS, stageToneClasses } from '../lib/stages.js'
-import { useCurrency } from '../hooks/useCurrency.jsx'
 
 export default function DealKanban({ deals, onOpen, onStageChange }) {
   const [draggingId, setDraggingId] = useState(null)
@@ -79,7 +78,6 @@ export default function DealKanban({ deals, onOpen, onStageChange }) {
 
 function Card({ deal: d, onOpen, onStageChange, setDraggingId, setOverStage, openMenu, setOpenMenu }) {
   const ref = useRef(null)
-  const { money } = useCurrency()
   return (
     <article
       ref={ref}
@@ -114,12 +112,14 @@ function Card({ deal: d, onOpen, onStageChange, setDraggingId, setOverStage, ope
         </button>
       </div>
       <div className="mt-2 flex flex-wrap items-center gap-1.5 text-[10px]">
-        <span className="inline-flex items-center rounded-md border border-valence-border bg-valence-surface px-1.5 py-0.5 font-semibold text-valence-muted">
-          {d.deal_type}
-        </span>
-        {d.side && (
-          <span className="inline-flex items-center rounded-md border border-valence-border bg-valence-surface px-1.5 py-0.5 font-semibold text-valence-muted">
-            {d.side}
+        {(Array.isArray(d.deal_types) ? d.deal_types : []).map(t => (
+          <span key={t} className="inline-flex items-center rounded-md border border-valence-border bg-valence-surface px-1.5 py-0.5 font-semibold text-valence-muted capitalize">
+            {t === 'm_and_a' ? 'M&A' : t}
+          </span>
+        ))}
+        {d.deal_subtype && d.deal_types?.includes('transaction') && (
+          <span className="inline-flex items-center rounded-md border border-valence-blue/30 bg-valence-blue-soft px-1.5 py-0.5 font-semibold text-valence-blue">
+            {d.deal_subtype === 'm_and_a' ? 'M&A' : d.deal_subtype.replace(/_/g, ' ')}
           </span>
         )}
         {d.sector && (
@@ -128,11 +128,6 @@ function Card({ deal: d, onOpen, onStageChange, setDraggingId, setOverStage, ope
           </span>
         )}
       </div>
-      {d.ticket_size_usd_m != null && (
-        <div className="mt-2 flex items-center gap-1 text-[11px] font-semibold text-valence-blue">
-          <TrendingUp className="h-3 w-3" /> {money(d.ticket_size_usd_m)}
-        </div>
-      )}
 
       {openMenu && (
         <div

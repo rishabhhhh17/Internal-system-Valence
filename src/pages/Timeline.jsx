@@ -1,13 +1,14 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Filter, GanttChartSquare } from 'lucide-react'
 import { supabase, isSupabaseConfigured } from '../lib/supabase.js'
+import { LIVE_MANDATE_STAGES } from '../lib/stages.js'
 import { useViewMode } from '../hooks/useViewMode.jsx'
 import ConfigBanner from '../components/ConfigBanner.jsx'
 import EmptyState from '../components/EmptyState.jsx'
 import TimelineGantt from '../components/TimelineGantt.jsx'
 import ViewModeToggle from '../components/ViewModeToggle.jsx'
 
-const LIVE_STAGES = ['Mandate', 'Preparation', 'Marketing', 'Diligence', 'Negotiation', 'Closing']
+const LIVE_STAGES = LIVE_MANDATE_STAGES
 const ZOOM_OPTIONS = ['weeks', 'months', 'quarters']
 
 export default function Timeline() {
@@ -145,10 +146,10 @@ const today = new Date()
 const daysAgo = (n) => { const d = new Date(today); d.setDate(d.getDate() - n); return d.toISOString() }
 const daysFwd = (n) => { const d = new Date(today); d.setDate(d.getDate() + n); return d.toISOString().slice(0,10) }
 const DEMO_DEALS = [
-  { id: 'tl1', client_name: 'Nimbus Health',   stage: 'Diligence',   sector: 'Healthcare',     side: 'Sell-side', lead_owner: 'Neha Jain',       expected_close_date: daysFwd(75),  updated_at: daysAgo(28), created_at: daysAgo(210) },
-  { id: 'tl2', client_name: 'Quantum Edge',    stage: 'Marketing',   sector: 'Fintech',        side: 'Sell-side', lead_owner: 'James Whitfield', expected_close_date: daysFwd(150), updated_at: daysAgo(7),  created_at: daysAgo(95)  },
-  { id: 'tl3', client_name: 'Meridian EdTech', stage: 'Negotiation', sector: 'EdTech',         side: 'Sell-side', lead_owner: 'Priya Mehta',     expected_close_date: daysFwd(45),  updated_at: daysAgo(12), created_at: daysAgo(160) },
-  { id: 'tl4', client_name: 'Orion Realty',    stage: 'Closing',     sector: 'Real Estate',    side: 'Sell-side', lead_owner: 'Neha Jain',       expected_close_date: daysFwd(25),  updated_at: daysAgo(3),  created_at: daysAgo(275) },
-  { id: 'tl5', client_name: 'Aegis Logistics', stage: 'Preparation', sector: 'Logistics',      side: 'Sell-side', lead_owner: 'Oliver Hayes',    expected_close_date: daysFwd(180), updated_at: daysAgo(40), created_at: daysAgo(60)  },
-  { id: 'tl6', client_name: 'Solstice Solar',  stage: 'Mandate',     sector: 'Renewables',     side: 'Sell-side', lead_owner: 'Neha Jain',       expected_close_date: daysFwd(170), updated_at: daysAgo(5),  created_at: daysAgo(42)  }
+  { id: 'tl1', client_name: 'Nimbus Health',   stage: 'Mandate',     sector: 'Healthcare',  side: 'Sell-side', lead_owner: 'Neha Jain',       expected_close_date: daysFwd(75),  updated_at: daysAgo(28), created_at: daysAgo(210) },
+  { id: 'tl2', client_name: 'Quantum Edge',    stage: 'Mandate',     sector: 'Fintech',     side: 'Sell-side', lead_owner: 'James Whitfield', expected_close_date: daysFwd(150), updated_at: daysAgo(7),  created_at: daysAgo(95)  },
+  { id: 'tl3', client_name: 'Meridian EdTech', stage: 'Mandate',     sector: 'EdTech',      side: 'Sell-side', lead_owner: 'Priya Mehta',     expected_close_date: daysFwd(45),  updated_at: daysAgo(12), created_at: daysAgo(160) },
+  { id: 'tl4', client_name: 'Orion Realty',    stage: 'Mandate',     sector: 'Real Estate', side: 'Sell-side', lead_owner: 'Neha Jain',       expected_close_date: daysFwd(25),  updated_at: daysAgo(3),  created_at: daysAgo(275) },
+  { id: 'tl5', client_name: 'Aegis Logistics', stage: 'Pre-Mandate', sector: 'Logistics',   side: 'Sell-side', lead_owner: 'Oliver Hayes',    expected_close_date: daysFwd(180), updated_at: daysAgo(40), created_at: daysAgo(60)  },
+  { id: 'tl6', client_name: 'Solstice Solar',  stage: 'Pre-Mandate', sector: 'Renewables',  side: 'Sell-side', lead_owner: 'Neha Jain',       expected_close_date: daysFwd(170), updated_at: daysAgo(5),  created_at: daysAgo(42)  }
 ]

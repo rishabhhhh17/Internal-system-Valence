@@ -18,6 +18,16 @@ export function warmthTone(warmth) {
 
 export function fundTypeLabel(type) { return type || 'Other' }
 
+// Pick the best signal for "ticket" from the new deal-type model. Fundraise
+// uses target_raise_usd_m; Exit uses target_exit_usd_m; M&A leaves it null
+// (cheque-band match is skipped) since the ask is a spec, not a number.
+function ticketFromDeal(deal) {
+  if (!deal) return 0
+  if (deal.deal_subtype === 'fundraise') return Number(deal.target_raise_usd_m) || 0
+  if (deal.deal_subtype === 'exit')      return Number(deal.target_exit_usd_m)  || 0
+  return 0
+}
+
 // Score a fund's fit against a deal. 0-100. Heuristic, not ML.
 export function scoreFundForDeal(fund, deal) {
   if (!fund || !deal) return 0
@@ -40,15 +50,16 @@ export function scoreFundForDeal(fund, deal) {
     score += 20; reasons.push(`Active in ${deal.stage}`)
   }
 
-  // Check size band: 25 points if deal ticket sits inside the band.
-  const ticket = Number(deal.ticket_size_usd_m) || 0
+  // Cheque-size band: 25 points if deal ticket sits inside the band.
+  // Skipped entirely for M&A deals (the ask is a spec, not a number) and
+  // for Advisory-only mandates (no fund-match makes sense).
+  const ticket = ticketFromDeal(deal)
   const min = Number(fund.check_size_min_usd_m) || 0
   const max = Number(fund.check_size_max_usd_m) || Infinity
   if (ticket > 0 && ticket >= min && ticket <= max) {
     score += 25
     reasons.push(`Writes $${formatRange(min, max)}M cheques`)
   } else if (ticket > 0 && (ticket < min * 0.7 || ticket > max * 1.3)) {
-    // way out of band — penalise
     score -= 10
     reasons.push(`Cheque size mismatch ($${formatRange(min, max)}M)`)
   }
@@ -64,6 +75,18 @@ export function scoreFundForDeal(fund, deal) {
   }
 
   return { score: Math.max(0, Math.min(100, Math.round(score))), reasons }
+}
+
+// Whether fund-matching makes sense for this deal at all.
+export function isFundMatchApplicable(deal) {
+  const types = Array.isArray(deal?.deal_types) ? deal.deal_types : []
+  // Advisory-only mandates aren't fund-matchable.
+  if (!types.includes('transaction')) return false
+  // M&A is conceptually a buyer/strategic match, not a fund match. Still
+  // useful for buy-side (sponsor as acquirer) and sell-side (sponsor as
+  // potential exit), so we keep it on; the heuristic just won't filter on
+  // cheque size.
+  return true
 }
 
 export function matchFundsForDeal(funds, deal, { limit = 12 } = {}) {

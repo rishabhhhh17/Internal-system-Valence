@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom'
 import { format, parseISO, differenceInCalendarDays, formatDistanceToNowStrict } from 'date-fns'
 import { Briefcase, Filter, Users, AlertTriangle, ArrowUpRight } from 'lucide-react'
 import { supabase, isSupabaseConfigured } from '../lib/supabase.js'
-import { STAGES, stageMeta, stageToneClasses } from '../lib/stages.js'
+import { STAGES, LIVE_MANDATE_STAGES, stageMeta, stageToneClasses } from '../lib/stages.js'
 import { useViewMode } from '../hooks/useViewMode.jsx'
 import ConfigBanner from '../components/ConfigBanner.jsx'
 import EmptyState from '../components/EmptyState.jsx'
@@ -11,9 +11,9 @@ import ViewModeToggle from '../components/ViewModeToggle.jsx'
 import { InlineText, InlineSelect, InlineDate } from '../components/InlineEdit.jsx'
 import { useToast } from '../components/Toast.jsx'
 
-// Per spec: Live Mandates only — engaged through Closing. No Origination or Pitch
-// (those are Interactions territory) and no terminal stages.
-const LIVE_STAGES = ['Mandate', 'Preparation', 'Marketing', 'Diligence', 'Negotiation', 'Closing']
+// Live mandates = Pre-Mandate + Mandate. Origination and Pitching are
+// pre-pipeline (Interactions territory) and the terminal three are after.
+const LIVE_STAGES = LIVE_MANDATE_STAGES
 const STALE_THRESHOLD_DAYS = 21
 
 export default function Mandates() {
@@ -271,13 +271,13 @@ const today = new Date()
 const daysAgo = (n) => { const d = new Date(today); d.setDate(d.getDate() - n); return d.toISOString() }
 const daysFwd = (n) => { const d = new Date(today); d.setDate(d.getDate() + n); return d.toISOString().slice(0,10) }
 const DEMO_MANDATES = [
-  { id: 'm1', client_name: 'Nimbus Health',     stage: 'Diligence',   sector: 'Healthcare',     side: 'Sell-side', lead_owner: 'Neha Jain',       expected_close_date: daysFwd(75),  updated_at: daysAgo(28), created_at: daysAgo(210) },
-  { id: 'm2', client_name: 'Quantum Edge',      stage: 'Marketing',   sector: 'Fintech',        side: 'Sell-side', lead_owner: 'James Whitfield', expected_close_date: daysFwd(150), updated_at: daysAgo(7),  created_at: daysAgo(95)  },
-  { id: 'm3', client_name: 'Meridian EdTech',   stage: 'Negotiation', sector: 'EdTech',         side: 'Sell-side', lead_owner: 'Priya Mehta',     expected_close_date: daysFwd(45),  updated_at: daysAgo(12), created_at: daysAgo(160) },
-  { id: 'm4', client_name: 'Orion Realty',      stage: 'Closing',     sector: 'Real Estate',    side: 'Sell-side', lead_owner: 'Neha Jain',       expected_close_date: daysFwd(25),  updated_at: daysAgo(3),  created_at: daysAgo(275) },
-  { id: 'm5', client_name: 'Aegis Logistics',   stage: 'Preparation', sector: 'Logistics',      side: 'Sell-side', lead_owner: 'Oliver Hayes',    expected_close_date: daysFwd(180), updated_at: daysAgo(40), created_at: daysAgo(60) },
-  { id: 'm6', client_name: 'Solstice Solar',    stage: 'Mandate',     sector: 'Renewables',     side: 'Sell-side', lead_owner: 'Neha Jain',       expected_close_date: daysFwd(170), updated_at: daysAgo(5),  created_at: daysAgo(42) },
-  { id: 'm7', client_name: 'Pelican Foods',     stage: 'Diligence',   sector: 'Consumer',       side: 'Sell-side', lead_owner: 'Priya Mehta',     expected_close_date: daysFwd(90),  updated_at: daysAgo(18), created_at: daysAgo(120) },
-  { id: 'm8', client_name: 'Tidewater Logistics', stage: 'Marketing', sector: 'Logistics',      side: 'Sell-side', lead_owner: 'Oliver Hayes',    expected_close_date: daysFwd(120), updated_at: daysAgo(10), created_at: daysAgo(72) },
-  { id: 'm9', client_name: 'Halcyon Pharma',    stage: 'Diligence',   sector: 'Healthcare',     side: 'Buy-side',  lead_owner: 'Neha Jain',       expected_close_date: daysFwd(65),  updated_at: daysAgo(45), created_at: daysAgo(110) }
+  { id: 'm1', client_name: 'Nimbus Health',       stage: 'Mandate',     sector: 'Healthcare',  side: 'Sell-side', lead_owner: 'Neha Jain',       expected_close_date: daysFwd(75),  updated_at: daysAgo(28), created_at: daysAgo(210) },
+  { id: 'm2', client_name: 'Quantum Edge',        stage: 'Mandate',     sector: 'Fintech',     side: 'Sell-side', lead_owner: 'James Whitfield', expected_close_date: daysFwd(150), updated_at: daysAgo(7),  created_at: daysAgo(95)  },
+  { id: 'm3', client_name: 'Meridian EdTech',     stage: 'Mandate',     sector: 'EdTech',      side: 'Sell-side', lead_owner: 'Priya Mehta',     expected_close_date: daysFwd(45),  updated_at: daysAgo(12), created_at: daysAgo(160) },
+  { id: 'm4', client_name: 'Orion Realty',        stage: 'Mandate',     sector: 'Real Estate', side: 'Sell-side', lead_owner: 'Neha Jain',       expected_close_date: daysFwd(25),  updated_at: daysAgo(3),  created_at: daysAgo(275) },
+  { id: 'm5', client_name: 'Aegis Logistics',     stage: 'Mandate',     sector: 'Logistics',   side: 'Sell-side', lead_owner: 'Oliver Hayes',    expected_close_date: daysFwd(180), updated_at: daysAgo(40), created_at: daysAgo(60)  },
+  { id: 'm6', client_name: 'Solstice Solar',      stage: 'Pre-Mandate', sector: 'Renewables',  side: 'Sell-side', lead_owner: 'Neha Jain',       expected_close_date: daysFwd(170), updated_at: daysAgo(5),  created_at: daysAgo(42)  },
+  { id: 'm7', client_name: 'Pelican Foods',       stage: 'Mandate',     sector: 'Consumer',    side: 'Sell-side', lead_owner: 'Priya Mehta',     expected_close_date: daysFwd(90),  updated_at: daysAgo(18), created_at: daysAgo(120) },
+  { id: 'm8', client_name: 'Tidewater Logistics', stage: 'Mandate',     sector: 'Logistics',   side: 'Sell-side', lead_owner: 'Oliver Hayes',    expected_close_date: daysFwd(120), updated_at: daysAgo(10), created_at: daysAgo(72)  },
+  { id: 'm9', client_name: 'Halcyon Pharma',      stage: 'Mandate',     sector: 'Healthcare',  side: 'Buy-side',  lead_owner: 'Neha Jain',       expected_close_date: daysFwd(65),  updated_at: daysAgo(45), created_at: daysAgo(110) }
 ]

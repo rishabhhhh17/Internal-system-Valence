@@ -188,7 +188,7 @@ export function feeByQuarter(deals, { quarters = 4, now = new Date() } = {}) {
     if (quarterOffset < 0 || quarterOffset >= quarters) return
     const b = buckets[quarterOffset]
     b.weightedFeeUsd += weighted
-    if (stage === 'Closing' || stage === 'Negotiation' || stage === 'Closed') b.committedFeeUsd += fee
+    if (stage === 'Mandate' || stage === 'Closed') b.committedFeeUsd += fee
     b.dealCount += 1
   }
   for (const d of deals) {
@@ -563,18 +563,17 @@ export function sideMix(deals) {
 export function riskFlags(deals) {
   const flags = []
   for (const d of deals) {
+    const isLive = ['Pre-Mandate', 'Mandate'].includes(d.stage)
     if (!d.lead_owner)
       flags.push({ severity: 'warn',  message: `${d.client_name || 'Deal'} — no lead owner assigned`, deal_id: d.id })
     if (!d.sector)
       flags.push({ severity: 'info',  message: `${d.client_name || 'Deal'} — sector not tagged`, deal_id: d.id })
-    if (!stageMeta(d.stage).terminal && !d.ticket_size_usd_m)
-      flags.push({ severity: 'warn',  message: `${d.client_name || 'Deal'} — ticket size missing`, deal_id: d.id })
-    if (!stageMeta(d.stage).terminal && !d.fee_success_pct && !d.fee_retainer_usd)
-      flags.push({ severity: 'high',  message: `${d.client_name || 'Deal'} — fee structure missing`, deal_id: d.id })
-    if (d.stage === 'Closing' && !d.expected_close_date)
-      flags.push({ severity: 'high',  message: `${d.client_name || 'Deal'} — Closing with no expected close date`, deal_id: d.id })
-    if (['Mandate','Preparation','Marketing','Diligence'].includes(d.stage) && d.nda_status === 'Pending')
-      flags.push({ severity: 'info',  message: `${d.client_name || 'Deal'} — NDA still pending past Mandate`, deal_id: d.id })
+    if (isLive && !d.deal_subtype && !(d.deal_types || []).includes('advisory'))
+      flags.push({ severity: 'warn',  message: `${d.client_name || 'Deal'} — transaction type not classified`, deal_id: d.id })
+    if (d.stage === 'Mandate' && !d.expected_close_date && !d.target_close)
+      flags.push({ severity: 'high',  message: `${d.client_name || 'Deal'} — Mandate stage with no target close date`, deal_id: d.id })
+    if (isLive && d.nda_status === 'Pending')
+      flags.push({ severity: 'info',  message: `${d.client_name || 'Deal'} — NDA still pending`, deal_id: d.id })
   }
   return flags
 }
