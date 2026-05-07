@@ -1,10 +1,10 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { format } from 'date-fns'
-import { FilePlus, Search, FolderTree, Trash2 } from 'lucide-react'
+import { FilePlus, Search, FolderTree, Trash2, Globe2, ArrowRight } from 'lucide-react'
 import { supabase, isSupabaseConfigured } from '../lib/supabase.js'
 import { stageMeta } from '../lib/stages.js'
-import { spawnMandateFolders } from '../lib/kb.js'
+import { spawnMandateFolders, searchKbNotes } from '../lib/kb.js'
 import ConfigBanner from '../components/ConfigBanner.jsx'
 import EmptyState from '../components/EmptyState.jsx'
 import KbFolderTree from '../components/KbFolderTree.jsx'
@@ -25,6 +25,14 @@ export default function KnowledgeMandates() {
   const [selectedFolder,    setSelectedFolder]    = useState(null)
   const [notes, setNotes] = useState([])
   const [selectedNote, setSelectedNote] = useState(null)
+
+  // Hybrid search state — searches kb_notes via the search_kb_notes RPC.
+  // Scope toggles between "this mandate" and "everything".
+  const [searchQuery, setSearchQuery]     = useState('')
+  const [searchScope, setSearchScope]     = useState('mandate')   // 'mandate' | 'global'
+  const [searchResults, setSearchResults] = useState(null)        // null = idle
+  const [searching, setSearching]         = useState(false)
+  const [folderIdsForMandate, setFolderIdsForMandate] = useState([])
 
   // ---------- Mandate list ----------
   useEffect(() => {
@@ -59,7 +67,53 @@ export default function KnowledgeMandates() {
     setSelectedFolder(null)
     setSelectedNote(null)
     setNotes([])
+    setSearchResults(null)
+    setSearchQuery('')
   }, [selectedMandateId])
+
+  // Pull all folder IDs for the active mandate so we can scope search to them.
+  useEffect(() => {
+    if (!selectedMandateId || !isSupabaseConfigured) { setFolderIdsForMandate([]); return }
+    ;(async () => {
+      const { data } = await supabase.from('kb_folders').select('id').eq('mandate_id', selectedMandateId)
+      setFolderIdsForMandate((data || []).map(f => f.id))
+    })()
+  }, [selectedMandateId])
+
+  // Run a search whenever the query changes (debounced).
+  useEffect(() => {
+    if (!searchQuery.trim()) { setSearchResults(null); return }
+    if (!isSupabaseConfigured) { setSearchResults([]); return }
+    let cancelled = false
+    const t = setTimeout(async () => {
+      setSearching(true)
+      try {
+        const folderFilter = searchScope === 'mandate' && folderIdsForMandate.length > 0 ? folderIdsForMandate : null
+        const rows = await searchKbNotes(supabase, searchQuery, { folderFilterIds: folderFilter, matchCount: 12 })
+        if (!cancelled) setSearchResults(rows)
+      } finally {
+        if (!cancelled) setSearching(false)
+      }
+    }, 300)
+    return () => { cancelled = true; clearTimeout(t) }
+  }, [searchQuery, searchScope, folderIdsForMandate])
+
+  async function openResult(row) {
+    // Hopping to a search hit: switch the selected folder + note + auto-load notes list.
+    if (!isSupabaseConfigured) return
+    const { data: folder } = await supabase.from('kb_folders').select('*').eq('id', row.folder_id).single()
+    if (folder) {
+      // If this note belongs to a different mandate, switch mandates first.
+      if (folder.mandate_id && folder.mandate_id !== selectedMandateId) {
+        setSelectedMandateId(folder.mandate_id)
+      }
+      setSelectedFolder(folder)
+      const { data: full } = await supabase.from('kb_notes').select('*').eq('id', row.id).single()
+      if (full) setSelectedNote(full)
+      setSearchResults(null)
+      setSearchQuery('')
+    }
+  }
 
   // ---------- Notes for the selected folder ----------
   useEffect(() => {
@@ -135,6 +189,45 @@ export default function KnowledgeMandates() {
           <button onClick={ensureFolders} className="vl-btn-secondary text-xs">
             <FolderTree className="h-3.5 w-3.5" /> Ensure default folders
           </button>
+        )}
+      </div>
+
+      {/* Hybrid search — keyword + vector + recency, optionally scoped to one mandate */}
+      <div className="vl-card p-3">
+        <div className="flex items-center gap-3">
+          <div className="relative flex-1">
+            <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-valence-subtle" />
+            <input
+              value={searchQuery}
+              onChange={e => setSearchQuery(e.target.value)}
+              placeholder="Search notes — combines keyword, semantic similarity, and recency"
+              className="vl-input h-9 w-full pl-9 text-sm"
+            />
+            {searching && <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[11px] text-valence-muted">Searching…</span>}
+          </div>
+          <div className="inline-flex items-center rounded-full border border-valence-border bg-white p-0.5 shrink-0">
+            <button onClick={() => setSearchScope('mandate')} className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-semibold transition ${searchScope === 'mandate' ? 'bg-valence-ink text-white' : 'text-valence-muted hover:text-valence-text'}`}><FolderTree className="h-3 w-3" /> This mandate</button>
+            <button onClick={() => setSearchScope('global')}  className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-semibold transition ${searchScope === 'global'  ? 'bg-valence-ink text-white' : 'text-valence-muted hover:text-valence-text'}`}><Globe2 className="h-3 w-3" /> All mandates</button>
+          </div>
+        </div>
+        {searchResults && searchResults.length > 0 && (
+          <ul className="mt-3 space-y-1 max-h-72 overflow-y-auto">
+            {searchResults.map(r => (
+              <li key={r.id}>
+                <button onClick={() => openResult(r)} className="block w-full text-left rounded-lg border border-valence-border bg-white px-3 py-2 hover:border-valence-blue/40 transition">
+                  <div className="flex items-center justify-between gap-3">
+                    <p className="truncate text-sm font-semibold text-valence-text">{r.title || 'Untitled note'}</p>
+                    <span className="text-[10px] tabular-nums text-valence-subtle shrink-0">score {r.total_score?.toFixed(2)}</span>
+                  </div>
+                  <p className="mt-0.5 line-clamp-2 text-[12px] leading-relaxed text-valence-muted">{(r.body || '').slice(0, 240)}</p>
+                  <p className="mt-1 text-[10px] text-valence-subtle inline-flex items-center gap-1">Open <ArrowRight className="h-3 w-3" /></p>
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+        {searchResults && searchResults.length === 0 && searchQuery && !searching && (
+          <p className="mt-3 px-1 text-xs text-valence-muted">No notes match "{searchQuery}".</p>
         )}
       </div>
 

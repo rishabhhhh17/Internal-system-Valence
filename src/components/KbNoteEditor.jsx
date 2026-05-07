@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Bold, Italic, List, Link2, Loader2, Check, AtSign, Hash } from 'lucide-react'
+import { Bold, Italic, List, Link2, Loader2, Check, AtSign, Hash, Mic, Sparkles, FileAudio, Trash2 } from 'lucide-react'
 import { supabase, isSupabaseConfigured } from '../lib/supabase.js'
-import { parseTags, syncMentions, renderMentionToken } from '../lib/kb.js'
+import { parseTags, syncMentions, renderMentionToken, embedNote } from '../lib/kb.js'
+import { uploadVoiceMemo, transcribeAndSummarise } from '../lib/voiceMemo.js'
+import { isGeminiConfigured } from '../lib/gemini.js'
 import { useToast } from './Toast.jsx'
 
 // Note editor — title + textarea body + small toolbar.
@@ -30,10 +32,25 @@ export default function KbNoteEditor({ note, folder, onSaved }) {
   const [linkAnchor, setLinkAnchor] = useState(0)
   const [entities, setEntities]     = useState({ people: [], funds: [], mandates: [] })
 
+  // Voice memo state — pulled fresh whenever the note changes.
+  const [audioUrl, setAudioUrl]                 = useState('')
+  const [audioFilename, setAudioFilename]       = useState('')
+  const [transcript, setTranscript]             = useState('')
+  const [transcriptSummary, setTranscriptSummary] = useState('')
+  const [recording, setRecording]               = useState(false)
+  const [transcribing, setTranscribing]         = useState(false)
+  const [uploading, setUploading]               = useState(false)
+  const recorderRef = useRef(null)
+  const audioInputRef = useRef(null)
+
   // Reset form when the note prop changes.
   useEffect(() => {
     setTitle(note?.title || '')
     setBody(note?.body  || '')
+    setAudioUrl(note?.audio_url || '')
+    setAudioFilename(note?.audio_filename || '')
+    setTranscript(note?.transcript || '')
+    setTranscriptSummary(note?.transcript_summary || '')
     setSavedAt(0)
   }, [note?.id])
 
@@ -81,14 +98,115 @@ export default function KbNoteEditor({ note, folder, onSaved }) {
         updated_at: new Date().toISOString()
       }).eq('id', note.id)
       if (error) throw error
-      // Sync wikilink mentions in the background — failures don't block save.
+      // Sync wikilink mentions + refresh embedding in the background.
+      // Neither blocks save; both fail silently to console on error.
       try { await syncMentions(supabase, note.id, body) } catch (e) { console.warn('mentions sync failed', e) }
+      try { await embedNote(supabase, { id: note.id, title, body, transcript: note.transcript }) } catch (e) { console.warn('embed failed', e) }
       onSaved?.({ ...note, title, body, tags })
       setSavedAt(Date.now())
     } catch (err) {
       toast.error(err?.message || 'Save failed')
     } finally {
       setSaving(false)
+    }
+  }
+
+  // ---------- Voice memo: record / upload / transcribe / remove ----------
+  // Persist audio metadata to Supabase. Reused after upload + after transcribe.
+  async function persistAudioFields(patch) {
+    if (!note || !isSupabaseConfigured) return
+    const { error } = await supabase.from('kb_notes').update(patch).eq('id', note.id)
+    if (error) toast.error(error.message)
+    else onSaved?.({ ...note, ...patch })
+  }
+
+  async function startRecording() {
+    if (recording) return
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+      const rec = new MediaRecorder(stream)
+      const chunks = []
+      rec.ondataavailable = e => { if (e.data.size > 0) chunks.push(e.data) }
+      rec.onstop = async () => {
+        stream.getTracks().forEach(t => t.stop())
+        const blob = new Blob(chunks, { type: rec.mimeType || 'audio/webm' })
+        const file = new File([blob], `voice-memo-${Date.now()}.webm`, { type: blob.type })
+        await handleAudioFile(file)
+      }
+      recorderRef.current = rec
+      rec.start()
+      setRecording(true)
+    } catch (err) {
+      toast.error(err?.message || 'Could not access the microphone')
+    }
+  }
+
+  function stopRecording() {
+    const rec = recorderRef.current
+    if (rec && rec.state !== 'inactive') rec.stop()
+    setRecording(false)
+  }
+
+  async function handleAudioFile(file) {
+    if (!note?.id) return toast.error('Save the note first')
+    if (!isSupabaseConfigured) {
+      // Demo: keep an object URL in memory; nothing persists.
+      setAudioUrl(URL.createObjectURL(file))
+      setAudioFilename(file.name)
+      return
+    }
+    setUploading(true)
+    try {
+      const { url, filename } = await uploadVoiceMemo(note.id, file)
+      setAudioUrl(url || '')
+      setAudioFilename(filename || file.name)
+      // Reset transcript whenever the audio changes.
+      setTranscript('')
+      setTranscriptSummary('')
+      await persistAudioFields({
+        audio_url: url, audio_filename: filename,
+        transcript: null, transcript_summary: null, transcribed_at: null
+      })
+    } catch (err) {
+      toast.error(err?.message || 'Upload failed')
+    } finally {
+      setUploading(false)
+    }
+  }
+
+  async function transcribeNow() {
+    if (!audioUrl) return toast.error('Upload an audio file first')
+    if (!isGeminiConfigured) return toast.error('Gemini key not set — transcription unavailable')
+    setTranscribing(true)
+    try {
+      const res = await fetch(audioUrl)
+      const blob = await res.blob()
+      const file = new File([blob], audioFilename || 'memo.webm', { type: blob.type })
+      const { transcript: t, summary } = await transcribeAndSummarise(file, { context: title })
+      setTranscript(t || '')
+      setTranscriptSummary(summary || '')
+      await persistAudioFields({
+        transcript: t || null,
+        transcript_summary: summary || null,
+        transcribed_at: new Date().toISOString()
+      })
+      toast.success('Transcribed')
+    } catch (err) {
+      toast.error(err?.message || 'Transcription failed')
+    } finally {
+      setTranscribing(false)
+    }
+  }
+
+  async function removeAudio() {
+    if (!confirm('Remove the voice memo from this note?')) return
+    setAudioUrl(''); setAudioFilename('')
+    setTranscript(''); setTranscriptSummary('')
+    if (note && isSupabaseConfigured) {
+      await persistAudioFields({
+        audio_url: null, audio_filename: null,
+        transcript: null, transcript_summary: null, transcribed_at: null
+      })
     }
   }
 
@@ -239,6 +357,67 @@ export default function KbNoteEditor({ note, folder, onSaved }) {
               </li>
             ))}
           </ul>
+        )}
+      </div>
+
+      {/* Voice memo block */}
+      <div className="rounded-xl border border-valence-border bg-valence-surface p-4 space-y-3">
+        <div className="flex items-center justify-between">
+          <p className="vl-eyebrow-ink inline-flex items-center gap-1.5"><Mic className="h-3 w-3 text-valence-blue" /> Voice memo</p>
+          <input ref={audioInputRef} type="file" accept="audio/*" className="hidden" onChange={e => { const f = e.target.files?.[0]; e.target.value = ''; if (f) handleAudioFile(f) }} />
+        </div>
+
+        {audioUrl ? (
+          <div className="space-y-2">
+            <div className="flex items-center justify-between gap-3 rounded-lg border border-valence-border bg-white px-3 py-2">
+              <div className="flex items-center gap-2 min-w-0 flex-1">
+                <FileAudio className="h-3.5 w-3.5 text-valence-blue shrink-0" />
+                <span className="truncate text-xs font-semibold text-valence-text">{audioFilename || 'Voice memo'}</span>
+              </div>
+              <audio src={audioUrl} controls className="h-8" />
+              <button onClick={removeAudio} className="grid h-7 w-7 place-items-center rounded text-valence-subtle hover:text-valence-danger" title="Remove">
+                <Trash2 className="h-3.5 w-3.5" />
+              </button>
+            </div>
+            <div className="flex items-center gap-2">
+              {!transcript && (
+                <button onClick={transcribeNow} disabled={transcribing || !isGeminiConfigured} className="vl-btn-primary text-xs">
+                  {transcribing ? <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Transcribing…</> : <><Sparkles className="h-3.5 w-3.5" /> Transcribe & summarise</>}
+                </button>
+              )}
+              {!isGeminiConfigured && (
+                <span className="text-[11px] text-valence-warning">Add VITE_GEMINI_API_KEY to enable transcription.</span>
+              )}
+            </div>
+            {transcriptSummary && (
+              <div className="rounded-lg border border-valence-blue/30 bg-valence-blue-soft/30 px-3 py-2.5">
+                <p className="vl-eyebrow-ink inline-flex items-center gap-1.5"><Sparkles className="h-3 w-3 text-valence-blue" /> Summary</p>
+                <p className="mt-1 text-sm leading-relaxed text-valence-text">{transcriptSummary}</p>
+              </div>
+            )}
+            {transcript && (
+              <details className="rounded-lg border border-valence-border bg-white">
+                <summary className="cursor-pointer px-3 py-2 text-xs font-semibold text-valence-muted hover:text-valence-text">View transcript ({Math.round(transcript.length / 100) / 10}k chars)</summary>
+                <div className="px-3 pb-3 text-[12px] leading-relaxed text-valence-muted whitespace-pre-wrap font-mono">{transcript}</div>
+              </details>
+            )}
+          </div>
+        ) : (
+          <div className="flex flex-wrap items-center gap-2">
+            {!recording ? (
+              <button onClick={startRecording} disabled={uploading} className="vl-btn-secondary text-xs">
+                <Mic className="h-3.5 w-3.5" /> Record
+              </button>
+            ) : (
+              <button onClick={stopRecording} className="inline-flex items-center gap-1.5 rounded-lg border border-valence-danger/40 bg-valence-danger/10 px-3 py-1.5 text-xs font-semibold text-valence-danger">
+                <span className="h-2 w-2 rounded-full bg-valence-danger animate-pulse" /> Stop recording
+              </button>
+            )}
+            <button onClick={() => audioInputRef.current?.click()} disabled={uploading} className="vl-btn-secondary text-xs">
+              <FileAudio className="h-3.5 w-3.5" /> {uploading ? 'Uploading…' : 'Upload audio'}
+            </button>
+            <span className="text-[11px] text-valence-muted">Audio is stored as-is. Transcription only runs when you click the button.</span>
+          </div>
         )}
       </div>
 
