@@ -5,12 +5,14 @@ import Drawer from './Drawer.jsx'
 import { supabase, isSupabaseConfigured } from '../lib/supabase.js'
 import { FUND_TYPES, WARMTH_LEVELS, warmthTone, fundTypeLabel } from '../lib/funds.js'
 import { DEMO_PEOPLE } from '../lib/people.js'
+import EntityMentions from './EntityMentions.jsx'
 
 const TABS = [
   { id: 'overview', label: 'Overview' },
   { id: 'contacts', label: 'Contacts' },
   { id: 'people',   label: 'People' },
   { id: 'deals',    label: 'Deals' },
+  { id: 'mentions', label: 'Mentions' },
   { id: 'notes',    label: 'Notes' }
 ]
 
@@ -185,6 +187,10 @@ export default function FundDrawer({ open, onClose, existing, onSubmit }) {
             </div>
           ))}
         </div>
+      )}
+
+      {tab === 'mentions' && existing && (
+        <EntityMentions entityType="fund" entityId={existing.id} />
       )}
 
       {tab === 'notes' && (

@@ -13,6 +13,7 @@ import InboxIntake from './pages/InboxIntake.jsx'
 import Interactions from './pages/Interactions.jsx'
 import Knowledge from './pages/Knowledge.jsx'
 import KnowledgeLanding from './pages/KnowledgeLanding.jsx'
+import KnowledgeMandates from './pages/KnowledgeMandates.jsx'
 import Planner from './pages/Planner.jsx'
 import Drive from './pages/Drive.jsx'
 import Team from './pages/Team.jsx'
@@ -67,6 +68,7 @@ export default function App() {
         <Route path="/inbox/intake" element={<InboxIntake />} />
         <Route path="/interactions" element={<Interactions />} />
         <Route path="/knowledge" element={<KnowledgeLanding />} />
+        <Route path="/knowledge/mandates" element={<KnowledgeMandates />} />
         <Route path="/knowledge/shared" element={<Knowledge />} />
         <Route path="/knowledge/private" element={<Drive />} />
         <Route path="/drive" element={<Navigate to="/knowledge/private" replace />} />

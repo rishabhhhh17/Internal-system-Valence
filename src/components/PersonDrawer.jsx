@@ -4,6 +4,7 @@ import Drawer from './Drawer.jsx'
 import { supabase, isSupabaseConfigured } from '../lib/supabase.js'
 import { TAG_SUGGESTIONS } from '../lib/people.js'
 import { Link } from 'react-router-dom'
+import EntityMentions from './EntityMentions.jsx'
 
 const TABS = [
   { id: 'overview',    label: 'Overview' },
@@ -187,9 +188,7 @@ export default function PersonDrawer({ open, onClose, existing, onSubmit }) {
       )}
 
       {tab === 'notes' && existing && (
-        <div className="rounded-lg border border-dashed border-valence-border bg-valence-surface px-5 py-8 text-center text-sm text-valence-muted">
-          KB notes that mention this person will appear here once Phase 2 (Knowledge Base + smart linking) ships.
-        </div>
+        <EntityMentions entityType="person" entityId={existing.id} />
       )}
 
       {tab === 'files' && existing && (

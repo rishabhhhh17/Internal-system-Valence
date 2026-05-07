@@ -9,6 +9,7 @@ import {
 } from 'lucide-react'
 import { supabase, isSupabaseConfigured, subscribeTable } from '../lib/supabase.js'
 import { logActivity } from '../lib/activity.js'
+import { spawnMandateFolders } from '../lib/kb.js'
 import { STAGES, STAGE_IDS, stageMeta, stageToneClasses, ACTIVE_STAGES } from '../lib/stages.js'
 import ConfigBanner from '../components/ConfigBanner.jsx'
 import Drawer from '../components/Drawer.jsx'
@@ -196,6 +197,10 @@ export default function Deals() {
       const typeLabel = (payload.deal_types || []).join(' + ') || 'mandate'
       const subtypeLabel = payload.deal_subtype ? ` · ${payload.deal_subtype}` : ''
       await logActivity({ dealId: data.id, kind: 'created', body: `New ${typeLabel}${subtypeLabel}` })
+      // Auto-spawn the default KB folder structure for this mandate. Best-effort —
+      // if the kb_folders table isn't present yet (Phase 2 SQL not applied) the
+      // call is a no-op error swallow and the deal still saves cleanly.
+      try { await spawnMandateFolders(supabase, data) } catch (e) { console.warn('kb folder spawn skipped', e) }
       toast.success(`${payload.client_name} logged.`)
     }
     setModal(null)
