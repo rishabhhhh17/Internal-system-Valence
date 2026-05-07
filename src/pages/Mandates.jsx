@@ -3,11 +3,13 @@ import { Link } from 'react-router-dom'
 import { format, parseISO, differenceInCalendarDays, formatDistanceToNowStrict } from 'date-fns'
 import { Briefcase, Filter, Users, AlertTriangle, ArrowUpRight } from 'lucide-react'
 import { supabase, isSupabaseConfigured } from '../lib/supabase.js'
-import { stageMeta, stageToneClasses } from '../lib/stages.js'
+import { STAGES, stageMeta, stageToneClasses } from '../lib/stages.js'
 import { useViewMode } from '../hooks/useViewMode.jsx'
 import ConfigBanner from '../components/ConfigBanner.jsx'
 import EmptyState from '../components/EmptyState.jsx'
 import ViewModeToggle from '../components/ViewModeToggle.jsx'
+import { InlineText, InlineSelect, InlineDate } from '../components/InlineEdit.jsx'
+import { useToast } from '../components/Toast.jsx'
 
 // Per spec: Live Mandates only — engaged through Closing. No Origination or Pitch
 // (those are Interactions territory) and no terminal stages.
@@ -15,6 +17,7 @@ const LIVE_STAGES = ['Mandate', 'Preparation', 'Marketing', 'Diligence', 'Negoti
 const STALE_THRESHOLD_DAYS = 21
 
 export default function Mandates() {
+  const toast = useToast()
   const { isDetailed } = useViewMode('mandates')
   const [deals, setDeals]           = useState([])
   const [activities, setActivities] = useState([])
@@ -23,6 +26,17 @@ export default function Mandates() {
   const [ownerFilter, setOwnerFilter] = useState('All')
 
   useEffect(() => { load() }, [])
+
+  // Optimistic in-place patch + Supabase update. If the request fails, the
+  // toast surfaces the error and the next load() will reconcile.
+  async function updateField(dealId, field, value) {
+    setDeals(prev => prev.map(d => d.id === dealId ? { ...d, [field]: value } : d))
+    if (!isSupabaseConfigured) return
+    const { error } = await supabase.from('deals').update({ [field]: value }).eq('id', dealId)
+    if (error) toast.error(error.message)
+    // re-pull the row in the background so derived fields (days-in-stage etc.) stay current
+    if (field === 'stage') load()
+  }
 
   async function load() {
     setLoading(true); setLoadError(null)
@@ -164,7 +178,7 @@ export default function Mandates() {
                     </tr>
                   </thead>
                   <tbody>
-                    {rows.map(d => <MandateRow key={d.id} d={d} isDetailed={isDetailed} />)}
+                    {rows.map(d => <MandateRow key={d.id} d={d} isDetailed={isDetailed} onUpdate={updateField} />)}
                   </tbody>
                 </table>
               </div>
@@ -176,34 +190,47 @@ export default function Mandates() {
   )
 }
 
-function MandateRow({ d, isDetailed }) {
+function MandateRow({ d, isDetailed, onUpdate }) {
   const stale = d._daysInStage > STALE_THRESHOLD_DAYS
+  const stageOptions = STAGES.map(s => ({ value: s.id, label: s.id }))
   return (
     <tr className="border-t border-valence-border/60 hover:bg-valence-surface/60 transition">
       <td className="px-5 py-3 font-semibold text-valence-text">
-        <Link to={`/deals?open=${d.id}`} className="inline-flex items-center gap-1.5 hover:text-valence-blue">
-          {d.client_name}
-          {stale && <span title="More than three weeks in this stage" className="inline-flex"><AlertTriangle className="h-3 w-3 text-valence-warning" /></span>}
-        </Link>
+        <div className="flex items-center gap-2">
+          <Link to={`/deals?open=${d.id}`} className="inline-flex items-center gap-1.5 hover:text-valence-blue">
+            {d.client_name}
+            {stale && <span title="More than three weeks in this stage" className="inline-flex"><AlertTriangle className="h-3 w-3 text-valence-warning" /></span>}
+          </Link>
+          <InlineSelect
+            value={d.stage}
+            options={stageOptions}
+            onCommit={v => onUpdate(d.id, 'stage', v)}
+          />
+        </div>
       </td>
       {isDetailed && <td className="px-3 py-3 text-valence-muted">{d.sector || '—'}</td>}
       {isDetailed && <td className="px-3 py-3 text-valence-muted">{normalizeSide(d.side) || '—'}</td>}
-      <td className="px-3 py-3 text-valence-muted">{d.lead_owner || '—'}</td>
+      <td className="px-3 py-3 text-valence-muted">
+        <InlineText
+          value={d.lead_owner}
+          placeholder="Assign owner"
+          onCommit={v => onUpdate(d.id, 'lead_owner', v)}
+        />
+      </td>
       <td className={`px-3 py-3 text-right tabular-nums ${stale ? 'font-semibold text-valence-warning' : 'text-valence-text'}`}>
         {d._daysInStage}d
       </td>
       {isDetailed && (
         <td className="px-3 py-3 text-valence-muted">
-          {d._closeIso ? (
-            <span className={d._daysToClose != null && d._daysToClose < 0 ? 'text-valence-danger font-semibold' : ''}>
-              {format(parseISO(String(d._closeIso).slice(0, 10)), 'd MMM yyyy')}
-              {d._daysToClose != null && (
-                <span className="ml-1 text-[10px] text-valence-subtle">
-                  ({d._daysToClose >= 0 ? `${d._daysToClose}d` : `${Math.abs(d._daysToClose)}d late`})
-                </span>
-              )}
+          <InlineDate
+            value={d.expected_close_date ? String(d.expected_close_date).slice(0, 10) : ''}
+            onCommit={v => onUpdate(d.id, 'expected_close_date', v)}
+          />
+          {d._daysToClose != null && d._closeIso && (
+            <span className="ml-1 text-[10px] text-valence-subtle">
+              ({d._daysToClose >= 0 ? `${d._daysToClose}d` : `${Math.abs(d._daysToClose)}d late`})
             </span>
-          ) : '—'}
+          )}
         </td>
       )}
       {isDetailed && <td className="px-3 py-3 text-[11px] text-valence-muted">{formatDistanceToNowStrict(d._stageSince, { addSuffix: true })}</td>}
