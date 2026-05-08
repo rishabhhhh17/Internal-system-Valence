@@ -1,8 +1,20 @@
 -- ValenceOS · Demo mandates pack (v2 — new schema)
--- 22 deals across the new 7-stage pipeline + new Transaction/Advisory model.
+-- 24 deals across the new 7-stage pipeline + new Transaction/Advisory model.
 -- Uses the new columns: deal_types[], deal_subtype, plus per-subtype
 -- conditional fields (target_raise_usd_m, ma_side, acquisition_brief,
--- engagement_brief, etc.). Idempotent on duplicate client_name.
+-- engagement_brief, etc.).
+--
+-- Re-runnable: deletes the demo rows by client_name first (mirrors the
+-- pattern in seed.sql) so re-applying doesn't create duplicates.
+
+delete from public.deals where client_name in (
+  'Banyan Power','Cobalt Mobility','Verdant Agritech','Lattice Cloud',
+  'Astra Diagnostics','Northwind Marine','Maple Insurance','Helios Finance',
+  'Crescent Pharma','Sigma Industrials','Pinnacle Hospitality','Tarana SaaS',
+  'Halcyon Pharma','Ridgeway Realty','Auro Power','Indigo Edu',
+  'Saffron Retail','Stellar Pharma','Granite Logistics','Aurora Hotels',
+  'Beacon Renewables','Cedar Edu','HoV Mushrooms','Saffron Studios'
+);
 
 insert into public.deals (
   client_name, stage, nda_status, sector,

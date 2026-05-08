@@ -986,11 +986,25 @@ create policy share_access_logs_insert_anon on public.share_access_logs
   for insert to anon with check (true);
 
 -- ============ PHASE 0 v2 — STAGE MIGRATION (idempotent) ============
+-- Drop the old 11-stage CHECK before mutating data (legacy rows might fall
+-- outside the old set after migration). Re-add the new 7-stage CHECK below.
+alter table public.deals drop constraint if exists deals_stage_check;
+
 update public.deals set stage = 'Pitching' where stage = 'Pitch';
 update public.deals set stage = 'Mandate'
   where stage in ('Preparation','Marketing','Diligence','Negotiation','Closing');
 update public.deals set stage = 'Origination'
   where stage not in ('Origination','Pitching','Pre-Mandate','Mandate','Closed','On Hold','Lost');
+
+-- All rows now sit in one of the 7 valid stages, so this won't trip.
+alter table public.deals
+  add constraint deals_stage_check
+  check (stage in ('Origination','Pitching','Pre-Mandate','Mandate','Closed','On Hold','Lost'));
+
+-- Phase 0 fixup-2: legacy NOT NULLs blocked the new deal-type model where
+-- demo rows insert deal_type=null + nda_status=null. Drop both.
+alter table public.deals alter column deal_type  drop not null;
+alter table public.deals alter column nda_status drop not null;
 
 -- ============ PHASE 0 v2 — DEAL TYPE MODEL ============
 alter table public.deals
