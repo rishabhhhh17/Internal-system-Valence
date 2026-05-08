@@ -107,6 +107,17 @@ const TUTORIALS = {
       { title: 'Free slots',           body: 'Tap a slot to draft a meeting-proposal email to a counterparty.' }
     ]
   },
+  '/calendar': {
+    title: 'Team Calendar',
+    blurb: 'Side-by-side overlay of every team-member\'s week. Find slots, see attendees as personas, schedule across calendars.',
+    steps: [
+      { title: 'Day / Week / Month',     body: 'Toggle in the top right. Week is the default partner read; Day zooms in; Month is for board-prep coordination.' },
+      { title: 'Calendar visibility',    body: 'Right-rail checkboxes hide or show each team-member\'s calendar. Each banker has a colour so events scan at a glance.' },
+      { title: 'Slot finder',            body: 'Pick attendees + duration → ValenceOS finds common windows in the next 7 days within working hours. One-click "Book" opens the new-event composer with the slot pre-filled.' },
+      { title: 'Attendee personas',      body: 'When an event has an attendee email matching a People CRM row, the persona surfaces in the right-rail detail card — open the full profile in one click.' },
+      { title: 'Connect Google',         body: 'Currently a stub. Per-user OAuth + manually-pasted shared calendar IDs land in the next phase. Until then, the page works fully on app-local events.' }
+    ]
+  },
   '/knowledge': {
     title: 'Knowledge',
     blurb: 'Three tracks: per-mandate folders, firm-shared playbooks, and your private Drive.',

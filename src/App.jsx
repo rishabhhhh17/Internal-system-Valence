@@ -15,6 +15,7 @@ import Knowledge from './pages/Knowledge.jsx'
 import KnowledgeLanding from './pages/KnowledgeLanding.jsx'
 import KnowledgeMandates from './pages/KnowledgeMandates.jsx'
 import Planner from './pages/Planner.jsx'
+import Calendar from './pages/Calendar.jsx'
 import Drive from './pages/Drive.jsx'
 import Team from './pages/Team.jsx'
 import Analytics from './pages/Analytics.jsx'
@@ -73,6 +74,7 @@ export default function App() {
         <Route path="/knowledge/private" element={<Drive />} />
         <Route path="/drive" element={<Navigate to="/knowledge/private" replace />} />
         <Route path="/planner" element={<Planner />} />
+        <Route path="/calendar" element={<Calendar />} />
         <Route path="/analytics" element={<Analytics />} />
         <Route path="/team" element={<Team />} />
         <Route path="*" element={<Navigate to="/" replace />} />
