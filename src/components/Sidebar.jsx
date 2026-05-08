@@ -72,7 +72,7 @@ export default function Sidebar() {
   const counts = useSidebarCounts()
 
   return (
-    <aside className="hidden lg:flex lg:sticky lg:top-0 lg:h-screen lg:w-64 shrink-0 flex-col border-r border-valence-border bg-white">
+    <aside className="hidden lg:flex lg:sticky lg:top-0 lg:h-screen lg:w-64 shrink-0 flex-col border-r border-valence-border vl-glass-side">
       <div className="flex h-16 items-center px-5 border-b border-valence-border">
         <Logo />
       </div>

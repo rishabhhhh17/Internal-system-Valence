@@ -59,7 +59,13 @@ export default {
       backgroundImage: {
         'valence-radial': 'radial-gradient(70% 60% at 15% 0%, rgba(51,153,255,0.10) 0%, rgba(255,255,255,0) 50%), radial-gradient(50% 40% at 100% 0%, rgba(51,153,255,0.05) 0%, rgba(255,255,255,0) 55%)',
         'valence-hero':   'linear-gradient(180deg, rgba(230,242,255,0.9) 0%, rgba(255,255,255,0) 70%)',
-        'ink-grain':      'radial-gradient(80% 50% at 10% 0%, rgba(51,153,255,0.14) 0%, rgba(10,15,30,0) 60%)'
+        'ink-grain':      'radial-gradient(80% 50% at 10% 0%, rgba(51,153,255,0.14) 0%, rgba(10,15,30,0) 60%)',
+        /* Liquid-Glass aurora — richer color blobs so frosted chrome has
+           something to refract against. Used by the .vl-aurora layer. */
+        'valence-aurora': 'radial-gradient(45% 40% at 12% 8%,   rgba(51,153,255,0.28)  0%, rgba(255,255,255,0) 55%),\
+                           radial-gradient(35% 35% at 92% 14%,  rgba(149,210,255,0.22) 0%, rgba(255,255,255,0) 55%),\
+                           radial-gradient(40% 40% at 70% 90%,  rgba(255,189,127,0.18) 0%, rgba(255,255,255,0) 55%),\
+                           radial-gradient(40% 40% at 25% 88%,  rgba(189,148,255,0.18) 0%, rgba(255,255,255,0) 55%)'
       },
       animation: {
         'fade-in':        'fadeIn 0.3s ease-out',
