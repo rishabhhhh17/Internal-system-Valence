@@ -4,7 +4,7 @@ import { format, formatDistanceToNowStrict, parseISO, differenceInCalendarDays }
 import { Plus, Search, Filter, Sparkles, ArrowRight, AlertCircle, MessageSquare } from 'lucide-react'
 import { supabase, isSupabaseConfigured } from '../lib/supabase.js'
 import {
-  PURPOSES, DEMO_INTERACTIONS, purposeLabel, typeLabel, outcomeLabel, outcomeTone
+  PURPOSES, CONTEXT_GROUPS, DEMO_INTERACTIONS, purposeLabel, typeLabel, outcomeLabel, outcomeTone
 } from '../lib/interactions.js'
 import { useViewMode } from '../hooks/useViewMode.jsx'
 import ConfigBanner from '../components/ConfigBanner.jsx'
@@ -117,13 +117,23 @@ export default function Interactions() {
         </div>
       </div>
 
-      {/* Filter strip */}
-      <div className="flex flex-wrap items-center gap-2">
-        <span className="vl-eyebrow-ink inline-flex items-center gap-1.5"><Filter className="h-3 w-3" /> Purpose</span>
-        <PurposeChip label="All" active={purpose === 'All'} onClick={() => setPurpose('All')} />
-        {PURPOSES.map(p => (
-          <PurposeChip key={p.id} label={p.label} active={purpose === p.id} onClick={() => setPurpose(p.id)} />
-        ))}
+      {/* Filter strip — Context grouped by mandate lifecycle stage */}
+      <div className="space-y-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="vl-eyebrow-ink inline-flex items-center gap-1.5"><Filter className="h-3 w-3" /> Context</span>
+          <PurposeChip label="All" active={purpose === 'All'} onClick={() => setPurpose('All')} />
+        </div>
+        {CONTEXT_GROUPS.map(g => {
+          const items = PURPOSES.filter(p => p.group === g.id)
+          return (
+            <div key={g.id} className="flex flex-wrap items-center gap-2 pl-1">
+              <span className="text-[10px] font-semibold uppercase tracking-[0.16em] text-valence-subtle min-w-[110px]">{g.label}</span>
+              {items.map(p => (
+                <PurposeChip key={p.id} label={p.label} active={purpose === p.id} onClick={() => setPurpose(p.id)} />
+              ))}
+            </div>
+          )
+        })}
         <div className="ml-auto flex items-center gap-2">
           <button
             onClick={() => setNeedsFollowUp(v => !v)}

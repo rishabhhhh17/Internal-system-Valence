@@ -3,7 +3,7 @@ import { Sparkles, UserCircle, Plus } from 'lucide-react'
 import Drawer from './Drawer.jsx'
 import { supabase, isSupabaseConfigured } from '../lib/supabase.js'
 import {
-  PURPOSES, TYPES, outcomesForPurpose, outcomeLabel, purposeLabel
+  PURPOSES, CONTEXT_GROUPS, TYPES, outcomesForPurpose, outcomeLabel, purposeLabel
 } from '../lib/interactions.js'
 import { DEMO_PEOPLE } from '../lib/people.js'
 import { useToast } from './Toast.jsx'
@@ -150,23 +150,34 @@ export default function InteractionDrawer({ open, onClose, existing, onSubmit })
     >
       <form id="interaction-form" onSubmit={submit} className="space-y-5">
         <div>
-          <label className="vl-label">Purpose</label>
-          <div className="mt-1.5 grid grid-cols-2 gap-2">
-            {PURPOSES.map(p => (
-              <button
-                key={p.id}
-                type="button"
-                onClick={() => update({ interaction_purpose: p.id })}
-                className={`rounded-lg border px-3 py-2 text-left text-xs transition ${
-                  form.interaction_purpose === p.id
-                    ? 'border-valence-blue/40 bg-valence-blue-soft text-valence-text'
-                    : 'border-valence-border bg-white text-valence-muted hover:text-valence-text'
-                }`}
-              >
-                <p className="font-semibold">{p.label}</p>
-                <p className="mt-0.5 text-[11px] leading-snug text-valence-subtle">{p.blurb}</p>
-              </button>
-            ))}
+          <label className="vl-label">Context</label>
+          <p className="text-[11px] text-valence-subtle mb-2">What stage of the relationship is this touchpoint?</p>
+          <div className="space-y-3">
+            {CONTEXT_GROUPS.map(g => {
+              const items = PURPOSES.filter(p => p.group === g.id)
+              return (
+                <div key={g.id}>
+                  <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-valence-subtle mb-1.5">{g.label}</p>
+                  <div className="grid grid-cols-2 gap-2">
+                    {items.map(p => (
+                      <button
+                        key={p.id}
+                        type="button"
+                        onClick={() => update({ interaction_purpose: p.id })}
+                        className={`rounded-lg border px-3 py-2 text-left text-xs transition ${
+                          form.interaction_purpose === p.id
+                            ? 'border-valence-blue/40 bg-valence-blue-soft text-valence-text'
+                            : 'border-valence-border bg-white text-valence-muted hover:text-valence-text'
+                        }`}
+                      >
+                        <p className="font-semibold">{p.label}</p>
+                        <p className="mt-0.5 text-[11px] leading-snug text-valence-subtle">{p.blurb}</p>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )
+            })}
           </div>
           {purposeBlurb && (
             <p className="mt-2 inline-flex items-center gap-1.5 text-[11px] text-valence-muted">
