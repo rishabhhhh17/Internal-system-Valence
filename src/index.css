@@ -68,6 +68,45 @@
     @apply transition-all duration-150 active:scale-[0.99];
   }
 
+  /* ============ LIQUID GLASS — Apple-style translucent surfaces ============
+     Used on chrome (topbar/sidebar) and overlay surfaces (modals/drawers).
+     Data tables/cards stay solid for readability — glass on dense data
+     hurts more than it helps. */
+  .vl-glass {
+    @apply rounded-2xl border border-white/45;
+    background-color: rgba(255, 255, 255, 0.62);
+    backdrop-filter: blur(24px) saturate(180%);
+    -webkit-backdrop-filter: blur(24px) saturate(180%);
+    box-shadow:
+      inset 0 1px 0 0 rgba(255, 255, 255, 0.75),
+      0 0 0 0.5px rgba(13, 30, 58, 0.06),
+      0 12px 32px -10px rgba(13, 30, 58, 0.18);
+  }
+  .vl-glass-bar {
+    background-color: rgba(255, 255, 255, 0.72);
+    backdrop-filter: blur(20px) saturate(180%);
+    -webkit-backdrop-filter: blur(20px) saturate(180%);
+  }
+  .vl-glass-side {
+    background-color: rgba(255, 255, 255, 0.78);
+    backdrop-filter: blur(18px) saturate(180%);
+    -webkit-backdrop-filter: blur(18px) saturate(180%);
+  }
+  .vl-glass-ink {
+    @apply rounded-2xl border border-white/10;
+    background-color: rgba(13, 30, 58, 0.62);
+    backdrop-filter: blur(24px) saturate(180%);
+    -webkit-backdrop-filter: blur(24px) saturate(180%);
+    box-shadow:
+      inset 0 1px 0 0 rgba(255, 255, 255, 0.08),
+      0 12px 32px -10px rgba(0, 0, 0, 0.45);
+  }
+  .vl-glass-overlay {
+    background-color: rgba(13, 30, 58, 0.32);
+    backdrop-filter: blur(16px) saturate(140%);
+    -webkit-backdrop-filter: blur(16px) saturate(140%);
+  }
+
   /* ============ INPUTS ============ */
   .vl-input {
     @apply w-full rounded-lg border border-valence-border bg-white px-3.5 py-2.5 text-sm text-valence-text placeholder:text-valence-subtle outline-none transition focus:border-valence-blue focus:ring-2 focus:ring-valence-blue-ring;

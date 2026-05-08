@@ -17,16 +17,16 @@ export default function Drawer({ open, onClose, title, children, footer }) {
 
   return (
     <div className="fixed inset-0 z-50 flex">
-      <div className="absolute inset-0 bg-valence-ink/40 backdrop-blur-sm animate-fade-in" onClick={onClose} />
-      <div className="relative ml-auto flex h-full w-full max-w-[620px] animate-slide-in-right flex-col border-l border-valence-border bg-white shadow-valence-lg">
-        <div className="flex items-start justify-between border-b border-valence-border px-6 py-4 shrink-0">
+      <div className="absolute inset-0 vl-glass-overlay animate-fade-in" onClick={onClose} />
+      <div className="relative ml-auto flex h-full w-full max-w-[620px] animate-slide-in-right flex-col border-l border-white/40 vl-glass-side shadow-valence-lg">
+        <div className="flex items-start justify-between border-b border-valence-border/60 px-6 py-4 shrink-0">
           <h2 className="text-base font-semibold tracking-tight text-valence-text truncate">{title}</h2>
           <button onClick={onClose} className="vl-btn-ghost -mr-2 shrink-0" aria-label="Close">
             <X className="h-4 w-4" />
           </button>
         </div>
         <div className="flex-1 overflow-y-auto px-6 py-5">{children}</div>
-        {footer && <div className="border-t border-valence-border px-6 py-4 shrink-0 bg-white">{footer}</div>}
+        {footer && <div className="border-t border-valence-border/60 px-6 py-4 shrink-0 bg-white/60 backdrop-blur-md">{footer}</div>}
       </div>
     </div>
   )

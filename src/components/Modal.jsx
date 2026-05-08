@@ -19,8 +19,8 @@ export default function Modal({ open, onClose, title, description, children, siz
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 animate-fade-in">
-      <div className="absolute inset-0 bg-valence-ink/40 backdrop-blur-sm" onClick={onClose} />
-      <div className={`relative z-10 w-full ${widths[size]} animate-slide-up rounded-2xl border border-valence-border bg-white shadow-valence-lg max-h-[85vh] overflow-hidden flex flex-col`}>
+      <div className="absolute inset-0 vl-glass-overlay" onClick={onClose} />
+      <div className={`relative z-10 w-full ${widths[size]} animate-slide-up vl-glass max-h-[85vh] overflow-hidden flex flex-col`}>
         <div className="flex items-start justify-between border-b border-valence-border px-6 py-4 shrink-0">
           <div>
             <h2 className="text-base font-semibold tracking-tight text-valence-text">{title}</h2>

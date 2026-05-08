@@ -50,7 +50,7 @@ export default function Topbar() {
 
   return (
     <>
-      <header className="sticky top-0 z-30 flex h-16 items-center gap-4 border-b border-valence-border bg-white/80 px-5 backdrop-blur lg:px-8">
+      <header className="sticky top-0 z-30 flex h-16 items-center gap-4 border-b border-valence-border vl-glass-bar px-5 lg:px-8">
         <div className="flex items-center gap-3 lg:hidden">
           <Logo compact />
         </div>
