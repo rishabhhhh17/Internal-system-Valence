@@ -21,6 +21,7 @@ import Team from './pages/Team.jsx'
 import Analytics from './pages/Analytics.jsx'
 import Share from './pages/Share.jsx'
 import Login from './pages/Login.jsx'
+import FitPreview from './pages/FitPreview.jsx'
 import { useAuth } from './hooks/useAuth.js'
 import { isSupabaseConfigured } from './lib/supabase.js'
 
@@ -77,6 +78,7 @@ export default function App() {
         <Route path="/calendar" element={<Calendar />} />
         <Route path="/analytics" element={<Analytics />} />
         <Route path="/team" element={<Team />} />
+        <Route path="/_fit-preview" element={<FitPreview />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </Layout>
