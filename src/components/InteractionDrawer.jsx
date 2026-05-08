@@ -10,6 +10,7 @@ import { extractText } from '../lib/fileParse.js'
 import { transcribeAndSummarise } from '../lib/voiceMemo.js'
 import { isGeminiConfigured } from '../lib/gemini.js'
 import { useToast } from './Toast.jsx'
+import WikilinkTextarea from './WikilinkTextarea.jsx'
 
 const TRANSCRIPT_SOURCES = [
   { id: 'manual',     label: 'Paste / type',  icon: FileText, blurb: 'Type or paste a transcript directly' },
@@ -303,11 +304,16 @@ export default function InteractionDrawer({ open, onClose, existing, onSubmit })
         </div>
 
         <div>
-          <label className="vl-label">Notes</label>
-          <textarea
+          <label className="vl-label flex items-center gap-2">
+            Notes
+            <span className="text-[10px] font-normal normal-case tracking-normal text-valence-muted">
+              Type <span className="vl-kbd">[[</span> to link people / funds / mandates
+            </span>
+          </label>
+          <WikilinkTextarea
             className="vl-input mt-1.5 min-h-[140px] leading-relaxed"
             value={form.notes}
-            onChange={e => update({ notes: e.target.value })}
+            onChange={v => update({ notes: v })}
             placeholder="What was discussed, what was agreed, what's the next step…"
           />
         </div>

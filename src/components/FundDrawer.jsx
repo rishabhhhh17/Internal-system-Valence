@@ -6,6 +6,7 @@ import { supabase, isSupabaseConfigured } from '../lib/supabase.js'
 import { FUND_TYPES, WARMTH_LEVELS, warmthTone, fundTypeLabel } from '../lib/funds.js'
 import { DEMO_PEOPLE } from '../lib/people.js'
 import EntityMentions from './EntityMentions.jsx'
+import WikilinkTextarea from './WikilinkTextarea.jsx'
 
 const TABS = [
   { id: 'overview', label: 'Overview' },
@@ -195,11 +196,11 @@ export default function FundDrawer({ open, onClose, existing, onSubmit }) {
 
       {tab === 'notes' && (
         <form id="fund-form" onSubmit={submit} className="space-y-4">
-          <Field label="Internal notes">
-            <textarea
+          <Field label="Internal notes" hint={<>Type <span className="vl-kbd">[[</span> to link people / funds / mandates</>}>
+            <WikilinkTextarea
               className="vl-input min-h-[260px] leading-relaxed"
               value={form.notes}
-              onChange={e => update({ notes: e.target.value })}
+              onChange={v => update({ notes: v })}
               placeholder="What we know — thesis, recent investments, partner preferences, who covers them on the team…"
             />
           </Field>
@@ -281,10 +282,13 @@ function ContactsTab({ fundId, contacts, setContacts }) {
   )
 }
 
-function Field({ label, children }) {
+function Field({ label, hint, children }) {
   return (
     <div>
-      <label className="vl-label">{label}</label>
+      <label className="vl-label flex items-center gap-2">
+        {label}
+        {hint && <span className="text-[10px] font-normal normal-case tracking-normal text-valence-muted">{hint}</span>}
+      </label>
       <div className="mt-1.5">{children}</div>
     </div>
   )
