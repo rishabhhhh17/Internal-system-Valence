@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Sparkles, Plus, Check, Building2 } from 'lucide-react'
 import { supabase, isSupabaseConfigured } from '../lib/supabase.js'
-import { matchFundsForDeal, warmthTone, fundTypeLabel, DEMO_FUNDS } from '../lib/funds.js'
+import { matchFundsForDeal, warmthTone, fundTypeLabel, DEMO_FUNDS, screenerModeForDeal, audienceLabelFor } from '../lib/funds.js'
 import { useToast } from './Toast.jsx'
 
 export default function FundShortlist({ deal }) {
@@ -28,7 +28,9 @@ export default function FundShortlist({ deal }) {
     })()
   }, [deal?.id])
 
-  const matches = useMemo(() => matchFundsForDeal(funds, deal, { limit: 10 }), [funds, deal])
+  const screenerMode = useMemo(() => screenerModeForDeal(deal), [deal])
+  const audience     = useMemo(() => audienceLabelFor(screenerMode), [screenerMode])
+  const matches = useMemo(() => matchFundsForDeal(funds, deal, { limit: 10, mode: screenerMode }), [funds, deal, screenerMode])
   const pingedFundIds = useMemo(() => new Set(pings.map(p => p.fund_id)), [pings])
 
   async function shortlist(fund) {
@@ -47,13 +49,21 @@ export default function FundShortlist({ deal }) {
     <div className="space-y-5">
       <div className="flex items-center justify-between">
         <div>
-          <p className="vl-eyebrow-ink">Shortlisted funds</p>
-          <p className="text-[11px] text-valence-muted mt-0.5">Funds we've put in front of {deal?.client_name || 'this mandate'}.</p>
+          <p className="vl-eyebrow-ink">Shortlisted {audience.plural}</p>
+          <p className="text-[11px] text-valence-muted mt-0.5">{audience.plural[0].toUpperCase() + audience.plural.slice(1)} we've put in front of {deal?.client_name || 'this mandate'}.</p>
         </div>
-        <button onClick={() => setShowMatches(v => !v)} className="vl-btn-primary text-xs">
-          <Sparkles className="h-3.5 w-3.5" /> {showMatches ? 'Hide matches' : 'Find matching funds'}
-        </button>
+        {screenerMode && (
+          <button onClick={() => setShowMatches(v => !v)} className="vl-btn-primary text-xs">
+            <Sparkles className="h-3.5 w-3.5" /> {showMatches ? 'Hide matches' : `Find matching ${audience.plural}`}
+          </button>
+        )}
       </div>
+
+      {!screenerMode && (
+        <div className="rounded-lg border border-valence-warning/30 bg-valence-warning/5 px-4 py-3 text-[12px] text-valence-warning">
+          Fund-match isn't applicable for advisory-only mandates. Add a Transaction sub-type if this engagement later moves to fundraising or M&A.
+        </div>
+      )}
 
       {pings.length === 0 ? (
         <div className="rounded-lg border border-dashed border-valence-border bg-valence-surface px-5 py-6 text-center text-sm text-valence-muted">
@@ -79,7 +89,7 @@ export default function FundShortlist({ deal }) {
           {loading ? (
             <p className="mt-3 text-sm text-valence-muted">Scoring funds against this mandate…</p>
           ) : matches.length === 0 ? (
-            <p className="mt-3 text-sm text-valence-muted">No strong matches yet — add sector / cheque-size data on the mandate to improve scoring.</p>
+            <p className="mt-3 text-sm text-valence-muted">No strong {audience.plural} matched yet — add sector + sub-type detail on the mandate to improve scoring.</p>
           ) : (
             <ul className="mt-3 space-y-2">
               {matches.map(m => {

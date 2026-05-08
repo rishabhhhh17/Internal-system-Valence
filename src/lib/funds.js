@@ -28,40 +28,101 @@ function ticketFromDeal(deal) {
   return 0
 }
 
+// What the screener is matching FOR — varies by deal subtype. Drives the
+// fund-type whitelist, the heuristic weighting, and the UI labels.
+//   fundraise  → "investors"        any check-writer
+//   m_and_a    → "acquirers"        strategic + PE buyers
+//   exit       → "secondary buyers" large PE / sovereigns / family offices
+//   advisory   → null               no fund match makes sense
+export function screenerModeForDeal(deal) {
+  const types = Array.isArray(deal?.deal_types) ? deal.deal_types : []
+  if (!types.includes('transaction')) return null
+  if (deal.deal_subtype === 'fundraise') return 'fundraise'
+  if (deal.deal_subtype === 'm_and_a')   return 'm_and_a'
+  if (deal.deal_subtype === 'exit')      return 'exit'
+  return null
+}
+
+// Human label for the matched audience — used in screener output ("Top funds"
+// vs "Top acquirers" vs "Top secondary buyers").
+export function audienceLabelFor(mode) {
+  if (mode === 'fundraise') return { plural: 'investors',        verb: 'will write checks' }
+  if (mode === 'm_and_a')   return { plural: 'acquirers',        verb: 'are likely buyers' }
+  if (mode === 'exit')      return { plural: 'secondary buyers', verb: 'buy LP / secondary positions' }
+  return { plural: 'funds', verb: 'might engage' }
+}
+
+// Which fund_type values are even eligible for a given screener mode.
+// We score the rest as zero so the heuristic doesn't waste rank slots.
+function eligibleTypesFor(mode) {
+  if (mode === 'fundraise') return null // any type
+  if (mode === 'm_and_a')   return new Set(['PE', 'Strategic Corp Dev', 'Growth', 'Sovereign'])
+  if (mode === 'exit')      return new Set(['PE', 'Growth', 'Sovereign', 'Family Office', 'Hedge Fund', 'Other'])
+  return null
+}
+
 // Score a fund's fit against a deal. 0-100. Heuristic, not ML.
-export function scoreFundForDeal(fund, deal) {
-  if (!fund || !deal) return 0
+// `mode` selects the scoring strategy. When omitted, we infer from the deal.
+export function scoreFundForDeal(fund, deal, mode) {
+  if (!fund || !deal) return { score: 0, reasons: [] }
+  const m = mode || screenerModeForDeal(deal)
+  const allowed = eligibleTypesFor(m)
+  if (allowed && !allowed.has(fund.fund_type)) {
+    return { score: 0, reasons: [`Not a ${m === 'm_and_a' ? 'likely acquirer' : 'likely secondary buyer'}`] }
+  }
+
   let score = 0
   const reasons = []
 
-  // Sector match: 35 points if exact, 0 otherwise.
+  // Sector match — weighted heaviest because thesis fit is the spine of the
+  // judgement for every subtype.
   const fundSectors = (fund.sectors || []).map(normalize)
   const dealSector = normalize(deal.sector)
   if (dealSector && fundSectors.includes(dealSector)) {
-    score += 35; reasons.push(`Active in ${deal.sector}`)
+    const points = m === 'm_and_a' ? 45 : 35
+    score += points; reasons.push(`Active in ${deal.sector}`)
   }
 
-  // Stage match: 20 points if explicit; 10 points if "any stage".
-  const fundStages = (fund.stages || []).map(normalize)
-  const dealStage = normalize(deal.stage)
-  if (dealStage && fundStages.length === 0) {
-    score += 10; reasons.push('Stage-agnostic')
-  } else if (dealStage && fundStages.includes(dealStage)) {
-    score += 20; reasons.push(`Active in ${deal.stage}`)
+  // Stage match (fundraise only — for M&A / exit, fund "stages" don't map cleanly).
+  if (m === 'fundraise') {
+    const fundStages = (fund.stages || []).map(normalize)
+    const dealStage = normalize(deal.stage)
+    if (dealStage && fundStages.length === 0) {
+      score += 10; reasons.push('Stage-agnostic')
+    } else if (dealStage && fundStages.includes(dealStage)) {
+      score += 20; reasons.push(`Active in ${deal.stage}`)
+    }
   }
 
-  // Cheque-size band: 25 points if deal ticket sits inside the band.
-  // Skipped entirely for M&A deals (the ask is a spec, not a number) and
-  // for Advisory-only mandates (no fund-match makes sense).
-  const ticket = ticketFromDeal(deal)
-  const min = Number(fund.check_size_min_usd_m) || 0
-  const max = Number(fund.check_size_max_usd_m) || Infinity
-  if (ticket > 0 && ticket >= min && ticket <= max) {
-    score += 25
-    reasons.push(`Writes $${formatRange(min, max)}M cheques`)
-  } else if (ticket > 0 && (ticket < min * 0.7 || ticket > max * 1.3)) {
-    score -= 10
-    reasons.push(`Cheque size mismatch ($${formatRange(min, max)}M)`)
+  // Cheque-size band — only meaningful for fundraise + exit (where the
+  // mandate has a numeric ask). M&A asks are a spec, not a number.
+  if (m === 'fundraise' || m === 'exit') {
+    const ticket = ticketFromDeal(deal)
+    const min = Number(fund.check_size_min_usd_m) || 0
+    const max = Number(fund.check_size_max_usd_m) || Infinity
+    if (ticket > 0 && ticket >= min && ticket <= max) {
+      score += 25; reasons.push(`Writes $${formatRange(min, max)}M cheques`)
+    } else if (ticket > 0 && (ticket < min * 0.7 || ticket > max * 1.3)) {
+      score -= 10; reasons.push(`Cheque size mismatch ($${formatRange(min, max)}M)`)
+    }
+  }
+
+  // M&A-specific bonuses — strategic acquirers get a boost (sector synergy
+  // beats financial logic for them); large-cap PE gets a bump (thesis-driven
+  // platform plays).
+  if (m === 'm_and_a') {
+    if (fund.fund_type === 'Strategic Corp Dev') {
+      score += 18; reasons.push('Strategic acquirer')
+    } else if (fund.fund_type === 'PE') {
+      score += 12; reasons.push('PE platform thesis')
+    }
+  }
+
+  // Exit-specific bonus — large PE and sovereigns are the typical secondary
+  // buyers; family offices write smaller secondary tickets.
+  if (m === 'exit') {
+    if (fund.fund_type === 'Sovereign') { score += 14; reasons.push('Sovereign secondary appetite') }
+    else if (fund.fund_type === 'PE')    { score += 10; reasons.push('PE secondary platform') }
   }
 
   // Warmth boost: 12 hot, 8 warm, 4 cold, 0 dormant.
@@ -79,19 +140,14 @@ export function scoreFundForDeal(fund, deal) {
 
 // Whether fund-matching makes sense for this deal at all.
 export function isFundMatchApplicable(deal) {
-  const types = Array.isArray(deal?.deal_types) ? deal.deal_types : []
-  // Advisory-only mandates aren't fund-matchable.
-  if (!types.includes('transaction')) return false
-  // M&A is conceptually a buyer/strategic match, not a fund match. Still
-  // useful for buy-side (sponsor as acquirer) and sell-side (sponsor as
-  // potential exit), so we keep it on; the heuristic just won't filter on
-  // cheque size.
-  return true
+  return screenerModeForDeal(deal) !== null
 }
 
-export function matchFundsForDeal(funds, deal, { limit = 12 } = {}) {
+export function matchFundsForDeal(funds, deal, { limit = 12, mode } = {}) {
   if (!Array.isArray(funds) || !deal) return []
-  const scored = funds.map(f => ({ fund: f, ...scoreFundForDeal(f, deal) }))
+  const m = mode || screenerModeForDeal(deal)
+  if (!m) return []
+  const scored = funds.map(f => ({ fund: f, ...scoreFundForDeal(f, deal, m) }))
   return scored
     .filter(x => x.score > 0)
     .sort((a, b) => b.score - a.score)
