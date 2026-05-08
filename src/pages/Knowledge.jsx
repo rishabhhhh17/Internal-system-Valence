@@ -16,6 +16,7 @@ import Drawer from '../components/Drawer.jsx'
 import EmptyState from '../components/EmptyState.jsx'
 import KnowledgeUpload from '../components/KnowledgeUpload.jsx'
 import AskChat from '../components/AskChat.jsx'
+import { WikilinkTextarea, WikilinkContent, useWikilinkEntities } from '../components/Wikilink.jsx'
 import { useToast } from '../components/Toast.jsx'
 import { useConfirm } from '../components/ConfirmDialog.jsx'
 import { Bot } from 'lucide-react'
@@ -391,15 +392,7 @@ function Documents() {
           </div>
         )}
       >
-        {open && (
-          <div className="space-y-5">
-            <div className="flex flex-wrap items-center gap-2">
-              {open.sector && <span className="vl-chip-blue">{open.sector}</span>}
-              {(open.tags || []).map(t => <span key={t} className="vl-chip"><Hash className="h-3 w-3" />{t}</span>)}
-            </div>
-            <div className="whitespace-pre-wrap rounded-lg border border-valence-border bg-valence-surface px-4 py-4 text-sm leading-relaxed text-valence-text">{open.content}</div>
-          </div>
-        )}
+        {open && <MemoBody open={open} />}
       </Drawer>
 
       <Modal open={modal} onClose={() => setModal(false)} title="New memo" description="Write a memo, template, or playbook. It becomes searchable for the whole team instantly." size="lg">
@@ -649,12 +642,31 @@ function Select({ value, onChange, label, options }) {
   )
 }
 
+// Memo detail body — renders [[wikilinks]] as clickable chips + tag/sector
+// chips up top. Pulled into its own component so we can hook the entity
+// universe via useWikilinkEntities (a hook can't live inline in JSX).
+function MemoBody({ open }) {
+  const entities = useWikilinkEntities()
+  return (
+    <div className="space-y-5">
+      <div className="flex flex-wrap items-center gap-2">
+        {open.sector && <span className="vl-chip-blue">{open.sector}</span>}
+        {(open.tags || []).map(t => <span key={t} className="vl-chip"><Hash className="h-3 w-3" />{t}</span>)}
+      </div>
+      <div className="rounded-lg border border-valence-border bg-valence-surface px-4 py-4 text-sm">
+        <WikilinkContent body={open.content} entities={entities} />
+      </div>
+    </div>
+  )
+}
+
 function DocForm({ onSubmit, onCancel }) {
   const [title, setTitle] = useState('')
   const [content, setContent] = useState('')
   const [tagsStr, setTagsStr] = useState('')
   const [sector, setSector] = useState('')
   const [submitting, setSubmitting] = useState(false)
+  const entities = useWikilinkEntities()
 
   async function submit(e) {
     e.preventDefault()
@@ -672,7 +684,13 @@ function DocForm({ onSubmit, onCancel }) {
       </div>
       <div>
         <label className="vl-label">Content</label>
-        <textarea className="vl-input min-h-[220px]" value={content} onChange={e => setContent(e.target.value)} required />
+        <WikilinkTextarea
+          value={content}
+          onChange={setContent}
+          entities={entities}
+          minHeight={220}
+          placeholder={'Write the memo. Type [[ to link to a person, fund, mandate, or another memo.\n\nExample: "Met [[ to autocomplete a name."'}
+        />
       </div>
       <div className="grid grid-cols-2 gap-4">
         <div>

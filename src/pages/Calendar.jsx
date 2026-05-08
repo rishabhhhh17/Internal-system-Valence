@@ -245,7 +245,7 @@ export default function Calendar() {
         </div>
       )}
 
-      <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
+      <div className="grid gap-5 lg:grid-cols-[1fr_280px]">
         {/* Left: calendar grid */}
         <section className="vl-card overflow-hidden">
           <div className="flex items-center justify-between border-b border-valence-border bg-valence-surface/50 px-4 py-3">
@@ -415,24 +415,30 @@ export default function Calendar() {
 // ============================================================================
 // Day / Week time grid
 // ============================================================================
-const HOUR_HEIGHT = 48 // px per hour
+const HOUR_HEIGHT = 64 // px per hour — Google Calendar uses ~60-64px
 const DAY_START_HOUR = 8
 const DAY_END_HOUR = 21
+const HEADER_HEIGHT = 48
+// Cap simultaneous lanes for legibility. Anything beyond gets a "+N" chip
+// instead of a sliver too narrow to read.
+const MAX_VISIBLE_LANES = 2
 
 function TimeGrid({ view, anchor, calendars, events, calendarsById, onEventClick, onSlotClick }) {
   const days = view === 'Day' ? [anchor] : Array.from({ length: 7 }, (_, i) => addDays(weekStart(anchor), i))
   const totalRows = DAY_END_HOUR - DAY_START_HOUR
   const totalHeight = totalRows * HOUR_HEIGHT
+  // 7-day week needs ~960px to render comfortably; 1-day view is fine narrow.
+  const minW = view === 'Day' ? 480 : 960
 
   return (
     <div className="overflow-x-auto">
-      <div className="flex min-w-[640px]">
+      <div className="flex" style={{ minWidth: minW }}>
         {/* Hour rail */}
-        <div className="w-12 shrink-0 border-r border-valence-border bg-valence-surface/30">
-          <div className="h-10 border-b border-valence-border" />
+        <div className="w-16 shrink-0 border-r border-valence-border bg-valence-surface/30">
+          <div className="border-b border-valence-border" style={{ height: HEADER_HEIGHT }} />
           {Array.from({ length: totalRows }, (_, i) => (
             <div key={i} className="relative" style={{ height: HOUR_HEIGHT }}>
-              <span className="absolute -top-2 right-1 text-[10px] text-valence-subtle">
+              <span className="absolute -top-2 right-2 text-[11px] font-medium text-valence-subtle tabular-nums">
                 {(DAY_START_HOUR + i).toString().padStart(2, '0')}:00
               </span>
             </div>
@@ -466,11 +472,27 @@ function DayColumn({ date, events, calendars, calendarsById, onEventClick, onSlo
   // Default new-event calendar = first visible calendar
   const defaultCal = calendars[0]?.id
 
+  // For each event, decide whether to render it inline (lane < cap) or fold
+  // it into a "+N" overflow chip at the same start time.
+  const overflowByMinute = useMemo(() => {
+    const map = new Map()
+    for (const ev of laidOut) {
+      if (ev._lane < MAX_VISIBLE_LANES) continue
+      const key = new Date(ev.starts_at).toISOString()
+      if (!map.has(key)) map.set(key, [])
+      map.get(key).push(ev)
+    }
+    return map
+  }, [laidOut])
+
   return (
     <div className="relative border-r border-valence-border last:border-r-0">
-      <div className={`h-10 border-b border-valence-border px-2 py-1 text-[11px] ${isToday ? 'bg-valence-blue-soft text-valence-text font-semibold' : 'bg-valence-surface/30 text-valence-muted'}`}>
-        <div>{format(date, 'EEE')}</div>
-        <div className="text-[10px]">{format(date, 'LLL d')}</div>
+      <div
+        className={`border-b border-valence-border px-2 py-2 ${isToday ? 'bg-valence-blue-soft' : 'bg-valence-surface/30'}`}
+        style={{ height: HEADER_HEIGHT }}
+      >
+        <div className={`text-[11px] font-semibold uppercase tracking-wider ${isToday ? 'text-valence-blue' : 'text-valence-muted'}`}>{format(date, 'EEE')}</div>
+        <div className={`text-base font-semibold ${isToday ? 'text-valence-text' : 'text-valence-text/80'}`}>{format(date, 'd')}</div>
       </div>
 
       {/* Hour grid lines + slot click handlers */}
@@ -481,37 +503,67 @@ function DayColumn({ date, events, calendars, calendarsById, onEventClick, onSlo
             <button
               key={i}
               onClick={() => defaultCal && onSlotClick(slotDate, defaultCal)}
-              className="absolute inset-x-0 border-b border-valence-border/60 hover:bg-valence-blue-soft/40"
+              className="absolute inset-x-0 border-b border-valence-border/40 hover:bg-valence-blue-soft/30 transition-colors"
               style={{ top: i * HOUR_HEIGHT, height: HOUR_HEIGHT }}
               aria-label={`Create event at ${format(slotDate, 'HH:mm')}`}
             />
           )
         })}
 
-        {/* Events */}
-        {laidOut.map(ev => {
+        {/* Events (visible lanes only) */}
+        {laidOut.filter(ev => ev._lane < MAX_VISIBLE_LANES).map(ev => {
           const cal = calendarsById.get(ev.calendar_id)
           const cls = colorClassesFor(cal?.color || 'blue').block
           const start = new Date(ev.starts_at)
           const end   = new Date(ev.ends_at)
           const startMin = (start.getHours() + start.getMinutes() / 60 - DAY_START_HOUR) * HOUR_HEIGHT
-          const heightPx = Math.max(20, differenceInMinutes(end, start) / 60 * HOUR_HEIGHT)
-          const widthPct = 100 / ev._lanes
+          const durationMins = differenceInMinutes(end, start)
+          const heightPx = Math.max(28, durationMins / 60 * HOUR_HEIGHT)
+          const visibleLanes = Math.min(ev._lanes, MAX_VISIBLE_LANES)
+          const widthPct = 100 / visibleLanes
+          // For events ≥45min we have room to show title + time on separate lines.
+          const compact = durationMins < 45
           return (
             <button
               key={ev.id}
               onClick={(e) => { e.stopPropagation(); onEventClick(ev) }}
-              className={`absolute rounded border px-2 py-1 text-left text-[10px] leading-tight transition ${cls}`}
+              className={`absolute rounded-md border px-1.5 py-1 text-left leading-snug transition shadow-sm ${cls}`}
               style={{
-                top: startMin,
-                height: heightPx,
+                top: startMin + 1,
+                height: heightPx - 2,
                 left: `calc(${ev._lane * widthPct}% + 2px)`,
                 width: `calc(${widthPct}% - 4px)`
               }}
               title={`${ev.title} · ${format(start, 'HH:mm')}–${format(end, 'HH:mm')}`}
             >
-              <p className="font-semibold truncate">{ev.title}</p>
-              <p className="opacity-70">{format(start, 'HH:mm')}–{format(end, 'HH:mm')}</p>
+              {compact ? (
+                <div className="flex items-baseline gap-1.5 text-[11px]">
+                  <span className="font-semibold opacity-70 tabular-nums shrink-0">{format(start, 'HH:mm')}</span>
+                  <span className="font-semibold truncate">{ev.title}</span>
+                </div>
+              ) : (
+                <>
+                  <p className="text-[11px] font-semibold leading-tight" style={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{ev.title}</p>
+                  <p className="text-[10px] opacity-70 tabular-nums mt-0.5">{format(start, 'HH:mm')}–{format(end, 'HH:mm')}</p>
+                </>
+              )}
+            </button>
+          )
+        })}
+
+        {/* "+N more" overflow chips for slots with too many overlaps */}
+        {Array.from(overflowByMinute.entries()).map(([key, evs]) => {
+          const start = new Date(key)
+          const startMin = (start.getHours() + start.getMinutes() / 60 - DAY_START_HOUR) * HOUR_HEIGHT
+          return (
+            <button
+              key={`overflow-${key}`}
+              onClick={(e) => { e.stopPropagation(); onEventClick(evs[0]) }}
+              className="absolute right-1 rounded-full bg-valence-ink/80 px-1.5 py-0.5 text-[9px] font-bold text-white shadow-sm hover:bg-valence-ink"
+              style={{ top: startMin + 2, zIndex: 5 }}
+              title={evs.map(e => e.title).join(' · ')}
+            >
+              +{evs.length}
             </button>
           )
         })}
