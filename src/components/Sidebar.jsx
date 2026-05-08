@@ -14,7 +14,7 @@ const nav = [
   { to: '/timeline',     label: 'Timeline',     icon: GanttChartSquare },
   { to: '/interactions', label: 'Interactions', icon: MessageSquare, badgeKey: 'pendingFollowUps', section: 'Relationships' },
   { to: '/people',       label: 'People',       icon: UserCircle,                                section: 'Relationships' },
-  { to: '/funds',        label: 'Fund CRM',     icon: Building2,                                 section: 'Relationships' },
+  { to: '/funds',        label: 'Firm',         icon: Building2,                                 section: 'Relationships' },
   { to: '/screen',       label: 'Quick Screener',icon: Sparkles,                                 section: 'AI' },
   { to: '/inbox/intake', label: 'Intake inbox', icon: Inbox,        badgeKey: 'newIntakes',     section: 'AI' },
   { to: '/knowledge',    label: 'Knowledge',    icon: BookOpen },

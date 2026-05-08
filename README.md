@@ -15,7 +15,7 @@ ValenceOS gives the core team a single place to track live mandates across the f
 | **Live Mandates** | `/mandates` | Filtered, money-free pipeline grouped by stage and sorted by days-stuck. |
 | **Timeline** | `/timeline` | Horizontal Gantt of every active mandate — past stages from the activity log, current stage pulsing on today's line, future stages projected from target close. |
 | **Interactions** | `/interactions` | Pre-mandate touchpoints (pitches, outreach, relationship building, referrals) with dynamic outcomes per purpose. Convert-to-origination action surfaces when a touchpoint becomes a mandate. |
-| **Fund CRM** | `/funds` | Universe of funds with sector / stage / cheque-size tags. The "Find matching funds" button inside any deal drawer scores funds against the mandate and shortlists them with one click. |
+| **Firm** | `/funds` | Universe of funds with sector / stage / cheque-size tags. The "Find matching funds" button inside any deal drawer scores funds against the mandate and shortlists them with one click. |
 | **AI Quick Screener** | `/screen` | Two modes — **Fund-Match** (rank our funds for a deal) and **Mandate-Fit** (5-line verdict on an inbound teaser against Valence's standing criteria). |
 | **Smart Intake Portal** | `/intake` (public) and `/inbox/intake` (internal) | Branded public form for inbound mandate submissions. Each row gets the AI Mandate-Fit verdict pre-attached for the firm to triage. |
 | **Meeting Intelligence** | deal drawer → Meeting intel tab | Paste a transcript (Otter, Fireflies, Granola, manual) → Gemini extracts founder highlights, red flags, claims to verify, action items + a 3-sentence summary. |

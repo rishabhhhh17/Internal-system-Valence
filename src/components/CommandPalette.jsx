@@ -15,7 +15,7 @@ const QUICK_NAV = [
   { type: 'nav', title: 'Timeline',       sub: 'Gantt of every active mandate',      to: '/timeline',          icon: BarChart3 },
   { type: 'nav', title: 'Interactions',   sub: 'Pre-mandate touchpoints',            to: '/interactions',      icon: MessageSquare },
   { type: 'nav', title: 'People',         sub: 'Persona-driven CRM',                 to: '/people',            icon: UserCircle },
-  { type: 'nav', title: 'Fund CRM',       sub: 'Who writes the cheques',             to: '/funds',             icon: Building2 },
+  { type: 'nav', title: 'Firm',           sub: 'Who writes the cheques',             to: '/funds',             icon: Building2 },
   { type: 'nav', title: 'Quick Screener', sub: 'AI fund-match or mandate-fit',       to: '/screen',            icon: Sparkles },
   { type: 'nav', title: 'Intake inbox',   sub: 'Inbound mandate submissions',        to: '/inbox/intake',      icon: BookOpen },
   { type: 'nav', title: 'Knowledge',      sub: 'Mandate folders, firm-shared, private', to: '/knowledge',         icon: BookOpen },
