@@ -63,7 +63,7 @@ const TUTORIALS = {
     ]
   },
   '/funds': {
-    title: 'Fund CRM',
+    title: 'Firm',
     blurb: 'The universe of funds Valence covers — sectors, stages, cheque sizes, warmth.',
     steps: [
       { title: 'Card vs table',        body: 'Card view is the partner read; table view is the analyst read.' },
