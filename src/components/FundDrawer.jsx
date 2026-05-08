@@ -253,7 +253,7 @@ function ContactsTab({ fundId, contacts, setContacts }) {
           <input className="vl-input" value={draft.email} onChange={e => setDraft({ ...draft, email: e.target.value })} placeholder="Email" />
           <input className="vl-input" value={draft.phone} onChange={e => setDraft({ ...draft, phone: e.target.value })} placeholder="Phone" />
         </div>
-        <textarea className="vl-input min-h-[64px]" value={draft.notes} onChange={e => setDraft({ ...draft, notes: e.target.value })} placeholder="Notes (last contact, coverage area…)"></textarea>
+        <WikilinkTextarea className="vl-input min-h-[64px]" value={draft.notes} onChange={v => setDraft({ ...draft, notes: v })} placeholder="Notes (last contact, coverage area…) · Type [[ to link entities" />
         <div className="flex justify-end">
           <button type="submit" disabled={busy} className="vl-btn-primary text-xs">Add contact</button>
         </div>

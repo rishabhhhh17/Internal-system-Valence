@@ -5,6 +5,7 @@ import { FileText, FolderTree, ArrowUpRight, Plus, X, Loader2 } from 'lucide-rea
 import { supabase, isSupabaseConfigured } from '../lib/supabase.js'
 import { createQuickNoteForEntity } from '../lib/kb.js'
 import { useToast } from './Toast.jsx'
+import WikilinkTextarea from './WikilinkTextarea.jsx'
 
 // Lists every kb_note that mentions this entity, grouped by mandate folder
 // so the user sees "Physis was mentioned in: Green Protein (3), HoV (1)".
@@ -128,9 +129,9 @@ export default function EntityMentions({ entityType, entityId, entityName }) {
             className="vl-input bg-white"
             autoFocus
           />
-          <textarea
+          <WikilinkTextarea
             value={draftBody}
-            onChange={e => setDraftBody(e.target.value)}
+            onChange={setDraftBody}
             placeholder={`Just start typing. The wikilink to ${entityName || 'this ' + entityType} is added automatically. Use [[ for other people / funds / mandates and #tag for folder-local concepts.`}
             className="vl-input min-h-[160px] leading-relaxed bg-white font-mono text-[13px]"
           />

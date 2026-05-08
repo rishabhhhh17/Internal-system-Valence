@@ -7,6 +7,8 @@ import {
 import { supabase, isSupabaseConfigured } from '../lib/supabase.js'
 import { logActivity, ACTIVITY_LABELS } from '../lib/activity.js'
 import { typeLabel as interactionTypeLabel, outcomeLabel as interactionOutcomeLabel } from '../lib/interactions.js'
+import WikilinkTextarea from './WikilinkTextarea.jsx'
+import WikilinkText from './WikilinkText.jsx'
 
 const KIND_ICON = {
   created:         Sparkles,
@@ -79,9 +81,9 @@ export default function ActivityTimeline({ dealId }) {
 
       {noteOpen && (
         <form onSubmit={addNote} className="space-y-2 rounded-lg border border-valence-border bg-valence-surface p-3">
-          <textarea
-            value={note} onChange={e => setNote(e.target.value)}
-            className="vl-input min-h-[72px]" placeholder="Log a note — what changed, what was agreed, what's next…"
+          <WikilinkTextarea
+            value={note} onChange={setNote}
+            className="vl-input min-h-[72px]" placeholder="Log a note — what changed, what was agreed, what's next… Type [[ to link people / funds / mandates"
             autoFocus
           />
           <div className="flex justify-end gap-2">

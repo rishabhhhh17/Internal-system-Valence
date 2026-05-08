@@ -836,11 +836,16 @@ function DealForm({ initial, onSubmit, onCancel }) {
                 </div>
               </div>
               <div>
-                <label className="vl-label">Acquisition brief</label>
-                <textarea
+                <label className="vl-label flex items-center gap-2">
+                  Acquisition brief
+                  <span className="text-[10px] font-normal normal-case tracking-normal text-valence-muted">
+                    Type <span className="vl-kbd">[[</span> to link entities
+                  </span>
+                </label>
+                <WikilinkTextarea
                   className="vl-input min-h-[120px] leading-relaxed"
                   value={form.acquisition_brief}
-                  onChange={e => set('acquisition_brief', e.target.value)}
+                  onChange={v => set('acquisition_brief', v)}
                   placeholder='e.g. "$100M topline IT services company, $5–10M EBITDA, serving financial services clients, NOT Web3, cybersecurity acceptable."'
                 />
                 <p className="mt-1 text-[11px] text-valence-muted">M&A asks are usually a spec, not a number. Be specific about what they want.</p>
@@ -870,11 +875,16 @@ function DealForm({ initial, onSubmit, onCancel }) {
       {/* Advisory-conditional block */}
       {isAdvisory && (
         <div className="space-y-3 rounded-xl border border-valence-warning/20 bg-valence-warning/5 p-4">
-          <label className="vl-label">Engagement brief</label>
-          <textarea
+          <label className="vl-label flex items-center gap-2">
+            Engagement brief
+            <span className="text-[10px] font-normal normal-case tracking-normal text-valence-muted">
+              Type <span className="vl-kbd">[[</span> to link entities
+            </span>
+          </label>
+          <WikilinkTextarea
             className="vl-input min-h-[120px] leading-relaxed bg-white"
             value={form.engagement_brief}
-            onChange={e => set('engagement_brief', e.target.value)}
+            onChange={v => set('engagement_brief', v)}
             placeholder='e.g. "Help break into Dubai market — distribution + first-customer outreach. Also exploring vending-machine product line for premium Q-commerce dark stores."'
           />
           <p className="text-[11px] text-valence-muted">What does the client actually need? Geography, vertical, product, distribution — describe it the way they said it.</p>

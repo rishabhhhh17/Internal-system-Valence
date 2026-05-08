@@ -4,6 +4,7 @@ import { supabase, isSupabaseConfigured } from '../lib/supabase.js'
 import { logActivity } from '../lib/activity.js'
 import { useToast } from './Toast.jsx'
 import { useConfirm } from './ConfirmDialog.jsx'
+import WikilinkTextarea from './WikilinkTextarea.jsx'
 
 const ROLES = ['Founder / CEO','CFO','Fund Partner','Investor','Legal Counsel','Co-advisor','Strategic Buyer','Board Member','Observer','Other']
 
@@ -124,7 +125,7 @@ function AddForm({ onSubmit, onCancel }) {
         <input className="vl-input" value={form.email}   onChange={e => set('email', e.target.value)} placeholder="Email" type="email" />
         <input className="vl-input col-span-2" value={form.phone} onChange={e => set('phone', e.target.value)} placeholder="Phone (optional)" />
       </div>
-      <textarea className="vl-input min-h-[60px]" value={form.notes} onChange={e => set('notes', e.target.value)} placeholder="Quick note on this person (optional)" />
+      <WikilinkTextarea className="vl-input min-h-[60px]" value={form.notes} onChange={v => set('notes', v)} placeholder="Quick note on this person (type [[ to link an entity)" />
       <div className="flex items-center justify-end gap-2">
         <button type="button" onClick={onCancel} className="vl-btn-secondary">Cancel</button>
         <button type="submit" className="vl-btn-primary">Add</button>

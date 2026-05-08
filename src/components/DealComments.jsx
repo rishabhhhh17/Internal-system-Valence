@@ -4,6 +4,8 @@ import { Send, Loader2, MessageSquare } from 'lucide-react'
 import { supabase, isSupabaseConfigured, subscribeTable } from '../lib/supabase.js'
 import { useAuth } from '../hooks/useAuth.js'
 import { useToast } from './Toast.jsx'
+import WikilinkTextarea from './WikilinkTextarea.jsx'
+import WikilinkText from './WikilinkText.jsx'
 
 export default function DealComments({ deal }) {
   const toast = useToast()
@@ -91,11 +93,11 @@ export default function DealComments({ deal }) {
       )}
 
       <form onSubmit={post} className="flex items-start gap-2">
-        <textarea
+        <WikilinkTextarea
           value={body}
-          onChange={e => setBody(e.target.value)}
+          onChange={setBody}
           onKeyDown={e => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); post(e) } }}
-          placeholder="Leave a note for the team… (⌘↵ to send)"
+          placeholder="Leave a note for the team… (⌘↵ to send) · Type [[ to link people / funds / mandates"
           className="vl-input min-h-[72px] resize-y flex-1"
         />
         <button type="submit" disabled={!body.trim() || submitting} className="vl-btn-primary-sm shrink-0">

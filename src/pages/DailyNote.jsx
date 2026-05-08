@@ -9,6 +9,8 @@ import { supabase, isSupabaseConfigured } from '../lib/supabase.js'
 import { useAuth } from '../hooks/useAuth.js'
 import { stageMeta } from '../lib/stages.js'
 import ConfigBanner from '../components/ConfigBanner.jsx'
+import WikilinkTextarea from '../components/WikilinkTextarea.jsx'
+import WikilinkText from '../components/WikilinkText.jsx'
 
 // The Daily Note replaces the previous Overview page. One row per (user, date)
 // in the daily_notes table. The auto-section is computed every render from
@@ -250,10 +252,10 @@ export default function DailyNote() {
             {saving ? 'Saving…' : savedAt ? `Saved ${format(new Date(savedAt), 'HH:mm:ss')}` : ''}
           </span>
         </div>
-        <textarea
+        <WikilinkTextarea
           value={body}
-          onChange={e => setBody(e.target.value)}
-          placeholder={"What happened? What's on your mind? Tag a person or fund with [[their name]] (autocomplete arrives in Phase 2 once People CRM is in)."}
+          onChange={setBody}
+          placeholder={"What happened? What's on your mind? Type [[ to link a person, fund, or mandate."}
           className="vl-input min-h-[280px] leading-relaxed bg-white"
         />
         <p className="text-[11px] text-valence-subtle">

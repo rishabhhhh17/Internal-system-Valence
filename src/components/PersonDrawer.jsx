@@ -5,6 +5,7 @@ import { supabase, isSupabaseConfigured } from '../lib/supabase.js'
 import { TAG_SUGGESTIONS } from '../lib/people.js'
 import { Link } from 'react-router-dom'
 import EntityMentions from './EntityMentions.jsx'
+import WikilinkTextarea from './WikilinkTextarea.jsx'
 
 const TABS = [
   { id: 'overview',    label: 'Overview' },
@@ -222,10 +223,10 @@ function PersonaField({ label, value, onChange, placeholder }) {
   return (
     <div>
       <label className="vl-label">{label}</label>
-      <textarea
+      <WikilinkTextarea
         className="vl-input min-h-[64px] mt-1.5 leading-relaxed bg-white"
-        value={value || ''}
-        onChange={e => onChange(e.target.value)}
+        value={value}
+        onChange={onChange}
         placeholder={placeholder}
       />
     </div>
