@@ -1,44 +1,94 @@
-// Interactions — touchpoints that aren't yet deals. Pre-mandate funnel.
-// Purpose drives which outcomes are valid and which color tone they render in.
+// Interactions — every touchpoint with a counterparty, internal or external,
+// across the full mandate lifecycle. The DB column is `interaction_purpose`
+// for backwards compatibility; the UI relabels to "Context".
+//
+// Twelve contexts grouped into three lifecycle stages:
+//   Pre-mandate — pitch, counterparty outreach, relationship-keeping, referrals
+//   Live execution — running a mandate (client updates, investor calls, DD,
+//                    negotiation, closing)
+//   Post / cross-cutting — after-close, co-advisor / counsel, sector intel
+//
+// Each context defines which outcomes are valid; the outcome dropdown in
+// InteractionDrawer narrows dynamically.
+
+export const CONTEXT_GROUPS = [
+  { id: 'pre_mandate',    label: 'Pre-mandate' },
+  { id: 'live_execution', label: 'Live execution' },
+  { id: 'post_cross',     label: 'Post / cross-cutting' }
+]
 
 export const PURPOSES = [
-  { id: 'pitch_for_mandate',    label: 'Pitch for mandate',     blurb: 'Active outreach to win a mandate' },
-  { id: 'counterparty_outreach', label: 'Counterparty outreach', blurb: 'Funds, strategics, family offices' },
-  { id: 'relationship_building', label: 'Relationship building', blurb: 'Long-arc relationship-keeping' },
-  { id: 'referral',              label: 'Referral',              blurb: 'Inbound or outbound referral' }
+  // Pre-mandate (the original four)
+  { id: 'pitch_for_mandate',     group: 'pre_mandate',    label: 'Pitch for mandate',     blurb: 'Active outreach to win a mandate' },
+  { id: 'counterparty_outreach', group: 'pre_mandate',    label: 'Counterparty outreach', blurb: 'Funds, strategics, family offices' },
+  { id: 'relationship_building', group: 'pre_mandate',    label: 'Relationship building', blurb: 'Long-arc relationship-keeping' },
+  { id: 'referral',              group: 'pre_mandate',    label: 'Referral',              blurb: 'Inbound or outbound referral' },
+
+  // Live mandate execution
+  { id: 'client_update',             group: 'live_execution', label: 'Client update',          blurb: 'Mandate-side check-in (sponsor, founder, board)' },
+  { id: 'investor_buyer_engagement', group: 'live_execution', label: 'Investor / buyer call',  blurb: 'Marketing the mandate to a fund or strategic acquirer' },
+  { id: 'diligence_session',         group: 'live_execution', label: 'Diligence session',      blurb: 'Counterparty doing DD on the asset (Q&A, data room walk-through)' },
+  { id: 'negotiation',               group: 'live_execution', label: 'Negotiation',            blurb: 'Term sheet, SPA, fee letter, deal terms' },
+  { id: 'closing_coordination',      group: 'live_execution', label: 'Closing coordination',   blurb: 'Final docs, signing, funds flow, regulatory' },
+
+  // Post / cross-cutting
+  { id: 'post_close_followup', group: 'post_cross', label: 'Post-close follow-up', blurb: 'After a mandate closes — fee, references, ongoing relationship' },
+  { id: 'co_advisor_sync',     group: 'post_cross', label: 'Co-advisor / counsel', blurb: 'Counsel, accountants, friendly co-advisors' },
+  { id: 'industry_intel',      group: 'post_cross', label: 'Industry intelligence',blurb: 'Market check-in, sector read, no specific mandate' }
 ]
 
 export const TYPES = [
-  { id: 'intro_call',    label: 'Intro call' },
-  { id: 'pitch_meeting', label: 'Pitch meeting' },
-  { id: 'coffee',        label: 'Coffee' },
-  { id: 'email_thread',  label: 'Email thread' },
-  { id: 'whatsapp',      label: 'WhatsApp' },
-  { id: 'referral_in',   label: 'Referral in' },
-  { id: 'referral_out',  label: 'Referral out' },
-  { id: 'event',         label: 'Event' },
-  { id: 'phone_call',    label: 'Phone call' },
-  { id: 'other',         label: 'Other' }
+  { id: 'intro_call',     label: 'Intro call' },
+  { id: 'pitch_meeting',  label: 'Pitch meeting' },
+  { id: 'coffee',         label: 'Coffee' },
+  { id: 'email_thread',   label: 'Email thread' },
+  { id: 'whatsapp',       label: 'WhatsApp' },
+  { id: 'referral_in',    label: 'Referral in' },
+  { id: 'referral_out',   label: 'Referral out' },
+  { id: 'event',          label: 'Event' },
+  { id: 'phone_call',     label: 'Phone call' },
+  { id: 'video_call',     label: 'Video call' },
+  { id: 'data_room',      label: 'Data room session' },
+  { id: 'site_visit',     label: 'Site visit' },
+  { id: 'working_session',label: 'Working session' },
+  { id: 'other',          label: 'Other' }
 ]
 
 const OUTCOME_LABELS = {
-  to_followup:           'To follow up',
-  in_progress:           'In progress',
-  converted_to_mandate:  'Converted to mandate',
-  pitched_lost:          'Pitched and lost',
-  interested:            'Interested',
-  passed:                'Passed',
-  referred_out:          'Referred out',
-  stay_warm:             'Stay warm',
-  closed:                'Closed'
+  to_followup:          'To follow up',
+  in_progress:          'In progress',
+  converted_to_mandate: 'Converted to mandate',
+  pitched_lost:         'Pitched and lost',
+  interested:           'Interested',
+  passed:               'Passed',
+  referred_out:         'Referred out',
+  stay_warm:            'Stay warm',
+  closed:               'Closed',
+  action_required:      'Action required',
+  completed:            'Completed',
+  blocked:              'Blocked',
+  signed:               'Signed'
 }
 
-// Valid outcomes per purpose — drives the dynamic select in InteractionDrawer.
+// Valid outcomes per context — drives the dynamic outcome dropdown.
 const OUTCOMES_BY_PURPOSE = {
-  pitch_for_mandate:    ['to_followup', 'in_progress', 'converted_to_mandate', 'pitched_lost'],
-  counterparty_outreach:['in_progress', 'interested', 'passed', 'closed'],
-  relationship_building:['to_followup', 'stay_warm'],
-  referral:             ['in_progress', 'referred_out', 'closed']
+  // Pre-mandate (existing)
+  pitch_for_mandate:        ['to_followup', 'in_progress', 'converted_to_mandate', 'pitched_lost'],
+  counterparty_outreach:    ['in_progress', 'interested', 'passed', 'closed'],
+  relationship_building:    ['to_followup', 'stay_warm'],
+  referral:                 ['in_progress', 'referred_out', 'closed'],
+
+  // Live execution (new)
+  client_update:            ['in_progress', 'action_required', 'completed', 'blocked'],
+  investor_buyer_engagement:['in_progress', 'interested', 'passed', 'action_required'],
+  diligence_session:        ['in_progress', 'completed', 'blocked', 'action_required'],
+  negotiation:              ['in_progress', 'action_required', 'completed', 'blocked'],
+  closing_coordination:     ['in_progress', 'action_required', 'signed', 'completed', 'blocked'],
+
+  // Post / cross-cutting (new)
+  post_close_followup:      ['to_followup', 'completed', 'stay_warm'],
+  co_advisor_sync:          ['in_progress', 'action_required', 'completed'],
+  industry_intel:           ['completed', 'stay_warm', 'action_required']
 }
 
 const OUTCOME_TONE_CLASSES = {
@@ -50,7 +100,11 @@ const OUTCOME_TONE_CLASSES = {
   passed:               'bg-valence-muted/10 text-valence-muted border-valence-border',
   referred_out:         'bg-valence-blue-soft text-valence-blue border-valence-blue/30',
   stay_warm:            'bg-valence-warning/10 text-valence-warning border-valence-warning/30',
-  closed:               'bg-valence-muted/10 text-valence-muted border-valence-border'
+  closed:               'bg-valence-muted/10 text-valence-muted border-valence-border',
+  action_required:      'bg-valence-danger/10 text-valence-danger border-valence-danger/30',
+  completed:            'bg-valence-success/10 text-valence-success border-valence-success/30',
+  blocked:              'bg-valence-danger/10 text-valence-danger border-valence-danger/30',
+  signed:               'bg-valence-success/10 text-valence-success border-valence-success/30'
 }
 
 export function outcomesForPurpose(purpose) {
