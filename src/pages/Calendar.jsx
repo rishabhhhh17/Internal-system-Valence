@@ -19,10 +19,15 @@ import { useToast } from '../components/Toast.jsx'
 
 const VIEWS = ['Day', 'Week', 'Month']
 const DURATIONS = [15, 30, 45, 60, 90, 120]
+const MODES = [
+  { id: 'team',   label: 'Team overlay', sub: 'Slot finder + cross-calendar' },
+  { id: 'google', label: 'My Google',    sub: 'Your real Google Calendar' }
+]
 
 export default function Calendar() {
   const toast = useToast()
   const { googleConnected, profile, refresh: refreshAuth } = useAuth()
+  const [mode, setMode]   = useState('team')
   const [view, setView]   = useState('Week')
   const [anchor, setAnchor] = useState(new Date())
   const [calendars, setCalendars] = useState([])
@@ -231,12 +236,38 @@ export default function Calendar() {
               <Globe className="h-3.5 w-3.5" /> Connect Google
             </button>
           )}
-          <div className="inline-flex items-center rounded-full border border-valence-border bg-white p-0.5">
-            {VIEWS.map(v => (
-              <button key={v} onClick={() => setView(v)} className={`rounded-full px-3 py-1 text-[11px] font-semibold transition ${view === v ? 'bg-valence-ink text-white' : 'text-valence-muted hover:text-valence-text'}`}>{v}</button>
-            ))}
-          </div>
+          {mode === 'team' && (
+            <div className="inline-flex items-center rounded-full border border-valence-border bg-white p-0.5">
+              {VIEWS.map(v => (
+                <button key={v} onClick={() => setView(v)} className={`rounded-full px-3 py-1 text-[11px] font-semibold transition ${view === v ? 'bg-valence-ink text-white' : 'text-valence-muted hover:text-valence-text'}`}>{v}</button>
+              ))}
+            </div>
+          )}
+          {mode === 'google' && profile?.email && (
+            <a
+              href="https://calendar.google.com"
+              target="_blank"
+              rel="noreferrer"
+              className="vl-btn-secondary text-xs"
+            >
+              <ExternalLink className="h-3.5 w-3.5" /> Open in Google Calendar
+            </a>
+          )}
         </div>
+      </div>
+
+      {/* Mode toggle: Team overlay (our custom UI) vs My Google (iframe embed) */}
+      <div className="inline-flex items-center rounded-xl border border-valence-border bg-white p-1">
+        {MODES.map(m => (
+          <button
+            key={m.id}
+            onClick={() => setMode(m.id)}
+            className={`flex flex-col items-start rounded-lg px-3.5 py-1.5 text-left transition ${mode === m.id ? 'bg-valence-ink text-white' : 'text-valence-muted hover:text-valence-text'}`}
+          >
+            <span className="text-[12px] font-semibold leading-tight">{m.label}</span>
+            <span className={`text-[10px] leading-tight ${mode === m.id ? 'text-white/70' : 'text-valence-subtle'}`}>{m.sub}</span>
+          </button>
+        ))}
       </div>
 
       {googleConnected && profile?.email && (
@@ -246,42 +277,46 @@ export default function Calendar() {
       )}
 
       <div className="grid gap-5 lg:grid-cols-[1fr_280px]">
-        {/* Left: calendar grid */}
-        <section className="vl-card overflow-hidden">
-          <div className="flex items-center justify-between border-b border-valence-border bg-valence-surface/50 px-4 py-3">
-            <div className="flex items-center gap-2">
-              <button onClick={() => shiftAnchor(-1)} className="rounded-md border border-valence-border bg-white p-1.5 text-valence-muted hover:text-valence-text"><ChevronLeft className="h-4 w-4" /></button>
-              <button onClick={() => setAnchor(new Date())} className="rounded-md border border-valence-border bg-white px-3 py-1 text-[11px] font-semibold text-valence-text hover:bg-valence-surface">Today</button>
-              <button onClick={() => shiftAnchor(1)}  className="rounded-md border border-valence-border bg-white p-1.5 text-valence-muted hover:text-valence-text"><ChevronRight className="h-4 w-4" /></button>
-              <p className="ml-2 text-sm font-semibold text-valence-text">{headerLabel}</p>
+        {/* Left: either the team overlay grid OR the real Google Calendar iframe */}
+        {mode === 'team' ? (
+          <section className="vl-card overflow-hidden">
+            <div className="flex items-center justify-between border-b border-valence-border bg-valence-surface/50 px-4 py-3">
+              <div className="flex items-center gap-2">
+                <button onClick={() => shiftAnchor(-1)} className="rounded-md border border-valence-border bg-white p-1.5 text-valence-muted hover:text-valence-text"><ChevronLeft className="h-4 w-4" /></button>
+                <button onClick={() => setAnchor(new Date())} className="rounded-md border border-valence-border bg-white px-3 py-1 text-[11px] font-semibold text-valence-text hover:bg-valence-surface">Today</button>
+                <button onClick={() => shiftAnchor(1)}  className="rounded-md border border-valence-border bg-white p-1.5 text-valence-muted hover:text-valence-text"><ChevronRight className="h-4 w-4" /></button>
+                <p className="ml-2 text-sm font-semibold text-valence-text">{headerLabel}</p>
+              </div>
+              <p className="text-[11px] text-valence-muted">{visibleCalendars.length} of {calendars.length} calendars · {eventsInView.length} events</p>
             </div>
-            <p className="text-[11px] text-valence-muted">{visibleCalendars.length} of {calendars.length} calendars · {eventsInView.length} events</p>
-          </div>
 
-          {loading ? (
-            <div className="p-12 text-sm text-valence-muted">Loading calendars…</div>
-          ) : loadError ? (
-            <div className="p-8">
-              <EmptyState icon={CalendarDays} title="Couldn't load calendars" description={loadError} action={<button onClick={load} className="vl-btn-primary">Retry</button>} />
-            </div>
-          ) : visibleCalendars.length === 0 ? (
-            <div className="p-8">
-              <EmptyState icon={CalendarDays} title="No calendars visible" description="Pick at least one team calendar from the right rail." />
-            </div>
-          ) : view === 'Month' ? (
-            <MonthView anchor={anchor} events={visibleEvents} calendarsById={calendarsById} onEventClick={setSelectedEvent} />
-          ) : (
-            <TimeGrid
-              view={view}
-              anchor={anchor}
-              calendars={visibleCalendars}
-              events={eventsInView}
-              calendarsById={calendarsById}
-              onEventClick={setSelectedEvent}
-              onSlotClick={(date, calId) => setComposeAt({ date, calendar_id: calId })}
-            />
-          )}
-        </section>
+            {loading ? (
+              <div className="p-12 text-sm text-valence-muted">Loading calendars…</div>
+            ) : loadError ? (
+              <div className="p-8">
+                <EmptyState icon={CalendarDays} title="Couldn't load calendars" description={loadError} action={<button onClick={load} className="vl-btn-primary">Retry</button>} />
+              </div>
+            ) : visibleCalendars.length === 0 ? (
+              <div className="p-8">
+                <EmptyState icon={CalendarDays} title="No calendars visible" description="Pick at least one team calendar from the right rail." />
+              </div>
+            ) : view === 'Month' ? (
+              <MonthView anchor={anchor} events={visibleEvents} calendarsById={calendarsById} onEventClick={setSelectedEvent} />
+            ) : (
+              <TimeGrid
+                view={view}
+                anchor={anchor}
+                calendars={visibleCalendars}
+                events={eventsInView}
+                calendarsById={calendarsById}
+                onEventClick={setSelectedEvent}
+                onSlotClick={(date, calId) => setComposeAt({ date, calendar_id: calId })}
+              />
+            )}
+          </section>
+        ) : (
+          <GoogleCalendarEmbed userEmail={profile?.email} />
+        )}
 
         {/* Right rail */}
         <aside className="space-y-5">
@@ -772,6 +807,57 @@ function toLocalInput(d) {
 function startOfDay(d) { const x = new Date(d); x.setHours(0, 0, 0, 0); return x }
 function endOfDay(d)   { const x = new Date(d); x.setHours(23, 59, 59, 999); return x }
 function sameDayLocal(a, b) { return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate() }
+
+// ============================================================================
+// Real Google Calendar embed — uses Google's officially-iframable embed URL.
+// What you see is YOUR Google Calendar (not a clone), provided you're signed
+// in to that Google account in this browser. Editing inside the iframe is
+// limited (Google's embed mode is read-mostly); for full editing the
+// "Open in Google Calendar" button at the top opens calendar.google.com in
+// a new tab.
+// ============================================================================
+function GoogleCalendarEmbed({ userEmail }) {
+  const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || 'Asia/Kolkata'
+  if (!userEmail) {
+    return (
+      <section className="vl-card flex flex-col items-center justify-center gap-4 p-12 text-center">
+        <Globe className="h-10 w-10 text-valence-blue" />
+        <div>
+          <p className="text-base font-semibold text-valence-text">Sign in to see your Google Calendar.</p>
+          <p className="mt-2 max-w-md text-sm text-valence-muted">
+            Click <b>Connect Google</b> at the top to authorise. We'll embed your real Google Calendar here so you can browse, search, and click through to the full app for editing.
+          </p>
+        </div>
+      </section>
+    )
+  }
+  const params = new URLSearchParams({
+    src: userEmail,
+    ctz: tz,
+    mode: 'WEEK',
+    showTitle: '0',
+    showPrint: '0',
+    showCalendars: '0',
+    showTabs: '1',
+    showTz: '0'
+  })
+  const src = `https://calendar.google.com/calendar/embed?${params.toString()}`
+  return (
+    <section className="vl-card overflow-hidden">
+      <div className="flex items-center justify-between border-b border-valence-border bg-valence-surface/50 px-4 py-3 text-[11px] text-valence-muted">
+        <span className="inline-flex items-center gap-1.5"><Globe className="h-3 w-3 text-valence-blue" /> Embedded from Google Calendar — <b className="font-semibold text-valence-text">{userEmail}</b></span>
+        <span>For full editing, use <a href="https://calendar.google.com" target="_blank" rel="noreferrer" className="font-semibold text-valence-blue hover:underline">Open in Google Calendar</a></span>
+      </div>
+      <iframe
+        title="Google Calendar"
+        src={src}
+        className="block w-full"
+        style={{ height: 760, border: 0 }}
+        loading="lazy"
+      />
+    </section>
+  )
+}
 
 // ============================================================================
 // Add Google calendar form
