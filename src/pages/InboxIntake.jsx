@@ -44,11 +44,24 @@ export default function InboxIntake() {
   function convertToDeal(row) {
     const params = new URLSearchParams({
       new: '1',
-      client_name: row.company_name,
+      client_name: row.company_name || '',
       sector: row.sector || '',
+      stage: 'Origination',
+      // legacy
       side:   row.deal_side || 'Sell-side',
-      stage:  'Origination',
       ticket_size_usd_m: row.ev_ask_usd_m || '',
+      // new deal-type model
+      deal_types:    Array.isArray(row.deal_types) ? row.deal_types.join(',') : '',
+      deal_subtype:  row.deal_subtype || '',
+      ma_side:       row.ma_side || '',
+      acquisition_brief: row.acquisition_brief || '',
+      engagement_brief:  row.engagement_brief  || '',
+      target_raise_usd_m:    row.target_raise_usd_m    ?? '',
+      target_valuation_usd_m: row.target_valuation_usd_m ?? '',
+      company_stage:         row.company_stage         || '',
+      target_exit_usd_m:     row.target_exit_usd_m     ?? '',
+      target_exit_valuation_usd_m: row.target_exit_valuation_usd_m ?? '',
+      exit_investor_name:    row.exit_investor_name    || '',
       notes: [
         row.situation || '',
         row.contact_name ? `Contact: ${row.contact_name} <${row.contact_email}>` : '',
@@ -106,6 +119,15 @@ export default function InboxIntake() {
 function SubmissionCard({ row, onStatus, onConvert }) {
   const verdict = row.ai_screener_output?.verdict
   const verdictTone = ({ pursue: 'border-valence-success/30 bg-valence-success/10 text-valence-success', pass: 'border-valence-danger/30 bg-valence-danger/10 text-valence-danger', watch: 'border-valence-warning/30 bg-valence-warning/10 text-valence-warning' })[verdict] || 'border-valence-border bg-valence-surface text-valence-muted'
+  const types = Array.isArray(row.deal_types) ? row.deal_types : []
+  const subtypeLabel = row.deal_subtype === 'm_and_a' ? 'M&A' : (row.deal_subtype || '').replace(/_/g, ' ')
+  const askChip = (() => {
+    if (row.deal_subtype === 'fundraise' && row.target_raise_usd_m) return `Raise USD ${row.target_raise_usd_m}M${row.target_valuation_usd_m ? ` @ USD ${row.target_valuation_usd_m}M val` : ''}`
+    if (row.deal_subtype === 'exit'      && row.target_exit_usd_m)  return `Exit USD ${row.target_exit_usd_m}M${row.exit_investor_name ? ` · ${row.exit_investor_name}` : ''}`
+    if (row.deal_subtype === 'm_and_a')                              return `M&A · ${row.ma_side === 'buy' ? 'Buy-side' : row.ma_side === 'sell' ? 'Sell-side' : row.ma_side === 'undecided' ? 'Side TBD' : ''}`.trim()
+    if (row.ev_ask_usd_m) return `USD ${row.ev_ask_usd_m}M EV`
+    return null
+  })()
   return (
     <li className="vl-card p-5">
       <div className="flex flex-wrap items-start justify-between gap-4">
@@ -113,8 +135,11 @@ function SubmissionCard({ row, onStatus, onConvert }) {
           <div className="flex flex-wrap items-baseline gap-2">
             <h2 className="text-base font-semibold text-valence-text">{row.company_name}</h2>
             {row.sector && <span className="rounded-full border border-valence-border bg-valence-surface px-2 py-0.5 text-[11px] text-valence-muted">{row.sector}</span>}
-            {row.deal_side && <span className="rounded-full border border-valence-border bg-valence-surface px-2 py-0.5 text-[11px] text-valence-muted">{row.deal_side}</span>}
-            {row.ev_ask_usd_m && <span className="rounded-full border border-valence-border bg-valence-surface px-2 py-0.5 text-[11px] text-valence-muted">USD {row.ev_ask_usd_m}M EV</span>}
+            {types.map(t => (
+              <span key={t} className="rounded-full border border-valence-blue/30 bg-valence-blue-soft px-2 py-0.5 text-[11px] capitalize text-valence-blue">{t}</span>
+            ))}
+            {subtypeLabel && <span className="rounded-full border border-valence-border bg-valence-surface px-2 py-0.5 text-[11px] capitalize text-valence-muted">{subtypeLabel}</span>}
+            {askChip && <span className="rounded-full border border-valence-border bg-valence-surface px-2 py-0.5 text-[11px] text-valence-muted">{askChip}</span>}
             <span className={`rounded-full border px-2 py-0.5 text-[11px] font-semibold capitalize ${verdictTone}`}>AI: {verdict || 'no verdict'}</span>
           </div>
           <p className="mt-1 text-[11px] text-valence-muted">
@@ -128,6 +153,18 @@ function SubmissionCard({ row, onStatus, onConvert }) {
         </div>
       </div>
 
+      {row.acquisition_brief && (
+        <div className="mt-3 rounded-lg border border-valence-border bg-valence-surface/60 px-3 py-2">
+          <p className="vl-eyebrow-ink">Acquisition brief</p>
+          <p className="mt-1 text-[13px] leading-relaxed text-valence-text whitespace-pre-wrap">{row.acquisition_brief}</p>
+        </div>
+      )}
+      {row.engagement_brief && (
+        <div className="mt-3 rounded-lg border border-valence-warning/30 bg-valence-warning/5 px-3 py-2">
+          <p className="vl-eyebrow-ink">Engagement brief</p>
+          <p className="mt-1 text-[13px] leading-relaxed text-valence-text whitespace-pre-wrap">{row.engagement_brief}</p>
+        </div>
+      )}
       {row.situation && <p className="mt-3 text-sm leading-relaxed text-valence-muted whitespace-pre-wrap">{row.situation}</p>}
 
       {row.ai_screener_output?.lines?.length > 0 && (
@@ -154,8 +191,11 @@ function SubmissionCard({ row, onStatus, onConvert }) {
 const DEMO_INTAKES = [
   {
     id: 'in1', company_name: 'Crescent Pharma', contact_name: 'Arvind Kulkarni', contact_email: 'arvind@crescentpharma.in',
-    sector: 'Healthcare', deal_side: 'Sell-side', ev_ask_usd_m: 220, situation: 'Carve-out of OTC division. Looking for a sell-side advisor with healthcare buyer relationships in EU + US.',
-    source: 'Referral', status: 'new', created_at: new Date(Date.now() - 86400000 * 1).toISOString(),
+    sector: 'Healthcare', source: 'Referral', status: 'new', created_at: new Date(Date.now() - 86400000 * 1).toISOString(),
+    deal_types: ['transaction'], deal_subtype: 'm_and_a', ma_side: 'sell',
+    acquisition_brief: 'Carve-out of OTC division. EBITDA ~USD 18M. Looking for strategic acquirers in EU + US with OTC distribution.',
+    situation: 'Carve-out of OTC division. Looking for a sell-side advisor with healthcare buyer relationships in EU + US.',
+    deal_side: 'Sell-side', ev_ask_usd_m: 220,
     ai_screener_output: { verdict: 'pursue', score: 78, one_line: 'Strong fit — healthcare carve-outs sit squarely in our sweet spot.', lines: [
       'Healthcare matches our top-three sectors.', 'Ticket band is right at our centre of gravity (USD 220M).',
       'Carve-out from a listed parent — clear motivation, real timeline.', 'Risk: parent board approvals can stall sell-sides.', 'Recommend a 30-min intro with Neha; loop in Oliver if it advances.'
@@ -163,11 +203,26 @@ const DEMO_INTAKES = [
   },
   {
     id: 'in2', company_name: 'Brightline Mobility', contact_name: 'Anuj Goyal', contact_email: 'anuj@brightline.io',
-    sector: 'Mobility', deal_side: 'Capital raise', ev_ask_usd_m: 35, situation: 'Series B — looking for sector-specialist advisor.',
-    source: 'Found you online', status: 'new', created_at: new Date(Date.now() - 86400000 * 2).toISOString(),
+    sector: 'Mobility', source: 'Found you online', status: 'new', created_at: new Date(Date.now() - 86400000 * 2).toISOString(),
+    deal_types: ['transaction'], deal_subtype: 'fundraise',
+    target_raise_usd_m: 35, target_valuation_usd_m: 140, company_stage: 'Series B',
+    situation: 'Series B — looking for sector-specialist advisor.',
+    deal_side: 'Capital raise', ev_ask_usd_m: 35,
     ai_screener_output: { verdict: 'watch', score: 48, one_line: 'Below our typical band — interesting but unlikely to clear our minimum.', lines: [
-      'Mobility is adjacent to our Infrastructure book.', 'Cheque size USD 35M is below our USD 50M threshold.',
+      'Mobility is adjacent to our Infrastructure book.', 'Raise size USD 35M is below our USD 50M threshold.',
       'Founder is reasonable — would consider for a Series C revisit.', 'Risk: opportunity cost given our Q3 capacity.', 'Pass politely, offer to revisit at Series C with a stronger thesis.'
+    ] }
+  },
+  {
+    id: 'in3', company_name: 'Saffron Studios', contact_name: 'Manav Kapoor', contact_email: 'manav@saffronstudios.in',
+    sector: 'Media', source: 'Existing relationship', status: 'new', created_at: new Date(Date.now() - 86400000 * 3).toISOString(),
+    deal_types: ['advisory'],
+    engagement_brief: 'Need a partner who can help us raise project finance for the next slate — equity capital, not debt. Five films over two years, Hindi + regional. Looking for non-dilutive structures with revenue-share kickers.',
+    situation: 'Slate financing for a film studio. Equity, not debt. Open to creative structures.',
+    deal_side: 'Strategic advisory',
+    ai_screener_output: { verdict: 'pursue', score: 65, one_line: 'Adjacent to our existing media work — worth a meeting.', lines: [
+      'Slate financing isn\'t a vanilla raise — falls under advisory.', 'We\'ve done media work; the partner network exists.',
+      'Project finance for content is a niche but solvable problem.', 'Risk: revenue-share structures take longer to paper.', 'Recommend an exploratory chat with Manav before committing.'
     ] }
   }
 ]

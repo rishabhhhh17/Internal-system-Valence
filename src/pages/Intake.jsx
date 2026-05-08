@@ -6,22 +6,65 @@ import { screenMandateFit } from '../lib/screener.js'
 import { extractText } from '../lib/fileParse.js'
 import Logo from '../components/Logo.jsx'
 
-const SIDES = ['Sell-side', 'Buy-side', 'Capital raise', 'Strategic advisory']
 const SOURCES = ['Referral', 'Found you online', 'Conference / Event', 'Existing relationship', 'Other']
+
+const TOP_TYPES = [
+  { id: 'transaction', label: 'Transaction', blurb: 'Fundraise, M&A, or exit — closing a deal.' },
+  { id: 'advisory',    label: 'Advisory',    blurb: 'Geography entry, vertical play, distribution, etc.' }
+]
+const SUBTYPES = [
+  { id: 'fundraise', label: 'Fundraise', blurb: 'Equity, fund, or project capital.' },
+  { id: 'm_and_a',   label: 'M&A',       blurb: 'Buy-side or sell-side advisory.' },
+  { id: 'exit',      label: 'Exit',      blurb: 'Liquidity for an existing investor.' }
+]
+const MA_SIDES = [
+  { id: 'sell',      label: 'Sell-side' },
+  { id: 'buy',       label: 'Buy-side' },
+  { id: 'undecided', label: 'Not yet decided' }
+]
+
+const initialForm = {
+  // universal
+  company_name: '', contact_name: '', contact_email: '', contact_phone: '',
+  sector: '', source: 'Referral', situation: '',
+  // deal-type model
+  deal_types: ['transaction'],
+  deal_subtype: 'fundraise',
+  // fundraise
+  target_raise_usd_m: '',
+  target_valuation_usd_m: '',
+  company_stage: '',
+  // m_and_a
+  ma_side: 'sell',
+  acquisition_brief: '',
+  // exit
+  target_exit_usd_m: '',
+  target_exit_valuation_usd_m: '',
+  exit_investor_name: '',
+  // advisory
+  engagement_brief: ''
+}
 
 export default function Intake() {
   const navigate = useNavigate()
-  const [form, setForm] = useState({
-    company_name: '', contact_name: '', contact_email: '', contact_phone: '',
-    sector: '', deal_side: 'Sell-side', ev_ask_usd_m: '',
-    situation: '', source: 'Referral'
-  })
+  const [form, setForm] = useState(initialForm)
   const [deckFile, setDeckFile] = useState(null)
   const [busy, setBusy]         = useState(false)
   const [error, setError]       = useState('')
   const inputRef = useRef(null)
 
+  const isTransaction = form.deal_types.includes('transaction')
+  const isAdvisory    = form.deal_types.includes('advisory')
+
   function update(patch) { setForm(f => ({ ...f, ...patch })) }
+
+  function toggleType(id) {
+    setForm(s => {
+      const has = s.deal_types.includes(id)
+      const next = has ? s.deal_types.filter(t => t !== id) : [...s.deal_types, id]
+      return { ...s, deal_types: next.length ? next : s.deal_types }
+    })
+  }
 
   async function submit(e) {
     e.preventDefault()
@@ -41,32 +84,46 @@ export default function Intake() {
         try { const t = await extractText(deckFile); teaserText = t.text || '' } catch { /* parser is optional */ }
       }
 
-      const composedTeaser = [
-        `Company: ${form.company_name}`,
-        `Sector: ${form.sector}`,
-        `Side: ${form.deal_side}`,
-        `EV ask: USD ${form.ev_ask_usd_m || '?'}M`,
-        `Situation: ${form.situation}`,
-        teaserText ? `\n--- DECK TEXT ---\n${teaserText.slice(0, 6000)}` : ''
-      ].filter(Boolean).join('\n')
+      const composedTeaser = composeTeaserFromForm(form, teaserText)
 
       let aiOutput = null
       try {
         aiOutput = await screenMandateFit({ teaserText: composedTeaser })
       } catch { /* the firm can still triage manually if Gemini is down */ }
 
+      const num = (v) => v === '' || v == null ? null : Number(v)
+      const txt = (v) => (v || '').trim() || null
+
       const payload = {
+        // universal
         company_name:  form.company_name.trim(),
         contact_name:  form.contact_name.trim(),
         contact_email: form.contact_email.trim(),
-        contact_phone: form.contact_phone.trim() || null,
-        sector:        form.sector.trim() || null,
-        deal_side:     form.deal_side,
-        ev_ask_usd_m:  form.ev_ask_usd_m ? Number(form.ev_ask_usd_m) : null,
-        situation:     form.situation.trim() || null,
+        contact_phone: txt(form.contact_phone),
+        sector:        txt(form.sector),
+        situation:     txt(form.situation),
         source:        form.source,
         deck_url,
-        ai_screener_output: aiOutput
+        ai_screener_output: aiOutput,
+        // legacy mirror so the inbox queue still shows a coarse "side"
+        deal_side:     legacySideFor(form),
+        ev_ask_usd_m:  legacyEvFor(form),
+        // new deal-type model
+        deal_types:    form.deal_types,
+        deal_subtype:  isTransaction ? form.deal_subtype : null,
+        // fundraise-conditional
+        target_raise_usd_m:           isTransaction && form.deal_subtype === 'fundraise' ? num(form.target_raise_usd_m) : null,
+        target_valuation_usd_m:       isTransaction && form.deal_subtype === 'fundraise' ? num(form.target_valuation_usd_m) : null,
+        company_stage:                isTransaction && form.deal_subtype === 'fundraise' ? txt(form.company_stage) : null,
+        // m_and_a-conditional
+        ma_side:                      isTransaction && form.deal_subtype === 'm_and_a' ? form.ma_side : null,
+        acquisition_brief:            isTransaction && form.deal_subtype === 'm_and_a' ? txt(form.acquisition_brief) : null,
+        // exit-conditional
+        target_exit_usd_m:            isTransaction && form.deal_subtype === 'exit' ? num(form.target_exit_usd_m) : null,
+        target_exit_valuation_usd_m:  isTransaction && form.deal_subtype === 'exit' ? num(form.target_exit_valuation_usd_m) : null,
+        exit_investor_name:           isTransaction && form.deal_subtype === 'exit' ? txt(form.exit_investor_name) : null,
+        // advisory-conditional
+        engagement_brief:             isAdvisory ? txt(form.engagement_brief) : null
       }
 
       if (!isSupabaseConfigured) {
@@ -103,6 +160,7 @@ export default function Intake() {
         </p>
 
         <form onSubmit={submit} className="mt-10 space-y-6 rounded-2xl border border-white/10 bg-white/5 p-6 backdrop-blur">
+          {/* Universal contact + company */}
           <div className="grid gap-4 sm:grid-cols-2">
             <Field label="Company name *">
               <input className="vl-input bg-white text-valence-text" required value={form.company_name} onChange={e => update({ company_name: e.target.value })} />
@@ -124,16 +182,154 @@ export default function Intake() {
                 {SOURCES.map(s => <option key={s}>{s}</option>)}
               </select>
             </Field>
-            <Field label="Mandate type">
-              <select className="vl-input bg-white text-valence-text" value={form.deal_side} onChange={e => update({ deal_side: e.target.value })}>
-                {SIDES.map(s => <option key={s}>{s}</option>)}
-              </select>
-            </Field>
-            <Field label="EV ask (USD M)">
-              <input type="number" className="vl-input bg-white text-valence-text" value={form.ev_ask_usd_m} onChange={e => update({ ev_ask_usd_m: e.target.value })} placeholder="180" />
-            </Field>
           </div>
 
+          {/* Mandate type */}
+          <div>
+            <label className="text-[11px] font-semibold uppercase tracking-[0.18em] text-white/60">Mandate type</label>
+            <div className="mt-2 grid gap-2 sm:grid-cols-2">
+              {TOP_TYPES.map(t => {
+                const active = form.deal_types.includes(t.id)
+                return (
+                  <button
+                    type="button"
+                    key={t.id}
+                    onClick={() => toggleType(t.id)}
+                    aria-pressed={active}
+                    className={`rounded-xl border px-3 py-2.5 text-left text-xs transition ${
+                      active
+                        ? 'border-valence-blue/60 bg-valence-blue/15 text-white'
+                        : 'border-white/15 bg-white/5 text-white/70 hover:bg-white/10'
+                    }`}
+                  >
+                    <p className="font-semibold">{t.label}</p>
+                    <p className="mt-0.5 text-[11px] leading-snug text-white/60">{t.blurb}</p>
+                  </button>
+                )
+              })}
+            </div>
+            <p className="mt-1.5 text-[11px] text-white/50">A mandate can be one or both. Both is fine.</p>
+          </div>
+
+          {/* Transaction-conditional */}
+          {isTransaction && (
+            <div className="space-y-4 rounded-xl border border-valence-blue/30 bg-valence-blue/5 p-4">
+              <div>
+                <label className="text-[11px] font-semibold uppercase tracking-[0.18em] text-white/70">Transaction sub-type</label>
+                <div className="mt-2 grid gap-2 sm:grid-cols-3">
+                  {SUBTYPES.map(s => {
+                    const active = form.deal_subtype === s.id
+                    return (
+                      <button
+                        type="button"
+                        key={s.id}
+                        onClick={() => update({ deal_subtype: s.id })}
+                        aria-pressed={active}
+                        className={`rounded-lg border px-3 py-2 text-left text-xs transition ${
+                          active
+                            ? 'border-white/40 bg-white text-valence-text shadow-sm'
+                            : 'border-white/15 bg-white/10 text-white/70 hover:bg-white/15'
+                        }`}
+                      >
+                        <p className="font-semibold">{s.label}</p>
+                        <p className="mt-0.5 text-[11px] leading-snug opacity-80">{s.blurb}</p>
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
+
+              {form.deal_subtype === 'fundraise' && (
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <Field label="Target raise (USD M)">
+                    <input type="number" className="vl-input bg-white text-valence-text" value={form.target_raise_usd_m} onChange={e => update({ target_raise_usd_m: e.target.value })} placeholder="e.g. 80" />
+                  </Field>
+                  <Field label="Target valuation (USD M)">
+                    <input type="number" className="vl-input bg-white text-valence-text" value={form.target_valuation_usd_m} onChange={e => update({ target_valuation_usd_m: e.target.value })} placeholder="e.g. 250" />
+                  </Field>
+                  <div className="sm:col-span-2">
+                    <Field label="Company stage">
+                      <input className="vl-input bg-white text-valence-text" value={form.company_stage} onChange={e => update({ company_stage: e.target.value })} placeholder="Seed · Series A · Growth · Project finance · …" />
+                    </Field>
+                  </div>
+                </div>
+              )}
+
+              {form.deal_subtype === 'm_and_a' && (
+                <div className="space-y-4">
+                  <div>
+                    <label className="text-[11px] font-semibold uppercase tracking-[0.18em] text-white/70">M&A side</label>
+                    <div className="mt-2 grid gap-2 sm:grid-cols-3">
+                      {MA_SIDES.map(s => {
+                        const active = form.ma_side === s.id
+                        return (
+                          <button
+                            type="button"
+                            key={s.id}
+                            onClick={() => update({ ma_side: s.id })}
+                            aria-pressed={active}
+                            className={`rounded-lg border px-3 py-2 text-xs font-semibold transition ${
+                              active
+                                ? 'border-white/40 bg-white text-valence-text shadow-sm'
+                                : 'border-white/15 bg-white/10 text-white/70 hover:bg-white/15'
+                            }`}
+                          >
+                            {s.label}
+                          </button>
+                        )
+                      })}
+                    </div>
+                  </div>
+                  <Field label="Acquisition brief">
+                    <textarea
+                      className="vl-input bg-white text-valence-text min-h-[120px] leading-relaxed"
+                      value={form.acquisition_brief}
+                      onChange={e => update({ acquisition_brief: e.target.value })}
+                      placeholder='e.g. "$100M topline IT services company, $5–10M EBITDA, financial services clients, NOT Web3, cybersecurity acceptable."'
+                    />
+                  </Field>
+                  <p className="-mt-2 text-[11px] text-white/50">
+                    M&A asks are usually a spec, not a number. Be specific about what you want.
+                  </p>
+                </div>
+              )}
+
+              {form.deal_subtype === 'exit' && (
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <Field label="Target exit (USD M)">
+                    <input type="number" className="vl-input bg-white text-valence-text" value={form.target_exit_usd_m} onChange={e => update({ target_exit_usd_m: e.target.value })} placeholder="e.g. 320" />
+                  </Field>
+                  <Field label="Target exit valuation (USD M)">
+                    <input type="number" className="vl-input bg-white text-valence-text" value={form.target_exit_valuation_usd_m} onChange={e => update({ target_exit_valuation_usd_m: e.target.value })} placeholder="optional" />
+                  </Field>
+                  <div className="sm:col-span-2">
+                    <Field label="Investor being exited">
+                      <input className="vl-input bg-white text-valence-text" value={form.exit_investor_name} onChange={e => update({ exit_investor_name: e.target.value })} placeholder="e.g. Brookfield" />
+                    </Field>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Advisory-conditional */}
+          {isAdvisory && (
+            <div className="space-y-3 rounded-xl border border-valence-warning/30 bg-valence-warning/5 p-4">
+              <Field label="Engagement brief">
+                <textarea
+                  className="vl-input bg-white text-valence-text min-h-[120px] leading-relaxed"
+                  value={form.engagement_brief}
+                  onChange={e => update({ engagement_brief: e.target.value })}
+                  placeholder='e.g. "Help break into Dubai market — distribution + first-customer outreach. Also exploring vending-machine product line for premium Q-commerce dark stores."'
+                />
+              </Field>
+              <p className="text-[11px] text-white/50">
+                What do you actually need? Geography, vertical, product, distribution — describe it the way you'd describe it to a partner.
+              </p>
+            </div>
+          )}
+
+          {/* Situation + deck */}
           <Field label="The situation, in your own words">
             <textarea className="vl-input bg-white text-valence-text min-h-[160px] leading-relaxed" value={form.situation} onChange={e => update({ situation: e.target.value })} placeholder="What's the mandate, what triggered the need, what does success look like?" />
           </Field>
@@ -196,3 +392,63 @@ function Tile({ icon: Icon, title, body }) {
 }
 
 function slug(s) { return (s || '').replace(/[^A-Za-z0-9._-]+/g, '_') }
+
+// Compose the teaser string the AI Mandate-Fit screener reads. Mirrors the
+// shape of the new deal-type model so Gemini sees the same structure the firm
+// sees inside the inbox queue.
+export function composeTeaserFromForm(form, deckText = '') {
+  const isTransaction = form.deal_types.includes('transaction')
+  const isAdvisory    = form.deal_types.includes('advisory')
+  const lines = [
+    `Company: ${form.company_name || '—'}`,
+    `Sector: ${form.sector || '—'}`,
+    `Mandate type: ${form.deal_types.join(' + ') || 'unspecified'}`
+  ]
+  if (isTransaction) {
+    lines.push(`Sub-type: ${form.deal_subtype || '—'}`)
+    if (form.deal_subtype === 'fundraise') {
+      lines.push(`Target raise: USD ${form.target_raise_usd_m || '?'}M`)
+      if (form.target_valuation_usd_m) lines.push(`Target valuation: USD ${form.target_valuation_usd_m}M`)
+      if (form.company_stage) lines.push(`Company stage: ${form.company_stage}`)
+    }
+    if (form.deal_subtype === 'm_and_a') {
+      lines.push(`M&A side: ${form.ma_side || '—'}`)
+      if (form.acquisition_brief) lines.push(`Acquisition brief: ${form.acquisition_brief}`)
+    }
+    if (form.deal_subtype === 'exit') {
+      lines.push(`Target exit: USD ${form.target_exit_usd_m || '?'}M`)
+      if (form.target_exit_valuation_usd_m) lines.push(`Target exit valuation: USD ${form.target_exit_valuation_usd_m}M`)
+      if (form.exit_investor_name) lines.push(`Investor being exited: ${form.exit_investor_name}`)
+    }
+  }
+  if (isAdvisory && form.engagement_brief) {
+    lines.push(`Engagement brief: ${form.engagement_brief}`)
+  }
+  if (form.situation) lines.push(`Situation: ${form.situation}`)
+  if (deckText) lines.push(`\n--- DECK TEXT ---\n${deckText.slice(0, 6000)}`)
+  return lines.filter(Boolean).join('\n')
+}
+
+// Preserve the legacy `deal_side` text column so existing inbox UI + the old
+// "Convert to deal" param still has a sensible value to read. Nothing in the
+// new model relies on this; it's a one-way mirror for backwards compatibility.
+function legacySideFor(form) {
+  if (!form.deal_types.includes('transaction')) return 'Strategic advisory'
+  if (form.deal_subtype === 'fundraise') return 'Capital raise'
+  if (form.deal_subtype === 'm_and_a') {
+    if (form.ma_side === 'buy') return 'Buy-side'
+    if (form.ma_side === 'sell') return 'Sell-side'
+    return 'M&A'
+  }
+  if (form.deal_subtype === 'exit') return 'Sell-side'
+  return null
+}
+
+// Surface a single representative number for the legacy `ev_ask_usd_m` column
+// so the existing inbox card still has a "EV ask" chip when applicable.
+function legacyEvFor(form) {
+  if (!form.deal_types.includes('transaction')) return null
+  if (form.deal_subtype === 'fundraise') return form.target_raise_usd_m ? Number(form.target_raise_usd_m) : null
+  if (form.deal_subtype === 'exit')      return form.target_exit_usd_m  ? Number(form.target_exit_usd_m)  : null
+  return null // M&A is a spec, not a number
+}
