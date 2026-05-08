@@ -18,6 +18,7 @@ import EmptyState from '../components/EmptyState.jsx'
 import DealKanban from '../components/DealKanban.jsx'
 import FileVault from '../components/FileVault.jsx'
 import Contacts from '../components/Contacts.jsx'
+import WikilinkTextarea from '../components/WikilinkTextarea.jsx'
 import ActivityTimeline from '../components/ActivityTimeline.jsx'
 import DealBrief from '../components/DealBrief.jsx'
 import EmailComposer from '../components/EmailComposer.jsx'
@@ -881,8 +882,18 @@ function DealForm({ initial, onSubmit, onCancel }) {
       )}
 
       <div>
-        <label className="vl-label">Internal notes</label>
-        <textarea value={form.notes} onChange={e => set('notes', e.target.value)} className="vl-input min-h-[100px] resize-y" placeholder="Context, next steps, stakeholders…" />
+        <label className="vl-label flex items-center gap-2">
+          Internal notes
+          <span className="text-[10px] font-normal normal-case tracking-normal text-valence-muted">
+            Type <span className="vl-kbd">[[</span> to link people / funds / mandates
+          </span>
+        </label>
+        <WikilinkTextarea
+          value={form.notes}
+          onChange={v => set('notes', v)}
+          className="vl-input min-h-[100px] resize-y"
+          placeholder="Context, next steps, stakeholders…"
+        />
       </div>
 
       <div className="flex items-center justify-end gap-3 pt-2">
