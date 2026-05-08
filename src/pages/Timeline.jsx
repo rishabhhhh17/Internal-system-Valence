@@ -26,11 +26,15 @@ export default function Timeline() {
 
   async function load() {
     setLoading(true); setLoadError(null)
-    if (!isSupabaseConfigured) { setDeals(DEMO_DEALS); setActivities([]); setLoading(false); return }
+    if (!isSupabaseConfigured) { setDeals(DEMO_DEALS); setActivities(DEMO_ACTIVITIES); setLoading(false); return }
     try {
       const fetchPromise = Promise.all([
         supabase.from('deals').select('*').in('stage', LIVE_STAGES).order('updated_at', { ascending: false }),
-        supabase.from('activities').select('deal_id, kind, body, created_at').eq('kind', 'stage_change')
+        // Pull every activity kind for these deals — stage_change drives
+        // segment boundaries; meeting / nda_signed / teaser_sent / file_upload
+        // / note / email_drafted / brief_generated / contact_added become
+        // marker dots on the row (see TimelineGantt#MARKER_KIND).
+        supabase.from('activities').select('deal_id, kind, body, created_at')
       ])
       const timeoutPromise = new Promise((_, reject) =>
         setTimeout(() => reject(new Error('Request timed out — check your connection or Supabase status.')), 10_000)
@@ -146,10 +150,73 @@ const today = new Date()
 const daysAgo = (n) => { const d = new Date(today); d.setDate(d.getDate() - n); return d.toISOString() }
 const daysFwd = (n) => { const d = new Date(today); d.setDate(d.getDate() + n); return d.toISOString().slice(0,10) }
 const DEMO_DEALS = [
-  { id: 'tl1', client_name: 'Nimbus Health',   stage: 'Mandate',     sector: 'Healthcare',  side: 'Sell-side', lead_owner: 'Neha Jain',       expected_close_date: daysFwd(75),  updated_at: daysAgo(28), created_at: daysAgo(210) },
-  { id: 'tl2', client_name: 'Quantum Edge',    stage: 'Mandate',     sector: 'Fintech',     side: 'Sell-side', lead_owner: 'James Whitfield', expected_close_date: daysFwd(150), updated_at: daysAgo(7),  created_at: daysAgo(95)  },
-  { id: 'tl3', client_name: 'Meridian EdTech', stage: 'Mandate',     sector: 'EdTech',      side: 'Sell-side', lead_owner: 'Priya Mehta',     expected_close_date: daysFwd(45),  updated_at: daysAgo(12), created_at: daysAgo(160) },
-  { id: 'tl4', client_name: 'Orion Realty',    stage: 'Mandate',     sector: 'Real Estate', side: 'Sell-side', lead_owner: 'Neha Jain',       expected_close_date: daysFwd(25),  updated_at: daysAgo(3),  created_at: daysAgo(275) },
-  { id: 'tl5', client_name: 'Aegis Logistics', stage: 'Pre-Mandate', sector: 'Logistics',   side: 'Sell-side', lead_owner: 'Oliver Hayes',    expected_close_date: daysFwd(180), updated_at: daysAgo(40), created_at: daysAgo(60)  },
-  { id: 'tl6', client_name: 'Solstice Solar',  stage: 'Pre-Mandate', sector: 'Renewables',  side: 'Sell-side', lead_owner: 'Neha Jain',       expected_close_date: daysFwd(170), updated_at: daysAgo(5),  created_at: daysAgo(42)  }
+  { id: 'tl1', client_name: 'Nimbus Health',   stage: 'Mandate',     sector: 'Healthcare',     side: 'Sell-side', lead_owner: 'Neha Jain',       expected_close_date: daysFwd(75),  updated_at: daysAgo(28), created_at: daysAgo(210) },
+  { id: 'tl2', client_name: 'Quantum Edge',    stage: 'Mandate',     sector: 'Fintech',        side: 'Sell-side', lead_owner: 'James Whitfield', expected_close_date: daysFwd(150), updated_at: daysAgo(7),  created_at: daysAgo(95)  },
+  { id: 'tl3', client_name: 'Meridian EdTech', stage: 'Mandate',     sector: 'EdTech',         side: 'Sell-side', lead_owner: 'Priya Mehta',     expected_close_date: daysFwd(45),  updated_at: daysAgo(12), created_at: daysAgo(160) },
+  { id: 'tl4', client_name: 'Orion Realty',    stage: 'Mandate',     sector: 'Real Estate',    side: 'Sell-side', lead_owner: 'Neha Jain',       expected_close_date: daysFwd(25),  updated_at: daysAgo(3),  created_at: daysAgo(275) },
+  { id: 'tl5', client_name: 'Aegis Logistics', stage: 'Pre-Mandate', sector: 'Logistics',      side: 'Sell-side', lead_owner: 'Oliver Hayes',    expected_close_date: daysFwd(180), updated_at: daysAgo(40), created_at: daysAgo(60)  },
+  { id: 'tl6', client_name: 'Solstice Solar',  stage: 'Pre-Mandate', sector: 'Renewables',     side: 'Sell-side', lead_owner: 'Neha Jain',       expected_close_date: daysFwd(170), updated_at: daysAgo(5),  created_at: daysAgo(42)  },
+  { id: 'tl7', client_name: 'Halo Beverages',  stage: 'Pre-Mandate', sector: 'Consumer',       side: 'Buy-side',  lead_owner: 'James Whitfield', expected_close_date: daysFwd(120), updated_at: daysAgo(15), created_at: daysAgo(50)  },
+  { id: 'tl8', client_name: 'Vertex Bridge',   stage: 'Mandate',     sector: 'Infrastructure', side: 'Sell-side', lead_owner: 'Oliver Hayes',    expected_close_date: daysFwd(220), updated_at: daysAgo(20), created_at: daysAgo(180) }
+]
+
+// Demo activity log so the timeline tells a story even without Supabase. We
+// stage stage_change events alongside meeting / file / nda / teaser / note
+// / brief / contact dots — gives the partner a feel for cross-deal velocity.
+const DEMO_ACTIVITIES = [
+  // Nimbus Health (Healthcare · Mandate · closes in 75d)
+  { deal_id: 'tl1', kind: 'stage_change',    body: 'Pre-Mandate → Mandate', created_at: daysAgo(120) },
+  { deal_id: 'tl1', kind: 'nda_signed',      body: 'NDA executed with Apollo Hospitals', created_at: daysAgo(115) },
+  { deal_id: 'tl1', kind: 'teaser_sent',     body: 'Teaser circulated to 18 healthcare PE',  created_at: daysAgo(95) },
+  { deal_id: 'tl1', kind: 'meeting',         body: 'Mgmt presentation · KKR',                created_at: daysAgo(70) },
+  { deal_id: 'tl1', kind: 'meeting',         body: 'Mgmt presentation · Bain Capital',       created_at: daysAgo(55) },
+  { deal_id: 'tl1', kind: 'file_upload',     body: 'Audited FY24 financials',                created_at: daysAgo(40) },
+  { deal_id: 'tl1', kind: 'note',            body: 'Two LOIs in hand',                       created_at: daysAgo(10) },
+
+  // Quantum Edge (Fintech · Mandate · closes in 150d)
+  { deal_id: 'tl2', kind: 'stage_change',    body: 'Pre-Mandate → Mandate',     created_at: daysAgo(60) },
+  { deal_id: 'tl2', kind: 'brief_generated', body: 'CIM v1 generated',           created_at: daysAgo(48) },
+  { deal_id: 'tl2', kind: 'teaser_sent',     body: 'Teaser to 12 fintech-focused investors', created_at: daysAgo(35) },
+  { deal_id: 'tl2', kind: 'meeting',         body: 'Pitch · Tiger Global',       created_at: daysAgo(22) },
+  { deal_id: 'tl2', kind: 'email_drafted',   body: 'Process letter draft',       created_at: daysAgo(8)  },
+
+  // Meridian EdTech (EdTech · Mandate · closes in 45d)
+  { deal_id: 'tl3', kind: 'stage_change',    body: 'Pre-Mandate → Mandate',     created_at: daysAgo(95) },
+  { deal_id: 'tl3', kind: 'meeting',         body: 'Diligence call · Sequoia',  created_at: daysAgo(72) },
+  { deal_id: 'tl3', kind: 'file_upload',     body: 'Technical due-diligence pack', created_at: daysAgo(60) },
+  { deal_id: 'tl3', kind: 'meeting',         body: 'Site visit · Bengaluru campus', created_at: daysAgo(45) },
+  { deal_id: 'tl3', kind: 'meeting',         body: 'IC presentation · Lightspeed',  created_at: daysAgo(20) },
+  { deal_id: 'tl3', kind: 'note',            body: 'Final bid date set', created_at: daysAgo(4) },
+
+  // Orion Realty (Real Estate · Mandate · closes in 25d)
+  { deal_id: 'tl4', kind: 'stage_change',    body: 'Pre-Mandate → Mandate',     created_at: daysAgo(180) },
+  { deal_id: 'tl4', kind: 'teaser_sent',     body: 'Teaser to 8 sovereigns + family offices', created_at: daysAgo(160) },
+  { deal_id: 'tl4', kind: 'meeting',         body: 'Mgmt meet · GIC',            created_at: daysAgo(110) },
+  { deal_id: 'tl4', kind: 'meeting',         body: 'Mgmt meet · Brookfield',     created_at: daysAgo(80)  },
+  { deal_id: 'tl4', kind: 'file_upload',     body: 'Valuation reports',          created_at: daysAgo(50)  },
+  { deal_id: 'tl4', kind: 'contact_added',   body: 'Added Brookfield India MD',  created_at: daysAgo(35)  },
+  { deal_id: 'tl4', kind: 'meeting',         body: 'Final negotiation',          created_at: daysAgo(7)   },
+
+  // Aegis Logistics (Logistics · Pre-Mandate)
+  { deal_id: 'tl5', kind: 'meeting',         body: 'Intro · founder coffee',     created_at: daysAgo(45) },
+  { deal_id: 'tl5', kind: 'note',            body: 'Founder still deciding',     created_at: daysAgo(32) },
+  { deal_id: 'tl5', kind: 'meeting',         body: 'Follow-up call',             created_at: daysAgo(18) },
+
+  // Solstice Solar (Renewables · Pre-Mandate)
+  { deal_id: 'tl6', kind: 'meeting',         body: 'Pitch meeting · partner Adi', created_at: daysAgo(40) },
+  { deal_id: 'tl6', kind: 'file_upload',     body: 'Project pipeline deck',       created_at: daysAgo(28) },
+  { deal_id: 'tl6', kind: 'email_drafted',   body: 'Engagement letter draft',     created_at: daysAgo(12) },
+  { deal_id: 'tl6', kind: 'note',            body: 'Targeting Q3 mandate',        created_at: daysAgo(3)  },
+
+  // Halo Beverages (Consumer · Pre-Mandate · Buy-side)
+  { deal_id: 'tl7', kind: 'meeting',         body: 'Intro · Pinnacle Foods',     created_at: daysAgo(38) },
+  { deal_id: 'tl7', kind: 'meeting',         body: 'Intro · Wholesum',           created_at: daysAgo(25) },
+  { deal_id: 'tl7', kind: 'note',            body: 'Three targets shortlisted',  created_at: daysAgo(10) },
+
+  // Vertex Bridge (Infrastructure · Mandate)
+  { deal_id: 'tl8', kind: 'stage_change',    body: 'Pre-Mandate → Mandate',     created_at: daysAgo(140) },
+  { deal_id: 'tl8', kind: 'teaser_sent',     body: 'Teaser to 6 infra funds',   created_at: daysAgo(120) },
+  { deal_id: 'tl8', kind: 'meeting',         body: 'Mgmt meet · Macquarie',     created_at: daysAgo(85) },
+  { deal_id: 'tl8', kind: 'file_upload',     body: 'Concession agreement docs', created_at: daysAgo(50) },
+  { deal_id: 'tl8', kind: 'brief_generated', body: 'CIM v2 generated',          created_at: daysAgo(25) }
 ]
