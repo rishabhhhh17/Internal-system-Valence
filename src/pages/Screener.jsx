@@ -1,18 +1,44 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Sparkles, Upload, Building2, FileText, Plus, ArrowRight, Check } from 'lucide-react'
+import { Sparkles, Upload, Plus, ArrowRight, Check, Lock } from 'lucide-react'
 import { supabase, isSupabaseConfigured } from '../lib/supabase.js'
 import { extractText } from '../lib/fileParse.js'
 import { isGeminiConfigured } from '../lib/gemini.js'
 import { screenForFundsAI, screenMandateFit } from '../lib/screener.js'
-import { DEMO_FUNDS, warmthTone, fundTypeLabel } from '../lib/funds.js'
+import { DEMO_FUNDS, screenerModeForDeal, audienceLabelFor } from '../lib/funds.js'
 import ConfigBanner from '../components/ConfigBanner.jsx'
 import EmptyState from '../components/EmptyState.jsx'
 import { useToast } from '../components/Toast.jsx'
 
 const MODES = [
-  { id: 'fund_match',   label: 'Fund-Match',   blurb: 'A client is raising. Rank our funds.' },
+  { id: 'fund_match',   label: 'Fund-Match',   blurb: 'A client is raising / selling. Rank the universe.' },
   { id: 'mandate_fit',  label: 'Mandate-Fit',  blurb: 'Inbound teaser. Should we pursue?' }
 ]
+
+const TOP_TYPES = [
+  { id: 'transaction', label: 'Transaction' },
+  { id: 'advisory',    label: 'Advisory' }
+]
+const SUBTYPES = [
+  { id: 'fundraise', label: 'Fundraise' },
+  { id: 'm_and_a',   label: 'M&A' },
+  { id: 'exit',      label: 'Exit' }
+]
+const MA_SIDES = [
+  { id: 'sell',      label: 'Sell-side' },
+  { id: 'buy',       label: 'Buy-side' },
+  { id: 'undecided', label: 'Side TBD' }
+]
+
+const initialManual = {
+  client_name: '', sector: '', notes: '',
+  deal_types: ['transaction'], deal_subtype: 'fundraise',
+  // fundraise
+  target_raise_usd_m: '', target_valuation_usd_m: '', company_stage: '',
+  // m_and_a
+  ma_side: 'sell', acquisition_brief: '',
+  // exit
+  target_exit_usd_m: '', target_exit_valuation_usd_m: '', exit_investor_name: ''
+}
 
 export default function Screener() {
   const toast = useToast()
@@ -28,7 +54,7 @@ export default function Screener() {
   const [deals, setDeals]       = useState([])
   const [funds, setFunds]       = useState([])
   const [selectedDealId, setSelectedDealId] = useState('')
-  const [manual, setManual] = useState({ client_name: '', sector: '', side: 'Sell-side', stage: 'Marketing', ticket_size_usd_m: '', notes: '' })
+  const [manual, setManual] = useState(initialManual)
 
   // Output
   const [running, setRunning] = useState(false)
@@ -39,7 +65,7 @@ export default function Screener() {
     ;(async () => {
       if (!isSupabaseConfigured) { setFunds(DEMO_FUNDS); setDeals(DEMO_DEALS); return }
       const [d, f] = await Promise.all([
-        supabase.from('deals').select('id, client_name, sector, side, stage, ticket_size_usd_m, notes').order('updated_at', { ascending: false }).limit(200),
+        supabase.from('deals').select('*').order('updated_at', { ascending: false }).limit(200),
         supabase.from('funds').select('*').order('name')
       ])
       setDeals(d.data || []); setFunds(f.data || [])
@@ -52,12 +78,37 @@ export default function Screener() {
     return {
       client_name: manual.client_name || 'Untitled mandate',
       sector: manual.sector || null,
-      side:   manual.side,
-      stage:  manual.stage,
-      ticket_size_usd_m: manual.ticket_size_usd_m ? Number(manual.ticket_size_usd_m) : null,
-      notes:  [manual.notes, pdfText].filter(Boolean).join('\n\n').slice(0, 4000) || null
+      deal_types: manual.deal_types,
+      deal_subtype: manual.deal_types.includes('transaction') ? manual.deal_subtype : null,
+      target_raise_usd_m: manual.target_raise_usd_m ? Number(manual.target_raise_usd_m) : null,
+      target_valuation_usd_m: manual.target_valuation_usd_m ? Number(manual.target_valuation_usd_m) : null,
+      company_stage: manual.company_stage || null,
+      ma_side: manual.deal_subtype === 'm_and_a' ? manual.ma_side : null,
+      acquisition_brief: manual.deal_subtype === 'm_and_a' ? (manual.acquisition_brief || null) : null,
+      target_exit_usd_m: manual.target_exit_usd_m ? Number(manual.target_exit_usd_m) : null,
+      target_exit_valuation_usd_m: manual.target_exit_valuation_usd_m ? Number(manual.target_exit_valuation_usd_m) : null,
+      exit_investor_name: manual.exit_investor_name || null,
+      notes: [manual.notes, pdfText].filter(Boolean).join('\n\n').slice(0, 4000) || null
     }
   }, [selectedDeal, manual, pdfText])
+
+  const screenerMode = useMemo(() => screenerModeForDeal(composedDeal), [composedDeal])
+  const audience     = useMemo(() => audienceLabelFor(screenerMode), [screenerMode])
+  const isAdvisoryOnly = useMemo(() => {
+    const types = composedDeal?.deal_types || []
+    return types.includes('advisory') && !types.includes('transaction')
+  }, [composedDeal])
+
+  // Reset output when deal/mode/subtype changes so stale matches don't linger.
+  useEffect(() => { setOutput(null) }, [selectedDealId, mode, manual.deal_types, manual.deal_subtype])
+
+  function toggleType(id) {
+    setManual(s => {
+      const has = s.deal_types.includes(id)
+      const next = has ? s.deal_types.filter(t => t !== id) : [...s.deal_types, id]
+      return { ...s, deal_types: next.length ? next : s.deal_types }
+    })
+  }
 
   async function onFile(e) {
     const file = e.target.files?.[0]
@@ -79,12 +130,15 @@ export default function Screener() {
     try {
       let result
       if (mode === 'fund_match') {
+        if (isAdvisoryOnly) {
+          toast.error('Fund-Match is not applicable for advisory mandates.')
+          return
+        }
         result = await screenForFundsAI({ deal: composedDeal, funds, topN: 8 })
       } else {
         result = await screenMandateFit({ teaserText: [manual.notes, pdfText].filter(Boolean).join('\n\n') })
       }
       setOutput(result)
-      // Persist a row for the audit log when Supabase is wired up.
       if (isSupabaseConfigured) {
         await supabase.from('screener_runs').insert({
           mode,
@@ -127,11 +181,16 @@ export default function Screener() {
       client_name: composedDeal.client_name,
       sector: composedDeal.sector || '',
       stage: 'Origination',
-      side: composedDeal.side || 'Sell-side',
       notes: composedDeal.notes || ''
     })
     window.location.href = `/deals?${params.toString()}`
   }
+
+  const runLabel = mode === 'mandate_fit'
+    ? 'Get verdict'
+    : isAdvisoryOnly
+      ? 'Not applicable'
+      : `Rank ${audience.plural}`
 
   return (
     <div className="space-y-6">
@@ -145,7 +204,7 @@ export default function Screener() {
           </h1>
           <p className="mt-3 max-w-2xl text-sm leading-relaxed text-valence-muted">
             {mode === 'fund_match'
-              ? 'Drop in deal info — Valence ranks our fund universe by sector, stage, and cheque-size fit. Reasoning included.'
+              ? `Drop in deal info — Valence ranks the universe by deal-type fit. Fundraise → investors. M&A → acquirers. Exit → secondary buyers. Advisory → not applicable.`
               : 'Paste an inbound teaser — Valence delivers a 5-line verdict against our standing mandate criteria.'}
           </p>
         </div>
@@ -182,21 +241,111 @@ export default function Screener() {
             </div>
           )}
 
-          {!selectedDeal && (
-            <div className="grid gap-3 sm:grid-cols-2">
-              <Field label="Client name"><input className="vl-input" value={manual.client_name} onChange={e => setManual({ ...manual, client_name: e.target.value })} placeholder="e.g. Saffron Retail" /></Field>
-              <Field label="Sector"><input className="vl-input" value={manual.sector} onChange={e => setManual({ ...manual, sector: e.target.value })} placeholder="Consumer" /></Field>
-              <Field label="Side">
-                <select className="vl-input" value={manual.side} onChange={e => setManual({ ...manual, side: e.target.value })}>
-                  <option>Sell-side</option><option>Buy-side</option><option>Advisory</option>
-                </select>
-              </Field>
-              <Field label="Stage">
-                <select className="vl-input" value={manual.stage} onChange={e => setManual({ ...manual, stage: e.target.value })}>
-                  {['Origination','Pitch','Mandate','Preparation','Marketing','Diligence','Negotiation','Closing'].map(s => <option key={s}>{s}</option>)}
-                </select>
-              </Field>
-              <Field label="Ticket size (USD M)"><input type="number" className="vl-input" value={manual.ticket_size_usd_m} onChange={e => setManual({ ...manual, ticket_size_usd_m: e.target.value })} placeholder="180" /></Field>
+          {/* Manual compose — only for Fund-Match. Mandate-Fit takes free-form teaser. */}
+          {mode === 'fund_match' && !selectedDeal && (
+            <div className="space-y-4">
+              <div className="grid gap-3 sm:grid-cols-2">
+                <Field label="Client name">
+                  <input className="vl-input" value={manual.client_name} onChange={e => setManual({ ...manual, client_name: e.target.value })} placeholder="e.g. Saffron Retail" />
+                </Field>
+                <Field label="Sector">
+                  <input className="vl-input" value={manual.sector} onChange={e => setManual({ ...manual, sector: e.target.value })} placeholder="Consumer" />
+                </Field>
+              </div>
+
+              <div>
+                <label className="vl-label">Mandate type</label>
+                <div className="mt-1.5 grid grid-cols-2 gap-2">
+                  {TOP_TYPES.map(t => {
+                    const active = manual.deal_types.includes(t.id)
+                    return (
+                      <button
+                        type="button"
+                        key={t.id}
+                        onClick={() => toggleType(t.id)}
+                        aria-pressed={active}
+                        className={`rounded-lg border px-3 py-2 text-xs font-semibold transition ${
+                          active ? 'border-valence-blue/40 bg-valence-blue-soft text-valence-text' : 'border-valence-border bg-white text-valence-muted hover:text-valence-text'
+                        }`}
+                      >{t.label}</button>
+                    )
+                  })}
+                </div>
+              </div>
+
+              {manual.deal_types.includes('transaction') && (
+                <div className="space-y-3 rounded-xl border border-valence-blue/20 bg-valence-blue-soft/20 p-3">
+                  <div>
+                    <label className="vl-label">Sub-type</label>
+                    <div className="mt-1.5 grid grid-cols-3 gap-2">
+                      {SUBTYPES.map(s => {
+                        const active = manual.deal_subtype === s.id
+                        return (
+                          <button
+                            type="button"
+                            key={s.id}
+                            onClick={() => setManual(m => ({ ...m, deal_subtype: s.id }))}
+                            className={`rounded-lg border px-3 py-1.5 text-[11px] font-semibold transition ${
+                              active ? 'border-valence-blue/40 bg-white text-valence-text shadow-sm' : 'border-valence-border bg-white/60 text-valence-muted hover:text-valence-text'
+                            }`}
+                          >{s.label}</button>
+                        )
+                      })}
+                    </div>
+                  </div>
+
+                  {manual.deal_subtype === 'fundraise' && (
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      <Field label="Target raise (USD M)"><input type="number" className="vl-input" value={manual.target_raise_usd_m} onChange={e => setManual({ ...manual, target_raise_usd_m: e.target.value })} placeholder="80" /></Field>
+                      <Field label="Target valuation (USD M)"><input type="number" className="vl-input" value={manual.target_valuation_usd_m} onChange={e => setManual({ ...manual, target_valuation_usd_m: e.target.value })} placeholder="250" /></Field>
+                      <div className="sm:col-span-2">
+                        <Field label="Company stage"><input className="vl-input" value={manual.company_stage} onChange={e => setManual({ ...manual, company_stage: e.target.value })} placeholder="Series B · Growth · …" /></Field>
+                      </div>
+                    </div>
+                  )}
+
+                  {manual.deal_subtype === 'm_and_a' && (
+                    <div className="space-y-3">
+                      <div>
+                        <label className="vl-label">M&A side</label>
+                        <div className="mt-1.5 grid grid-cols-3 gap-2">
+                          {MA_SIDES.map(s => {
+                            const active = manual.ma_side === s.id
+                            return (
+                              <button
+                                type="button"
+                                key={s.id}
+                                onClick={() => setManual(m => ({ ...m, ma_side: s.id }))}
+                                className={`rounded-lg border px-3 py-1.5 text-[11px] font-semibold transition ${
+                                  active ? 'border-valence-blue/40 bg-white text-valence-text shadow-sm' : 'border-valence-border bg-white/60 text-valence-muted hover:text-valence-text'
+                                }`}
+                              >{s.label}</button>
+                            )
+                          })}
+                        </div>
+                      </div>
+                      <Field label="Acquisition brief">
+                        <textarea
+                          className="vl-input min-h-[100px] leading-relaxed"
+                          value={manual.acquisition_brief}
+                          onChange={e => setManual({ ...manual, acquisition_brief: e.target.value })}
+                          placeholder='e.g. "$100M topline IT services co, $5–10M EBITDA, BFSI clients, NOT Web3."'
+                        />
+                      </Field>
+                    </div>
+                  )}
+
+                  {manual.deal_subtype === 'exit' && (
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      <Field label="Target exit (USD M)"><input type="number" className="vl-input" value={manual.target_exit_usd_m} onChange={e => setManual({ ...manual, target_exit_usd_m: e.target.value })} placeholder="320" /></Field>
+                      <Field label="Target exit valuation (USD M)"><input type="number" className="vl-input" value={manual.target_exit_valuation_usd_m} onChange={e => setManual({ ...manual, target_exit_valuation_usd_m: e.target.value })} placeholder="optional" /></Field>
+                      <div className="sm:col-span-2">
+                        <Field label="Investor being exited"><input className="vl-input" value={manual.exit_investor_name} onChange={e => setManual({ ...manual, exit_investor_name: e.target.value })} placeholder="e.g. Brookfield" /></Field>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           )}
 
@@ -218,8 +367,12 @@ export default function Screener() {
           </div>
 
           <div className="pt-2 flex justify-end">
-            <button onClick={run} disabled={running} className="vl-btn-primary">
-              <Sparkles className="h-4 w-4" /> {running ? 'Screening…' : (mode === 'fund_match' ? 'Rank funds' : 'Get verdict')}
+            <button
+              onClick={run}
+              disabled={running || (mode === 'fund_match' && isAdvisoryOnly)}
+              className="vl-btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <Sparkles className="h-4 w-4" /> {running ? 'Screening…' : runLabel}
             </button>
           </div>
         </section>
@@ -227,10 +380,12 @@ export default function Screener() {
         {/* Output */}
         <section className="vl-card p-5 space-y-3">
           <p className="vl-eyebrow-ink">Output</p>
-          {!output ? (
+          {mode === 'fund_match' && isAdvisoryOnly ? (
+            <AdvisoryNotApplicable />
+          ) : !output ? (
             <EmptyState icon={Sparkles} title="No screener run yet" description="Fill the inputs and click the button to run the screener." />
           ) : mode === 'fund_match' ? (
-            <FundMatchOutput output={output} pingedFundIds={pingedFundIds} onShortlist={shortlistMatch} canShortlist={Boolean(selectedDealId)} />
+            <FundMatchOutput output={output} pingedFundIds={pingedFundIds} onShortlist={shortlistMatch} canShortlist={Boolean(selectedDealId)} audience={audience} />
           ) : (
             <MandateFitOutput output={output} onConvert={convertToOrigination} />
           )}
@@ -249,10 +404,12 @@ function Field({ label, children }) {
   )
 }
 
-function FundMatchOutput({ output, onShortlist, pingedFundIds, canShortlist }) {
+function FundMatchOutput({ output, onShortlist, pingedFundIds, canShortlist, audience }) {
   const matches = output?.matches || []
+  const heading = audience?.plural ? `Top ${audience.plural}` : 'Top matches'
   return (
     <div className="space-y-3">
+      <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-valence-muted">{heading}</p>
       {output?.reasoning && <p className="text-xs italic text-valence-muted leading-relaxed">{output.reasoning}</p>}
       {matches.length === 0 ? (
         <p className="text-sm text-valence-muted">No matches returned.</p>
@@ -307,8 +464,43 @@ function MandateFitOutput({ output, onConvert }) {
   )
 }
 
+function AdvisoryNotApplicable() {
+  return (
+    <div className="rounded-xl border border-valence-warning/30 bg-valence-warning/5 p-5">
+      <div className="flex items-start gap-3">
+        <Lock className="h-4 w-4 mt-0.5 text-valence-warning shrink-0" />
+        <div>
+          <p className="text-sm font-semibold text-valence-text">Not applicable for advisory mandates</p>
+          <p className="mt-1 text-[12px] leading-relaxed text-valence-muted">
+            Advisory work — geography expansion, vertical entry, distribution — isn't fund-matchable. There's no investor universe to rank.
+            Convert the engagement into a Transaction sub-type if it later moves to fundraising or M&A.
+          </p>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 const DEMO_DEALS = [
-  { id: 'dl1', client_name: 'Saffron Retail',   sector: 'Consumer',   side: 'Sell-side', stage: 'Marketing', ticket_size_usd_m: 160, notes: 'Family-owned premium consumer brand exploring partial sale.' },
-  { id: 'dl2', client_name: 'Quantum Edge',     sector: 'Fintech',    side: 'Sell-side', stage: 'Marketing', ticket_size_usd_m: 250, notes: 'Pre-IPO cap raise. Anchor book being built.' },
-  { id: 'dl3', client_name: 'Solstice Solar',   sector: 'Renewables', side: 'Sell-side', stage: 'Mandate',   ticket_size_usd_m:  90, notes: 'Series C — operating solar portfolio with PPAs in place.' }
+  {
+    id: 'dl1', client_name: 'Saffron Retail', sector: 'Consumer',
+    deal_types: ['transaction'], deal_subtype: 'm_and_a', ma_side: 'sell',
+    acquisition_brief: null,
+    notes: 'Family-owned premium consumer brand exploring partial sale.',
+    stage: 'Pitching'
+  },
+  {
+    id: 'dl2', client_name: 'Quantum Edge', sector: 'Fintech',
+    deal_types: ['transaction'], deal_subtype: 'fundraise',
+    target_raise_usd_m: 250, target_valuation_usd_m: 1200, company_stage: 'Pre-IPO',
+    notes: 'Pre-IPO cap raise. Anchor book being built.',
+    stage: 'Mandate'
+  },
+  {
+    id: 'dl3', client_name: 'Solstice Solar', sector: 'Renewables',
+    deal_types: ['transaction'], deal_subtype: 'fundraise',
+    target_raise_usd_m: 90, target_valuation_usd_m: 320, company_stage: 'Series C',
+    notes: 'Operating solar portfolio with PPAs in place.',
+    stage: 'Mandate'
+  }
 ]
