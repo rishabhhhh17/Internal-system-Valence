@@ -4,6 +4,8 @@
 //      attendee → People CRM matching, and demo data.
 
 import { startOfWeek, endOfWeek, startOfDay, endOfDay, addMinutes, addDays, isWithinInterval, max as maxDate, min as minDate, isBefore } from 'date-fns'
+import { listEventsBetween, GoogleAuthExpired } from './google.js'
+import { supabase, isSupabaseConfigured } from './supabase.js'
 
 // ============================================================================
 // Legacy: Google "Add to calendar" deep-link builder
@@ -126,10 +128,11 @@ export function colorClassesFor(name) {
 
 // People CRM crosswalk — when an event has an attendee email matching a
 // person row (case-insensitive), surface the persona alongside the event.
+// The People table column is `email` (not `email_primary`).
 export function personByEmail(people, email) {
   if (!email) return null
   const needle = email.toLowerCase().trim()
-  return (people || []).find(p => (p.email_primary || '').toLowerCase().trim() === needle) || null
+  return (people || []).find(p => (p.email || '').toLowerCase().trim() === needle) || null
 }
 
 export function attendeesWithPersonas(event, people) {
@@ -233,6 +236,67 @@ export const DEMO_CALENDAR_EVENTS = [
   ev('cal-pn', 4,  9,  0,  60, 'Friday huddle — full team',            []),
   ev('cal-pn', 4, 15,  0,  60, 'HoV — week wrap',                      [])
 ]
+
+// ============================================================================
+// Phase 3.4 — Real Google Calendar sync
+// ============================================================================
+// Pull events from a single team-member's Google Calendar between [from, to)
+// and upsert them into our `calendar_events` table keyed by
+// (calendar_id, google_event_id). Idempotent — calling twice produces the
+// same set of rows. Throws GoogleAuthExpired when the provider token is
+// missing or expired so the caller can prompt a reconnect.
+//
+// `cal` must be a row from team_calendars with a non-empty
+// `google_calendar_id` (an email address for primary calendars or a
+// `c_*@group.calendar.google.com` UID for shared / secondary calendars).
+//
+// Returns { upserted, removed } counts.
+export async function syncCalendarFromGoogle(cal, { from, to }) {
+  if (!cal?.google_calendar_id) throw new Error('Calendar has no google_calendar_id')
+  if (!isSupabaseConfigured)    throw new Error('Supabase is not configured')
+
+  const events = await listEventsBetween(from, to, cal.google_calendar_id)
+
+  // Cancelled events come back with status === 'cancelled'; we drop them.
+  const live = events.filter(e => !e.allDay && e.start && e.end && e.raw?.status !== 'cancelled')
+
+  const rows = live.map(e => ({
+    calendar_id:     cal.id,
+    google_event_id: e.id,
+    title:           e.summary || '(no title)',
+    description:     e.description || null,
+    location:        e.location || null,
+    starts_at:       e.start.toISOString(),
+    ends_at:         e.end.toISOString(),
+    attendees:       e.attendees || []
+  }))
+
+  if (rows.length === 0) return { upserted: 0, removed: 0 }
+
+  const { error } = await supabase
+    .from('calendar_events')
+    .upsert(rows, { onConflict: 'calendar_id,google_event_id' })
+  if (error) throw error
+  return { upserted: rows.length, removed: 0 }
+}
+
+// Sync every team_calendar row that has a google_calendar_id set, returning
+// per-calendar results so the caller can surface partial success.
+export async function syncAllGoogleCalendars(calendars, { from, to }) {
+  const results = []
+  for (const cal of calendars) {
+    if (!cal.google_calendar_id) continue
+    try {
+      const r = await syncCalendarFromGoogle(cal, { from, to })
+      results.push({ calendar: cal, ...r, ok: true })
+    } catch (err) {
+      results.push({ calendar: cal, ok: false, error: err })
+      // Bail early on auth expiry — every subsequent call would fail too.
+      if (err instanceof GoogleAuthExpired) break
+    }
+  }
+  return results
+}
 
 // Re-export the date-fns helpers other modules might want.
 export { startOfWeek, endOfWeek, startOfDay, endOfDay, addDays, addMinutes, isBefore, maxDate, minDate, isWithinInterval }

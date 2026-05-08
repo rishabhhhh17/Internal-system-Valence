@@ -1362,9 +1362,11 @@ create table if not exists public.team_calendars (
   is_active           boolean not null default true,
   lead_owner          text,
   created_by          uuid default auth.uid(),
+  updated_by          uuid,
   created_at          timestamptz not null default now(),
   updated_at          timestamptz not null default now()
 );
+alter table public.team_calendars add column if not exists updated_by uuid;
 
 create index if not exists team_calendars_active_idx on public.team_calendars (is_active);
 create index if not exists team_calendars_owner_email_idx on public.team_calendars (lower(owner_email));
@@ -1381,10 +1383,12 @@ create table if not exists public.calendar_events (
   deal_id      uuid references public.deals(id) on delete set null,
   meeting_kind text,
   created_by   uuid default auth.uid(),
+  updated_by   uuid,
   created_at   timestamptz not null default now(),
   updated_at   timestamptz not null default now(),
   constraint calendar_events_time_chk check (ends_at > starts_at)
 );
+alter table public.calendar_events add column if not exists updated_by uuid;
 
 create index if not exists calendar_events_calendar_id_idx on public.calendar_events (calendar_id);
 create index if not exists calendar_events_starts_at_idx   on public.calendar_events (starts_at);
@@ -1434,3 +1438,26 @@ create trigger team_calendars_audit_update before update on public.team_calendar
 drop trigger if exists calendar_events_audit_update on public.calendar_events;
 create trigger calendar_events_audit_update before update on public.calendar_events
   for each row execute function public.set_audit_update();
+
+-- ============================================================================
+-- Phase 3.4 — Google Calendar sync columns
+-- ============================================================================
+-- Adds `google_event_id` to calendar_events so we can upsert (insert-or-update)
+-- on every Google Calendar sync without duplicating rows.
+--
+-- Apply AFTER phase-3-calendar.sql (and the fixup if you ran it). Idempotent.
+-- ============================================================================
+
+alter table public.calendar_events
+  add column if not exists google_event_id text;
+
+-- Unique per (calendar_id, google_event_id) — but only when google_event_id
+-- is non-null, so manually-created (app-local) events stay unconstrained.
+do $$ begin
+  create unique index calendar_events_google_uniq
+    on public.calendar_events (calendar_id, google_event_id)
+    where google_event_id is not null;
+exception when duplicate_table then null; end $$;
+
+create index if not exists calendar_events_google_event_id_idx
+  on public.calendar_events (google_event_id) where google_event_id is not null;

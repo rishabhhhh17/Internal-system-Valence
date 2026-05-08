@@ -22,14 +22,14 @@ export class GoogleAuthExpired extends Error {
   constructor() { super('Google session expired. Please reconnect.') }
 }
 
-export async function signInWithGoogle() {
+export async function signInWithGoogle({ redirectTo } = {}) {
   if (!isSupabaseConfigured) throw new Error('Supabase is not configured.')
   const { error } = await supabase.auth.signInWithOAuth({
     provider: 'google',
     options: {
       scopes: GOOGLE_SCOPES,
       queryParams: { access_type: 'offline', prompt: 'consent' },
-      redirectTo: window.location.origin
+      redirectTo: redirectTo || window.location.origin
     }
   })
   if (error) throw error

@@ -1,14 +1,17 @@
 import { useEffect, useMemo, useState } from 'react'
 import { format, addDays, addWeeks, addMonths, startOfMonth, endOfMonth, isSameDay, isSameMonth, differenceInMinutes, isAfter } from 'date-fns'
-import { CalendarDays, ChevronLeft, ChevronRight, Plus, Users, Clock, MapPin, Sparkles, ExternalLink, Globe, X } from 'lucide-react'
+import { CalendarDays, ChevronLeft, ChevronRight, Plus, Users, Clock, MapPin, Sparkles, ExternalLink, Globe, X, RefreshCw, LogOut, AlertTriangle } from 'lucide-react'
 import { supabase, isSupabaseConfigured } from '../lib/supabase.js'
 import {
   weekStart, weekEnd, addMinutes,
-  DEFAULT_WORKING_HOURS,
+  DEFAULT_WORKING_HOURS, CALENDAR_COLOR_PALETTE,
   findCommonFreeSlots, groupBusyByCalendar, layoutDayColumn, colorClassesFor,
   attendeesWithPersonas,
+  syncAllGoogleCalendars,
   DEMO_TEAM_CALENDARS, DEMO_CALENDAR_EVENTS
 } from '../lib/calendar.js'
+import { signInWithGoogle, signOut, GoogleAuthExpired } from '../lib/google.js'
+import { useAuth } from '../hooks/useAuth.js'
 import ConfigBanner from '../components/ConfigBanner.jsx'
 import EmptyState from '../components/EmptyState.jsx'
 import Modal from '../components/Modal.jsx'
@@ -19,6 +22,7 @@ const DURATIONS = [15, 30, 45, 60, 90, 120]
 
 export default function Calendar() {
   const toast = useToast()
+  const { googleConnected, profile, refresh: refreshAuth } = useAuth()
   const [view, setView]   = useState('Week')
   const [anchor, setAnchor] = useState(new Date())
   const [calendars, setCalendars] = useState([])
@@ -35,6 +39,10 @@ export default function Calendar() {
   const [slotDuration, setSlotDuration]   = useState(30)
   const [slotResults, setSlotResults]     = useState(null)
 
+  // Google sync state
+  const [syncing, setSyncing] = useState(false)
+  const [showAddCal, setShowAddCal] = useState(false)
+
   useEffect(() => { load() }, [])
 
   async function load() {
@@ -46,7 +54,7 @@ export default function Calendar() {
       const [c, e, p] = await Promise.all([
         supabase.from('team_calendars').select('*').order('name'),
         supabase.from('calendar_events').select('*').order('starts_at'),
-        supabase.from('people').select('id, full_name, email_primary, role, company, avatar_url')
+        supabase.from('people').select('id, full_name, email, role, company')
       ])
       const cs = c.data?.length ? c.data : DEMO_TEAM_CALENDARS
       const es = e.data?.length ? e.data : DEMO_CALENDAR_EVENTS
@@ -99,6 +107,70 @@ export default function Calendar() {
     setSlotResults({ slots: slots.slice(0, 12) })
   }
 
+  async function connectGoogle() {
+    try {
+      await signInWithGoogle({ redirectTo: `${window.location.origin}/calendar` })
+    } catch (err) {
+      toast.error(err?.message || 'Could not start Google sign-in')
+    }
+  }
+
+  async function disconnectGoogle() {
+    try { await signOut(); await refreshAuth(); toast.success('Signed out of Google') }
+    catch (err) { toast.error(err?.message || 'Sign out failed') }
+  }
+
+  async function syncFromGoogle() {
+    if (!googleConnected) {
+      toast.error('Connect a Google account first.')
+      return
+    }
+    const eligible = calendars.filter(c => c.google_calendar_id)
+    if (eligible.length === 0) {
+      toast.info('No calendars have a Google Calendar ID yet. Add one with "Add Google calendar".')
+      return
+    }
+    setSyncing(true)
+    try {
+      const from = new Date(); from.setDate(from.getDate() - 7)
+      const to   = new Date(); to.setDate(to.getDate()   + 30)
+      const results = await syncAllGoogleCalendars(eligible, { from, to })
+      const ok    = results.filter(r => r.ok)
+      const fail  = results.filter(r => !r.ok)
+      const expired = fail.find(f => f.error instanceof GoogleAuthExpired)
+      if (expired) {
+        toast.error('Google session expired — click Connect to reauthorise.')
+        await refreshAuth()
+      } else if (fail.length > 0) {
+        toast.error(`Synced ${ok.length} calendars · ${fail.length} failed (${fail[0].error?.message || 'unknown error'})`)
+      } else {
+        const total = ok.reduce((sum, r) => sum + r.upserted, 0)
+        toast.success(`Synced ${total} events from ${ok.length} Google calendar${ok.length === 1 ? '' : 's'}.`)
+      }
+      await load()
+    } catch (err) {
+      toast.error(err?.message || 'Google sync failed')
+    } finally {
+      setSyncing(false)
+    }
+  }
+
+  async function addGoogleCalendar({ name, owner_email, google_calendar_id, color }) {
+    const payload = { name: name.trim(), owner_email: owner_email.trim() || null, google_calendar_id: google_calendar_id.trim(), color, is_active: true }
+    if (!isSupabaseConfigured) {
+      const optimistic = { id: `local-${Date.now()}`, ...payload }
+      setCalendars(prev => [optimistic, ...prev])
+      setShowAddCal(false)
+      toast.success(`${payload.name} added (demo mode — not persisted).`)
+      return
+    }
+    const { data, error } = await supabase.from('team_calendars').insert(payload).select().single()
+    if (error) return toast.error(error.message)
+    setCalendars(prev => [...prev, data])
+    setShowAddCal(false)
+    toast.success(`${payload.name} added — click Sync to pull events.`)
+  }
+
   async function createEvent({ calendar_id, title, starts_at, ends_at, attendees, location, description }) {
     const payload = { calendar_id, title, starts_at, ends_at, location: location || null, attendees: attendees || [], description: description || null }
     if (!isSupabaseConfigured) {
@@ -142,9 +214,23 @@ export default function Calendar() {
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <button onClick={() => toast.info('Connect Google — coming next phase. Per-user OAuth + manual shared calendar IDs.')} className="vl-btn-secondary text-xs">
-            <Globe className="h-3.5 w-3.5" /> Connect Google
-          </button>
+          {googleConnected ? (
+            <>
+              <button onClick={syncFromGoogle} disabled={syncing} className="vl-btn-secondary text-xs disabled:opacity-50 disabled:cursor-not-allowed">
+                <RefreshCw className={`h-3.5 w-3.5 ${syncing ? 'animate-spin' : ''}`} /> {syncing ? 'Syncing…' : 'Sync from Google'}
+              </button>
+              <button onClick={() => setShowAddCal(true)} className="vl-btn-secondary text-xs">
+                <Plus className="h-3.5 w-3.5" /> Add Google calendar
+              </button>
+              <button onClick={disconnectGoogle} className="vl-btn-ghost text-xs" title={profile?.email ? `Signed in as ${profile.email}` : 'Sign out'}>
+                <LogOut className="h-3.5 w-3.5" /> Sign out
+              </button>
+            </>
+          ) : (
+            <button onClick={connectGoogle} className="vl-btn-primary text-xs" disabled={!isSupabaseConfigured}>
+              <Globe className="h-3.5 w-3.5" /> Connect Google
+            </button>
+          )}
           <div className="inline-flex items-center rounded-full border border-valence-border bg-white p-0.5">
             {VIEWS.map(v => (
               <button key={v} onClick={() => setView(v)} className={`rounded-full px-3 py-1 text-[11px] font-semibold transition ${view === v ? 'bg-valence-ink text-white' : 'text-valence-muted hover:text-valence-text'}`}>{v}</button>
@@ -152,6 +238,12 @@ export default function Calendar() {
           </div>
         </div>
       </div>
+
+      {googleConnected && profile?.email && (
+        <div className="rounded-lg border border-valence-success/30 bg-valence-success/5 px-4 py-2 text-[12px] text-valence-success">
+          Signed in as <b>{profile.email}</b>. Sync pulls events from each calendar's Google Calendar ID — make sure each team-member has shared their calendar with this account.
+        </div>
+      )}
 
       <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
         {/* Left: calendar grid */}
@@ -206,6 +298,11 @@ export default function Calendar() {
                       <input type="checkbox" className="h-3.5 w-3.5 accent-valence-blue" checked={checked} onChange={() => toggleHidden(c.id)} disabled={!c.is_active} />
                       <span className={`h-2.5 w-2.5 rounded-full ${cls}`} />
                       <span className="text-sm text-valence-text">{c.name}</span>
+                      {c.google_calendar_id && (
+                        <span className="inline-flex items-center gap-0.5 rounded-full border border-valence-blue/30 bg-valence-blue-soft px-1.5 py-0 text-[9px] font-semibold text-valence-blue" title={`Synced from ${c.google_calendar_id}`}>
+                          <Globe className="h-2.5 w-2.5" /> Google
+                        </span>
+                      )}
                     </label>
                     {!c.is_active && <span className="text-[10px] text-valence-subtle">paused</span>}
                   </li>
@@ -252,14 +349,19 @@ export default function Calendar() {
                   <p className="text-[11px] text-valence-muted">No common windows in working hours. Try a shorter duration or fewer people.</p>
                 ) : (
                   <ul className="space-y-1 max-h-56 overflow-y-auto">
-                    {slotResults.slots.map((s, i) => (
-                      <li key={i} className="flex items-center justify-between gap-2 rounded-md bg-white border border-valence-border px-2 py-1 text-[11px]">
-                        <span className="text-valence-text font-medium">{format(s.start, 'EEE LLL d · HH:mm')}–{format(s.end, 'HH:mm')}</span>
-                        <button onClick={() => setComposeAt({ date: s.start, calendar_id: slotAttendees[0], duration: slotDuration, attendees_pre: slotAttendees })} className="vl-btn-ghost text-[10px]">
-                          <Plus className="h-3 w-3" /> Book
-                        </button>
-                      </li>
-                    ))}
+                    {slotResults.slots.map((s, i) => {
+                      const attendeeEmails = slotAttendees
+                        .map(cid => calendarsById.get(cid)?.owner_email)
+                        .filter(Boolean)
+                      return (
+                        <li key={i} className="flex items-center justify-between gap-2 rounded-md bg-white border border-valence-border px-2 py-1 text-[11px]">
+                          <span className="text-valence-text font-medium">{format(s.start, 'EEE LLL d · HH:mm')}–{format(s.end, 'HH:mm')}</span>
+                          <button onClick={() => setComposeAt({ date: s.start, calendar_id: slotAttendees[0], duration: slotDuration, attendee_emails: attendeeEmails })} className="vl-btn-ghost text-[10px]">
+                            <Plus className="h-3 w-3" /> Book
+                          </button>
+                        </li>
+                      )
+                    })}
                   </ul>
                 )}
               </div>
@@ -294,6 +396,17 @@ export default function Calendar() {
             onCancel={() => setComposeAt(null)}
           />
         )}
+      </Modal>
+
+      {/* Add Google calendar modal */}
+      <Modal
+        open={showAddCal}
+        onClose={() => setShowAddCal(false)}
+        title="Add a Google calendar"
+        description="Paste the Google Calendar ID — an email for primary calendars or a c_…@group.calendar.google.com UID for shared calendars."
+        size="md"
+      >
+        <AddGoogleCalendarForm onSubmit={addGoogleCalendar} onCancel={() => setShowAddCal(false)} />
       </Modal>
     </div>
   )
@@ -528,13 +641,14 @@ function EventDetail({ event, calendar, people, onClose }) {
 function NewEventForm({ initial, calendars, onSubmit, onCancel }) {
   const start = initial.date instanceof Date ? initial.date : new Date()
   const duration = initial.duration || 30
+  const preEmails = Array.isArray(initial.attendee_emails) ? initial.attendee_emails.join(', ') : ''
   const [form, setForm] = useState({
     calendar_id: initial.calendar_id || calendars[0]?.id || '',
     title: '',
     starts_at: toLocalInput(start),
     ends_at:   toLocalInput(addMinutes(start, duration)),
     location: '',
-    attendees: '',
+    attendees: preEmails,
     description: ''
   })
   const set = (k, v) => setForm(s => ({ ...s, [k]: v }))
@@ -606,3 +720,64 @@ function toLocalInput(d) {
 function startOfDay(d) { const x = new Date(d); x.setHours(0, 0, 0, 0); return x }
 function endOfDay(d)   { const x = new Date(d); x.setHours(23, 59, 59, 999); return x }
 function sameDayLocal(a, b) { return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate() }
+
+// ============================================================================
+// Add Google calendar form
+// ============================================================================
+function AddGoogleCalendarForm({ onSubmit, onCancel }) {
+  const [form, setForm] = useState({ name: '', owner_email: '', google_calendar_id: '', color: 'blue' })
+  const set = (k, v) => setForm(s => ({ ...s, [k]: v }))
+
+  function handleSubmit(e) {
+    e.preventDefault()
+    if (!form.name.trim() || !form.google_calendar_id.trim()) return
+    onSubmit(form)
+  }
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-4">
+      <div className="rounded-lg border border-valence-warning/30 bg-valence-warning/5 px-3 py-2 text-[12px] text-valence-warning flex items-start gap-2">
+        <AlertTriangle className="h-3.5 w-3.5 mt-0.5 shrink-0" />
+        <span>The owner must <b>share their calendar</b> with the signed-in account (Google Calendar → Settings → Share with specific people → "See all event details"). Without this, the API returns 403.</span>
+      </div>
+
+      <div>
+        <label className="vl-label">Display name</label>
+        <input className="vl-input" value={form.name} onChange={e => set('name', e.target.value)} placeholder="e.g. Vikram Patel" required autoFocus />
+      </div>
+
+      <div>
+        <label className="vl-label">Owner email <span className="text-valence-subtle">(for slot finder + UI)</span></label>
+        <input type="email" className="vl-input" value={form.owner_email} onChange={e => set('owner_email', e.target.value)} placeholder="vikram@valencegrowth.com" />
+      </div>
+
+      <div>
+        <label className="vl-label">Google Calendar ID</label>
+        <input className="vl-input font-mono text-[12px]" value={form.google_calendar_id} onChange={e => set('google_calendar_id', e.target.value)} placeholder="vikram@valencegrowth.com  or  c_abc123@group.calendar.google.com" required />
+        <p className="mt-1 text-[11px] text-valence-muted">
+          For a primary calendar, this is the user's email. For a shared / secondary calendar, it's the long ID ending in <code>@group.calendar.google.com</code> (Google Calendar → Settings → the calendar → "Integrate calendar").
+        </p>
+      </div>
+
+      <div>
+        <label className="vl-label">Colour</label>
+        <div className="mt-1.5 flex flex-wrap gap-2">
+          {CALENDAR_COLOR_PALETTE.map(c => (
+            <button
+              type="button"
+              key={c}
+              onClick={() => set('color', c)}
+              className={`h-7 w-7 rounded-full border-2 transition ${colorClassesFor(c).dot} ${form.color === c ? 'ring-2 ring-offset-2 ring-valence-blue' : 'opacity-70 hover:opacity-100'}`}
+              aria-label={c}
+            />
+          ))}
+        </div>
+      </div>
+
+      <div className="flex items-center justify-end gap-2 pt-2">
+        <button type="button" onClick={onCancel} className="vl-btn-secondary">Cancel</button>
+        <button type="submit" className="vl-btn-primary"><Plus className="h-4 w-4" /> Add calendar</button>
+      </div>
+    </form>
+  )
+}

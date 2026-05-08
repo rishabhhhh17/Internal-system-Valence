@@ -22,9 +22,12 @@ create table if not exists public.team_calendars (
   is_active           boolean not null default true,
   lead_owner          text,
   created_by          uuid default auth.uid(),
+  updated_by          uuid,
   created_at          timestamptz not null default now(),
   updated_at          timestamptz not null default now()
 );
+-- For repeat applies where the table predates this column.
+alter table public.team_calendars add column if not exists updated_by uuid;
 
 create index if not exists team_calendars_active_idx on public.team_calendars (is_active);
 create index if not exists team_calendars_owner_email_idx on public.team_calendars (lower(owner_email));
@@ -41,10 +44,13 @@ create table if not exists public.calendar_events (
   deal_id      uuid references public.deals(id) on delete set null,
   meeting_kind text,
   created_by   uuid default auth.uid(),
+  updated_by   uuid,
   created_at   timestamptz not null default now(),
   updated_at   timestamptz not null default now(),
   constraint calendar_events_time_chk check (ends_at > starts_at)
 );
+-- For repeat applies where the table predates this column.
+alter table public.calendar_events add column if not exists updated_by uuid;
 
 create index if not exists calendar_events_calendar_id_idx on public.calendar_events (calendar_id);
 create index if not exists calendar_events_starts_at_idx   on public.calendar_events (starts_at);
