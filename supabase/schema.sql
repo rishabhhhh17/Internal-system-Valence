@@ -1672,3 +1672,41 @@ select
 where not exists (
   select 1 from public.fit_criteria where is_default = true
 );
+
+-- ============================================================================
+-- Phase 3.8 — Demo-mode RLS refresh
+-- ============================================================================
+-- Mirrors supabase/phase-3.8-demo-rls-refresh.sql — re-applies
+-- demo_anon_select + demo_anon_write to every operational table so demo-mode
+-- writes (memos on /knowledge/shared etc.) work even after hardening.sql is
+-- re-run. Idempotent. Drop these policies + flip the App.jsx auth gate to
+-- lock down for production.
+-- ============================================================================
+do $$
+declare
+  t text;
+  tables text[] := array[
+    'deals','activities','meetings','tasks','contacts','documents','comps',
+    'deal_checklist','deal_team','deal_comments','deal_files',
+    'deal_shares','deal_share_access',
+    'knowledge_files','knowledge_chunks','share_access_logs',
+    'daily_notes',
+    'people','interactions','funds','fund_contacts','deal_fund_pings',
+    'screener_runs','screener_criteria','intake_submissions',
+    'meeting_intelligence',
+    'kb_folders','kb_notes','kb_mentions',
+    'team_calendars','calendar_events',
+    'fit_criteria','fit_assessments'
+  ];
+begin
+  foreach t in array tables loop
+    if not exists (
+      select 1 from pg_tables where schemaname = 'public' and tablename = t
+    ) then continue; end if;
+    execute format('alter table public.%I enable row level security', t);
+    execute format('drop policy if exists demo_anon_select on public.%I', t);
+    execute format('create policy demo_anon_select on public.%I for select to anon using (true)', t);
+    execute format('drop policy if exists demo_anon_write on public.%I', t);
+    execute format('create policy demo_anon_write on public.%I for all to anon using (true) with check (true)', t);
+  end loop;
+end $$;

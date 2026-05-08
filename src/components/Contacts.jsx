@@ -5,6 +5,7 @@ import { logActivity } from '../lib/activity.js'
 import { useToast } from './Toast.jsx'
 import { useConfirm } from './ConfirmDialog.jsx'
 import WikilinkTextarea from './WikilinkTextarea.jsx'
+import WikilinkText from './WikilinkText.jsx'
 
 const ROLES = ['Founder / CEO','CFO','Fund Partner','Investor','Legal Counsel','Co-advisor','Strategic Buyer','Board Member','Observer','Other']
 
@@ -92,7 +93,7 @@ export default function Contacts({ dealId, onOpenComposer }) {
                     {c.email   && <a href={`mailto:${c.email}`} className="inline-flex items-center gap-1 hover:text-valence-blue"><Mail className="h-3 w-3" />{c.email}</a>}
                     {c.phone   && <span className="inline-flex items-center gap-1"><Phone className="h-3 w-3" />{c.phone}</span>}
                   </div>
-                  {c.notes && <p className="mt-1.5 text-[11px] leading-relaxed text-valence-muted">{c.notes}</p>}
+                  {c.notes && <p className="mt-1.5 text-[11px] leading-relaxed text-valence-muted"><WikilinkText>{c.notes}</WikilinkText></p>}
                 </div>
                 <div className="flex items-center gap-1">
                   <button onClick={() => onOpenComposer?.(c)} className="vl-btn-ghost" aria-label="Draft email">

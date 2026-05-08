@@ -7,6 +7,7 @@ import { FUND_TYPES, WARMTH_LEVELS, warmthTone, fundTypeLabel } from '../lib/fun
 import { DEMO_PEOPLE } from '../lib/people.js'
 import EntityMentions from './EntityMentions.jsx'
 import WikilinkTextarea from './WikilinkTextarea.jsx'
+import WikilinkText from './WikilinkText.jsx'
 
 const TABS = [
   { id: 'overview', label: 'Overview' },
@@ -273,7 +274,7 @@ function ContactsTab({ fundId, contacts, setContacts }) {
                 {c.email && <a href={`mailto:${c.email}`} className="inline-flex items-center gap-1 hover:text-valence-blue"><Mail className="h-3 w-3" /> {c.email}</a>}
                 {c.phone && <span className="inline-flex items-center gap-1"><Phone className="h-3 w-3" /> {c.phone}</span>}
               </div>
-              {c.notes && <p className="mt-1 text-[11px] text-valence-muted leading-relaxed">{c.notes}</p>}
+              {c.notes && <p className="mt-1 text-[11px] text-valence-muted leading-relaxed"><WikilinkText>{c.notes}</WikilinkText></p>}
             </li>
           ))}
         </ul>

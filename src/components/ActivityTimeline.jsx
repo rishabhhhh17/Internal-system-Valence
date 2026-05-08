@@ -115,7 +115,7 @@ export default function ActivityTimeline({ dealId }) {
                     {item.meta && <span className="rounded-full bg-white border border-valence-border px-1.5 py-0 text-[10px] font-semibold text-valence-muted">{item.meta}</span>}
                     <span className="text-valence-subtle font-normal normal-case tracking-normal">· {formatDistanceToNow(new Date(item.created_at), { addSuffix: true })}</span>
                   </div>
-                  {item.body && <p className="mt-1 text-sm text-valence-text leading-relaxed">{item.body}</p>}
+                  {item.body && <p className="mt-1 text-sm text-valence-text leading-relaxed"><WikilinkText>{item.body}</WikilinkText></p>}
                   <p className="mt-1 text-[10px] text-valence-subtle">{format(new Date(item.created_at), 'd MMM yyyy · HH:mm')}</p>
                 </div>
               </li>

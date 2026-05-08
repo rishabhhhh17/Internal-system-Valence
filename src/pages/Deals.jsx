@@ -19,6 +19,7 @@ import DealKanban from '../components/DealKanban.jsx'
 import FileVault from '../components/FileVault.jsx'
 import Contacts from '../components/Contacts.jsx'
 import WikilinkTextarea from '../components/WikilinkTextarea.jsx'
+import WikilinkText from '../components/WikilinkText.jsx'
 import ActivityTimeline from '../components/ActivityTimeline.jsx'
 import DealBrief from '../components/DealBrief.jsx'
 import EmailComposer from '../components/EmailComposer.jsx'
@@ -544,7 +545,7 @@ function DealOverview({ deal }) {
       <div>
         <p className="vl-label">Notes</p>
         <p className="whitespace-pre-wrap rounded-lg border border-valence-border bg-valence-surface px-4 py-3 text-sm leading-relaxed text-valence-text">
-          {deal.notes || <span className="text-valence-subtle">No notes yet.</span>}
+          {deal.notes ? <WikilinkText>{deal.notes}</WikilinkText> : <span className="text-valence-subtle">No notes yet.</span>}
         </p>
       </div>
     </div>

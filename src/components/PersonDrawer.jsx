@@ -6,6 +6,7 @@ import { TAG_SUGGESTIONS } from '../lib/people.js'
 import { Link } from 'react-router-dom'
 import EntityMentions from './EntityMentions.jsx'
 import WikilinkTextarea from './WikilinkTextarea.jsx'
+import WikilinkText from './WikilinkText.jsx'
 
 const TABS = [
   { id: 'overview',    label: 'Overview' },
@@ -169,7 +170,7 @@ export default function PersonDrawer({ open, onClose, existing, onSubmit }) {
             <div>
               <p className="text-sm font-semibold text-valence-text">{i.type?.replace(/_/g, ' ') || 'Interaction'}</p>
               <p className="text-[11px] text-valence-muted">{i.outcome?.replace(/_/g, ' ')} · {i.created_at?.slice(0, 10)}</p>
-              {i.notes && <p className="mt-1 text-[12px] text-valence-muted leading-relaxed line-clamp-2">{i.notes}</p>}
+              {i.notes && <p className="mt-1 text-[12px] text-valence-muted leading-relaxed line-clamp-2"><WikilinkText>{i.notes}</WikilinkText></p>}
             </div>
           )}
         />
