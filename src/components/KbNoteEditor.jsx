@@ -3,6 +3,7 @@ import { Bold, Italic, List, Link2, Loader2, Check, AtSign, Hash, Mic, Sparkles,
 import { formatDistanceToNow } from 'date-fns'
 import { supabase, isSupabaseConfigured } from '../lib/supabase.js'
 import { parseTags, syncMentions, renderMentionToken, embedNote, fetchBacklinks } from '../lib/kb.js'
+import { caretCoordinates } from '../lib/caretCoordinates.js'
 import { uploadVoiceMemo, transcribeAndSummarise } from '../lib/voiceMemo.js'
 import { isGeminiConfigured } from '../lib/gemini.js'
 import { useToast } from './Toast.jsx'
@@ -31,6 +32,7 @@ export default function KbNoteEditor({ note, folder, onSaved }) {
   const [linkOpen, setLinkOpen]     = useState(false)
   const [linkQuery, setLinkQuery]   = useState('')
   const [linkAnchor, setLinkAnchor] = useState(0)
+  const [pickerPos, setPickerPos]   = useState({ top: 0, left: 0, flipUp: false })
   const [entities, setEntities]     = useState({ people: [], funds: [], mandates: [], notes: [] })
 
   // Backlinks — other notes that wikilink to this one.
@@ -264,20 +266,26 @@ export default function KbNoteEditor({ note, folder, onSaved }) {
   }
 
   // Listen for [[ to trigger autocomplete and # for tag hint surfaces.
+  // Picker anchors to the measured caret position via caretCoordinates so it
+  // appears under the line being typed instead of at the textarea's bottom.
   function onBodyChange(e) {
     const value = e.target.value
     setBody(value)
 
     const ta = e.target
     const cursor = ta.selectionStart
-    // Look back for an unclosed [[ in the current line.
     const before = value.slice(0, cursor)
     const lastOpen = before.lastIndexOf('[[')
     const lastClose = before.lastIndexOf(']]')
     if (lastOpen > lastClose) {
       const inner = before.slice(lastOpen + 2)
-      // No newline means we're still inside the link.
       if (!inner.includes('\n')) {
+        const coords = caretCoordinates(ta, lastOpen)
+        const top  = coords.top  + coords.lineHeight - ta.scrollTop + 4
+        const left = coords.left - ta.scrollLeft
+        const taRect = ta.getBoundingClientRect()
+        const flipUp = (taRect.top + top + 280) > (window.innerHeight - 12)
+        setPickerPos({ top: flipUp ? coords.top - ta.scrollTop - 8 : top, left, flipUp })
         setLinkOpen(true)
         setLinkQuery(inner)
         setLinkAnchor(lastOpen)
@@ -375,7 +383,10 @@ export default function KbNoteEditor({ note, folder, onSaved }) {
         />
 
         {linkOpen && linkSuggestions.length > 0 && (
-          <ul className="absolute z-10 mt-1 w-72 max-h-64 overflow-y-auto rounded-lg border border-valence-border bg-white shadow-valence">
+          <ul
+            style={{ top: pickerPos.top, left: pickerPos.left, transform: pickerPos.flipUp ? 'translateY(-100%)' : 'none' }}
+            className="absolute z-30 w-72 max-h-64 overflow-y-auto rounded-lg border border-valence-border bg-white shadow-valence"
+          >
             {linkSuggestions.map(s => (
               <li key={`${s.type}-${s.id}`}>
                 <button onMouseDown={e => e.preventDefault()} onClick={() => pickLink(s)} className="block w-full px-3 py-2 text-left hover:bg-valence-blue-soft">

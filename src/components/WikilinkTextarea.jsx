@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { supabase, isSupabaseConfigured } from '../lib/supabase.js'
 import { DEMO_PEOPLE } from '../lib/people.js'
 import { DEMO_FUNDS } from '../lib/funds.js'
+import { caretCoordinates } from '../lib/caretCoordinates.js'
 
 // Obsidian-style wikilink autocomplete on a plain <textarea>.
 // Type `[[` to open the picker, search across People / Funds / Mandates,
@@ -9,6 +10,11 @@ import { DEMO_FUNDS } from '../lib/funds.js'
 // The renderer (renderMentionToken in lib/kb.js) replaces tokens with live
 // names + click-throughs in display contexts. The picker is the only thing
 // users touch directly.
+//
+// The picker is positioned at the caret itself — not at the textarea's
+// bottom edge — using a hidden mirror div to measure where the `[[` token
+// sits inside the rendered text. Means it pops up right under the line
+// you're typing on, the way Notion / Obsidian / Linear do it.
 //
 // Drop-in replacement for any controlled <textarea>:
 //   <WikilinkTextarea value={x} onChange={setX} className="vl-input min-h-[100px]" />
@@ -25,6 +31,7 @@ export default function WikilinkTextarea({
   const [linkQuery, setLinkQuery]   = useState('')
   const [linkAnchor, setLinkAnchor] = useState(0)
   const [activeIdx, setActiveIdx]   = useState(0)
+  const [pickerPos, setPickerPos]   = useState({ top: 0, left: 0, flipUp: false })
   const [entities, setEntities]     = useState({ people: [], funds: [], mandates: [], notes: [] })
 
   // One-shot universe pull — same set the KB editor uses.
@@ -66,7 +73,9 @@ export default function WikilinkTextarea({
     refreshPicker(next, e.target.selectionStart)
   }
 
-  // Look back from the cursor for an unclosed `[[`. Same logic as KbNoteEditor.
+  // Look back from the cursor for an unclosed `[[`. Anchor the picker at the
+  // measured caret position so it appears right under the line being typed,
+  // not stranded at the textarea's bottom edge.
   function refreshPicker(text, cursor) {
     const before = text.slice(0, cursor)
     const lastOpen  = before.lastIndexOf('[[')
@@ -74,6 +83,19 @@ export default function WikilinkTextarea({
     if (lastOpen > lastClose) {
       const inner = before.slice(lastOpen + 2)
       if (!inner.includes('\n')) {
+        const ta = taRef.current
+        const coords = ta ? caretCoordinates(ta, lastOpen) : { top: 0, left: 0, lineHeight: 18 }
+        // Position the picker on the line just below the [[ caret. Account
+        // for the textarea's scroll offset so the picker tracks the visible
+        // caret, not the buffer position.
+        const top  = coords.top  + coords.lineHeight - (ta?.scrollTop || 0) + 4
+        const left = coords.left - (ta?.scrollLeft || 0)
+        // If the picker would extend below the viewport, flip it above the
+        // line. ~280px is the picker's max height; small slack for breathing.
+        const taRect = ta?.getBoundingClientRect()
+        const absBottom = taRect ? taRect.top + top + 280 : 0
+        const flipUp = taRect ? absBottom > window.innerHeight - 12 : false
+        setPickerPos({ top: flipUp ? coords.top - (ta?.scrollTop || 0) - 8 : top, left, flipUp })
         setLinkOpen(true)
         setLinkQuery(inner)
         setLinkAnchor(lastOpen)
@@ -148,7 +170,10 @@ export default function WikilinkTextarea({
         {...rest}
       />
       {linkOpen && suggestions.length > 0 && (
-        <ul className="absolute z-20 mt-1 w-72 max-h-64 overflow-y-auto rounded-lg border border-valence-border bg-white shadow-valence">
+        <ul
+          style={{ top: pickerPos.top, left: pickerPos.left, transform: pickerPos.flipUp ? 'translateY(-100%)' : 'none' }}
+          className="absolute z-30 w-72 max-h-64 overflow-y-auto rounded-lg border border-valence-border bg-white shadow-valence"
+        >
           {suggestions.map((s, i) => (
             <li key={`${s.type}-${s.id}`}>
               <button
@@ -166,7 +191,10 @@ export default function WikilinkTextarea({
         </ul>
       )}
       {linkOpen && suggestions.length === 0 && (
-        <div className="absolute z-20 mt-1 w-72 rounded-lg border border-valence-border bg-white shadow-valence px-3 py-2 text-xs text-valence-muted">
+        <div
+          style={{ top: pickerPos.top, left: pickerPos.left, transform: pickerPos.flipUp ? 'translateY(-100%)' : 'none' }}
+          className="absolute z-30 w-72 rounded-lg border border-valence-border bg-white shadow-valence px-3 py-2 text-xs text-valence-muted"
+        >
           No people, funds, mandates, or notes match “{linkQuery}”.
         </div>
       )}
