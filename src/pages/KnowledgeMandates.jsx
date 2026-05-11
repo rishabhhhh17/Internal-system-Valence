@@ -287,7 +287,7 @@ export function MandatesPanel() {
         {/* Folder tree */}
         <aside className="vl-card p-3 lg:max-h-[80vh] lg:overflow-y-auto">
           {selectedMandateId ? (
-            <KbFolderTree mandateId={selectedMandateId} selectedFolderId={selectedFolder?.id} onSelect={setSelectedFolder} />
+            <KbFolderTree mandate={mandates.find(m => m.id === selectedMandateId)} mandateId={selectedMandateId} selectedFolderId={selectedFolder?.id} onSelect={setSelectedFolder} />
           ) : (
             <div className="px-3 py-6 text-xs text-valence-muted">Pick a mandate.</div>
           )}

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
-import { ChevronRight, Folder, FolderOpen, FilePlus, Plus, Pencil, Trash2 } from 'lucide-react'
+import { ChevronRight, Folder, FolderOpen, FilePlus, Plus, Pencil, Trash2, Sparkles, Loader2 } from 'lucide-react'
 import { supabase, isSupabaseConfigured } from '../lib/supabase.js'
+import { spawnMandateFolders, defaultTemplateFor } from '../lib/kb.js'
 import { useToast } from './Toast.jsx'
 
 // Per-mandate folder browser. Renders a collapsible tree of kb_folders
@@ -10,9 +11,14 @@ import { useToast } from './Toast.jsx'
 // Inline actions per folder: add child, rename, delete. Mandate-root and
 // the auto-spawned activity / category levels are all editable — the user
 // can rename "Investor Meetings" to "Backers" if they want.
+//
+// `mandate` is the full deal row (when available) so the empty-state's
+// "Set up default folders" button can call spawnMandateFolders with the
+// right template — Fundraise vs M&A buy vs Advisory etc.
 
-export default function KbFolderTree({ mandateId, selectedFolderId, onSelect }) {
+export default function KbFolderTree({ mandate, mandateId, selectedFolderId, onSelect }) {
   const toast = useToast()
+  const effectiveMandateId = mandateId || mandate?.id
   const [folders, setFolders] = useState([])
   const [loading, setLoading] = useState(true)
   const [expanded, setExpanded] = useState(new Set())
@@ -20,31 +26,78 @@ export default function KbFolderTree({ mandateId, selectedFolderId, onSelect }) 
   const [renameValue, setRenameValue] = useState('')
   const [creatingUnder, setCreatingUnder] = useState(null)
   const [createValue, setCreateValue] = useState('')
+  const [spawning, setSpawning] = useState(false)
 
   useEffect(() => {
-    if (!mandateId) { setFolders([]); setLoading(false); return }
+    if (!effectiveMandateId) { setFolders([]); setLoading(false); return }
     load()
-  }, [mandateId])
+  }, [effectiveMandateId])
 
-  async function load() {
+  async function load(autoSelectFirstActivity = false) {
     setLoading(true)
-    if (!isSupabaseConfigured) { setFolders([]); setLoading(false); return }
+    if (!isSupabaseConfigured) { setLoading(false); return }
     const { data, error } = await supabase
       .from('kb_folders')
       .select('*')
-      .eq('mandate_id', mandateId)
+      .eq('mandate_id', effectiveMandateId)
       .order('sort_order')
     if (error) toast.error(error.message)
-    setFolders(data || [])
+    const rows = data || []
+    setFolders(rows)
     // Expand the root + first level by default.
-    const root = (data || []).find(f => f.folder_type === 'mandate_root')
+    const root = rows.find(f => f.folder_type === 'mandate_root')
     const next = new Set()
     if (root) {
       next.add(root.id)
-      for (const f of data || []) if (f.parent_id === root.id) next.add(f.id)
+      for (const f of rows) if (f.parent_id === root.id) next.add(f.id)
     }
     setExpanded(next)
     setLoading(false)
+    // After a fresh spawn, auto-select the first activity so the right pane
+    // shows a useful "no notes yet, hit + New note" state instead of "Pick a
+    // folder" — saves the user one click on a brand-new mandate.
+    if (autoSelectFirstActivity && rows.length > 0) {
+      const firstActivity = rows.find(f => f.folder_type === 'activity') || rows.find(f => f.folder_type !== 'mandate_root')
+      if (firstActivity) onSelect?.(firstActivity)
+    }
+  }
+
+  // Spawn the default folder template for this mandate. Works against
+  // Supabase (real persistence) and against local state (demo mode) so
+  // the empty-state button is never a dead end.
+  async function setupDefaults() {
+    if (spawning) return
+    if (!mandate) { toast.error('Pick a mandate first'); return }
+    setSpawning(true)
+    try {
+      if (!isSupabaseConfigured) {
+        // Demo mode: synthesize the template tree in-memory. Same shape as
+        // what spawnMandateFolders would have inserted into kb_folders.
+        const tree = defaultTemplateFor(mandate)
+        const rootId = `local-root-${mandate.id}`
+        const out = [{ id: rootId, parent_id: null, mandate_id: mandate.id, name: mandate.client_name || 'Mandate', folder_type: 'mandate_root', sort_order: 0 }]
+        tree.forEach((node, i) => {
+          const activityId = `local-act-${i}`
+          out.push({ id: activityId, parent_id: rootId, mandate_id: mandate.id, name: node.name, folder_type: 'activity', sort_order: (i + 1) * 10 })
+          ;(node.children || []).forEach((child, j) => {
+            out.push({ id: `local-cat-${i}-${j}`, parent_id: activityId, mandate_id: mandate.id, name: child.name, folder_type: 'category', sort_order: (j + 1) * 10 })
+          })
+        })
+        setFolders(out)
+        setExpanded(new Set([rootId, ...out.filter(f => f.parent_id === rootId).map(f => f.id)]))
+        const firstActivity = out.find(f => f.folder_type === 'activity')
+        if (firstActivity) onSelect?.(firstActivity)
+        toast.success('Default folders ready (demo mode — not persisted)')
+        return
+      }
+      await spawnMandateFolders(supabase, mandate)
+      await load(true)
+      toast.success('Default folders ready')
+    } catch (err) {
+      toast.error(err?.message || 'Could not set up default folders')
+    } finally {
+      setSpawning(false)
+    }
   }
 
   // Build a map from parent_id → array of children for cheap recursion.
@@ -118,7 +171,26 @@ export default function KbFolderTree({ mandateId, selectedFolderId, onSelect }) 
   }
 
   if (loading) return <div className="px-3 py-6 text-xs text-valence-muted">Loading folders…</div>
-  if (!root)   return <div className="rounded-lg border border-dashed border-valence-border bg-valence-surface px-4 py-6 text-center text-xs text-valence-muted">No folders yet for this mandate.</div>
+  if (!root) return (
+    <div className="rounded-xl border border-dashed border-valence-blue/30 bg-valence-blue-soft/30 px-4 py-6 text-center space-y-3">
+      <div className="mx-auto grid h-10 w-10 place-items-center rounded-xl bg-valence-blue-soft ring-1 ring-valence-blue/30">
+        <Sparkles className="h-4 w-4 text-valence-blue" />
+      </div>
+      <div>
+        <p className="text-sm font-semibold text-valence-text">No folders yet</p>
+        <p className="mt-1 text-[11px] leading-relaxed text-valence-muted max-w-xs mx-auto">
+          Spawn the default folder template for this mandate — meetings, diligence, internal notes — based on its deal type.
+        </p>
+      </div>
+      <button
+        onClick={setupDefaults}
+        disabled={spawning || !mandate}
+        className="vl-btn-primary text-xs"
+      >
+        {spawning ? <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Setting up…</> : <><Sparkles className="h-3.5 w-3.5" /> Set up default folders</>}
+      </button>
+    </div>
+  )
 
   return (
     <ul className="text-sm">
