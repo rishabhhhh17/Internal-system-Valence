@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { Plus, Search, Filter, LayoutGrid, Table as TableIcon, UserCircle, ArrowUpRight, MapPin, Mail, Phone } from 'lucide-react'
 import { supabase, isSupabaseConfigured } from '../lib/supabase.js'
 import { TAG_SUGGESTIONS, DEMO_PEOPLE, locationLine } from '../lib/people.js'
@@ -19,8 +20,21 @@ export default function People() {
   const [q, setQ]                 = useState('')
   const [tagFilter, setTagFilter] = useState('All')
   const [drawer, setDrawer]       = useState(null) // null | 'new' | { row }
+  const [params, setParams]       = useSearchParams()
 
   useEffect(() => { load() }, [])
+
+  // Deep-link from clickable wikilink chips: /people?open=<uuid>
+  // Drains the param so back/forward doesn't keep re-opening the drawer.
+  useEffect(() => {
+    const id = params.get('open')
+    if (!id || rows.length === 0) return
+    const person = rows.find(p => p.id === id)
+    if (person) {
+      setDrawer({ row: person })
+      const next = new URLSearchParams(params); next.delete('open'); setParams(next, { replace: true })
+    }
+  }, [params, rows])
 
   async function load() {
     setLoading(true); setLoadError(null)

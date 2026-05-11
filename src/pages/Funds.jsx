@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { Plus, Search, Filter, LayoutGrid, Table as TableIcon, Building2, ArrowUpRight } from 'lucide-react'
 import { supabase, isSupabaseConfigured } from '../lib/supabase.js'
 import { FUND_TYPES, WARMTH_LEVELS, warmthTone, fundTypeLabel, DEMO_FUNDS } from '../lib/funds.js'
@@ -20,8 +21,20 @@ export default function Funds() {
   const [typeFilter, setTypeFilter] = useState('All')
   const [warmthFilter, setWarmthFilter] = useState('All')
   const [drawer, setDrawer] = useState(null) // null | 'new' | { row }
+  const [params, setParams] = useSearchParams()
 
   useEffect(() => { load() }, [])
+
+  // Deep-link from clickable wikilink chips: /funds?open=<uuid>
+  useEffect(() => {
+    const id = params.get('open')
+    if (!id || rows.length === 0) return
+    const fund = rows.find(f => f.id === id)
+    if (fund) {
+      setDrawer({ row: fund })
+      const next = new URLSearchParams(params); next.delete('open'); setParams(next, { replace: true })
+    }
+  }, [params, rows])
 
   async function load() {
     setLoading(true); setLoadError(null)
