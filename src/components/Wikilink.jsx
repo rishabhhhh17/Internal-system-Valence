@@ -127,115 +127,32 @@ export function WikilinkContent({ body, entities, className = '' }) {
 }
 
 // ============================================================================
-// <WikilinkTextarea> — controlled textarea that opens an autocomplete popup
-// when the user types `[[`. Selecting a suggestion inserts a properly-formed
-// `[[type:id|display name]]` token at the caret.
+// <WikilinkTextarea> — picks pills inline at the caret. Used to be a plain
+// textarea with a popup that landed at the bottom of the input; now it's
+// a thin adapter over the canonical WikilinkTextarea (./WikilinkTextarea.jsx),
+// which renders pills via contentEditable so they appear next to text the
+// way Notion / Linear / Slack do.
+//
+// API parity with the old version: same value/onChange contract, plus
+// optional placeholder/className/minHeight. The legacy `entities` and
+// `rows` props are accepted and ignored — the canonical input pulls its
+// own entity universe and grows vertically with content.
 // ============================================================================
-export function WikilinkTextarea({ value, onChange, entities, placeholder, rows = 8, className = '', minHeight }) {
-  const taRef = useRef(null)
-  const [linkOpen, setLinkOpen]   = useState(false)
-  const [linkQuery, setLinkQuery] = useState('')
-  const [linkAnchor, setLinkAnchor] = useState(0)
-  const [activeIdx, setActiveIdx] = useState(0)
+import CanonicalWikilinkTextarea from './WikilinkTextarea.jsx'
 
-  function handleChange(e) {
-    const next = e.target.value
-    onChange(next)
-
-    const ta = e.target
-    const cursor = ta.selectionStart
-    const before = next.slice(0, cursor)
-    const lastOpen = before.lastIndexOf('[[')
-    const lastClose = before.lastIndexOf(']]')
-    if (lastOpen > lastClose) {
-      const inner = before.slice(lastOpen + 2)
-      if (!inner.includes('\n')) {
-        setLinkOpen(true)
-        setLinkQuery(inner)
-        setLinkAnchor(lastOpen)
-        setActiveIdx(0)
-        return
-      }
-    }
-    setLinkOpen(false)
-  }
-
-  const suggestions = useMemo(() => {
-    if (!linkOpen) return []
-    const q = (linkQuery || '').trim().toLowerCase()
-    const all = []
-    for (const p of entities?.people   || []) all.push({ type: 'person',  id: p.id, label: p.full_name,   sub: p.company })
-    for (const f of entities?.funds    || []) all.push({ type: 'fund',    id: f.id, label: f.name,        sub: f.fund_type })
-    for (const m of entities?.mandates || []) all.push({ type: 'mandate', id: m.id, label: m.client_name, sub: m.stage })
-    for (const x of entities?.memos    || []) all.push({ type: 'memo',    id: x.id, label: x.title,       sub: 'memo' })
-    if (!q) return all.slice(0, 12)
-    return all.filter(x => (x.label || '').toLowerCase().includes(q)).slice(0, 12)
-  }, [linkOpen, linkQuery, entities])
-
-  function pick(s) {
-    const ta = taRef.current
-    if (!ta) return
-    const before = value.slice(0, linkAnchor)
-    const after  = value.slice(ta.selectionStart)
-    const token  = `[[${s.type}:${s.id}|${s.label}]]`
-    const next   = before + token + after
-    onChange(next)
-    setLinkOpen(false)
-    requestAnimationFrame(() => {
-      ta.focus()
-      const pos = (before + token).length
-      ta.setSelectionRange(pos, pos)
-    })
-  }
-
-  function handleKeyDown(e) {
-    if (!linkOpen || suggestions.length === 0) return
-    if (e.key === 'ArrowDown') { e.preventDefault(); setActiveIdx(i => (i + 1) % suggestions.length) }
-    else if (e.key === 'ArrowUp') { e.preventDefault(); setActiveIdx(i => (i - 1 + suggestions.length) % suggestions.length) }
-    else if (e.key === 'Enter' || e.key === 'Tab') { e.preventDefault(); pick(suggestions[activeIdx]) }
-    else if (e.key === 'Escape') { e.preventDefault(); setLinkOpen(false) }
-  }
-
+export function WikilinkTextarea({ value, onChange, entities, placeholder, rows, className = '', minHeight }) {
   return (
     <div className="relative">
-      <textarea
-        ref={taRef}
-        value={value}
-        onChange={handleChange}
-        onKeyDown={handleKeyDown}
+      <CanonicalWikilinkTextarea
+        value={value || ''}
+        onChange={onChange}
         placeholder={placeholder}
-        rows={rows}
         className={`vl-input ${className}`}
         style={minHeight ? { minHeight } : undefined}
       />
       <p className="mt-1 text-[10px] text-valence-subtle">
         Type <span className="vl-kbd">[[</span> to link a person, fund, mandate, or memo.
       </p>
-      {linkOpen && suggestions.length > 0 && (
-        <div className="absolute left-3 right-3 z-30 mt-1 max-h-72 overflow-y-auto rounded-xl border border-valence-border bg-white shadow-valence-lg">
-          {suggestions.map((s, i) => {
-            const Icon = ICON_FOR[s.type] || LinkIcon
-            return (
-              <button
-                key={`${s.type}:${s.id}`}
-                type="button"
-                onClick={() => pick(s)}
-                onMouseEnter={() => setActiveIdx(i)}
-                className={`flex w-full items-center gap-2 px-3 py-2 text-left text-sm border-b border-valence-border/60 last:border-b-0 ${
-                  i === activeIdx ? 'bg-valence-blue-soft' : 'hover:bg-valence-surface'
-                }`}
-              >
-                <Icon className="h-3.5 w-3.5 text-valence-blue shrink-0" />
-                <span className="flex-1 truncate">
-                  <span className="font-semibold text-valence-text">{s.label}</span>
-                  {s.sub && <span className="ml-1.5 text-[11px] text-valence-muted">{s.sub}</span>}
-                </span>
-                <span className="text-[10px] uppercase tracking-wider text-valence-subtle shrink-0">{s.type}</span>
-              </button>
-            )
-          })}
-        </div>
-      )}
     </div>
   )
 }
