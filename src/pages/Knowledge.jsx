@@ -4,7 +4,7 @@ import { format, formatDistanceToNow } from 'date-fns'
 import {
   Plus, Search, BookOpen, Tag as TagIcon, Hash, Trash2, Table as TableIcon,
   Sparkles, Download, Briefcase, ExternalLink, Loader2,
-  Filter as FilterIcon, File as FileIcon
+  Filter as FilterIcon, File as FileIcon, FolderTree
 } from 'lucide-react'
 import { supabase, isSupabaseConfigured, subscribeTable } from '../lib/supabase.js'
 import { searchKnowledge, groupResults, filePublicUrl, deleteKnowledgeFile } from '../lib/knowledge.js'
@@ -20,6 +20,7 @@ import { WikilinkTextarea, WikilinkContent, useWikilinkEntities } from '../compo
 import { useToast } from '../components/Toast.jsx'
 import { useConfirm } from '../components/ConfirmDialog.jsx'
 import { Bot } from 'lucide-react'
+import { MandatesPanel } from './KnowledgeMandates.jsx'
 
 const SOURCE_LABELS = {
   document:  { label: 'Memo',       icon: BookOpen,   color: 'text-valence-blue' },
@@ -38,45 +39,44 @@ export default function Knowledge() {
     setParams(next, { replace: true })
   }
   const tabMeta = {
-    ask:    { label: 'Ask',    body: 'Ask plain-English questions. Answers cite the firm\'s memos, files, deals, and comps.' },
-    search: { label: 'Search', body: 'One search across every memo, file, deal note, comp and deal file indexed by the firm.' },
-    memos:  { label: 'Memos',  body: 'Short written notes shared with the firm — sector theses, frameworks, playbooks.' },
-    files:  { label: 'Files',  body: 'Uploaded documents shared with the whole firm (PDFs, decks, research).' },
-    comps:  { label: 'Comps',  body: 'Precedent transactions — targets, acquirers, multiples. Used for benchmarking.' }
+    ask:      { label: 'Ask',           body: 'Ask plain-English questions. Answers cite the firm\'s memos, files, deals, and comps.' },
+    search:   { label: 'Search',        body: 'One search across every memo, file, deal note, comp and deal file indexed by the firm.' },
+    memos:    { label: 'Memos',         body: 'Short written notes shared with the firm — sector theses, frameworks, playbooks.' },
+    files:    { label: 'Files',         body: 'Uploaded documents shared with the whole firm (PDFs, decks, research).' },
+    comps:    { label: 'Comps',         body: 'Precedent transactions — targets, acquirers, multiples. Used for benchmarking.' },
+    mandates: { label: 'Mandate notes', body: 'Per-mandate folder tree. Tag people and funds with [[ for cross-links; #tag scopes a concept to one folder.' }
   }
   return (
     <div className="space-y-6">
       <ConfigBanner />
 
-      {/* Page framing — tell the user what this page IS and what it isn't */}
-      <div className="rounded-xl border border-valence-border bg-white px-5 py-4">
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <p className="vl-eyebrow-ink">Firm-shared knowledge</p>
-            <p className="mt-1.5 text-sm text-valence-muted">
-              Everything the team shares with the firm lives here. Your personal files live in <a href="/knowledge/private" className="font-semibold text-valence-blue hover:text-valence-blue-hover">Private</a>.
-            </p>
-          </div>
-          <a href="/knowledge" className="shrink-0 text-xs font-semibold text-valence-muted hover:text-valence-text">← Knowledge</a>
-        </div>
+      {/* Canonical hero — matches the Knowledge landing's vocabulary. */}
+      <div>
+        <p className="vl-eyebrow-ink">Knowledge</p>
+        <h1 className="mt-2 font-display text-feature font-bold text-valence-text">Everything the firm knows.</h1>
+        <p className="mt-3 max-w-2xl text-sm leading-relaxed text-valence-muted">
+          Ask, search, memos, files, comps, and per-mandate notes — one surface. Your personal files live in <a href="/knowledge/private" className="font-semibold text-valence-blue hover:text-valence-blue-hover">Private</a>.
+        </p>
       </div>
 
       <div className="flex items-center gap-1 rounded-lg border border-valence-border bg-valence-surface p-1 w-fit overflow-x-auto">
-        <TabButton active={tab === 'ask'}    onClick={() => setTab('ask')}    icon={Bot}>Ask</TabButton>
-        <TabButton active={tab === 'search'} onClick={() => setTab('search')} icon={Sparkles}>Search</TabButton>
-        <TabButton active={tab === 'memos'}  onClick={() => setTab('memos')}  icon={BookOpen}>Memos</TabButton>
-        <TabButton active={tab === 'files'}  onClick={() => setTab('files')}  icon={FileIcon}>Files</TabButton>
-        <TabButton active={tab === 'comps'}  onClick={() => setTab('comps')}  icon={TableIcon}>Comps</TabButton>
+        <TabButton active={tab === 'ask'}      onClick={() => setTab('ask')}      icon={Bot}>Ask</TabButton>
+        <TabButton active={tab === 'search'}   onClick={() => setTab('search')}   icon={Sparkles}>Search</TabButton>
+        <TabButton active={tab === 'memos'}    onClick={() => setTab('memos')}    icon={BookOpen}>Memos</TabButton>
+        <TabButton active={tab === 'files'}    onClick={() => setTab('files')}    icon={FileIcon}>Files</TabButton>
+        <TabButton active={tab === 'comps'}    onClick={() => setTab('comps')}    icon={TableIcon}>Comps</TabButton>
+        <TabButton active={tab === 'mandates'} onClick={() => setTab('mandates')} icon={FolderTree}>Mandate notes</TabButton>
       </div>
 
       {/* Sub-section helper: one clear sentence about this view */}
       <p className="text-xs text-valence-muted -mt-2">{tabMeta[tab]?.body}</p>
 
-      {tab === 'ask'    && <AskChat />}
-      {tab === 'search' && <SearchPortal onSelectTab={setTab} />}
-      {tab === 'memos'  && <Documents />}
-      {tab === 'files'  && <FilesSection />}
-      {tab === 'comps'  && <Comps />}
+      {tab === 'ask'      && <AskChat />}
+      {tab === 'search'   && <SearchPortal onSelectTab={setTab} />}
+      {tab === 'memos'    && <Documents />}
+      {tab === 'files'    && <FilesSection />}
+      {tab === 'comps'    && <Comps />}
+      {tab === 'mandates' && <MandatesPanel />}
     </div>
   )
 }

@@ -261,6 +261,14 @@ export default function Planner() {
     <div className="space-y-6">
       <ConfigBanner />
 
+      <div>
+        <p className="vl-eyebrow-ink">Day Planner</p>
+        <h1 className="mt-2 font-display text-feature font-bold text-valence-text">Run your day.</h1>
+        <p className="mt-3 max-w-2xl text-sm leading-relaxed text-valence-muted">
+          Today's meetings, free slots, and tasks in one view. Connect Google to surface your live calendar and send invites straight from here.
+        </p>
+      </div>
+
       {/* AI Summary */}
       <AiSummaryCard
         summary={summary}

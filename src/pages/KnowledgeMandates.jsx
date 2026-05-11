@@ -14,8 +14,13 @@ import { useToast } from '../components/Toast.jsx'
 // Three-pane layout — mandate picker (left), folder tree (middle), notes
 // (right). Selection is reflected in the URL so links into a specific
 // mandate / folder / note are share-able.
+//
+// Exported as a named `MandatesPanel` so the unified Knowledge surface can
+// embed it as a tab without re-rendering the global hero. The default
+// export is a thin page wrapper that adds the hero + ConfigBanner for the
+// standalone `/knowledge/mandates` route (kept as a redirect target).
 
-export default function KnowledgeMandates() {
+export function MandatesPanel() {
   const toast = useToast()
   const [params, setParams] = useSearchParams()
   const [mandates, setMandates] = useState([])
@@ -205,24 +210,9 @@ export default function KnowledgeMandates() {
 
   return (
     <div className="space-y-4">
-      <ConfigBanner />
-
-      <div className="flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <p className="vl-eyebrow-ink">Knowledge · Mandate notes</p>
-          <h1 className="mt-2 font-display text-feature font-bold text-valence-text">Per-mandate folders.</h1>
-          <p className="mt-2 max-w-2xl text-sm text-valence-muted">
-            Each mandate gets its own structured folder tree. Tag people and funds with <span className="vl-kbd">[[</span> for cross-mandate links; use <span className="vl-kbd">#tag</span> for folder-local concepts.
-          </p>
-        </div>
-        {selectedMandateId && (
-          <button onClick={ensureFolders} className="vl-btn-secondary text-xs">
-            <FolderTree className="h-3.5 w-3.5" /> Ensure default folders
-          </button>
-        )}
-      </div>
-
-      {/* Hybrid search — keyword + vector + recency, optionally scoped to one mandate */}
+      {/* Hybrid search — keyword + vector + recency, optionally scoped to one mandate.
+          Action row on the right hosts the "Ensure default folders" affordance
+          since the panel renders without its own hero now. */}
       <div className="vl-card p-3">
         <div className="flex items-center gap-3">
           <div className="relative flex-1">
@@ -239,6 +229,11 @@ export default function KnowledgeMandates() {
             <button onClick={() => setSearchScope('mandate')} className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-semibold transition ${searchScope === 'mandate' ? 'bg-valence-ink text-white' : 'text-valence-muted hover:text-valence-text'}`}><FolderTree className="h-3 w-3" /> This mandate</button>
             <button onClick={() => setSearchScope('global')}  className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-semibold transition ${searchScope === 'global'  ? 'bg-valence-ink text-white' : 'text-valence-muted hover:text-valence-text'}`}><Globe2 className="h-3 w-3" /> All mandates</button>
           </div>
+          {selectedMandateId && (
+            <button onClick={ensureFolders} className="vl-btn-secondary text-xs shrink-0" title="Spawn the default folder template for this mandate">
+              <FolderTree className="h-3.5 w-3.5" /> Ensure folders
+            </button>
+          )}
         </div>
         {searchResults && searchResults.length > 0 && (
           <ul className="mt-3 space-y-1 max-h-72 overflow-y-auto">
@@ -387,6 +382,25 @@ export default function KnowledgeMandates() {
           )}
         </section>
       </div>
+    </div>
+  )
+}
+
+// Standalone page wrapper — kept so the legacy `/knowledge/mandates` route
+// still resolves while old bookmarks redirect to `/knowledge/shared?tab=mandates`.
+// Adds the page hero + ConfigBanner that MandatesPanel intentionally omits.
+export default function KnowledgeMandates() {
+  return (
+    <div className="space-y-6">
+      <ConfigBanner />
+      <div>
+        <p className="vl-eyebrow-ink">Knowledge · Mandate notes</p>
+        <h1 className="mt-2 font-display text-feature font-bold text-valence-text">Per-mandate folders.</h1>
+        <p className="mt-3 max-w-2xl text-sm leading-relaxed text-valence-muted">
+          Each mandate gets its own structured folder tree. Tag people and funds with <span className="vl-kbd">[[</span> for cross-mandate links; use <span className="vl-kbd">#tag</span> for folder-local concepts.
+        </p>
+      </div>
+      <MandatesPanel />
     </div>
   )
 }
