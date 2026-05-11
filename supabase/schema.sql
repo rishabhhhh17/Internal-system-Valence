@@ -1201,10 +1201,15 @@ create policy demo_anon_write on public.kb_notes for all to anon using (true) wi
 create table if not exists public.kb_mentions (
   id          uuid primary key default gen_random_uuid(),
   note_id     uuid not null references public.kb_notes(id) on delete cascade,
-  entity_type text not null check (entity_type in ('person','fund','mandate')),
+  entity_type text not null check (entity_type in ('person','fund','mandate','note')),
   entity_id   uuid not null,
   created_at  timestamptz not null default now()
 );
+-- If the table was created by a pre-2.6 migration, widen the constraint.
+alter table public.kb_mentions drop constraint if exists kb_mentions_entity_type_check;
+alter table public.kb_mentions
+  add constraint kb_mentions_entity_type_check
+  check (entity_type in ('person','fund','mandate','note'));
 create index if not exists kb_mentions_entity_idx on public.kb_mentions (entity_type, entity_id);
 create index if not exists kb_mentions_note_idx   on public.kb_mentions (note_id);
 

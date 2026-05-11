@@ -205,7 +205,7 @@ export default function EntityMentions({ entityType, entityId, entityName }) {
 // display name instead of the raw token.
 function snippet(body) {
   return body
-    .replace(/\[\[(?:person|fund|mandate):[0-9a-f-]{36}(?:\|([^\]]+))?\]\]/gi, (_, name) => name || '@')
+    .replace(/\[\[(?:person|fund|mandate|note):[0-9a-f-]{36}(?:\|([^\]]+))?\]\]/gi, (_, name) => name || '@')
     .replace(/\*\*/g, '')
     .replace(/\s+/g, ' ')
     .trim()

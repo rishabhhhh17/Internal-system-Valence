@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Bold, Italic, List, Link2, Loader2, Check, AtSign, Hash, Mic, Sparkles, FileAudio, Trash2 } from 'lucide-react'
+import { Bold, Italic, List, Link2, Loader2, Check, AtSign, Hash, Mic, Sparkles, FileAudio, Trash2, Link as LinkIcon, FileText } from 'lucide-react'
+import { formatDistanceToNow } from 'date-fns'
 import { supabase, isSupabaseConfigured } from '../lib/supabase.js'
-import { parseTags, syncMentions, renderMentionToken, embedNote } from '../lib/kb.js'
+import { parseTags, syncMentions, renderMentionToken, embedNote, fetchBacklinks } from '../lib/kb.js'
 import { uploadVoiceMemo, transcribeAndSummarise } from '../lib/voiceMemo.js'
 import { isGeminiConfigured } from '../lib/gemini.js'
 import { useToast } from './Toast.jsx'
@@ -30,7 +31,11 @@ export default function KbNoteEditor({ note, folder, onSaved }) {
   const [linkOpen, setLinkOpen]     = useState(false)
   const [linkQuery, setLinkQuery]   = useState('')
   const [linkAnchor, setLinkAnchor] = useState(0)
-  const [entities, setEntities]     = useState({ people: [], funds: [], mandates: [] })
+  const [entities, setEntities]     = useState({ people: [], funds: [], mandates: [], notes: [] })
+
+  // Backlinks — other notes that wikilink to this one.
+  const [backlinks, setBacklinks]   = useState([])
+  const [backlinksLoading, setBacklinksLoading] = useState(false)
 
   // Voice memo state — pulled fresh whenever the note changes.
   const [audioUrl, setAudioUrl]                 = useState('')
@@ -54,22 +59,42 @@ export default function KbNoteEditor({ note, folder, onSaved }) {
     setSavedAt(0)
   }, [note?.id])
 
-  // Pull entity universe for the [[autocomplete. People + Funds + active
-  // Mandates only — terminal-stage deals aren't useful suggestions.
+  // Pull entity universe for the [[autocomplete. People + Funds + Mandates +
+  // other KB notes. Notes are sorted by recency so the picker leads with the
+  // ones the user most likely wants to link.
   useEffect(() => {
     if (!isSupabaseConfigured) {
-      setEntities({ people: [], funds: [], mandates: [] })
+      setEntities({ people: [], funds: [], mandates: [], notes: [] })
       return
     }
     ;(async () => {
-      const [p, f, d] = await Promise.all([
+      const [p, f, d, n] = await Promise.all([
         supabase.from('people').select('id, full_name, company').limit(500),
         supabase.from('funds').select('id, name, fund_type').limit(500),
-        supabase.from('deals').select('id, client_name, stage').limit(500)
+        supabase.from('deals').select('id, client_name, stage').limit(500),
+        supabase.from('kb_notes').select('id, title').order('updated_at', { ascending: false }).limit(500)
       ])
-      setEntities({ people: p.data || [], funds: f.data || [], mandates: d.data || [] })
+      setEntities({
+        people:   p.data || [],
+        funds:    f.data || [],
+        mandates: d.data || [],
+        notes:    n.data || []
+      })
     })()
   }, [])
+
+  // Backlinks — reload whenever we switch notes. Also re-fetched after every
+  // save so a new self-cross-link from another note shows up without reload.
+  // savedAt is included as a dep so the panel refreshes after auto-save.
+  useEffect(() => {
+    if (!note?.id || !isSupabaseConfigured) { setBacklinks([]); return }
+    let cancelled = false
+    setBacklinksLoading(true)
+    fetchBacklinks(supabase, note.id)
+      .then(rows => { if (!cancelled) setBacklinks(rows) })
+      .finally(() => { if (!cancelled) setBacklinksLoading(false) })
+    return () => { cancelled = true }
+  }, [note?.id, savedAt])
 
   // Debounced auto-save. 700 ms of idle and we save.
   useEffect(() => {
@@ -262,23 +287,27 @@ export default function KbNoteEditor({ note, folder, onSaved }) {
     setLinkOpen(false)
   }
 
-  // Filter entities by the typed [[query]]. Cap at 8 per kind.
+  // Filter entities by the typed [[query]]. Cap at 12 total.
+  // Notes that match the current note are filtered out — no self-links.
   const linkSuggestions = useMemo(() => {
     const q = linkQuery.trim().toLowerCase()
     if (!linkOpen) return []
+    const notesPool = (entities.notes || []).filter(n => n.id !== note?.id)
     const out = []
     if (!q) {
-      // Show recent entities: top 4 of each kind, prefixed with their type label.
-      out.push(...entities.people.slice(0, 4).map(p => ({ type: 'person',  id: p.id, label: p.full_name, sub: p.company })))
-      out.push(...entities.funds.slice(0, 4).map(f  => ({ type: 'fund',    id: f.id, label: f.name,      sub: f.fund_type })))
-      out.push(...entities.mandates.slice(0, 4).map(m => ({ type: 'mandate', id: m.id, label: m.client_name, sub: m.stage })))
+      // Show recent entities: top 3 of each kind, prefixed with their type label.
+      out.push(...entities.people.slice(0, 3).map(p => ({ type: 'person',  id: p.id, label: p.full_name, sub: p.company })))
+      out.push(...entities.funds.slice(0, 3).map(f  => ({ type: 'fund',    id: f.id, label: f.name,      sub: f.fund_type })))
+      out.push(...entities.mandates.slice(0, 3).map(m => ({ type: 'mandate', id: m.id, label: m.client_name, sub: m.stage })))
+      out.push(...notesPool.slice(0, 3).map(n => ({ type: 'note', id: n.id, label: n.title || 'Untitled note', sub: 'note' })))
       return out.slice(0, 12)
     }
     for (const p of entities.people)   if (p.full_name?.toLowerCase().includes(q))   out.push({ type: 'person',  id: p.id, label: p.full_name, sub: p.company })
     for (const f of entities.funds)    if (f.name?.toLowerCase().includes(q))        out.push({ type: 'fund',    id: f.id, label: f.name,      sub: f.fund_type })
     for (const m of entities.mandates) if (m.client_name?.toLowerCase().includes(q)) out.push({ type: 'mandate', id: m.id, label: m.client_name, sub: m.stage })
+    for (const n of notesPool)         if (n.title?.toLowerCase().includes(q))       out.push({ type: 'note',    id: n.id, label: n.title,      sub: 'note' })
     return out.slice(0, 12)
-  }, [linkOpen, linkQuery, entities])
+  }, [linkOpen, linkQuery, entities, note?.id])
 
   // Pick a suggestion → splice [[type:id|label]] into the body where the [[ started.
   function pickLink(s) {
@@ -431,6 +460,49 @@ export default function KbNoteEditor({ note, folder, onSaved }) {
           <span className="text-[10px] text-valence-subtle">— scoped to this folder; won't leak to other mandates</span>
         </div>
       )}
+
+      {/* Backlinks — every other note that wikilinks to this one. */}
+      <BacklinksPanel loading={backlinksLoading} rows={backlinks} />
+    </div>
+  )
+}
+
+// Sidebar-style "Linked from" block under the editor. Hidden when there are
+// no backlinks so the surface stays quiet for fresh notes.
+function BacklinksPanel({ loading, rows }) {
+  if (loading) {
+    return (
+      <div className="mt-2 rounded-xl border border-valence-border bg-valence-surface px-4 py-3">
+        <p className="vl-eyebrow-ink inline-flex items-center gap-1.5"><LinkIcon className="h-3 w-3 text-valence-blue" /> Linked from</p>
+        <p className="mt-1 text-[11px] text-valence-muted inline-flex items-center gap-1.5"><Loader2 className="h-3 w-3 animate-spin" /> Loading…</p>
+      </div>
+    )
+  }
+  if (!rows || rows.length === 0) return null
+
+  return (
+    <div className="mt-2 rounded-xl border border-valence-border bg-valence-surface p-4 space-y-2">
+      <div className="flex items-center justify-between">
+        <p className="vl-eyebrow-ink inline-flex items-center gap-1.5"><LinkIcon className="h-3 w-3 text-valence-blue" /> Linked from</p>
+        <span className="text-[10px] tabular-nums text-valence-muted">{rows.length} note{rows.length === 1 ? '' : 's'}</span>
+      </div>
+      <ul className="divide-y divide-valence-border/60">
+        {rows.map(r => (
+          <li key={r.id} className="py-2 first:pt-0 last:pb-0">
+            <div className="flex items-start gap-2">
+              <FileText className="h-3.5 w-3.5 mt-0.5 text-valence-subtle shrink-0" />
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-semibold text-valence-text truncate">{r.title || 'Untitled note'}</p>
+                <p className="mt-0.5 text-[11px] text-valence-muted">
+                  <span className="font-semibold text-valence-text">{r.mandateName}</span>
+                  {r.folderName ? <> · {r.folderName}</> : null}
+                  {r.updated_at ? <> · updated {formatDistanceToNow(new Date(r.updated_at), { addSuffix: true })}</> : null}
+                </p>
+              </div>
+            </div>
+          </li>
+        ))}
+      </ul>
     </div>
   )
 }
@@ -448,7 +520,7 @@ function ToolbarBtn({ onClick, title, children }) {
 // surface that displays a saved note body without the editor.
 export function renderNoteBody(body, lookups) {
   if (!body) return ''
-  return body.replace(/\[\[(person|fund|mandate):([0-9a-f-]{36})(?:\|([^\]]+))?\]\]/gi, (_, type, id, fallback) => {
+  return body.replace(/\[\[(person|fund|mandate|note):([0-9a-f-]{36})(?:\|([^\]]+))?\]\]/gi, (_, type, id, fallback) => {
     return renderMentionToken(type.toLowerCase(), id.toLowerCase(), lookups) || fallback || `${type}:${id.slice(0, 8)}`
   })
 }
