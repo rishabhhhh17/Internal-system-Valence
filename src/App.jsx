@@ -1,4 +1,4 @@
-import { Routes, Route, Navigate, useLocation } from 'react-router-dom'
+import { Routes, Route, Navigate, useLocation, useSearchParams } from 'react-router-dom'
 import Layout from './components/Layout.jsx'
 import DailyNote from './pages/DailyNote.jsx'
 import Deals from './pages/Deals.jsx'
@@ -13,7 +13,6 @@ import InboxIntake from './pages/InboxIntake.jsx'
 import Interactions from './pages/Interactions.jsx'
 import Knowledge from './pages/Knowledge.jsx'
 import KnowledgeLanding from './pages/KnowledgeLanding.jsx'
-import KnowledgeMandates from './pages/KnowledgeMandates.jsx'
 import Planner from './pages/Planner.jsx'
 import Calendar from './pages/Calendar.jsx'
 import Drive from './pages/Drive.jsx'
@@ -70,7 +69,9 @@ export default function App() {
         <Route path="/inbox/intake" element={<InboxIntake />} />
         <Route path="/interactions" element={<Interactions />} />
         <Route path="/knowledge" element={<KnowledgeLanding />} />
-        <Route path="/knowledge/mandates" element={<KnowledgeMandates />} />
+        {/* Per-mandate folder tree was folded into the unified Knowledge surface.
+            Keep the legacy URL working — and preserve any `?m=<mandateId>` deep link. */}
+        <Route path="/knowledge/mandates" element={<MandatesRedirect />} />
         <Route path="/knowledge/shared" element={<Knowledge />} />
         <Route path="/knowledge/private" element={<Drive />} />
         <Route path="/drive" element={<Navigate to="/knowledge/private" replace />} />
@@ -83,6 +84,13 @@ export default function App() {
       </Routes>
     </Layout>
   )
+}
+
+function MandatesRedirect() {
+  const [params] = useSearchParams()
+  const m = params.get('m')
+  const target = m ? `/knowledge/shared?tab=mandates&m=${m}` : '/knowledge/shared?tab=mandates'
+  return <Navigate to={target} replace />
 }
 
 function BootSplash() {
