@@ -25,32 +25,35 @@ export default function WikilinkTextarea({
   const [linkQuery, setLinkQuery]   = useState('')
   const [linkAnchor, setLinkAnchor] = useState(0)
   const [activeIdx, setActiveIdx]   = useState(0)
-  const [entities, setEntities]     = useState({ people: [], funds: [], mandates: [] })
+  const [entities, setEntities]     = useState({ people: [], funds: [], mandates: [], notes: [] })
 
   // One-shot universe pull — same set the KB editor uses.
   // Demo mode (no Supabase): fall back to the bundled demo people + funds so
-  // the picker is testable. Mandates aren't in a shared demo array; skipped.
+  // the picker is testable. Mandates + notes aren't in shared demo arrays.
   useEffect(() => {
     if (!isSupabaseConfigured) {
       setEntities({
         people:   DEMO_PEOPLE.map(p => ({ id: p.id, full_name: p.full_name, company: p.company })),
         funds:    DEMO_FUNDS.map(f  => ({ id: f.id, name: f.name,           fund_type: f.fund_type })),
-        mandates: []
+        mandates: [],
+        notes:    []
       })
       return
     }
     let cancelled = false
     ;(async () => {
-      const [p, f, d] = await Promise.all([
+      const [p, f, d, n] = await Promise.all([
         supabase.from('people').select('id, full_name, company').limit(500),
         supabase.from('funds').select('id, name, fund_type').limit(500),
-        supabase.from('deals').select('id, client_name, stage').limit(500)
+        supabase.from('deals').select('id, client_name, stage').limit(500),
+        supabase.from('kb_notes').select('id, title').order('updated_at', { ascending: false }).limit(500)
       ])
       if (!cancelled) {
         setEntities({
           people:   p.data || [],
           funds:    f.data || [],
-          mandates: d.data || []
+          mandates: d.data || [],
+          notes:    n.data || []
         })
       }
     })()
@@ -86,14 +89,16 @@ export default function WikilinkTextarea({
     const q = linkQuery.trim().toLowerCase()
     const out = []
     if (!q) {
-      out.push(...entities.people.slice(0, 4).map(p => ({ type: 'person',  id: p.id, label: p.full_name,   sub: p.company })))
-      out.push(...entities.funds.slice(0, 4).map(f  => ({ type: 'fund',    id: f.id, label: f.name,        sub: f.fund_type })))
-      out.push(...entities.mandates.slice(0, 4).map(m => ({ type: 'mandate', id: m.id, label: m.client_name, sub: m.stage })))
+      out.push(...entities.people.slice(0, 3).map(p => ({ type: 'person',  id: p.id, label: p.full_name,   sub: p.company })))
+      out.push(...entities.funds.slice(0, 3).map(f  => ({ type: 'fund',    id: f.id, label: f.name,        sub: f.fund_type })))
+      out.push(...entities.mandates.slice(0, 3).map(m => ({ type: 'mandate', id: m.id, label: m.client_name, sub: m.stage })))
+      out.push(...(entities.notes || []).slice(0, 3).map(n => ({ type: 'note', id: n.id, label: n.title || 'Untitled note', sub: 'note' })))
       return out.slice(0, 12)
     }
     for (const p of entities.people)   if (p.full_name?.toLowerCase().includes(q))   out.push({ type: 'person',  id: p.id, label: p.full_name,   sub: p.company })
     for (const f of entities.funds)    if (f.name?.toLowerCase().includes(q))        out.push({ type: 'fund',    id: f.id, label: f.name,        sub: f.fund_type })
     for (const m of entities.mandates) if (m.client_name?.toLowerCase().includes(q)) out.push({ type: 'mandate', id: m.id, label: m.client_name, sub: m.stage })
+    for (const n of (entities.notes || [])) if (n.title?.toLowerCase().includes(q))  out.push({ type: 'note',    id: n.id, label: n.title,        sub: 'note' })
     return out.slice(0, 12)
   }, [linkOpen, linkQuery, entities])
 
@@ -162,7 +167,7 @@ export default function WikilinkTextarea({
       )}
       {linkOpen && suggestions.length === 0 && (
         <div className="absolute z-20 mt-1 w-72 rounded-lg border border-valence-border bg-white shadow-valence px-3 py-2 text-xs text-valence-muted">
-          No people, funds, or mandates match “{linkQuery}”.
+          No people, funds, mandates, or notes match “{linkQuery}”.
         </div>
       )}
     </div>

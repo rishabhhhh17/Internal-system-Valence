@@ -133,14 +133,18 @@ export async function spawnMandateFolders(supabase, deal) {
 // Note body uses [[type:id|display]] tokens. Parser returns a deduped list
 // of { entity_type, entity_id }. The display segment is optional; we don't
 // store it server-side, the editor renders it from the live entity.
-const MENTION_RE = /\[\[(person|fund|mandate):([0-9a-f-]{36})(?:\|[^\]]+)?\]\]/gi
+const MENTION_RE = /\[\[(person|fund|mandate|note):([0-9a-f-]{36})(?:\|[^\]]+)?\]\]/gi
 
 export function parseMentions(body) {
   const out = []
   const seen = new Set()
   if (!body) return out
+  // Local copy of the regex so a global lastIndex on the module-level instance
+  // doesn't corrupt re-entrant calls (parseMentions can be called from inside
+  // a render that's already iterating the same regex elsewhere).
+  const re = new RegExp(MENTION_RE.source, MENTION_RE.flags)
   let m
-  while ((m = MENTION_RE.exec(body)) !== null) {
+  while ((m = re.exec(body)) !== null) {
     const entity_type = m[1].toLowerCase()
     const entity_id   = m[2].toLowerCase()
     const key = `${entity_type}:${entity_id}`
@@ -159,11 +163,59 @@ export async function syncMentions(supabase, noteId, body) {
   // Wipe and re-insert: simpler than diffing, fine at note-save scale.
   await supabase.from('kb_mentions').delete().eq('note_id', noteId)
   if (next.length === 0) return
-  await supabase.from('kb_mentions').insert(next.map(n => ({
-    note_id: noteId,
-    entity_type: n.entity_type,
-    entity_id: n.entity_id
-  })))
+  // Drop self-references — a note mentioning itself shouldn't show up in its
+  // own backlinks panel. Cheap to filter here than special-case in the UI.
+  const rows = next
+    .filter(n => !(n.entity_type === 'note' && n.entity_id === noteId))
+    .map(n => ({ note_id: noteId, entity_type: n.entity_type, entity_id: n.entity_id }))
+  if (rows.length === 0) return
+  await supabase.from('kb_mentions').insert(rows)
+}
+
+// Fetch the notes that wikilink TO a given note. Returns rows enriched with
+// the source note's folder + mandate context so the editor can render a
+// "Linked from · <Mandate> · <Folder>" panel without further round-trips.
+export async function fetchBacklinks(supabase, noteId) {
+  if (!noteId) return []
+  // Pull mention rows where this note is the target. embedded kb_notes
+  // gives us the SOURCE note (the one doing the linking).
+  const { data: mentions, error } = await supabase
+    .from('kb_mentions')
+    .select('id, note_id, kb_notes(id, title, body, folder_id, updated_at)')
+    .eq('entity_type', 'note')
+    .eq('entity_id', noteId)
+  if (error || !mentions) return []
+  const sourceNotes = mentions.map(m => m.kb_notes).filter(Boolean)
+  if (sourceNotes.length === 0) return []
+
+  // Pull folder + mandate context in a single round-trip each.
+  const folderIds = Array.from(new Set(sourceNotes.map(n => n.folder_id).filter(Boolean)))
+  let folderMap = {}, mandateMap = {}
+  if (folderIds.length > 0) {
+    const { data: folders } = await supabase
+      .from('kb_folders').select('id, name, mandate_id').in('id', folderIds)
+    for (const f of folders || []) folderMap[f.id] = f
+    const mandateIds = Array.from(new Set((folders || []).map(f => f.mandate_id).filter(Boolean)))
+    if (mandateIds.length > 0) {
+      const { data: deals } = await supabase
+        .from('deals').select('id, client_name').in('id', mandateIds)
+      for (const d of deals || []) mandateMap[d.id] = d.client_name
+    }
+  }
+  return sourceNotes
+    .map(n => {
+      const f = folderMap[n.folder_id]
+      return {
+        id: n.id,
+        title: n.title,
+        body: n.body,
+        updated_at: n.updated_at,
+        folderName: f?.name || null,
+        mandateId: f?.mandate_id || null,
+        mandateName: f?.mandate_id ? (mandateMap[f.mandate_id] || 'Mandate') : 'Firm-wide'
+      }
+    })
+    .sort((a, b) => new Date(b.updated_at || 0) - new Date(a.updated_at || 0))
 }
 
 // ============ FOLDER-LOCAL TAGS ============

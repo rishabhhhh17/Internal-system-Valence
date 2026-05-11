@@ -8,12 +8,13 @@
 //   <WikilinkText>{deal.notes}</WikilinkText>
 //   <WikilinkText className="text-sm">{interaction.notes}</WikilinkText>
 
-const TOKEN_RE = /\[\[(person|fund|mandate):[0-9a-f-]{36}(?:\|([^\]]+))?\]\]/gi
+const TOKEN_RE = /\[\[(person|fund|mandate|note):[0-9a-f-]{36}(?:\|([^\]]+))?\]\]/gi
 
 const TYPE_CLASS = {
   person:  'bg-blue-50 text-blue-800 border-blue-200',
   fund:    'bg-violet-50 text-violet-800 border-violet-200',
-  mandate: 'bg-emerald-50 text-emerald-800 border-emerald-200'
+  mandate: 'bg-emerald-50 text-emerald-800 border-emerald-200',
+  note:    'bg-amber-50 text-amber-800 border-amber-200'
 }
 
 export default function WikilinkText({ children, className = '' }) {
