@@ -13,6 +13,7 @@ import {
 import { signInWithGoogle, signOut, GoogleAuthExpired } from '../lib/google.js'
 import { useAuth } from '../hooks/useAuth.js'
 import ConfigBanner from '../components/ConfigBanner.jsx'
+import WikilinkTextarea from '../components/WikilinkTextarea.jsx'
 import EmptyState from '../components/EmptyState.jsx'
 import Modal from '../components/Modal.jsx'
 import { useToast } from '../components/Toast.jsx'
@@ -787,7 +788,7 @@ function NewEventForm({ initial, calendars, onSubmit, onCancel }) {
       </div>
       <div>
         <label className="vl-label">Notes</label>
-        <textarea className="vl-input min-h-[80px]" value={form.description} onChange={e => set('description', e.target.value)} placeholder="Agenda, prep links, attachments to bring." />
+        <WikilinkTextarea className="vl-input min-h-[80px]" value={form.description} onChange={v => set('description', v)} placeholder="Agenda, prep links, attachments to bring. Type [[ to link people / funds / mandates" />
       </div>
       <div className="flex items-center justify-end gap-2 pt-2">
         <button type="button" onClick={onCancel} className="vl-btn-secondary">Cancel</button>

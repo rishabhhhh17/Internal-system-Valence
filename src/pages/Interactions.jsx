@@ -12,6 +12,7 @@ import EmptyState from '../components/EmptyState.jsx'
 import InteractionDrawer from '../components/InteractionDrawer.jsx'
 import ViewModeToggle from '../components/ViewModeToggle.jsx'
 import { useToast } from '../components/Toast.jsx'
+import WikilinkText from '../components/WikilinkText.jsx'
 
 export default function Interactions() {
   const toast = useToast()
@@ -232,7 +233,11 @@ function InteractionRow({ row, onOpen, onConvert, isDetailed = true }) {
               </span></>
             )}
           </div>
-          {isDetailed && row.notes && <p className="mt-2 line-clamp-2 text-xs leading-relaxed text-valence-muted">{row.notes}</p>}
+          {row.notes && (
+            <p className={`mt-2 ${isDetailed ? 'line-clamp-3' : 'line-clamp-2'} text-xs leading-relaxed text-valence-muted`}>
+              <WikilinkText>{row.notes}</WikilinkText>
+            </p>
+          )}
         </button>
         <div className="flex flex-col items-end gap-2 shrink-0 text-[11px] text-valence-subtle">
           <span>{ago}</span>

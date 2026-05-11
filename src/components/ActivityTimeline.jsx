@@ -7,6 +7,8 @@ import {
 import { supabase, isSupabaseConfigured } from '../lib/supabase.js'
 import { logActivity, ACTIVITY_LABELS } from '../lib/activity.js'
 import { typeLabel as interactionTypeLabel, outcomeLabel as interactionOutcomeLabel } from '../lib/interactions.js'
+import WikilinkTextarea from './WikilinkTextarea.jsx'
+import WikilinkText from './WikilinkText.jsx'
 
 const KIND_ICON = {
   created:         Sparkles,
@@ -79,9 +81,9 @@ export default function ActivityTimeline({ dealId }) {
 
       {noteOpen && (
         <form onSubmit={addNote} className="space-y-2 rounded-lg border border-valence-border bg-valence-surface p-3">
-          <textarea
-            value={note} onChange={e => setNote(e.target.value)}
-            className="vl-input min-h-[72px]" placeholder="Log a note — what changed, what was agreed, what's next…"
+          <WikilinkTextarea
+            value={note} onChange={setNote}
+            className="vl-input min-h-[72px]" placeholder="Log a note — what changed, what was agreed, what's next… Type [[ to link people / funds / mandates"
             autoFocus
           />
           <div className="flex justify-end gap-2">
@@ -113,7 +115,7 @@ export default function ActivityTimeline({ dealId }) {
                     {item.meta && <span className="rounded-full bg-white border border-valence-border px-1.5 py-0 text-[10px] font-semibold text-valence-muted">{item.meta}</span>}
                     <span className="text-valence-subtle font-normal normal-case tracking-normal">· {formatDistanceToNow(new Date(item.created_at), { addSuffix: true })}</span>
                   </div>
-                  {item.body && <p className="mt-1 text-sm text-valence-text leading-relaxed">{item.body}</p>}
+                  {item.body && <p className="mt-1 text-sm text-valence-text leading-relaxed"><WikilinkText>{item.body}</WikilinkText></p>}
                   <p className="mt-1 text-[10px] text-valence-subtle">{format(new Date(item.created_at), 'd MMM yyyy · HH:mm')}</p>
                 </div>
               </li>

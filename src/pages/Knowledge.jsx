@@ -746,7 +746,7 @@ function CompForm({ onSubmit, onCancel }) {
         <div><label className="vl-label">EV (USD M)</label><input className="vl-input" type="number" value={form.ev_usd_m} onChange={e => set('ev_usd_m', e.target.value)} /></div>
         <div><label className="vl-label">Revenue multiple</label><input className="vl-input" type="number" step="0.1" value={form.revenue_multiple} onChange={e => set('revenue_multiple', e.target.value)} /></div>
         <div className="col-span-2"><label className="vl-label">EBITDA multiple</label><input className="vl-input" type="number" step="0.1" value={form.ebitda_multiple} onChange={e => set('ebitda_multiple', e.target.value)} /></div>
-        <div className="col-span-2"><label className="vl-label">Notes</label><textarea className="vl-input min-h-[80px]" value={form.notes} onChange={e => set('notes', e.target.value)} /></div>
+        <div className="col-span-2"><label className="vl-label">Notes</label><WikilinkTextarea value={form.notes} onChange={v => set('notes', v)} entities={entities} minHeight={80} placeholder="Type [[ to link people / funds / mandates" /></div>
       </div>
       <div className="flex items-center justify-end gap-3 pt-2">
         <button type="button" onClick={onCancel} className="vl-btn-secondary">Cancel</button>

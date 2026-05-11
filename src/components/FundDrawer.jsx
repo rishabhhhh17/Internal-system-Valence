@@ -7,6 +7,7 @@ import { FUND_TYPES, WARMTH_LEVELS, warmthTone, fundTypeLabel } from '../lib/fun
 import { DEMO_PEOPLE } from '../lib/people.js'
 import EntityMentions from './EntityMentions.jsx'
 import WikilinkTextarea from './WikilinkTextarea.jsx'
+import WikilinkText from './WikilinkText.jsx'
 
 const TABS = [
   { id: 'overview', label: 'Overview' },
@@ -253,7 +254,7 @@ function ContactsTab({ fundId, contacts, setContacts }) {
           <input className="vl-input" value={draft.email} onChange={e => setDraft({ ...draft, email: e.target.value })} placeholder="Email" />
           <input className="vl-input" value={draft.phone} onChange={e => setDraft({ ...draft, phone: e.target.value })} placeholder="Phone" />
         </div>
-        <textarea className="vl-input min-h-[64px]" value={draft.notes} onChange={e => setDraft({ ...draft, notes: e.target.value })} placeholder="Notes (last contact, coverage area…)"></textarea>
+        <WikilinkTextarea className="vl-input min-h-[64px]" value={draft.notes} onChange={v => setDraft({ ...draft, notes: v })} placeholder="Notes (last contact, coverage area…) · Type [[ to link entities" />
         <div className="flex justify-end">
           <button type="submit" disabled={busy} className="vl-btn-primary text-xs">Add contact</button>
         </div>
@@ -273,7 +274,7 @@ function ContactsTab({ fundId, contacts, setContacts }) {
                 {c.email && <a href={`mailto:${c.email}`} className="inline-flex items-center gap-1 hover:text-valence-blue"><Mail className="h-3 w-3" /> {c.email}</a>}
                 {c.phone && <span className="inline-flex items-center gap-1"><Phone className="h-3 w-3" /> {c.phone}</span>}
               </div>
-              {c.notes && <p className="mt-1 text-[11px] text-valence-muted leading-relaxed">{c.notes}</p>}
+              {c.notes && <p className="mt-1 text-[11px] text-valence-muted leading-relaxed"><WikilinkText>{c.notes}</WikilinkText></p>}
             </li>
           ))}
         </ul>
