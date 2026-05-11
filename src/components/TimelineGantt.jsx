@@ -1,24 +1,29 @@
-import { useMemo, useRef, useEffect } from 'react'
+import { useMemo, useRef, useEffect, useState } from 'react'
 import { format, parseISO, differenceInCalendarDays, addDays, startOfMonth, addMonths } from 'date-fns'
+import { Flag, Info } from 'lucide-react'
 
 // Per-sector palette. Each row gets the colour of the mandate's sector so a
 // partner can scan the timeline and tell at a glance what kind of business
-// is happening when. Past/current/future is encoded by opacity / ring /
-// dashed, NOT by hue.
+// is happening when. Past/current/future is encoded by gradient depth, ring
+// glow, and dash respectively — never by hue.
+//
+// Each entry pairs a soft 50-shade background with a 100-shade gradient end
+// so the bars feel like glassy chips rather than flat fills, and a vivid
+// 500-shade accent for the row's left rail and current-stage glow.
 const SECTOR_PALETTE = {
-  Healthcare:     { bg: 'bg-emerald-100', border: 'border-emerald-300', text: 'text-emerald-800', ring: 'ring-emerald-400', ghost: 'border-emerald-300/60', accent: 'bg-emerald-400' },
-  Fintech:        { bg: 'bg-violet-100',  border: 'border-violet-300',  text: 'text-violet-800',  ring: 'ring-violet-400',  ghost: 'border-violet-300/60',  accent: 'bg-violet-400'  },
-  Consumer:       { bg: 'bg-amber-100',   border: 'border-amber-300',   text: 'text-amber-900',   ring: 'ring-amber-400',   ghost: 'border-amber-300/60',   accent: 'bg-amber-400'   },
-  Infrastructure: { bg: 'bg-slate-100',   border: 'border-slate-300',   text: 'text-slate-800',   ring: 'ring-slate-400',   ghost: 'border-slate-300/60',   accent: 'bg-slate-400'   },
-  Renewables:     { bg: 'bg-lime-100',    border: 'border-lime-300',    text: 'text-lime-800',    ring: 'ring-lime-400',    ghost: 'border-lime-300/60',    accent: 'bg-lime-400'    },
-  Logistics:      { bg: 'bg-orange-100',  border: 'border-orange-300',  text: 'text-orange-900',  ring: 'ring-orange-400',  ghost: 'border-orange-300/60',  accent: 'bg-orange-400'  },
-  'Real Estate':  { bg: 'bg-rose-100',    border: 'border-rose-300',    text: 'text-rose-800',    ring: 'ring-rose-400',    ghost: 'border-rose-300/60',    accent: 'bg-rose-400'    },
-  EdTech:         { bg: 'bg-cyan-100',    border: 'border-cyan-300',    text: 'text-cyan-800',    ring: 'ring-cyan-400',    ghost: 'border-cyan-300/60',    accent: 'bg-cyan-400'    },
-  Mobility:       { bg: 'bg-indigo-100',  border: 'border-indigo-300',  text: 'text-indigo-800',  ring: 'ring-indigo-400',  ghost: 'border-indigo-300/60',  accent: 'bg-indigo-400'  },
-  Hospitality:    { bg: 'bg-fuchsia-100', border: 'border-fuchsia-300', text: 'text-fuchsia-800', ring: 'ring-fuchsia-400', ghost: 'border-fuchsia-300/60', accent: 'bg-fuchsia-400' },
-  Media:          { bg: 'bg-pink-100',    border: 'border-pink-300',    text: 'text-pink-800',    ring: 'ring-pink-400',    ghost: 'border-pink-300/60',    accent: 'bg-pink-400'    }
+  Healthcare:     { from: 'from-emerald-50',  to: 'to-emerald-100',  border: 'border-emerald-300',  text: 'text-emerald-900',  glow: 'shadow-emerald-200/60',  accent: 'bg-emerald-500',  ring: 'ring-emerald-400/60'  },
+  Fintech:        { from: 'from-violet-50',   to: 'to-violet-100',   border: 'border-violet-300',   text: 'text-violet-900',   glow: 'shadow-violet-200/60',   accent: 'bg-violet-500',   ring: 'ring-violet-400/60'   },
+  Consumer:       { from: 'from-amber-50',    to: 'to-amber-100',    border: 'border-amber-300',    text: 'text-amber-900',    glow: 'shadow-amber-200/60',    accent: 'bg-amber-500',    ring: 'ring-amber-400/60'    },
+  Infrastructure: { from: 'from-slate-50',    to: 'to-slate-100',    border: 'border-slate-300',    text: 'text-slate-800',    glow: 'shadow-slate-200/60',    accent: 'bg-slate-500',    ring: 'ring-slate-400/60'    },
+  Renewables:     { from: 'from-lime-50',     to: 'to-lime-100',     border: 'border-lime-300',     text: 'text-lime-900',     glow: 'shadow-lime-200/60',     accent: 'bg-lime-500',     ring: 'ring-lime-400/60'     },
+  Logistics:      { from: 'from-orange-50',   to: 'to-orange-100',   border: 'border-orange-300',   text: 'text-orange-900',   glow: 'shadow-orange-200/60',   accent: 'bg-orange-500',   ring: 'ring-orange-400/60'   },
+  'Real Estate':  { from: 'from-rose-50',     to: 'to-rose-100',     border: 'border-rose-300',     text: 'text-rose-900',     glow: 'shadow-rose-200/60',     accent: 'bg-rose-500',     ring: 'ring-rose-400/60'     },
+  EdTech:         { from: 'from-cyan-50',     to: 'to-cyan-100',     border: 'border-cyan-300',     text: 'text-cyan-900',     glow: 'shadow-cyan-200/60',     accent: 'bg-cyan-500',     ring: 'ring-cyan-400/60'     },
+  Mobility:       { from: 'from-indigo-50',   to: 'to-indigo-100',   border: 'border-indigo-300',   text: 'text-indigo-900',   glow: 'shadow-indigo-200/60',   accent: 'bg-indigo-500',   ring: 'ring-indigo-400/60'   },
+  Hospitality:    { from: 'from-fuchsia-50',  to: 'to-fuchsia-100',  border: 'border-fuchsia-300',  text: 'text-fuchsia-900',  glow: 'shadow-fuchsia-200/60',  accent: 'bg-fuchsia-500',  ring: 'ring-fuchsia-400/60'  },
+  Media:          { from: 'from-pink-50',     to: 'to-pink-100',     border: 'border-pink-300',     text: 'text-pink-900',     glow: 'shadow-pink-200/60',     accent: 'bg-pink-500',     ring: 'ring-pink-400/60'     }
 }
-const SECTOR_FALLBACK = { bg: 'bg-blue-100', border: 'border-blue-300', text: 'text-blue-800', ring: 'ring-blue-400', ghost: 'border-blue-300/60', accent: 'bg-blue-400' }
+const SECTOR_FALLBACK = { from: 'from-blue-50', to: 'to-blue-100', border: 'border-blue-300', text: 'text-blue-900', glow: 'shadow-blue-200/60', accent: 'bg-blue-500', ring: 'ring-blue-400/60' }
 
 function paletteFor(deal) {
   return SECTOR_PALETTE[deal?.sector] || SECTOR_FALLBACK
@@ -194,24 +199,28 @@ export default function TimelineGantt({ deals, activities, zoom = 'months', onOp
 
   return (
     <div className="space-y-3">
-      <Legend rows={rows} />
+      {/* Tucked legend — opens on hover/click, doesn't steal vertical space. */}
+      <LegendBar rows={rows} />
 
-      <div className="vl-card overflow-hidden">
+      <div className="vl-card overflow-hidden shadow-sm">
         <div className="grid grid-cols-[260px_1fr]">
-          {/* Sticky left column */}
+          {/* Sticky left column — mandate list */}
           <div className="border-r border-valence-border bg-white">
             <div className="h-12 border-b border-valence-border px-4 flex items-end pb-2">
               <span className="vl-eyebrow-ink">Mandate</span>
             </div>
-            {rows.map(({ deal }) => {
+            {rows.map(({ deal }, idx) => {
               const p = paletteFor(deal)
               return (
-                <div key={deal.id} className="relative h-14 border-b border-valence-border/60 px-4 py-2">
-                  <span className={`absolute left-0 top-2 bottom-2 w-1 rounded-r ${p.accent}`} aria-hidden />
+                <div
+                  key={deal.id}
+                  className={`group relative h-14 border-b border-valence-border/60 px-4 py-2 transition-colors hover:bg-valence-surface/60 ${idx % 2 === 1 ? 'bg-valence-surface/20' : ''}`}
+                >
+                  <span className={`absolute left-0 top-2 bottom-2 w-[3px] rounded-r-full ${p.accent} shadow-[0_0_8px_currentColor] opacity-80 group-hover:opacity-100 transition-opacity`} aria-hidden />
                   <button onClick={() => onOpenDeal?.(deal)} className="w-full text-left pl-2">
                     <p className="truncate text-sm font-semibold text-valence-text">{deal.client_name}</p>
                     <div className="mt-0.5 flex flex-wrap items-center gap-1.5 text-[10px] text-valence-muted">
-                      {deal.sector && <span className={`rounded ${p.bg} ${p.border} ${p.text} border px-1.5 py-0`}>{deal.sector}</span>}
+                      {deal.sector && <span className={`rounded bg-gradient-to-br ${p.from} ${p.to} ${p.border} ${p.text} border px-1.5 py-0 font-semibold`}>{deal.sector}</span>}
                       {deal.side && <span className="rounded bg-valence-surface border border-valence-border px-1.5 py-0">{normalizeSide(deal.side)}</span>}
                       {deal.lead_owner && <span className="text-valence-subtle truncate">{deal.lead_owner}</span>}
                     </div>
@@ -222,41 +231,47 @@ export default function TimelineGantt({ deals, activities, zoom = 'months', onOp
           </div>
 
           {/* Scrollable timeline area */}
-          <div ref={scrollerRef} className="overflow-x-auto bg-valence-surface/40">
+          <div ref={scrollerRef} className="overflow-x-auto bg-gradient-to-b from-white to-valence-surface/40">
             <div className="relative" style={{ width: totalPx }}>
-              {/* Month axis */}
-              <div className="sticky top-0 z-10 h-12 border-b border-valence-border bg-white/95 backdrop-blur">
+              {/* Month axis — sticky header. Uses gradient backdrop for a glassy feel. */}
+              <div className="sticky top-0 z-10 h-12 border-b border-valence-border bg-white/85 backdrop-blur-md">
                 {monthMarks.map(m => (
                   <div key={m.date.toISOString()} className="absolute top-0 h-full" style={{ left: m.x }}>
-                    <div className="h-full border-l border-valence-border/60" />
+                    <div className="h-full border-l border-valence-border/40" />
                     <span className="absolute top-2 left-1.5 text-[10px] font-semibold uppercase tracking-[0.16em] text-valence-muted whitespace-nowrap">
                       {format(m.date, cfg.px >= 4 ? 'MMM yyyy' : "MMM ''yy")}
                     </span>
                   </div>
                 ))}
+                {/* Today marker — gradient line + glow pill */}
                 <div className="absolute top-0 h-full pointer-events-none" style={{ left: todayX }}>
-                  <div className="h-full w-px bg-valence-blue" />
-                  <span className="absolute top-2 left-1.5 inline-flex items-center gap-1 rounded-full bg-valence-blue text-white px-1.5 py-0 text-[10px] font-semibold">Today</span>
+                  <div className="h-full w-px bg-gradient-to-b from-valence-blue via-valence-blue to-valence-blue/40" />
+                  <span className="absolute top-2 left-1.5 inline-flex items-center gap-1 rounded-full bg-valence-blue text-white px-2 py-0.5 text-[10px] font-bold tracking-wide shadow-[0_0_12px_rgba(51,153,255,0.55)] ring-1 ring-white/40">
+                    <span className="h-1.5 w-1.5 rounded-full bg-white animate-pulse" /> Today
+                  </span>
                 </div>
               </div>
 
               {/* Rows */}
-              {rows.map(({ deal, segments, markers }) => {
+              {rows.map(({ deal, segments, markers }, idx) => {
                 const p = paletteFor(deal)
                 const closeIso = deal.expected_close_date || deal.target_close
                 const closeDate = closeIso ? parseISO(String(closeIso).slice(0, 10)) : null
                 const closeX = closeDate ? differenceInCalendarDays(closeDate, range.start) * cfg.px : null
 
                 return (
-                  <div key={deal.id} className="relative h-14 border-b border-valence-border/60">
+                  <div
+                    key={deal.id}
+                    className={`group/row relative h-14 border-b border-valence-border/60 transition-colors hover:bg-valence-blue-soft/15 ${idx % 2 === 1 ? 'bg-valence-surface/20' : ''}`}
+                  >
                     {/* Faint month grid in row */}
                     {monthMarks.map(m => (
-                      <div key={m.date.toISOString()} className="absolute top-0 bottom-0 w-px bg-valence-border/40" style={{ left: m.x }} />
+                      <div key={m.date.toISOString()} className="absolute top-0 bottom-0 w-px bg-valence-border/30" style={{ left: m.x }} />
                     ))}
-                    {/* Today line in row */}
-                    <div className="absolute top-0 bottom-0 w-px bg-valence-blue/60 pointer-events-none" style={{ left: todayX }} />
+                    {/* Today line within the row — subtle */}
+                    <div className="absolute top-0 bottom-0 w-px bg-valence-blue/40 pointer-events-none" style={{ left: todayX }} />
 
-                    {/* Stage segments — coloured by sector */}
+                    {/* Stage segments — gradient fills with depth. */}
                     {segments.map((seg, i) => {
                       const x = Math.max(0, differenceInCalendarDays(seg.start, range.start)) * cfg.px
                       const w = Math.max(2, differenceInCalendarDays(seg.end, seg.start)) * cfg.px
@@ -265,11 +280,12 @@ export default function TimelineGantt({ deals, activities, zoom = 'months', onOp
                           <button
                             onClick={() => onOpenDeal?.(deal)}
                             title={`${deal.client_name} · ${seg.stage} · ${format(seg.start, 'd MMM')} → ${format(seg.end, 'd MMM')}`}
-                            className={`relative h-full w-full rounded-md border text-[10px] font-semibold tracking-tight transition hover:brightness-105 ${segmentClass(seg, p)}`}
+                            className={`relative h-full w-full rounded-md text-[10px] font-semibold tracking-tight transition-all duration-150 hover:scale-[1.02] hover:brightness-105 ${segmentClass(seg, p)}`}
                           >
                             {w > 60 && <span className="px-2 truncate block leading-7">{seg.stage}</span>}
                             {seg.kind === 'current' && (
-                              <span className="absolute -top-2 left-1/2 -translate-x-1/2 inline-flex items-center gap-1 rounded-full bg-valence-ink text-white px-1.5 py-0 text-[9px] font-bold uppercase tracking-[0.14em] shadow-valence whitespace-nowrap">
+                              <span className="absolute -top-[10px] left-1/2 -translate-x-1/2 inline-flex items-center gap-1 rounded-full bg-valence-ink text-white px-2 py-0.5 text-[9px] font-bold uppercase tracking-[0.14em] shadow-[0_2px_8px_rgba(8,16,40,0.25)] ring-1 ring-white/15 whitespace-nowrap">
+                                <span className="h-1 w-1 rounded-full bg-valence-blue shadow-[0_0_6px_#3399FF] animate-pulse" />
                                 We are here
                               </span>
                             )}
@@ -278,7 +294,7 @@ export default function TimelineGantt({ deals, activities, zoom = 'months', onOp
                       )
                     })}
 
-                    {/* Activity markers — tiny dots below the bar */}
+                    {/* Activity markers — slightly larger dots, ringed for visibility */}
                     {markers.map((m, i) => {
                       const x = differenceInCalendarDays(m.when, range.start) * cfg.px
                       const def = MARKER_KIND[m.kind]
@@ -287,21 +303,21 @@ export default function TimelineGantt({ deals, activities, zoom = 'months', onOp
                         <span
                           key={`m-${i}`}
                           title={`${def.label} · ${format(m.when, 'd MMM')}${m.body ? ' — ' + m.body : ''}`}
-                          className={`absolute top-10 h-1.5 w-1.5 -translate-x-1/2 rounded-full ${def.dot} ring-1 ring-white shadow-sm pointer-events-auto`}
+                          className={`absolute top-[42px] h-2 w-2 -translate-x-1/2 rounded-full ${def.dot} ring-2 ring-white shadow-sm transition-transform hover:scale-150`}
                           style={{ left: x }}
                         />
                       )
                     })}
 
-                    {/* Target close flag */}
+                    {/* Target close flag — clean chip with icon, no jagged glyph */}
                     {closeX != null && closeX >= 0 && closeX <= totalPx && (
                       <span
                         title={`Target close: ${format(closeDate, 'd MMM yyyy')}`}
-                        className="absolute top-1 h-12 w-px bg-valence-ink/80 pointer-events-auto"
+                        className="absolute top-1 h-12 w-px bg-valence-ink/70 pointer-events-auto"
                         style={{ left: closeX }}
                       >
-                        <span className="absolute -top-0 -translate-x-1/2 inline-flex items-center gap-0.5 rounded-sm bg-valence-ink text-white px-1 py-0 text-[8px] font-bold uppercase tracking-[0.1em] whitespace-nowrap">
-                          ▸ Close
+                        <span className="absolute top-0 -translate-x-1/2 inline-flex items-center gap-1 rounded-md bg-valence-ink text-white px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-[0.12em] whitespace-nowrap shadow-[0_2px_8px_rgba(8,16,40,0.25)]">
+                          <Flag className="h-2.5 w-2.5" /> Close
                         </span>
                       </span>
                     )}
@@ -318,9 +334,16 @@ export default function TimelineGantt({ deals, activities, zoom = 'months', onOp
 
 function segmentClass(seg, palette) {
   const p = palette || SECTOR_FALLBACK
-  if (seg.kind === 'past')    return `${p.bg} ${p.border} ${p.text} opacity-70`
-  if (seg.kind === 'current') return `${p.bg} ${p.border} ${p.text} ring-2 ${p.ring}`
-  return `bg-white border-dashed ${p.ghost} ${p.text}`
+  if (seg.kind === 'past') {
+    // Past — softer gradient + slight desaturation. No ring; reads as history.
+    return `bg-gradient-to-br ${p.from} ${p.to} ${p.text} opacity-75 shadow-sm`
+  }
+  if (seg.kind === 'current') {
+    // Current — vivid gradient + glow ring + lift. The visual centre of the chart.
+    return `bg-gradient-to-br ${p.from} ${p.to} ${p.text} ring-2 ${p.ring} shadow-md ${p.glow}`
+  }
+  // Future — outlined chip, dashed, low chroma. Reads as projection.
+  return `bg-white border border-dashed ${p.border} ${p.text} opacity-90`
 }
 
 function normalizeSide(side) {
@@ -330,41 +353,70 @@ function normalizeSide(side) {
   return side
 }
 
-// Legend strip — sectors visible on this view + the marker glossary. Helps
-// a partner who hasn't memorised the palette read the chart.
-function Legend({ rows }) {
-  const sectors = Array.from(new Set(rows.map(r => r.deal.sector).filter(Boolean)))
-  const markerKinds = Array.from(new Set(rows.flatMap(r => r.markers.map(m => m.kind))))
+// Compact legend strip — one line. Sector pills inline (only those visible on
+// this view); a small "Legend" pill on the right reveals everything else
+// (state tokens + event glyphs) in a hover popover. The old fat block stole
+// vertical space and never earned it.
+function LegendBar({ rows }) {
+  const sectors = useMemo(() => Array.from(new Set(rows.map(r => r.deal.sector).filter(Boolean))), [rows])
+  const markerKinds = useMemo(() => Array.from(new Set(rows.flatMap(r => r.markers.map(m => m.kind)))), [rows])
+  const [open, setOpen] = useState(false)
+
   return (
-    <div className="flex flex-wrap items-center gap-x-4 gap-y-2 rounded-xl border border-valence-border bg-white/70 px-4 py-2 text-[11px]">
+    <div className="flex flex-wrap items-center gap-2 text-[11px]">
       {sectors.length > 0 && (
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="vl-eyebrow-ink">Sectors</span>
+        <>
           {sectors.map(s => {
             const p = SECTOR_PALETTE[s] || SECTOR_FALLBACK
             return (
-              <span key={s} className={`inline-flex items-center gap-1 rounded-full border ${p.border} ${p.bg} ${p.text} px-2 py-0.5 text-[10px] font-semibold`}>
+              <span key={s} className={`inline-flex items-center gap-1.5 rounded-full border ${p.border} bg-gradient-to-br ${p.from} ${p.to} ${p.text} px-2.5 py-0.5 text-[10px] font-semibold shadow-sm`}>
                 <span className={`h-1.5 w-1.5 rounded-full ${p.accent}`} />{s}
               </span>
             )
           })}
-        </div>
+        </>
       )}
-      {markerKinds.length > 0 && (
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="vl-eyebrow-ink">Events</span>
-          {markerKinds.map(k => (
-            <span key={k} className="inline-flex items-center gap-1 text-valence-muted">
-              <span className={`h-1.5 w-1.5 rounded-full ${MARKER_KIND[k].dot}`} />{MARKER_KIND[k].label}
-            </span>
-          ))}
-        </div>
-      )}
-      <div className="ml-auto flex flex-wrap items-center gap-3 text-valence-muted">
-        <span className="inline-flex items-center gap-1"><span className="h-2 w-3 rounded-sm bg-slate-300 opacity-70" />Past</span>
-        <span className="inline-flex items-center gap-1"><span className="h-2 w-3 rounded-sm bg-slate-200 ring-1 ring-slate-400" />Current</span>
-        <span className="inline-flex items-center gap-1"><span className="h-2 w-3 rounded-sm border border-dashed border-slate-400" />Future</span>
-        <span className="inline-flex items-center gap-1"><span className="h-3 w-px bg-valence-ink" />Target close</span>
+
+      <div className="relative ml-auto">
+        <button
+          onClick={() => setOpen(o => !o)}
+          onMouseEnter={() => setOpen(true)}
+          onMouseLeave={() => setOpen(false)}
+          className="inline-flex items-center gap-1.5 rounded-full border border-valence-border bg-white px-2.5 py-1 text-[10px] font-semibold text-valence-muted hover:text-valence-text hover:border-valence-ink/30 transition"
+          aria-expanded={open}
+        >
+          <Info className="h-3 w-3" /> Legend
+        </button>
+        {open && (
+          <div
+            onMouseEnter={() => setOpen(true)}
+            onMouseLeave={() => setOpen(false)}
+            className="absolute right-0 top-full mt-1 z-20 w-72 rounded-xl border border-valence-border bg-white shadow-valence-lg p-3 space-y-3"
+          >
+            <div>
+              <p className="vl-eyebrow-ink mb-1.5">States</p>
+              <div className="grid grid-cols-2 gap-1.5 text-[10px] text-valence-muted">
+                <span className="inline-flex items-center gap-1.5"><span className="h-2 w-3 rounded-sm bg-gradient-to-br from-slate-50 to-slate-100 opacity-75" />Past</span>
+                <span className="inline-flex items-center gap-1.5"><span className="h-2 w-3 rounded-sm bg-gradient-to-br from-slate-50 to-slate-100 ring-1 ring-slate-400" />Current</span>
+                <span className="inline-flex items-center gap-1.5"><span className="h-2 w-3 rounded-sm border border-dashed border-slate-400" />Future</span>
+                <span className="inline-flex items-center gap-1.5"><Flag className="h-2.5 w-2.5" /> Target close</span>
+              </div>
+            </div>
+            {markerKinds.length > 0 && (
+              <div>
+                <p className="vl-eyebrow-ink mb-1.5">Events on the row</p>
+                <div className="grid grid-cols-2 gap-1 text-[10px] text-valence-muted">
+                  {markerKinds.map(k => (
+                    <span key={k} className="inline-flex items-center gap-1.5">
+                      <span className={`h-2 w-2 rounded-full ${MARKER_KIND[k].dot} ring-1 ring-white shadow-sm`} />
+                      {MARKER_KIND[k].label}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </div>
   )

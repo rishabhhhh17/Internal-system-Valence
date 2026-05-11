@@ -1,10 +1,11 @@
 // Google API helpers — talk to Calendar, Drive and Gmail using the provider
 // access token that Supabase stores inside the current session.
 //
-// Token refresh caveat: Supabase does not re-request Google's access token
-// when its own JWT refreshes. After ~1 hour the stored provider_token goes
-// stale. Every helper below surfaces a GoogleAuthExpired error on 401 so the
-// UI can prompt the user to reconnect.
+// Token refresh strategy: Supabase v2 stores both `provider_token` (the
+// short-lived Google access token) and `provider_refresh_token`. On a 401
+// we call `supabase.auth.refreshSession()` once — recent versions exchange
+// the refresh token for a fresh access token. If the retry still 401s we
+// surface GoogleAuthExpired so the UI can prompt a re-consent.
 
 import { supabase, isSupabaseConfigured } from './supabase.js'
 
@@ -24,12 +25,18 @@ export class GoogleAuthExpired extends Error {
 
 export async function signInWithGoogle({ redirectTo } = {}) {
   if (!isSupabaseConfigured) throw new Error('Supabase is not configured.')
+  // Default to the user's current URL so they land back exactly where they
+  // were after the OAuth round-trip, not at "/". Callers can override.
+  const fallback = typeof window !== 'undefined' ? window.location.href : '/'
   const { error } = await supabase.auth.signInWithOAuth({
     provider: 'google',
     options: {
       scopes: GOOGLE_SCOPES,
+      // access_type=offline + prompt=consent forces Google to return a refresh
+      // token even on subsequent grants — required for refreshSession() to
+      // exchange it for a fresh access_token on 401.
       queryParams: { access_type: 'offline', prompt: 'consent' },
-      redirectTo: redirectTo || window.location.origin
+      redirectTo: redirectTo || fallback
     }
   })
   if (error) throw error
@@ -52,9 +59,10 @@ export async function googleToken() {
 }
 
 async function gfetch(url, { method = 'GET', headers = {}, body, json = true } = {}) {
-  const token = await googleToken()
-  if (!token) throw new GoogleAuthExpired()
-  const res = await fetch(url, {
+  const initialToken = await googleToken()
+  if (!initialToken) throw new GoogleAuthExpired()
+
+  const buildInit = (token) => ({
     method,
     headers: {
       Authorization: `Bearer ${token}`,
@@ -63,7 +71,24 @@ async function gfetch(url, { method = 'GET', headers = {}, body, json = true } =
     },
     body: body && json ? JSON.stringify(body) : body
   })
-  if (res.status === 401) throw new GoogleAuthExpired()
+
+  let res = await fetch(url, buildInit(initialToken))
+
+  // 401 → try a single session refresh. Supabase v2 will exchange the stored
+  // provider_refresh_token for a fresh access_token. If that yields a new
+  // token we retry the request once; otherwise we surface auth-expired and
+  // the UI prompts a re-consent.
+  if (res.status === 401) {
+    try {
+      const { data } = await supabase.auth.refreshSession()
+      const refreshed = data?.session?.provider_token
+      if (refreshed && refreshed !== initialToken) {
+        res = await fetch(url, buildInit(refreshed))
+      }
+    } catch {/* fall through to GoogleAuthExpired */}
+    if (res.status === 401) throw new GoogleAuthExpired()
+  }
+
   if (!res.ok) {
     const txt = await res.text().catch(() => '')
     throw new Error(`Google API ${res.status}: ${txt || res.statusText}`)
