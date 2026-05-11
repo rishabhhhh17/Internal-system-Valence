@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { format } from 'date-fns'
-import { FilePlus, Search, FolderTree, Trash2, Globe2, ArrowRight } from 'lucide-react'
+import { FilePlus, Search, FolderTree, Trash2, Globe2, ArrowRight, Hash, X } from 'lucide-react'
 import { supabase, isSupabaseConfigured } from '../lib/supabase.js'
 import { stageMeta } from '../lib/stages.js'
 import { spawnMandateFolders, searchKbNotes } from '../lib/kb.js'
@@ -33,6 +33,10 @@ export default function KnowledgeMandates() {
   const [searchResults, setSearchResults] = useState(null)        // null = idle
   const [searching, setSearching]         = useState(false)
   const [folderIdsForMandate, setFolderIdsForMandate] = useState([])
+
+  // Tag filter — folder-local. Click chips to AND-filter the notes list.
+  // Resets whenever the folder changes since tags don't carry across folders.
+  const [activeTags, setActiveTags] = useState([])
 
   // ---------- Mandate list ----------
   useEffect(() => {
@@ -117,15 +121,41 @@ export default function KnowledgeMandates() {
 
   // ---------- Notes for the selected folder ----------
   useEffect(() => {
-    if (!selectedFolder) { setNotes([]); setSelectedNote(null); return }
+    if (!selectedFolder) { setNotes([]); setSelectedNote(null); setActiveTags([]); return }
     if (!isSupabaseConfigured) { setNotes([]); return }
     ;(async () => {
       const { data } = await supabase.from('kb_notes').select('*').eq('folder_id', selectedFolder.id).order('updated_at', { ascending: false })
       setNotes(data || [])
-      // Auto-pick the most recent note when entering a folder.
+      // Reset filter and auto-pick the most recent note when entering a folder.
+      setActiveTags([])
       setSelectedNote((data || [])[0] || null)
     })()
   }, [selectedFolder?.id])
+
+  // Tag counts derived from the unfiltered notes list — chips stay visible
+  // even after the user starts filtering so they can deselect or pivot.
+  // Sorted by count desc, then alphabetical for stable ordering.
+  const tagCounts = useMemo(() => {
+    const counts = new Map()
+    for (const n of notes) {
+      for (const t of (n.tags || [])) counts.set(t, (counts.get(t) || 0) + 1)
+    }
+    return Array.from(counts.entries())
+      .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+  }, [notes])
+
+  // AND-filter the visible notes by every active tag. Empty filter = show all.
+  const visibleNotes = useMemo(() => {
+    if (activeTags.length === 0) return notes
+    return notes.filter(n => {
+      const set = new Set(n.tags || [])
+      return activeTags.every(t => set.has(t))
+    })
+  }, [notes, activeTags])
+
+  function toggleTag(tag) {
+    setActiveTags(prev => prev.includes(tag) ? prev.filter(t => t !== tag) : [...prev, tag])
+  }
 
   // ---------- Actions ----------
   async function newNote() {
@@ -284,20 +314,64 @@ export default function KnowledgeMandates() {
                 </button>
               </div>
 
+              {/* Tag filter strip — folder-local chips with counts. AND-filter. */}
+              {tagCounts.length > 0 && (
+                <div className="flex flex-wrap items-center gap-1.5 -mt-1">
+                  <span className="vl-eyebrow-ink inline-flex items-center gap-1.5">
+                    <Hash className="h-3 w-3 text-valence-blue" /> Tags
+                  </span>
+                  {tagCounts.map(([tag, count]) => {
+                    const on = activeTags.includes(tag)
+                    return (
+                      <button
+                        key={tag}
+                        onClick={() => toggleTag(tag)}
+                        className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-semibold transition ${on ? 'border-valence-blue bg-valence-blue text-white' : 'border-valence-border bg-valence-surface text-valence-muted hover:border-valence-blue/40 hover:text-valence-text'}`}
+                        title={on ? 'Click to remove filter' : 'Click to filter notes by this tag'}
+                      >
+                        #{tag}
+                        <span className={`tabular-nums ${on ? 'text-white/80' : 'text-valence-subtle'}`}>{count}</span>
+                      </button>
+                    )
+                  })}
+                  {activeTags.length > 0 && (
+                    <button
+                      onClick={() => setActiveTags([])}
+                      className="inline-flex items-center gap-1 rounded-full border border-valence-border bg-white px-2 py-0.5 text-[10px] font-semibold text-valence-muted hover:text-valence-danger transition"
+                      title="Clear tag filter"
+                    >
+                      <X className="h-3 w-3" /> Clear
+                    </button>
+                  )}
+                </div>
+              )}
+
               {/* Notes list */}
               <ul className="grid gap-2">
                 {notes.length === 0 ? (
                   <li className="rounded-lg border border-dashed border-valence-border bg-valence-surface px-4 py-6 text-center text-xs text-valence-muted">
                     No notes in this folder yet. Click "+ New note" to start.
                   </li>
-                ) : notes.map(n => {
+                ) : visibleNotes.length === 0 ? (
+                  <li className="rounded-lg border border-dashed border-valence-border bg-valence-surface px-4 py-6 text-center text-xs text-valence-muted">
+                    No notes match the active tag filter. <button onClick={() => setActiveTags([])} className="font-semibold text-valence-blue hover:underline">Clear filter</button> to see all {notes.length}.
+                  </li>
+                ) : visibleNotes.map(n => {
                   const active = n.id === selectedNote?.id
                   return (
                     <li key={n.id}>
                       <div className={`flex items-center gap-2 rounded-lg border px-3 py-2 transition ${active ? 'border-valence-blue/40 bg-valence-blue-soft' : 'border-valence-border bg-white hover:bg-valence-surface'}`}>
                         <button onClick={() => setSelectedNote(n)} className="flex-1 min-w-0 text-left">
                           <p className="truncate text-sm font-semibold text-valence-text">{n.title || 'Untitled note'}</p>
-                          <p className="text-[10px] text-valence-muted">{n.updated_at ? `Updated ${format(new Date(n.updated_at), 'd MMM · HH:mm')}` : 'Just now'}</p>
+                          <div className="mt-0.5 flex items-center gap-2 text-[10px]">
+                            <span className="text-valence-muted">{n.updated_at ? `Updated ${format(new Date(n.updated_at), 'd MMM · HH:mm')}` : 'Just now'}</span>
+                            {(n.tags || []).length > 0 && (
+                              <span className="inline-flex items-center gap-1 text-valence-subtle">
+                                {(n.tags || []).slice(0, 3).map(t => <span key={t}>#{t}</span>)}
+                                {(n.tags || []).length > 3 && <span>+{n.tags.length - 3}</span>}
+                              </span>
+                            )}
+                          </div>
                         </button>
                         <button onClick={() => deleteNote(n)} className="p-1 text-valence-subtle hover:text-valence-danger" title="Delete"><Trash2 className="h-3 w-3" /></button>
                       </div>
