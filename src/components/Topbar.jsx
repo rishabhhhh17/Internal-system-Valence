@@ -7,13 +7,26 @@ import CurrencyToggle from './CurrencyToggle.jsx'
 import NotificationCenter, { useNotifications } from './NotificationCenter.jsx'
 import TutorialButton from './Tutorial.jsx'
 
+// Title + subtitle per route. Keep titles in lockstep with the sidebar
+// labels so the topbar / sidebar / page hero never disagree about what
+// page the user is on. Anything missing here falls back to the generic
+// "ValenceOS" — which the user will read as a bug, so add an entry for
+// every route Layout actually renders.
 const titles = {
-  '/':                  { title: 'Overview',        sub: 'Your morning briefing.' },
+  '/':                  { title: 'Today',           sub: 'Your morning briefing.' },
   '/deals':             { title: 'Deal Logger',     sub: 'Every live mandate, tracked with institutional rigour.' },
+  '/mandates':          { title: 'Live Mandates',   sub: 'Active book — engaged through closing.' },
+  '/timeline':          { title: 'Timeline',        sub: 'Every active mandate, laid out in time.' },
+  '/interactions':      { title: 'Interactions',    sub: 'The pre-mandate funnel — every touchpoint logged.' },
+  '/people':            { title: 'People',          sub: 'Persona-driven CRM. Who they are, what they care about.' },
+  '/funds':             { title: 'Firm',            sub: 'Funds and family offices — who writes the cheques.' },
+  '/screen':            { title: 'Quick Screener',  sub: 'AI fund-match and mandate-fit, one paste away.' },
+  '/inbox/intake':      { title: 'Intake inbox',    sub: 'Inbound mandate submissions, AI-triaged.' },
   '/knowledge':         { title: 'Knowledge',       sub: 'Firm-shared or private — pick a track.' },
-  '/knowledge/shared':  { title: 'Knowledge',       sub: 'Firm-shared memos, files, comps — searchable, citable, instant.' },
+  '/knowledge/shared':  { title: 'Knowledge',       sub: 'Ask, search, memos, files, comps, and per-mandate notes — one surface.' },
   '/knowledge/private': { title: 'Private',         sub: 'Your personal Google Drive. Private to you.' },
   '/planner':           { title: 'Day Planner',     sub: 'Walk into your day prepared. Propose times in a tap.' },
+  '/calendar':          { title: 'Team Calendar',   sub: 'Everyone\'s week, in one view. Find a free slot in seconds.' },
   '/analytics':         { title: 'Analytics',       sub: 'Pipeline, conversion, fees, velocity — the firm in numbers.' },
   '/team':              { title: 'Team',            sub: 'Coverage across sectors and geographies.' }
 }
