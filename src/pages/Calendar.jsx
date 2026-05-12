@@ -16,11 +16,13 @@ import ConfigBanner from '../components/ConfigBanner.jsx'
 import WikilinkTextarea from '../components/WikilinkTextarea.jsx'
 import EmptyState from '../components/EmptyState.jsx'
 import Modal from '../components/Modal.jsx'
+import QuickCalendar from '../components/QuickCalendar.jsx'
 import { useToast } from '../components/Toast.jsx'
 
 const VIEWS = ['Day', 'Week', 'Month']
 const DURATIONS = [15, 30, 45, 60, 90, 120]
 const MODES = [
+  { id: 'quick',  label: 'Quick plan',   sub: 'Drag to create · invites send' },
   { id: 'team',   label: 'Team overlay', sub: 'Slot finder + cross-calendar' },
   { id: 'google', label: 'My Google',    sub: 'Your real Google Calendar' }
 ]
@@ -28,7 +30,7 @@ const MODES = [
 export default function Calendar() {
   const toast = useToast()
   const { googleConnected, profile, refresh: refreshAuth } = useAuth()
-  const [mode, setMode]   = useState('team')
+  const [mode, setMode]   = useState('quick')
   const [view, setView]   = useState('Week')
   const [anchor, setAnchor] = useState(new Date())
   const [calendars, setCalendars] = useState([])
@@ -272,6 +274,12 @@ export default function Calendar() {
         </div>
       )}
 
+      {/* Quick-plan mode: full-width Google-Calendar-style click-drag grid */}
+      {mode === 'quick' && (
+        <QuickCalendar googleConnected={googleConnected} onConnect={connectGoogle} />
+      )}
+
+      {mode !== 'quick' && (
       <div className="grid gap-5 lg:grid-cols-[1fr_280px]">
         {/* Left: either the team overlay grid OR the real Google Calendar iframe */}
         {mode === 'team' ? (
@@ -410,6 +418,7 @@ export default function Calendar() {
           )}
         </aside>
       </div>
+      )}
 
       {/* Compose modal */}
       <Modal
