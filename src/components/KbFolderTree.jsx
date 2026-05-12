@@ -317,9 +317,21 @@ export default function KbFolderTree({ mandate, mandateId, scope = 'mandate', se
   )
 
   return (
-    <ul className="text-sm">
-      {renderNode(root)}
-    </ul>
+    <div className="space-y-1">
+      <div className="flex items-center justify-between px-1 pb-1 mb-1 border-b border-valence-border">
+        <p className="vl-eyebrow-ink inline-flex items-center gap-1.5"><FolderOpen className="h-3 w-3 text-valence-blue" /> Folders</p>
+        <button
+          onClick={() => { setCreatingUnder(root.id); setCreateValue('') }}
+          className="inline-flex items-center gap-1 rounded-md border border-valence-blue/30 bg-valence-blue-soft px-2 py-0.5 text-[11px] font-semibold text-valence-blue hover:bg-valence-blue hover:text-white transition"
+          title="New folder under this mandate"
+        >
+          <Plus className="h-3 w-3" /> New folder
+        </button>
+      </div>
+      <ul className="text-sm">
+        {renderNode(root)}
+      </ul>
+    </div>
   )
 
   function renderNode(folder, depth = 0) {
@@ -361,7 +373,7 @@ export default function KbFolderTree({ mandate, mandateId, scope = 'mandate', se
             </button>
           )}
 
-          <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition shrink-0">
+          <div className="flex items-center gap-0.5 opacity-40 group-hover:opacity-100 transition shrink-0">
             <button onClick={() => { setCreatingUnder(folder.id); setCreateValue('') }} className="p-1 text-valence-subtle hover:text-valence-blue" title="Add sub-folder"><Plus className="h-3 w-3" /></button>
             <button onClick={() => { setRenaming(folder.id); setRenameValue(folder.name) }} className="p-1 text-valence-subtle hover:text-valence-blue" title="Rename"><Pencil className="h-3 w-3" /></button>
             {folder.folder_type !== 'mandate_root' && (
