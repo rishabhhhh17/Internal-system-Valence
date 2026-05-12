@@ -909,15 +909,15 @@ function EventPopover({ event, anchor, calendar, people, onClose }) {
 // at once. No drill-down: title, calendar, time, location, description and
 // attendees with persona chips for every event live in the same scrollable
 // popover so the user sees who's meeting with whom at this slot in one shot.
-function StackedEventsPopover({ events, anchor, calendarsById, people, onClose }) {
-  const width = 440
-  const pos = popoverPosition(anchor, Math.min(600, 100 + events.length * 200), width)
+function StackedEventsPopover({ events, calendarsById, people, onClose }) {
+  // Centered on the viewport — when you have 3 parallel meetings to read,
+  // the user shouldn't have to chase the popover into a corner.
   return (
     <>
       <ClickAwayOverlay onClose={onClose} />
       <div
-        className="fixed z-50 rounded-2xl border border-valence-border bg-white shadow-2xl"
-        style={{ left: pos.left, top: pos.top, width, maxHeight: '80vh', overflowY: 'auto' }}
+        className="fixed left-1/2 top-1/2 z-50 -translate-x-1/2 -translate-y-1/2 rounded-2xl border border-valence-border bg-white shadow-2xl"
+        style={{ width: 'min(520px, calc(100vw - 32px))', maxHeight: '80vh', overflowY: 'auto' }}
         onMouseDown={e => e.stopPropagation()}
       >
         <div className="sticky top-0 z-10 flex items-center justify-between px-5 pt-4 pb-3 border-b border-valence-border bg-white/95 backdrop-blur">
