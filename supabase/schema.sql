@@ -1687,6 +1687,19 @@ where not exists (
 -- re-run. Idempotent. Drop these policies + flip the App.jsx auth gate to
 -- lock down for production.
 -- ============================================================================
+-- ============ PHASE 5 — Checklist customisation + KB file folders ============
+-- deal_checklist gets `label` (text) + `required` (boolean) so users can add
+-- custom checklist items per-stage with their own labels and required flags.
+-- Template items leave label=null and look up the label by item_key.
+-- knowledge_files gets `folder_id` so firm-wide files can be organised into
+-- named template folders (Standard NDAs, Engagement Letters, etc.).
+alter table public.deal_checklist
+  add column if not exists label    text,
+  add column if not exists required boolean;
+alter table public.knowledge_files
+  add column if not exists folder_id uuid references public.kb_folders(id) on delete set null;
+create index if not exists knowledge_files_folder_idx on public.knowledge_files (folder_id);
+
 do $$
 declare
   t text;
