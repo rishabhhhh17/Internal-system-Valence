@@ -406,14 +406,15 @@ export default function Calendar() {
         />
       )}
 
-      {/* Stacked-events popover — every event at a slot when the +N chip is clicked.
-          Each row drills into the single-event popover. */}
+      {/* Stacked-events popover — every event at a slot, each with full details
+          (title, calendar, time, location, description, attendees with personas)
+          visible inline. No drill-down. */}
       {stackedEvents && (
         <StackedEventsPopover
           events={stackedEvents.events}
           anchor={stackedEvents.anchor}
           calendarsById={calendarsById}
-          onPick={(ev, rect) => { setStackedEvents(null); setSelectedEvent({ event: ev, anchor: rect }) }}
+          people={people}
           onClose={() => setStackedEvents(null)}
         />
       )}
@@ -595,7 +596,23 @@ function DayColumn({ date, events, calendars, calendarsById, onEventClick, onSta
               key={ev.id}
               data-event-card
               onMouseDown={e => e.stopPropagation()}
-              onClick={(e) => { e.stopPropagation(); onEventClick(ev, e.currentTarget.getBoundingClientRect()) }}
+              onClick={(e) => {
+                e.stopPropagation()
+                // If other events overlap this event's time window, surface
+                // the whole stack in the popover so the user sees all of
+                // them at once instead of just the one they clicked.
+                const evStart = new Date(ev.starts_at)
+                const evEnd   = new Date(ev.ends_at)
+                const overlapping = laidOut.filter(o => {
+                  if (o.id === ev.id) return false
+                  const oStart = new Date(o.starts_at)
+                  const oEnd   = new Date(o.ends_at)
+                  return oStart < evEnd && oEnd > evStart
+                })
+                const rect = e.currentTarget.getBoundingClientRect()
+                if (overlapping.length > 0) onStackClick?.([ev, ...overlapping], rect)
+                else onEventClick(ev, rect)
+              }}
               className={`absolute rounded-md border px-1.5 py-1 text-left leading-snug transition shadow-sm ${cls}`}
               style={{
                 top: startMin + 1,
@@ -801,7 +818,7 @@ function MonthView({ anchor, events, calendarsById, onEventClick }) {
 // viewport so it never spills off-screen. Closes on click-outside or Escape.
 // ============================================================================
 const POPOVER_WIDTH = 360
-function popoverPosition(anchor, height = 320) {
+function popoverPosition(anchor, height = 320, width = POPOVER_WIDTH) {
   if (!anchor) return { left: 100, top: 100 }
   const margin = 12
   const vw = typeof window !== 'undefined' ? window.innerWidth  : 1200
@@ -809,7 +826,7 @@ function popoverPosition(anchor, height = 320) {
   // Prefer placing the popover to the right of the event card; flip left if
   // there's no room.
   let left = anchor.right + 8
-  if (left + POPOVER_WIDTH + margin > vw) left = Math.max(margin, anchor.left - POPOVER_WIDTH - 8)
+  if (left + width + margin > vw) left = Math.max(margin, anchor.left - width - 8)
   let top = anchor.top
   if (top + height + margin > vh) top = Math.max(margin, vh - height - margin)
   return { left, top }
@@ -888,42 +905,71 @@ function EventPopover({ event, anchor, calendar, people, onClose }) {
 // Stacked-events popover — fires when the +N overflow chip is clicked. Lists
 // every event at that slot (visible + hidden). Each row click drills into the
 // single-event popover.
-function StackedEventsPopover({ events, anchor, calendarsById, onPick, onClose }) {
-  const pos = popoverPosition(anchor, Math.min(420, 80 + events.length * 60))
+// Stacked-events popover — shows every overlapping event's full detail card
+// at once. No drill-down: title, calendar, time, location, description and
+// attendees with persona chips for every event live in the same scrollable
+// popover so the user sees who's meeting with whom at this slot in one shot.
+function StackedEventsPopover({ events, anchor, calendarsById, people, onClose }) {
+  const width = 440
+  const pos = popoverPosition(anchor, Math.min(600, 100 + events.length * 200), width)
   return (
     <>
       <ClickAwayOverlay onClose={onClose} />
       <div
         className="fixed z-50 rounded-2xl border border-valence-border bg-white shadow-2xl"
-        style={{ left: pos.left, top: pos.top, width: POPOVER_WIDTH, maxHeight: '70vh', overflowY: 'auto' }}
+        style={{ left: pos.left, top: pos.top, width, maxHeight: '80vh', overflowY: 'auto' }}
         onMouseDown={e => e.stopPropagation()}
       >
-        <div className="flex items-center justify-between px-5 pt-4 pb-2 border-b border-valence-border">
+        <div className="sticky top-0 z-10 flex items-center justify-between px-5 pt-4 pb-3 border-b border-valence-border bg-white/95 backdrop-blur">
           <p className="text-sm font-semibold text-valence-text">{events.length} events at this slot</p>
           <button onClick={onClose} className="rounded-md p-1 text-valence-muted hover:bg-valence-surface" aria-label="Close"><X className="h-3.5 w-3.5" /></button>
         </div>
-        <ul className="p-2 space-y-1">
-          {events.map(ev => {
+        <div className="px-5 py-3 space-y-4 divide-y divide-valence-border/60">
+          {events.map((ev, idx) => {
             const cal = calendarsById.get(ev.calendar_id)
             const dot = colorClassesFor(cal?.color || 'blue').dot
             const start = new Date(ev.starts_at)
             const end   = new Date(ev.ends_at)
+            const attendees = attendeesWithPersonas(ev, people || [])
             return (
-              <li key={ev.id}>
-                <button
-                  onClick={e => onPick(ev, e.currentTarget.getBoundingClientRect())}
-                  className="w-full text-left flex items-start gap-2 rounded-lg border border-valence-border bg-white px-3 py-2 hover:bg-valence-surface/60 hover:border-valence-blue/40 transition"
-                >
-                  <span className={`mt-1 h-2 w-2 rounded-full shrink-0 ${dot}`} />
-                  <div className="flex-1 min-w-0">
-                    <p className="truncate text-sm font-semibold text-valence-text">{ev.title}</p>
-                    <p className="mt-0.5 text-[10px] text-valence-muted tabular-nums">{format(start, 'HH:mm')} – {format(end, 'HH:mm')} · {cal?.name || 'Unknown calendar'}</p>
+              <div key={ev.id} className={`space-y-2 ${idx > 0 ? 'pt-4' : ''}`}>
+                <div className="flex items-center gap-2">
+                  <span className={`h-2.5 w-2.5 rounded-full ${dot}`} />
+                  <p className="text-[11px] text-valence-muted truncate">{cal?.name || 'Unknown calendar'}</p>
+                </div>
+                <h3 className="text-base font-semibold text-valence-text">{ev.title || '(no title)'}</h3>
+                <div className="space-y-1 text-[12px] text-valence-muted">
+                  <p className="inline-flex items-center gap-1.5"><Clock className="h-3 w-3" /> {format(start, 'EEE LLL d · HH:mm')}–{format(end, 'HH:mm')}</p>
+                  {ev.location && <p className="inline-flex items-center gap-1.5"><MapPin className="h-3 w-3" /> {ev.location}</p>}
+                  {ev.description && <p className="text-valence-text whitespace-pre-wrap text-[12px]">{ev.description}</p>}
+                </div>
+                {attendees.length > 0 && (
+                  <div className="space-y-1.5">
+                    <p className="vl-eyebrow-ink inline-flex items-center gap-1.5"><Users className="h-3 w-3" /> Attendees ({attendees.length})</p>
+                    <ul className="space-y-1">
+                      {attendees.map((a, i) => (
+                        <li key={i} className="flex items-start gap-2 rounded-md border border-valence-border bg-white px-2 py-1.5">
+                          <div className="grid h-7 w-7 place-items-center rounded-full bg-valence-blue-soft text-[10px] font-bold text-valence-blue shrink-0">
+                            {(a.name || a.email || '?').slice(0, 1).toUpperCase()}
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <p className="text-[12px] font-semibold text-valence-text truncate">{a.name || a.email}</p>
+                            {a.email && a.email !== a.name && <p className="text-[10px] text-valence-muted truncate">{a.email}</p>}
+                            {a.person && (
+                              <a href={`/people?open=${a.person.id}`} className="mt-1 inline-flex items-center gap-1 rounded-md border border-valence-blue/30 bg-valence-blue-soft px-1.5 py-0.5 text-[10px] font-semibold text-valence-blue">
+                                <ExternalLink className="h-2.5 w-2.5" /> {a.person.role || 'Person'} · {a.person.company || 'on file'}
+                              </a>
+                            )}
+                          </div>
+                        </li>
+                      ))}
+                    </ul>
                   </div>
-                </button>
-              </li>
+                )}
+              </div>
             )
           })}
-        </ul>
+        </div>
       </div>
     </>
   )
