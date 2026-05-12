@@ -460,35 +460,44 @@ function FilesSection() {
 }
 
 function FileCard({ file, onDelete }) {
+  const url = filePublicUrl(file.path)
   return (
     <article className="vl-card vl-card-hover p-4 group relative">
-      <div className="flex items-start gap-3">
-        <div className="grid h-10 w-10 place-items-center rounded-lg bg-valence-blue-soft ring-1 ring-valence-blue/20 shrink-0">
-          <FileIcon className="h-4 w-4 text-valence-blue" />
-        </div>
-        <div className="flex-1 min-w-0">
-          <p className="truncate text-sm font-semibold text-valence-text" title={file.name}>{file.name}</p>
-          <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] text-valence-muted">
-            {file.sector && <span className="vl-chip-blue">{file.sector}</span>}
-            {file.char_count > 0 && <span>{Math.round(file.char_count / 1000)}k chars</span>}
-            <span className="text-valence-subtle">·</span>
-            <span>{formatDistanceToNow(new Date(file.created_at), { addSuffix: true })}</span>
+      <a
+        href={url}
+        target="_blank"
+        rel="noreferrer"
+        className="block cursor-pointer"
+        title="Open in new tab"
+      >
+        <div className="flex items-start gap-3">
+          <div className="grid h-10 w-10 place-items-center rounded-lg bg-valence-blue-soft ring-1 ring-valence-blue/20 shrink-0">
+            <FileIcon className="h-4 w-4 text-valence-blue" />
           </div>
-          {(file.tags || []).length > 0 && (
-            <div className="mt-2 flex flex-wrap gap-1">
-              {file.tags.slice(0, 4).map(t => (
-                <span key={t} className="inline-flex items-center gap-1 rounded-md border border-valence-border bg-valence-surface px-1.5 py-0.5 text-[10px] font-medium text-valence-muted">
-                  <Hash className="h-2.5 w-2.5" />{t}
-                </span>
-              ))}
+          <div className="flex-1 min-w-0">
+            <p className="truncate text-sm font-semibold text-valence-text group-hover:text-valence-blue transition" title={file.name}>{file.name}</p>
+            <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] text-valence-muted">
+              {file.sector && <span className="vl-chip-blue">{file.sector}</span>}
+              {file.char_count > 0 && <span>{Math.round(file.char_count / 1000)}k chars</span>}
+              <span className="text-valence-subtle">·</span>
+              <span>{formatDistanceToNow(new Date(file.created_at), { addSuffix: true })}</span>
             </div>
-          )}
-          {file.summary && <p className="mt-2 text-[11px] leading-relaxed text-valence-muted line-clamp-3">{file.summary}</p>}
+            {(file.tags || []).length > 0 && (
+              <div className="mt-2 flex flex-wrap gap-1">
+                {file.tags.slice(0, 4).map(t => (
+                  <span key={t} className="inline-flex items-center gap-1 rounded-md border border-valence-border bg-valence-surface px-1.5 py-0.5 text-[10px] font-medium text-valence-muted">
+                    <Hash className="h-2.5 w-2.5" />{t}
+                  </span>
+                ))}
+              </div>
+            )}
+            {file.summary && <p className="mt-2 text-[11px] leading-relaxed text-valence-muted line-clamp-3">{file.summary}</p>}
+          </div>
         </div>
-      </div>
+      </a>
 
-      <div className="mt-3 flex items-center justify-end gap-1">
-        <a href={filePublicUrl(file.path)} target="_blank" rel="noreferrer" className="vl-btn-ghost" aria-label="Open">
+      <div className="mt-3 flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition">
+        <a href={url} target="_blank" rel="noreferrer" className="vl-btn-ghost" aria-label="Open">
           <Download className="h-3.5 w-3.5" />
         </a>
         <button onClick={() => onDelete(file)} className="vl-btn-ghost text-valence-subtle hover:text-valence-danger" aria-label="Delete">
