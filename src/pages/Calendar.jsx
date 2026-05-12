@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { format, addDays, addWeeks, addMonths, startOfMonth, endOfMonth, isSameDay, isSameMonth, differenceInMinutes, isAfter } from 'date-fns'
 import { CalendarDays, ChevronLeft, ChevronRight, Plus, Users, Clock, MapPin, Sparkles, ExternalLink, Globe, X, RefreshCw, LogOut, AlertTriangle } from 'lucide-react'
 import { supabase, isSupabaseConfigured } from '../lib/supabase.js'
@@ -10,26 +10,21 @@ import {
   syncAllGoogleCalendars,
   DEMO_TEAM_CALENDARS, DEMO_CALENDAR_EVENTS
 } from '../lib/calendar.js'
-import { signInWithGoogle, signOut, GoogleAuthExpired } from '../lib/google.js'
+import { signInWithGoogle, signOut, GoogleAuthExpired, createCalendarEvent } from '../lib/google.js'
 import { useAuth } from '../hooks/useAuth.js'
 import ConfigBanner from '../components/ConfigBanner.jsx'
 import WikilinkTextarea from '../components/WikilinkTextarea.jsx'
 import EmptyState from '../components/EmptyState.jsx'
 import Modal from '../components/Modal.jsx'
-import QuickCalendar from '../components/QuickCalendar.jsx'
+import EventComposer from '../components/EventComposer.jsx'
 import { useToast } from '../components/Toast.jsx'
 
 const VIEWS = ['Day', 'Week', 'Month']
 const DURATIONS = [15, 30, 45, 60, 90, 120]
-const MODES = [
-  { id: 'quick',  label: 'Quick plan',   sub: 'Drag to create · invites send' },
-  { id: 'team',   label: 'Team overlay', sub: 'Slot finder + cross-calendar' }
-]
 
 export default function Calendar() {
   const toast = useToast()
   const { googleConnected, profile, refresh: refreshAuth } = useAuth()
-  const [mode, setMode]   = useState('quick')
   const [view, setView]   = useState('Week')
   const [anchor, setAnchor] = useState(new Date())
   const [calendars, setCalendars] = useState([])
@@ -37,9 +32,11 @@ export default function Calendar() {
   const [people, setPeople]       = useState([])
   const [hidden, setHidden]       = useState(new Set())  // calendar IDs to hide
   const [selectedEvent, setSelectedEvent] = useState(null)
-  const [composeAt, setComposeAt] = useState(null)       // Date when user clicks an empty slot
+  const [composeAt, setComposeAt] = useState(null)       // Date when user clicks an empty slot (legacy local-DB flow)
+  const [dragCompose, setDragCompose] = useState(null)   // { start, end } from drag-create
   const [loading, setLoading]     = useState(true)
   const [loadError, setLoadError] = useState(null)
+  const hiddenInitRef = useRef(false)
 
   // Slot finder state
   const [slotAttendees, setSlotAttendees] = useState([])
@@ -79,6 +76,21 @@ export default function Calendar() {
       return next
     })
   }
+
+  // Default visibility: only the current user's own calendar visible on first
+  // load. Everyone else is unticked and the user opts them in from the right
+  // rail. If the user's email doesn't match any calendar owner (demo mode,
+  // unsigned-in), leave the default of "show everything" alone.
+  useEffect(() => {
+    if (hiddenInitRef.current) return
+    if (calendars.length === 0) return
+    hiddenInitRef.current = true
+    const myEmail = profile?.email?.toLowerCase()
+    if (!myEmail) return
+    const mine = calendars.find(c => (c.owner_email || '').toLowerCase() === myEmail)
+    if (!mine) return
+    setHidden(new Set(calendars.filter(c => c.id !== mine.id).map(c => c.id)))
+  }, [calendars, profile?.email])
 
   const visibleCalendars = useMemo(() => calendars.filter(c => c.is_active && !hidden.has(c.id)), [calendars, hidden])
   const visibleEvents    = useMemo(() => {
@@ -233,42 +245,20 @@ export default function Calendar() {
               <Globe className="h-3.5 w-3.5" /> Connect Google
             </button>
           )}
-          {mode === 'team' && (
-            <div className="inline-flex items-center rounded-full border border-valence-border bg-white p-0.5">
-              {VIEWS.map(v => (
-                <button key={v} onClick={() => setView(v)} className={`rounded-full px-3 py-1 text-[11px] font-semibold transition ${view === v ? 'bg-valence-ink text-white' : 'text-valence-muted hover:text-valence-text'}`}>{v}</button>
-              ))}
-            </div>
-          )}
+          <div className="inline-flex items-center rounded-full border border-valence-border bg-white p-0.5">
+            {VIEWS.map(v => (
+              <button key={v} onClick={() => setView(v)} className={`rounded-full px-3 py-1 text-[11px] font-semibold transition ${view === v ? 'bg-valence-ink text-white' : 'text-valence-muted hover:text-valence-text'}`}>{v}</button>
+            ))}
+          </div>
         </div>
-      </div>
-
-      {/* Mode toggle: Quick plan (drag-to-create) vs Team overlay (slot finder) */}
-      <div className="inline-flex items-center rounded-xl border border-valence-border bg-white p-1">
-        {MODES.map(m => (
-          <button
-            key={m.id}
-            onClick={() => setMode(m.id)}
-            className={`flex flex-col items-start rounded-lg px-3.5 py-1.5 text-left transition ${mode === m.id ? 'bg-valence-ink text-white' : 'text-valence-muted hover:text-valence-text'}`}
-          >
-            <span className="text-[12px] font-semibold leading-tight">{m.label}</span>
-            <span className={`text-[10px] leading-tight ${mode === m.id ? 'text-white/70' : 'text-valence-subtle'}`}>{m.sub}</span>
-          </button>
-        ))}
       </div>
 
       {googleConnected && profile?.email && (
         <div className="rounded-lg border border-valence-success/30 bg-valence-success/5 px-4 py-2 text-[12px] text-valence-success">
-          Signed in as <b>{profile.email}</b>. Sync pulls events from each calendar's Google Calendar ID — make sure each team-member has shared their calendar with this account.
+          Signed in as <b>{profile.email}</b>. Drag any empty slot on the grid to create an event with Google Calendar invites.
         </div>
       )}
 
-      {/* Quick-plan mode: full-width Google-Calendar-style click-drag grid */}
-      {mode === 'quick' && (
-        <QuickCalendar googleConnected={googleConnected} onConnect={connectGoogle} />
-      )}
-
-      {mode !== 'quick' && (
       <div className="grid gap-5 lg:grid-cols-[1fr_280px]">
         {/* Team overlay grid */}
         <section className="vl-card overflow-hidden">
@@ -303,6 +293,13 @@ export default function Calendar() {
               calendarsById={calendarsById}
               onEventClick={setSelectedEvent}
               onSlotClick={(date, calId) => setComposeAt({ date, calendar_id: calId })}
+              onDragCreate={(start, end) => {
+                if (!googleConnected) {
+                  setComposeAt({ date: start, calendar_id: visibleCalendars[0]?.id })
+                  return
+                }
+                setDragCompose({ start, end })
+              }}
             />
           )}
         </section>
@@ -403,6 +400,32 @@ export default function Calendar() {
           )}
         </aside>
       </div>
+
+      {/* Drag-create composer — Google-style modal, writes to Google Calendar */}
+      {dragCompose && (
+        <EventComposer
+          range={dragCompose}
+          onClose={() => setDragCompose(null)}
+          onSave={async (payload) => {
+            try {
+              await createCalendarEvent({
+                title:       payload.title,
+                description: payload.description,
+                location:    payload.location,
+                start:       dragCompose.start,
+                end:         dragCompose.end,
+                attendees:   payload.attendees,
+                withMeet:    payload.withMeet
+              })
+              toast.success(payload.attendees.length > 0 ? 'Event saved · invites sent' : 'Event saved')
+              setDragCompose(null)
+              if (googleConnected) syncFromGoogle()
+            } catch (err) {
+              if (err instanceof GoogleAuthExpired) toast.error('Google session expired. Reconnect Google.')
+              else toast.error(err?.message || 'Could not create event')
+            }
+          }}
+        />
       )}
 
       {/* Compose modal */}
@@ -448,7 +471,7 @@ const HEADER_HEIGHT = 48
 // instead of a sliver too narrow to read.
 const MAX_VISIBLE_LANES = 2
 
-function TimeGrid({ view, anchor, calendars, events, calendarsById, onEventClick, onSlotClick }) {
+function TimeGrid({ view, anchor, calendars, events, calendarsById, onEventClick, onSlotClick, onDragCreate }) {
   const days = view === 'Day' ? [anchor] : Array.from({ length: 7 }, (_, i) => addDays(weekStart(anchor), i))
   const totalRows = DAY_END_HOUR - DAY_START_HOUR
   const totalHeight = totalRows * HOUR_HEIGHT
@@ -481,6 +504,7 @@ function TimeGrid({ view, anchor, calendars, events, calendarsById, onEventClick
               calendarsById={calendarsById}
               onEventClick={onEventClick}
               onSlotClick={onSlotClick}
+              onDragCreate={onDragCreate}
               totalHeight={totalHeight}
             />
           ))}
@@ -490,7 +514,7 @@ function TimeGrid({ view, anchor, calendars, events, calendarsById, onEventClick
   )
 }
 
-function DayColumn({ date, events, calendars, calendarsById, onEventClick, onSlotClick, totalHeight }) {
+function DayColumn({ date, events, calendars, calendarsById, onEventClick, onSlotClick, onDragCreate, totalHeight }) {
   const isToday = isSameDay(date, new Date())
   const laidOut = useMemo(() => layoutDayColumn(events), [events])
 
@@ -520,20 +544,20 @@ function DayColumn({ date, events, calendars, calendarsById, onEventClick, onSlo
         <div className={`text-base font-semibold ${isToday ? 'text-valence-text' : 'text-valence-text/80'}`}>{format(date, 'd')}</div>
       </div>
 
-      {/* Hour grid lines + slot click handlers */}
+      {/* Hour gridlines (visual) + drag-create layer */}
       <div className="relative" style={{ height: totalHeight }}>
-        {Array.from({ length: DAY_END_HOUR - DAY_START_HOUR }, (_, i) => {
-          const slotDate = new Date(date); slotDate.setHours(DAY_START_HOUR + i, 0, 0, 0)
-          return (
-            <button
-              key={i}
-              onClick={() => defaultCal && onSlotClick(slotDate, defaultCal)}
-              className="absolute inset-x-0 border-b border-valence-border/40 hover:bg-valence-blue-soft/30 transition-colors"
-              style={{ top: i * HOUR_HEIGHT, height: HOUR_HEIGHT }}
-              aria-label={`Create event at ${format(slotDate, 'HH:mm')}`}
-            />
-          )
-        })}
+        {Array.from({ length: DAY_END_HOUR - DAY_START_HOUR }, (_, i) => (
+          <div
+            key={i}
+            className="absolute inset-x-0 border-b border-valence-border/40 pointer-events-none"
+            style={{ top: i * HOUR_HEIGHT, height: HOUR_HEIGHT }}
+          />
+        ))}
+        <DragCreateLayer
+          date={date}
+          onSingleClick={hourSlot => defaultCal && onSlotClick(hourSlot, defaultCal)}
+          onRange={(start, end) => onDragCreate?.(start, end)}
+        />
 
         {/* Events (visible lanes only) */}
         {laidOut.filter(ev => ev._lane < MAX_VISIBLE_LANES).map(ev => {
@@ -551,6 +575,8 @@ function DayColumn({ date, events, calendars, calendarsById, onEventClick, onSlo
           return (
             <button
               key={ev.id}
+              data-event-card
+              onMouseDown={e => e.stopPropagation()}
               onClick={(e) => { e.stopPropagation(); onEventClick(ev) }}
               className={`absolute rounded-md border px-1.5 py-1 text-left leading-snug transition shadow-sm ${cls}`}
               style={{
@@ -583,6 +609,8 @@ function DayColumn({ date, events, calendars, calendarsById, onEventClick, onSlo
           return (
             <button
               key={`overflow-${key}`}
+              data-event-card
+              onMouseDown={e => e.stopPropagation()}
               onClick={(e) => { e.stopPropagation(); onEventClick(evs[0]) }}
               className="absolute right-1 rounded-full bg-valence-ink/80 px-1.5 py-0.5 text-[9px] font-bold text-white shadow-sm hover:bg-valence-ink"
               style={{ top: startMin + 2, zIndex: 5 }}
@@ -593,6 +621,91 @@ function DayColumn({ date, events, calendars, calendarsById, onEventClick, onSlo
           )
         })}
       </div>
+    </div>
+  )
+}
+
+// ============================================================================
+// Drag-create overlay — captures mousedown / mousemove / mouseup, snaps to
+// 15-minute slots, fires onRange(start, end) on commit. A click that doesn't
+// grow past a single slot falls through to onSingleClick with the hour-
+// aligned date so existing slot-click flows still work.
+// ============================================================================
+const SLOT_MIN_FOR_DRAG = 15
+const SLOT_PX_FOR_DRAG  = HOUR_HEIGHT / 4
+function DragCreateLayer({ date, onSingleClick, onRange }) {
+  const ref = useRef(null)
+  const [drag, setDrag] = useState(null)
+
+  function yToSlot(clientY) {
+    const rect = ref.current?.getBoundingClientRect()
+    if (!rect) return DAY_START_HOUR * 60
+    const y = Math.max(0, Math.min(rect.height - 1, clientY - rect.top))
+    const slots = Math.floor(y / SLOT_PX_FOR_DRAG)
+    return DAY_START_HOUR * 60 + slots * SLOT_MIN_FOR_DRAG
+  }
+
+  useEffect(() => {
+    if (!drag) return
+    function move(e) {
+      const end = yToSlot(e.clientY) + SLOT_MIN_FOR_DRAG
+      setDrag(prev => prev && ({ ...prev, endMin: Math.max(prev.startMin + SLOT_MIN_FOR_DRAG, end) }))
+    }
+    function up(e) {
+      const finalEnd = yToSlot(e.clientY) + SLOT_MIN_FOR_DRAG
+      const startMin = drag.startMin
+      const endMin   = Math.max(startMin + SLOT_MIN_FOR_DRAG, finalEnd)
+      setDrag(null)
+      const start = new Date(date); start.setHours(Math.floor(startMin / 60), startMin % 60, 0, 0)
+      const end   = new Date(date); end.setHours(Math.floor(endMin / 60),   endMin % 60,   0, 0)
+      if (endMin - startMin <= SLOT_MIN_FOR_DRAG) {
+        // Treat as a single click at the hour the user pressed.
+        const hourStart = new Date(date); hourStart.setHours(Math.floor(startMin / 60), 0, 0, 0)
+        onSingleClick?.(hourStart)
+      } else {
+        onRange?.(start, end)
+      }
+      window.removeEventListener('mousemove', move)
+      window.removeEventListener('mouseup', up)
+    }
+    window.addEventListener('mousemove', move)
+    window.addEventListener('mouseup', up)
+    return () => {
+      window.removeEventListener('mousemove', move)
+      window.removeEventListener('mouseup', up)
+    }
+  }, [drag, date])
+
+  function onMouseDown(e) {
+    if (e.button !== 0) return
+    if (e.target.closest('[data-event-card]')) return
+    const startMin = yToSlot(e.clientY)
+    setDrag({ startMin, endMin: startMin + 30 })
+    e.preventDefault()
+  }
+
+  return (
+    <div
+      ref={ref}
+      onMouseDown={onMouseDown}
+      className="absolute inset-0"
+      style={{ cursor: 'crosshair' }}
+    >
+      {drag && (
+        <div
+          className="absolute left-1 right-1 z-30 rounded-md border-2 border-valence-blue bg-valence-blue/15 pointer-events-none"
+          style={{
+            top:    ((drag.startMin - DAY_START_HOUR * 60) / 60) * HOUR_HEIGHT,
+            height: ((drag.endMin - drag.startMin) / 60) * HOUR_HEIGHT
+          }}
+        >
+          <p className="px-1 py-0.5 text-[10px] font-semibold text-valence-blue">
+            {String(Math.floor(drag.startMin / 60)).padStart(2, '0')}:{String(drag.startMin % 60).padStart(2, '0')}
+            {' – '}
+            {String(Math.floor(drag.endMin / 60)).padStart(2, '0')}:{String(drag.endMin % 60).padStart(2, '0')}
+          </p>
+        </div>
+      )}
     </div>
   )
 }
