@@ -167,10 +167,6 @@ export default function Analytics() {
           <h1 className="mt-2 font-display text-feature font-bold text-valence-text">
             The firm, in numbers.
           </h1>
-          <p className="mt-3 max-w-2xl text-sm leading-relaxed text-valence-muted">
-            Pipeline, fees, velocity, and coverage — organised the way an investment committee would read it.
-            Live where data exists; clearly flagged where illustrative.
-          </p>
         </div>
         <div className="flex flex-wrap items-center gap-2 text-[11px] text-valence-muted print:hidden">
           <div className="inline-flex items-center rounded-full border border-valence-border bg-white p-0.5">

@@ -38,25 +38,13 @@ export default function Knowledge() {
     if (t === 'ask') next.delete('tab'); else next.set('tab', t)
     setParams(next, { replace: true })
   }
-  const tabMeta = {
-    ask:      { label: 'Ask',           body: 'Ask plain-English questions. Answers cite the firm\'s memos, files, deals, and comps.' },
-    search:   { label: 'Search',        body: 'One search across every memo, file, deal note, comp and deal file indexed by the firm.' },
-    memos:    { label: 'Memos',         body: 'Short written notes shared with the firm — sector theses, frameworks, playbooks.' },
-    files:    { label: 'Files',         body: 'Uploaded documents shared with the whole firm (PDFs, decks, research).' },
-    comps:    { label: 'Comps',         body: 'Precedent transactions — targets, acquirers, multiples. Used for benchmarking.' },
-    mandates: { label: 'Mandate notes', body: 'Per-mandate folder tree. Tag people and funds with [[ for cross-links; #tag scopes a concept to one folder.' }
-  }
   return (
     <div className="space-y-6">
       <ConfigBanner />
 
-      {/* Canonical hero — matches the Knowledge landing's vocabulary. */}
       <div>
         <p className="vl-eyebrow-ink">Knowledge</p>
         <h1 className="mt-2 font-display text-feature font-bold text-valence-text">Everything the firm knows.</h1>
-        <p className="mt-3 max-w-2xl text-sm leading-relaxed text-valence-muted">
-          Ask, search, memos, files, comps, and per-mandate notes — one surface. Your personal files live in <a href="/knowledge/private" className="font-semibold text-valence-blue hover:text-valence-blue-hover">Private</a>.
-        </p>
       </div>
 
       <div className="flex items-center gap-1 rounded-lg border border-valence-border bg-valence-surface p-1 w-fit overflow-x-auto">
@@ -67,9 +55,6 @@ export default function Knowledge() {
         <TabButton active={tab === 'comps'}    onClick={() => setTab('comps')}    icon={TableIcon}>Comps</TabButton>
         <TabButton active={tab === 'mandates'} onClick={() => setTab('mandates')} icon={FolderTree}>Mandate notes</TabButton>
       </div>
-
-      {/* Sub-section helper: one clear sentence about this view */}
-      <p className="text-xs text-valence-muted -mt-2">{tabMeta[tab]?.body}</p>
 
       {tab === 'ask'      && <AskChat />}
       {tab === 'search'   && <SearchPortal onSelectTab={setTab} />}

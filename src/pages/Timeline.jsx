@@ -1,15 +1,18 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Filter, GanttChartSquare } from 'lucide-react'
+import { Filter, GanttChartSquare, Table as TableIcon } from 'lucide-react'
 import { supabase, isSupabaseConfigured } from '../lib/supabase.js'
-import { LIVE_MANDATE_STAGES } from '../lib/stages.js'
 import { useViewMode } from '../hooks/useViewMode.jsx'
 import ConfigBanner from '../components/ConfigBanner.jsx'
 import EmptyState from '../components/EmptyState.jsx'
 import TimelineGantt from '../components/TimelineGantt.jsx'
+import TimelineTable from '../components/TimelineTable.jsx'
 import ViewModeToggle from '../components/ViewModeToggle.jsx'
 
-const LIVE_STAGES = LIVE_MANDATE_STAGES
 const ZOOM_OPTIONS = ['weeks', 'months', 'quarters']
+// Stages the Gantt chart treats as "in flight". Terminal stages get
+// surfaced in the Table view (with their close-out date) but aren't
+// drawn as bars on the timeline.
+const NON_TERMINAL_STAGES = new Set(['Origination','Pitching','Pre-Mandate','Mandate'])
 
 export default function Timeline() {
   const { isDetailed } = useViewMode('timeline')
@@ -18,6 +21,7 @@ export default function Timeline() {
   const [loading, setLoading]       = useState(true)
   const [loadError, setLoadError]   = useState(null)
   const [zoom, setZoom]             = useState('months')
+  const [view, setView]             = useState('gantt')   // 'gantt' | 'table'
   const [ownerFilter, setOwnerFilter]   = useState('All')
   const [sectorFilter, setSectorFilter] = useState('All')
   const [sideFilter, setSideFilter]     = useState('All')
@@ -29,7 +33,10 @@ export default function Timeline() {
     if (!isSupabaseConfigured) { setDeals(DEMO_DEALS); setActivities(DEMO_ACTIVITIES); setLoading(false); return }
     try {
       const fetchPromise = Promise.all([
-        supabase.from('deals').select('*').in('stage', LIVE_STAGES).order('updated_at', { ascending: false }),
+        // Pull every deal — the Table view surfaces terminal-stage rows so
+        // the partner can see when a mandate closed / went on hold / was
+        // lost. The Gantt filters terminal rows out itself when rendering.
+        supabase.from('deals').select('*').order('updated_at', { ascending: false }),
         // Pull every activity kind for these deals — stage_change drives
         // segment boundaries; meeting / nda_signed / teaser_sent / file_upload
         // / note / email_drafted / brief_generated / contact_added become
@@ -76,24 +83,33 @@ export default function Timeline() {
           <h1 className="mt-2 font-display text-feature font-bold text-valence-text">
             Where every mandate sits in time.
           </h1>
-          <p className="mt-3 max-w-2xl text-sm leading-relaxed text-valence-muted">
-            Past stages from the activity log. Current stage pulsing on today's line.
-            Future stages projected from target close — adjust the zoom for the right altitude.
-          </p>
         </div>
         <div className="flex items-center gap-3">
           <ViewModeToggle pageKey="timeline" />
+          {/* Gantt vs Table toggle. Table view shows per-stage date stamps
+              (Origination / Pitching / Pre-Mandate / Mandate / Outcome) so
+              the partner can audit when each transition happened. */}
           <div className="inline-flex items-center rounded-full border border-valence-border bg-white p-0.5">
-            {ZOOM_OPTIONS.map(z => (
-              <button
-                key={z}
-                onClick={() => setZoom(z)}
-                className={`rounded-full px-3 py-1 text-[11px] font-semibold capitalize transition ${
-                  zoom === z ? 'bg-valence-ink text-white' : 'text-valence-muted hover:text-valence-text'
-                }`}
-              >{z}</button>
-            ))}
+            <button onClick={() => setView('gantt')} className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-semibold transition ${view === 'gantt' ? 'bg-valence-ink text-white' : 'text-valence-muted hover:text-valence-text'}`}>
+              <GanttChartSquare className="h-3 w-3" /> Gantt
+            </button>
+            <button onClick={() => setView('table')} className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-semibold transition ${view === 'table' ? 'bg-valence-ink text-white' : 'text-valence-muted hover:text-valence-text'}`}>
+              <TableIcon className="h-3 w-3" /> Table
+            </button>
           </div>
+          {view === 'gantt' && (
+            <div className="inline-flex items-center rounded-full border border-valence-border bg-white p-0.5">
+              {ZOOM_OPTIONS.map(z => (
+                <button
+                  key={z}
+                  onClick={() => setZoom(z)}
+                  className={`rounded-full px-3 py-1 text-[11px] font-semibold capitalize transition ${
+                    zoom === z ? 'bg-valence-ink text-white' : 'text-valence-muted hover:text-valence-text'
+                  }`}
+                >{z}</button>
+              ))}
+            </div>
+          )}
         </div>
       </div>
 
@@ -110,8 +126,11 @@ export default function Timeline() {
         <div className="vl-card p-10 grid place-items-center text-sm text-valence-muted">Drawing the timeline…</div>
       ) : loadError ? (
         <EmptyState icon={GanttChartSquare} title="Couldn't load timeline" description={loadError} action={<button onClick={load} className="vl-btn-primary">Retry</button>} />
+      ) : view === 'table' ? (
+        <TimelineTable deals={filtered} activities={activities} onOpenDeal={openDeal} />
       ) : (
-        <TimelineGantt deals={filtered} activities={activities} zoom={zoom} onOpenDeal={openDeal} />
+        // Gantt keeps to in-flight stages; terminal ones live in the table view.
+        <TimelineGantt deals={filtered.filter(d => NON_TERMINAL_STAGES.has(d.stage))} activities={activities} zoom={zoom} onOpenDeal={openDeal} />
       )}
     </div>
   )

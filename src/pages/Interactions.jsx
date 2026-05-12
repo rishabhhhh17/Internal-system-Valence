@@ -105,10 +105,6 @@ export default function Interactions() {
           <h1 className="mt-2 font-display text-feature font-bold text-valence-text">
             The pre-mandate funnel.
           </h1>
-          <p className="mt-3 max-w-2xl text-sm leading-relaxed text-valence-muted">
-            Every touchpoint that isn't yet a deal — pitches, outreach, relationship building, referrals.
-            Convert to origination the moment one becomes a mandate.
-          </p>
         </div>
         <div className="flex items-center gap-3">
           <ViewModeToggle pageKey="interactions" />
