@@ -31,7 +31,6 @@ const titles = {
   '/team':              { title: 'Team',            sub: 'Coverage across sectors and geographies.' }
 }
 
-const KHINT_KEY = 'valence.ranKHint'
 
 export default function Topbar() {
   const { pathname } = useLocation()
@@ -40,23 +39,7 @@ export default function Topbar() {
   const [notifOpen, setNotifOpen] = useState(false)
   const notifs = useNotifications({ live: true })
 
-  // First-run ⌘K hint — shows once, dismissible, persisted in localStorage.
-  const [showHint, setShowHint] = useState(false)
-  useEffect(() => {
-    try {
-      if (!localStorage.getItem(KHINT_KEY)) {
-        const t = setTimeout(() => setShowHint(true), 1200)
-        return () => clearTimeout(t)
-      }
-    } catch {}
-  }, [])
-  function dismissHint() {
-    setShowHint(false)
-    try { localStorage.setItem(KHINT_KEY, new Date().toISOString()) } catch {}
-  }
-
   function openPalette() {
-    dismissHint()
     const ev = new KeyboardEvent('keydown', { key: 'k', metaKey: true, bubbles: true })
     window.dispatchEvent(ev)
   }
@@ -82,20 +65,6 @@ export default function Topbar() {
             <span className="flex-1 text-valence-subtle">Search deals, memos, people…</span>
             <span className="vl-kbd">⌘K</span>
           </button>
-          {showHint && (
-            <div className="absolute right-0 top-full mt-2 z-40 hidden md:block animate-fade-in">
-              <div className="relative w-72 rounded-xl border border-valence-border-strong bg-valence-ink text-white shadow-valence-lg p-3">
-                <span className="absolute -top-1.5 right-10 h-3 w-3 rotate-45 bg-valence-ink border-l border-t border-valence-border-strong" aria-hidden />
-                <p className="text-[11px] font-semibold text-valence-blue">Tip</p>
-                <p className="mt-1 text-xs leading-relaxed">
-                  Press <span className="vl-kbd bg-white/10 text-white">⌘K</span> anywhere to jump to any deal, memo or meeting.
-                </p>
-                <button onClick={dismissHint} className="mt-2 text-[11px] font-semibold text-valence-blue hover:text-white transition">
-                  Got it →
-                </button>
-              </div>
-            </div>
-          )}
         </div>
 
         <button
