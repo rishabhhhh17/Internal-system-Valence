@@ -31,7 +31,8 @@ export default function Calendar() {
   const [events, setEvents]       = useState([])
   const [people, setPeople]       = useState([])
   const [hidden, setHidden]       = useState(new Set())  // calendar IDs to hide
-  const [selectedEvent, setSelectedEvent] = useState(null)
+  const [selectedEvent, setSelectedEvent] = useState(null)   // { event, anchor }
+  const [stackedEvents, setStackedEvents] = useState(null)   // { events, anchor }
   const [composeAt, setComposeAt] = useState(null)       // Date when user clicks an empty slot (legacy local-DB flow)
   const [dragCompose, setDragCompose] = useState(null)   // { start, end } from drag-create
   const [loading, setLoading]     = useState(true)
@@ -393,6 +394,30 @@ export default function Calendar() {
         </aside>
       </div>
 
+      {/* Event popover — appears at the click position rather than the right rail
+          so the partner doesn't have to hunt in the corner. */}
+      {selectedEvent && (
+        <EventPopover
+          event={selectedEvent.event}
+          anchor={selectedEvent.anchor}
+          calendar={calendarsById.get(selectedEvent.event.calendar_id)}
+          people={people}
+          onClose={() => setSelectedEvent(null)}
+        />
+      )}
+
+      {/* Stacked-events popover — every event at a slot when the +N chip is clicked.
+          Each row drills into the single-event popover. */}
+      {stackedEvents && (
+        <StackedEventsPopover
+          events={stackedEvents.events}
+          anchor={stackedEvents.anchor}
+          calendarsById={calendarsById}
+          onPick={(ev, rect) => { setStackedEvents(null); setSelectedEvent({ event: ev, anchor: rect }) }}
+          onClose={() => setStackedEvents(null)}
+        />
+      )}
+
       {/* Drag-create composer — Google-style modal, writes to Google Calendar */}
       {dragCompose && (
         <EventComposer
@@ -463,7 +488,7 @@ const HEADER_HEIGHT = 48
 // instead of a sliver too narrow to read.
 const MAX_VISIBLE_LANES = 2
 
-function TimeGrid({ view, anchor, calendars, events, calendarsById, onEventClick, onSlotClick, onDragCreate }) {
+function TimeGrid({ view, anchor, calendars, events, calendarsById, onEventClick, onStackClick, onSlotClick, onDragCreate }) {
   const days = view === 'Day' ? [anchor] : Array.from({ length: 7 }, (_, i) => addDays(weekStart(anchor), i))
   const totalRows = DAY_END_HOUR - DAY_START_HOUR
   const totalHeight = totalRows * HOUR_HEIGHT
@@ -507,7 +532,7 @@ function TimeGrid({ view, anchor, calendars, events, calendarsById, onEventClick
   )
 }
 
-function DayColumn({ date, events, calendars, calendarsById, onEventClick, onSlotClick, onDragCreate, totalHeight }) {
+function DayColumn({ date, events, calendars, calendarsById, onEventClick, onStackClick, onSlotClick, onDragCreate, totalHeight }) {
   const isToday = isSameDay(date, new Date())
   const laidOut = useMemo(() => layoutDayColumn(events), [events])
 
@@ -570,7 +595,7 @@ function DayColumn({ date, events, calendars, calendarsById, onEventClick, onSlo
               key={ev.id}
               data-event-card
               onMouseDown={e => e.stopPropagation()}
-              onClick={(e) => { e.stopPropagation(); onEventClick(ev) }}
+              onClick={(e) => { e.stopPropagation(); onEventClick(ev, e.currentTarget.getBoundingClientRect()) }}
               className={`absolute rounded-md border px-1.5 py-1 text-left leading-snug transition shadow-sm ${cls}`}
               style={{
                 top: startMin + 1,
@@ -610,7 +635,7 @@ function DayColumn({ date, events, calendars, calendarsById, onEventClick, onSlo
               key={`overflow-${key}`}
               data-event-card
               onMouseDown={e => e.stopPropagation()}
-              onClick={(e) => { e.stopPropagation(); onEventClick(evs[0]) }}
+              onClick={(e) => { e.stopPropagation(); onStackClick?.(stack, e.currentTarget.getBoundingClientRect()) }}
               className="absolute right-1 rounded-full bg-valence-ink/80 px-1.5 py-0.5 text-[9px] font-bold text-white shadow-sm hover:bg-valence-ink"
               style={{ top: startMin + 2, zIndex: 5 }}
               title="Click to see every event in this slot"
@@ -752,7 +777,7 @@ function MonthView({ anchor, events, calendarsById, onEventClick }) {
                   return (
                     <li key={ev.id}>
                       <button
-                        onClick={() => onEventClick(ev)}
+                        onClick={(e) => onEventClick(ev, e.currentTarget.getBoundingClientRect())}
                         className={`w-full truncate rounded border px-1.5 py-0.5 text-left text-[10px] leading-tight ${cls}`}
                         title={ev.title}
                       >
