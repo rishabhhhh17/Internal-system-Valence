@@ -229,8 +229,12 @@ export default function KbFolderTree({ mandate, mandateId, scope = 'mandate', se
       <div className="space-y-1">
         <div className="flex items-center justify-between px-1 pb-1 mb-1 border-b border-valence-border">
           <p className="vl-eyebrow-ink inline-flex items-center gap-1.5"><Library className="h-3 w-3 text-valence-blue" /> Firm library</p>
-          <button onClick={() => { setCreatingTop(true); setTopValue('') }} className="p-1 text-valence-subtle hover:text-valence-blue" title="New top-level folder">
-            <Plus className="h-3.5 w-3.5" />
+          <button
+            onClick={() => { setCreatingTop(true); setTopValue('') }}
+            className="inline-flex items-center gap-1 rounded-md border border-valence-blue/30 bg-valence-blue-soft px-2 py-0.5 text-[11px] font-semibold text-valence-blue hover:bg-valence-blue hover:text-white transition"
+            title="New top-level folder"
+          >
+            <Plus className="h-3 w-3" /> New folder
           </button>
         </div>
         {creatingTop && (
