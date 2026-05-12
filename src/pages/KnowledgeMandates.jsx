@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { format } from 'date-fns'
-import { FilePlus, Search, FolderTree, Trash2, Globe2, ArrowRight, Hash, X } from 'lucide-react'
+import { FilePlus, Search, FolderTree, Trash2, Globe2, ArrowRight, Hash, X, Library } from 'lucide-react'
 import { supabase, isSupabaseConfigured } from '../lib/supabase.js'
 import { stageMeta } from '../lib/stages.js'
 import { spawnMandateFolders, searchKbNotes } from '../lib/kb.js'
@@ -14,6 +14,13 @@ import { useToast } from '../components/Toast.jsx'
 // Three-pane layout — mandate picker (left), folder tree (middle), notes
 // (right). Selection is reflected in the URL so links into a specific
 // mandate / folder / note are share-able.
+//
+// Special sentinel `__firm__` on selectedMandateId switches the folder
+// tree to the firm-wide library (kb_folders.mandate_id IS NULL) — a
+// shared space for NDA templates, engagement letters, internal playbooks,
+// anything that isn't tied to one mandate.
+
+const FIRM_SCOPE = '__firm__'
 //
 // Exported as a named `MandatesPanel` so the unified Knowledge surface can
 // embed it as a tab without re-rendering the global hero. The default
@@ -80,11 +87,16 @@ export function MandatesPanel() {
     setSearchQuery('')
   }, [selectedMandateId])
 
-  // Pull all folder IDs for the active mandate so we can scope search to them.
+  // Pull all folder IDs for the active scope so we can narrow search.
+  // Mandate scope → folders for that mandate. Firm scope → folders with
+  // mandate_id null (the shared library).
   useEffect(() => {
     if (!selectedMandateId || !isSupabaseConfigured) { setFolderIdsForMandate([]); return }
     ;(async () => {
-      const { data } = await supabase.from('kb_folders').select('id').eq('mandate_id', selectedMandateId)
+      const q = supabase.from('kb_folders').select('id')
+      const { data } = selectedMandateId === FIRM_SCOPE
+        ? await q.is('mandate_id', null)
+        : await q.eq('mandate_id', selectedMandateId)
       setFolderIdsForMandate((data || []).map(f => f.id))
     })()
   }, [selectedMandateId])
@@ -226,10 +238,14 @@ export function MandatesPanel() {
             {searching && <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[11px] text-valence-muted">Searching…</span>}
           </div>
           <div className="inline-flex items-center rounded-full border border-valence-border bg-white p-0.5 shrink-0">
-            <button onClick={() => setSearchScope('mandate')} className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-semibold transition ${searchScope === 'mandate' ? 'bg-valence-ink text-white' : 'text-valence-muted hover:text-valence-text'}`}><FolderTree className="h-3 w-3" /> This mandate</button>
-            <button onClick={() => setSearchScope('global')}  className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-semibold transition ${searchScope === 'global'  ? 'bg-valence-ink text-white' : 'text-valence-muted hover:text-valence-text'}`}><Globe2 className="h-3 w-3" /> All mandates</button>
+            <button onClick={() => setSearchScope('mandate')} className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-semibold transition ${searchScope === 'mandate' ? 'bg-valence-ink text-white' : 'text-valence-muted hover:text-valence-text'}`} title={selectedMandateId === FIRM_SCOPE ? 'Search the firm library' : 'Search this mandate'}>
+              {selectedMandateId === FIRM_SCOPE
+                ? <><Library className="h-3 w-3" /> Firm library</>
+                : <><FolderTree className="h-3 w-3" /> This mandate</>}
+            </button>
+            <button onClick={() => setSearchScope('global')}  className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-semibold transition ${searchScope === 'global'  ? 'bg-valence-ink text-white' : 'text-valence-muted hover:text-valence-text'}`}><Globe2 className="h-3 w-3" /> All notes</button>
           </div>
-          {selectedMandateId && (
+          {selectedMandateId && selectedMandateId !== FIRM_SCOPE && (
             <button onClick={ensureFolders} className="vl-btn-secondary text-xs shrink-0" title="Spawn the default folder template for this mandate">
               <FolderTree className="h-3.5 w-3.5" /> Ensure folders
             </button>
@@ -257,8 +273,23 @@ export function MandatesPanel() {
       </div>
 
       <div className="grid gap-4 lg:grid-cols-[260px_280px_1fr] min-h-[600px]">
-        {/* Mandate picker */}
+        {/* Mandate picker — Firm library pinned at the top */}
         <aside className="vl-card p-3 space-y-2 lg:max-h-[80vh] lg:overflow-y-auto">
+          <button
+            onClick={() => setSelectedMandateId(FIRM_SCOPE)}
+            className={`block w-full text-left rounded-lg px-2.5 py-2 text-xs transition border ${
+              selectedMandateId === FIRM_SCOPE
+                ? 'border-valence-blue/40 bg-valence-blue-soft text-valence-text font-semibold'
+                : 'border-valence-border bg-white text-valence-muted hover:bg-valence-surface hover:text-valence-text'
+            }`}
+            title="Folders shared across the firm — not tied to any mandate"
+          >
+            <p className="inline-flex items-center gap-1.5"><Library className="h-3.5 w-3.5 text-valence-blue" /> Firm library</p>
+            <p className="mt-0.5 ml-5 text-[10px] text-valence-subtle">NDA templates · playbooks · cross-mandate docs</p>
+          </button>
+
+          <div className="pt-1 border-t border-valence-border" />
+
           <div className="relative">
             <Search className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-valence-subtle" />
             <input value={mandateSearch} onChange={e => setMandateSearch(e.target.value)} placeholder="Search mandates" className="vl-input h-8 pl-8 text-xs" />
@@ -284,12 +315,14 @@ export function MandatesPanel() {
           )}
         </aside>
 
-        {/* Folder tree */}
+        {/* Folder tree — switches between per-mandate and firm-wide scopes */}
         <aside className="vl-card p-3 lg:max-h-[80vh] lg:overflow-y-auto">
-          {selectedMandateId ? (
+          {selectedMandateId === FIRM_SCOPE ? (
+            <KbFolderTree scope="firm" selectedFolderId={selectedFolder?.id} onSelect={setSelectedFolder} />
+          ) : selectedMandateId ? (
             <KbFolderTree mandate={mandates.find(m => m.id === selectedMandateId)} mandateId={selectedMandateId} selectedFolderId={selectedFolder?.id} onSelect={setSelectedFolder} />
           ) : (
-            <div className="px-3 py-6 text-xs text-valence-muted">Pick a mandate.</div>
+            <div className="px-3 py-6 text-xs text-valence-muted">Pick a mandate or open the Firm library.</div>
           )}
         </aside>
 
