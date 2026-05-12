@@ -155,15 +155,21 @@ export default function FileVault({ dealId }) {
               <div className="grid h-9 w-9 place-items-center rounded-lg bg-valence-blue-soft ring-1 ring-valence-blue/20 shrink-0">
                 <FileText className="h-4 w-4 text-valence-blue" />
               </div>
-              <div className="flex-1 min-w-0">
-                <p className="truncate text-sm font-semibold text-valence-text">{f.name}</p>
+              <a
+                href={publicUrlFor(f.path)}
+                target="_blank"
+                rel="noreferrer"
+                className="flex-1 min-w-0 group cursor-pointer"
+                title="Open in new tab"
+              >
+                <p className="truncate text-sm font-semibold text-valence-text group-hover:text-valence-blue group-hover:underline transition">{f.name}</p>
                 <div className="mt-0.5 flex items-center gap-2 text-[11px] text-valence-muted">
                   <span className="inline-flex items-center rounded-md border border-valence-border bg-valence-surface px-1.5 py-0.5 font-semibold text-valence-blue">{f.category || 'Other'}</span>
                   <span>{formatBytes(f.size_bytes)}</span>
                   <span className="text-valence-subtle">·</span>
                   <span>{format(new Date(f.created_at), 'd MMM yyyy')}</span>
                 </div>
-              </div>
+              </a>
               <button
                 onClick={() => toggleWatermark(f)}
                 title={f.watermark_enabled ? 'Watermark on when shared' : 'Watermark off when shared'}

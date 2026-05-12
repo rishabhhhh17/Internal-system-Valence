@@ -128,29 +128,39 @@ export default function KbFolderFiles({ folder }) {
         <p className="px-1 py-2 text-xs text-valence-muted">Loading files…</p>
       ) : files.length === 0 ? null : (
         <ul className="space-y-1">
-          {files.map(f => (
-            <li key={f.id} className="flex items-center gap-2 rounded-lg border border-valence-border bg-white px-3 py-2 hover:bg-valence-surface/60 transition">
-              <FileText className="h-3.5 w-3.5 text-valence-subtle shrink-0" />
-              <div className="flex-1 min-w-0">
-                <p className="truncate text-sm font-semibold text-valence-text">{f.name}</p>
-                <p className="text-[10px] text-valence-muted">
-                  {formatBytes(f.size_bytes)}
-                  {f.created_at && <> · {format(new Date(f.created_at), 'd MMM · HH:mm')}</>}
-                </p>
-              </div>
-              <a
-                href={isSupabaseConfigured ? kbFilePublicUrl(f.path) : '#'}
-                target="_blank"
-                rel="noreferrer"
-                className="p-1 text-valence-subtle hover:text-valence-blue"
-                title="Open"
-                onClick={e => { if (!isSupabaseConfigured) e.preventDefault() }}
-              ><Download className="h-3.5 w-3.5" /></a>
-              <button onClick={() => remove(f)} className="p-1 text-valence-subtle hover:text-valence-danger" title="Delete">
-                <Trash2 className="h-3.5 w-3.5" />
-              </button>
-            </li>
-          ))}
+          {files.map(f => {
+            const openable = isSupabaseConfigured && f.path && !f.path.startsWith('local://')
+            return (
+              <li key={f.id} className="flex items-center gap-2 rounded-lg border border-valence-border bg-white px-3 py-2 hover:bg-valence-surface/60 transition">
+                <FileText className="h-3.5 w-3.5 text-valence-subtle shrink-0" />
+                <a
+                  href={openable ? kbFilePublicUrl(f.path) : '#'}
+                  target="_blank"
+                  rel="noreferrer"
+                  onClick={e => { if (!openable) e.preventDefault() }}
+                  className={`flex-1 min-w-0 group ${openable ? 'cursor-pointer' : 'cursor-default'}`}
+                  title={openable ? 'Open in new tab' : 'Demo file — not persisted'}
+                >
+                  <p className={`truncate text-sm font-semibold ${openable ? 'text-valence-text group-hover:text-valence-blue group-hover:underline' : 'text-valence-text'} transition`}>{f.name}</p>
+                  <p className="text-[10px] text-valence-muted">
+                    {formatBytes(f.size_bytes)}
+                    {f.created_at && <> · {format(new Date(f.created_at), 'd MMM · HH:mm')}</>}
+                  </p>
+                </a>
+                <a
+                  href={openable ? kbFilePublicUrl(f.path) : '#'}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="p-1 text-valence-subtle hover:text-valence-blue"
+                  title="Open"
+                  onClick={e => { if (!openable) e.preventDefault() }}
+                ><Download className="h-3.5 w-3.5" /></a>
+                <button onClick={() => remove(f)} className="p-1 text-valence-subtle hover:text-valence-danger" title="Delete">
+                  <Trash2 className="h-3.5 w-3.5" />
+                </button>
+              </li>
+            )
+          })}
         </ul>
       )}
     </div>
