@@ -150,6 +150,15 @@ export default function People() {
         onClose={() => setDrawer(null)}
         existing={drawer && drawer !== 'new' ? drawer.row : null}
         onSubmit={(payload, id) => save(payload, id)}
+        onRename={async (id, full_name) => {
+          if (isSupabaseConfigured) {
+            const { error } = await supabase.from('people').update({ full_name }).eq('id', id)
+            if (error) { toast.error(error.message); throw error }
+          }
+          setRows(prev => prev.map(p => p.id === id ? { ...p, full_name } : p))
+          setDrawer(prev => prev && prev.row?.id === id ? { ...prev, row: { ...prev.row, full_name } } : prev)
+          toast.success('Renamed.')
+        }}
       />
     </div>
   )

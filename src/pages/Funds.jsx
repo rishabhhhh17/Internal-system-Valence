@@ -142,6 +142,15 @@ export default function Funds() {
         onClose={() => setDrawer(null)}
         existing={drawer && drawer !== 'new' ? drawer.row : null}
         onSubmit={(payload, id) => save(payload, id)}
+        onRename={async (id, name) => {
+          if (isSupabaseConfigured) {
+            const { error } = await supabase.from('funds').update({ name }).eq('id', id)
+            if (error) { toast.error(error.message); throw error }
+          }
+          setRows(prev => prev.map(r => r.id === id ? { ...r, name } : r))
+          setDrawer(prev => prev && prev.row?.id === id ? { ...prev, row: { ...prev.row, name } } : prev)
+          toast.success('Renamed.')
+        }}
       />
     </div>
   )

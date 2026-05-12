@@ -35,6 +35,7 @@ import StageGate from '../components/StageGate.jsx'
 import DealTeam from '../components/DealTeam.jsx'
 import DealComments from '../components/DealComments.jsx'
 import ConflictBanner from '../components/ConflictBanner.jsx'
+import InlineEditableText from '../components/InlineEditableText.jsx'
 import { useToast } from '../components/Toast.jsx'
 import { useConfirm } from '../components/ConfirmDialog.jsx'
 import { useCurrency } from '../hooks/useCurrency.jsx'
@@ -326,11 +327,28 @@ export default function Deals() {
         <DealTable deals={filtered} onOpen={setDrawer} />
       )}
 
-      {/* Drawer with tabs */}
+      {/* Drawer with tabs. The title is click-to-edit — rename the deal
+          inline without opening the full Edit modal. */}
       <Drawer
         open={Boolean(drawer)}
         onClose={() => setDrawer(null)}
-        title={drawer?.client_name || ''}
+        title={
+          drawer
+            ? <InlineEditableText
+                value={drawer.client_name}
+                onSave={async (next) => {
+                  if (isSupabaseConfigured) {
+                    const { error } = await supabase.from('deals').update({ client_name: next }).eq('id', drawer.id)
+                    if (error) { toast.error(error.message); throw error }
+                    await logActivity({ dealId: drawer.id, kind: 'note', body: `Renamed to "${next}"` })
+                  }
+                  setDeals(prev => prev.map(d => d.id === drawer.id ? { ...d, client_name: next } : d))
+                  setDrawer(prev => prev && prev.id === drawer.id ? { ...prev, client_name: next } : prev)
+                  toast.success('Renamed.')
+                }}
+              />
+            : ''
+        }
       >
         {drawer && (
           <DealDrawerBody

@@ -7,6 +7,7 @@ import { Link } from 'react-router-dom'
 import EntityMentions from './EntityMentions.jsx'
 import WikilinkTextarea from './WikilinkTextarea.jsx'
 import WikilinkText from './WikilinkText.jsx'
+import InlineEditableText from './InlineEditableText.jsx'
 
 const TABS = [
   { id: 'overview',    label: 'Overview' },
@@ -24,7 +25,7 @@ const BLANK = {
   tags: '', last_touched_at: '', fund_id: ''
 }
 
-export default function PersonDrawer({ open, onClose, existing, onSubmit }) {
+export default function PersonDrawer({ open, onClose, existing, onSubmit, onRename }) {
   const [tab, setTab] = useState('overview')
   const [form, setForm] = useState(BLANK)
   const [funds, setFunds] = useState([])
@@ -96,7 +97,17 @@ export default function PersonDrawer({ open, onClose, existing, onSubmit }) {
     <Drawer
       open={open}
       onClose={onClose}
-      title={existing ? existing.full_name : 'Add person'}
+      // Title is click-to-edit on existing rows so the user can rename in
+      // place. New-person flow stays static — name comes from the form.
+      title={
+        existing
+          ? <InlineEditableText
+              value={existing.full_name}
+              onSave={async (next) => { if (onRename) await onRename(existing.id, next) }}
+              disabled={!onRename}
+            />
+          : 'Add person'
+      }
       footer={
         tab === 'overview' ? (
           <div className="flex items-center justify-end gap-3">
