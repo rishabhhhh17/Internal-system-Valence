@@ -247,19 +247,14 @@ export default function KbFolderTree({ mandate, mandateId, scope = 'mandate', se
             <Library className="h-4 w-4 text-valence-blue" />
           </div>
           <div>
-            <p className="text-sm font-semibold text-valence-text">Firm library is empty</p>
+            <p className="text-sm font-semibold text-valence-text">No folders yet</p>
             <p className="mt-1 text-[11px] leading-relaxed text-valence-muted max-w-xs mx-auto">
-              A shared space for templates, playbooks, and anything that isn't tied to one mandate. Seed it with starter folders or create your own.
+              Create whatever folders you like — templates, playbooks, anything cross-mandate. Files and notes both live inside.
             </p>
           </div>
-          <div className="flex items-center justify-center gap-2">
-            <button onClick={seedFirmDefaults} disabled={spawning} className="vl-btn-primary text-xs">
-              {spawning ? <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Seeding…</> : <><Sparkles className="h-3.5 w-3.5" /> Seed defaults</>}
-            </button>
-            <button onClick={() => { setCreatingTop(true); setTopValue('') }} className="vl-btn-secondary text-xs">
-              <Plus className="h-3.5 w-3.5" /> New folder
-            </button>
-          </div>
+          <button onClick={() => { setCreatingTop(true); setTopValue('') }} className="vl-btn-primary text-xs">
+            <Plus className="h-3.5 w-3.5" /> New folder
+          </button>
         </div>
       )
     }
@@ -267,8 +262,12 @@ export default function KbFolderTree({ mandate, mandateId, scope = 'mandate', se
       <div className="space-y-1">
         <div className="flex items-center justify-between px-1 pb-1 mb-1 border-b border-valence-border">
           <p className="vl-eyebrow-ink inline-flex items-center gap-1.5"><Library className="h-3 w-3 text-valence-blue" /> Firm library</p>
-          <button onClick={() => { setCreatingTop(true); setTopValue('') }} className="p-1 text-valence-subtle hover:text-valence-blue" title="New top-level folder">
-            <Plus className="h-3.5 w-3.5" />
+          <button
+            onClick={() => { setCreatingTop(true); setTopValue('') }}
+            className="inline-flex items-center gap-1 rounded-md border border-valence-blue/30 bg-valence-blue-soft px-2 py-0.5 text-[11px] font-semibold text-valence-blue hover:bg-valence-blue hover:text-white transition"
+            title="New top-level folder"
+          >
+            <Plus className="h-3 w-3" /> New folder
           </button>
         </div>
         {creatingTop && (
