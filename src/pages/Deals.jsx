@@ -23,6 +23,7 @@ import Contacts from '../components/Contacts.jsx'
 import WikilinkTextarea from '../components/WikilinkTextarea.jsx'
 import WikilinkText from '../components/WikilinkText.jsx'
 import ActivityTimeline from '../components/ActivityTimeline.jsx'
+import StageHistorySpine from '../components/StageHistorySpine.jsx'
 import DealBrief from '../components/DealBrief.jsx'
 import EmailComposer from '../components/EmailComposer.jsx'
 import SimilarDeals from '../components/SimilarDeals.jsx'
@@ -576,6 +577,9 @@ function DealOverview({ deal }) {
           />
         </div>
       </div>
+
+      {/* Stage-by-stage history — when we entered each, how long we sat there */}
+      <StageHistorySpine deal={deal} />
 
       {/* Universal fields */}
       <div className="grid grid-cols-2 gap-3">
