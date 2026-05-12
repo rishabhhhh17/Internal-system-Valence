@@ -76,9 +76,6 @@ export default function Drive() {
         <div>
           <p className="vl-eyebrow-ink">Private · your Drive</p>
           <h1 className="mt-2 font-display text-feature font-bold text-valence-text">Your files, here.</h1>
-          <p className="mt-3 max-w-2xl text-sm leading-relaxed text-valence-muted">
-            Your personal Google Drive, searchable from inside ValenceOS. Private to you — firm-wide documents live in <a href="/knowledge/shared" className="font-semibold text-valence-blue hover:text-valence-blue-hover">Knowledge</a>.
-          </p>
         </div>
         <a href="/knowledge" className="shrink-0 text-xs font-semibold text-valence-muted hover:text-valence-text">← Knowledge</a>
       </div>

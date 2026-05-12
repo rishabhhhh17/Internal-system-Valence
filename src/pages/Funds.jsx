@@ -95,9 +95,6 @@ export default function Funds() {
           <h1 className="mt-2 font-display text-feature font-bold text-valence-text">
             Who writes the cheques.
           </h1>
-          <p className="mt-3 max-w-2xl text-sm leading-relaxed text-valence-muted">
-            Every fund Valence covers — VC, PE, Growth, Family Offices, Sovereigns. Tagged with sector, stage, and check size so we can shortlist instantly when a mandate goes live.
-          </p>
         </div>
         <div className="flex items-center gap-2">
           <ViewModeToggle pageKey="funds" />

@@ -213,11 +213,6 @@ export default function Calendar() {
         <div>
           <p className="vl-eyebrow-ink">Team Calendar</p>
           <h1 className="mt-2 font-display text-feature font-bold text-valence-text">Everyone's week, in one view.</h1>
-          <p className="mt-3 max-w-2xl text-sm leading-relaxed text-valence-muted">
-            Side-by-side overlay of every team-member's calendar. Click an empty slot to create an event;
-            use the slot-finder to land a meeting when the right people are free. Attendee emails crosswalk
-            into the People CRM so personas surface as you triage the week.
-          </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           {googleConnected ? (

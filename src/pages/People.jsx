@@ -100,9 +100,6 @@ export default function People() {
           <h1 className="mt-2 font-display text-feature font-bold text-valence-text">
             Every person we know.
           </h1>
-          <p className="mt-3 max-w-2xl text-sm leading-relaxed text-valence-muted">
-            Persona-driven. How to talk to them. Who they're close to. What they care about. Every team member sees every field.
-          </p>
         </div>
         <div className="flex items-center gap-2">
           <ViewModeToggle pageKey="people" />

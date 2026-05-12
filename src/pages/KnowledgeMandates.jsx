@@ -396,9 +396,6 @@ export default function KnowledgeMandates() {
       <div>
         <p className="vl-eyebrow-ink">Knowledge · Mandate notes</p>
         <h1 className="mt-2 font-display text-feature font-bold text-valence-text">Per-mandate folders.</h1>
-        <p className="mt-3 max-w-2xl text-sm leading-relaxed text-valence-muted">
-          Each mandate gets its own structured folder tree. Tag people and funds with <span className="vl-kbd">[[</span> for cross-mandate links; use <span className="vl-kbd">#tag</span> for folder-local concepts.
-        </p>
       </div>
       <MandatesPanel />
     </div>

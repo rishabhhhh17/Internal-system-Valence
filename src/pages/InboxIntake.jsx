@@ -81,9 +81,6 @@ export default function InboxIntake() {
       <div>
         <p className="vl-eyebrow-ink">Intake review</p>
         <h1 className="mt-2 font-display text-feature font-bold text-valence-text">Inbound submissions.</h1>
-        <p className="mt-3 max-w-2xl text-sm leading-relaxed text-valence-muted">
-          Public intake form at <span className="vl-kbd">/intake</span>. Each submission gets the AI Mandate-Fit verdict pre-attached. Convert promising ones into pipeline deals; pass the rest with a clean status.
-        </p>
       </div>
 
       <div className="flex flex-wrap items-center gap-2">

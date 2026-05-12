@@ -202,11 +202,6 @@ export default function Screener() {
           <h1 className="mt-2 font-display text-feature font-bold text-valence-text">
             One paste, one verdict.
           </h1>
-          <p className="mt-3 max-w-2xl text-sm leading-relaxed text-valence-muted">
-            {mode === 'fund_match'
-              ? `Drop in deal info — Valence ranks the universe by deal-type fit. Fundraise → investors. M&A → acquirers. Exit → secondary buyers. Advisory → not applicable.`
-              : 'Paste an inbound teaser — Valence delivers a 5-line verdict against our standing mandate criteria.'}
-          </p>
         </div>
         <div className="inline-flex items-center rounded-full border border-valence-border bg-white p-0.5">
           {MODES.map(m => (

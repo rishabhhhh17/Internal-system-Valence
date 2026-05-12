@@ -118,9 +118,6 @@ export default function Mandates() {
           <h1 className="mt-2 font-display text-feature font-bold text-valence-text">
             Active book — engaged through closing.
           </h1>
-          <p className="mt-3 max-w-2xl text-sm leading-relaxed text-valence-muted">
-            Every mandate currently in motion. Grouped by stage. Slowest-moving deals surface at the top of each group.
-          </p>
         </div>
         <div className="flex items-center gap-3">
           <ViewModeToggle pageKey="mandates" />

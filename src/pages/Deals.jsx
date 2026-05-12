@@ -249,9 +249,6 @@ export default function Deals() {
       <div>
         <p className="vl-eyebrow-ink">Deal Logger</p>
         <h1 className="mt-2 font-display text-feature font-bold text-valence-text">Every live conversation.</h1>
-        <p className="mt-3 max-w-2xl text-sm leading-relaxed text-valence-muted">
-          Log mandates the moment talks begin. Track stage progression, attach files, draft outreach, and let the team see exactly where each engagement stands.
-        </p>
       </div>
 
       {/* Pipeline counters — operational, not money */}
