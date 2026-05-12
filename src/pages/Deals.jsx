@@ -5,11 +5,13 @@ import {
   Plus, Search, Briefcase, FileText, ExternalLink, Edit3, Trash2,
   Filter as FilterIcon, Circle, Table as TableIcon, LayoutGrid, TrendingUp,
   Mail, Users as UsersIcon, FolderOpen, Activity as ActivityIcon, Sparkles, Info, Download,
-  ListChecks, MessageSquare, UserCircle, Building2
+  ListChecks, MessageSquare, UserCircle, Building2, Settings2
 } from 'lucide-react'
 import { supabase, isSupabaseConfigured, subscribeTable } from '../lib/supabase.js'
 import { logActivity } from '../lib/activity.js'
 import { spawnMandateFolders } from '../lib/kb.js'
+import { uploadDealFile } from '../lib/storage.js'
+import DealDocumentsUploader from '../components/DealDocumentsUploader.jsx'
 import { STAGES, STAGE_IDS, stageMeta, stageToneClasses, ACTIVE_STAGES } from '../lib/stages.js'
 import ConfigBanner from '../components/ConfigBanner.jsx'
 import Drawer from '../components/Drawer.jsx'
@@ -95,8 +97,14 @@ export default function Deals() {
   const [view, setView]     = useState('board') // 'board' | 'table'
 
   const [drawer, setDrawer] = useState(null)
-  const [modal, setModal]   = useState(null) // null | 'new' | {edit: deal}
+  // Modal shape: null | 'new' | 'new-advanced' | { edit: deal }.
+  // 'new'           — quick capture; just the form
+  // 'new-advanced'  — full creator with document attachments captured upfront
+  const [modal, setModal]   = useState(null)
   const [composer, setComposer] = useState(null) // { deal, contact }
+  // Pending documents staged by the Advanced creator before the deal exists.
+  // Uploaded after the deal insert returns the new id; cleared on close.
+  const [pendingFiles, setPendingFiles] = useState([])
 
   useEffect(() => { load() }, [])
   useEffect(() => {
@@ -203,10 +211,40 @@ export default function Deals() {
       // if the kb_folders table isn't present yet (Phase 2 SQL not applied) the
       // call is a no-op error swallow and the deal still saves cleanly.
       try { await spawnMandateFolders(supabase, data) } catch (e) { console.warn('kb folder spawn skipped', e) }
+
+      // Advanced flow: upload any pre-creation documents the user staged.
+      // Each upload also logs a file_upload activity so the timeline + drawer
+      // pick up the docs immediately. Continue on individual failures so one
+      // bad file doesn't lose the rest.
+      if (pendingFiles.length > 0) {
+        let ok = 0, fail = 0
+        for (const { file, category } of pendingFiles) {
+          try {
+            await uploadDealFile({ dealId: data.id, file, category })
+            await logActivity({ dealId: data.id, kind: 'file_upload', body: `${category}: ${file.name}` })
+            ok++
+          } catch (err) {
+            console.warn('upload failed for', file?.name, err)
+            fail++
+          }
+        }
+        if (fail > 0) toast.error(`${ok} uploaded · ${fail} failed`)
+        else if (ok > 0) toast.success(`${ok} file${ok === 1 ? '' : 's'} attached.`)
+        setPendingFiles([])
+      }
+
       toast.success(`${payload.client_name} logged.`)
+      // Open the new deal's drawer so the user lands on the result.
+      setDrawer(data)
     }
     setModal(null)
     load()
+  }
+
+  // Wipe staged docs when the user cancels the Advanced flow without saving.
+  function closeModal() {
+    setModal(null)
+    setPendingFiles([])
   }
 
   async function deleteDeal(deal) {
@@ -293,8 +331,13 @@ export default function Deals() {
           <button onClick={() => exportCSV(filtered)} className="vl-btn-secondary" title="Download filtered pipeline as CSV">
             <Download className="h-4 w-4" /> Export
           </button>
+          {/* Quick capture — just the form. Lowest-friction path for "this just came in". */}
           <button onClick={() => setModal('new')} className="vl-btn-primary">
             <Plus className="h-4 w-4" /> New deal
+          </button>
+          {/* Advanced flow — attach NDA / engagement letter / deck / etc. upfront. */}
+          <button onClick={() => setModal('new-advanced')} className="vl-btn-secondary" title="New deal with documents attached upfront">
+            <Settings2 className="h-4 w-4" /> Advanced
           </button>
         </div>
       </div>
@@ -345,17 +388,33 @@ export default function Deals() {
         )}
       </Drawer>
 
-      {/* New / edit modal */}
+      {/* New / edit / new-advanced modal. The 'new-advanced' shape mounts
+          the documents uploader above the form so the user can stage files
+          (NDA, engagement letter, deck, etc.) BEFORE the deal exists; they
+          upload after the insert returns a deal id. */}
       <Modal
         open={Boolean(modal)}
-        onClose={() => setModal(null)}
-        title={modal?.edit ? 'Edit deal' : 'New deal'}
-        description={modal?.edit ? 'Update the details of this mandate.' : 'Log a new mandate into the pipeline.'}
+        onClose={closeModal}
+        title={
+          modal?.edit          ? 'Edit deal' :
+          modal === 'new-advanced' ? 'New deal — advanced'
+                                   : 'New deal'
+        }
+        description={
+          modal?.edit              ? 'Update the details of this mandate.' :
+          modal === 'new-advanced' ? 'Capture the deal and attach any docs you already have. Everything saves together.'
+                                   : 'Log a new mandate into the pipeline.'
+        }
         size="xl"
       >
+        {modal === 'new-advanced' && (
+          <div className="mb-6 pb-6 border-b border-valence-border">
+            <DealDocumentsUploader files={pendingFiles} onChange={setPendingFiles} />
+          </div>
+        )}
         <DealForm
           initial={modal?.edit}
-          onCancel={() => setModal(null)}
+          onCancel={closeModal}
           onSubmit={(payload) => saveDeal(payload, modal?.edit?.id)}
         />
       </Modal>
