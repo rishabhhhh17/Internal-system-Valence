@@ -136,16 +136,30 @@ function normaliseEvent(ev) {
   }
 }
 
-export async function createCalendarEvent({ title, description = '', start, end, attendees = [], calendarId = 'primary' }) {
+export async function createCalendarEvent({ title, description = '', location = '', start, end, attendees = [], withMeet = false, calendarId = 'primary' }) {
   const body = {
     summary: title,
     description,
+    location: location || undefined,
     start: { dateTime: start.toISOString() },
     end:   { dateTime: end.toISOString() },
     attendees: attendees.map(a => ({ email: a }))
   }
+  // Attach a Google Meet link if requested. Requires
+  // conferenceDataVersion=1 so the API actually provisions a hangoutsMeet
+  // entry rather than silently dropping it.
+  if (withMeet) {
+    body.conferenceData = {
+      createRequest: {
+        requestId: `vlc-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+        conferenceSolutionKey: { type: 'hangoutsMeet' }
+      }
+    }
+  }
+  const params = new URLSearchParams({ sendUpdates: 'all' })
+  if (withMeet) params.set('conferenceDataVersion', '1')
   const data = await gfetch(
-    `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendarId)}/events?sendUpdates=all`,
+    `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendarId)}/events?${params}`,
     { method: 'POST', body }
   )
   return normaliseEvent(data)
