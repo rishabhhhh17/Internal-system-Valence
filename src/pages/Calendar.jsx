@@ -31,7 +31,8 @@ export default function Calendar() {
   const [events, setEvents]       = useState([])
   const [people, setPeople]       = useState([])
   const [hidden, setHidden]       = useState(new Set())  // calendar IDs to hide
-  const [selectedEvent, setSelectedEvent] = useState(null)
+  const [selectedEvent, setSelectedEvent] = useState(null)   // { event, anchor }
+  const [stackedEvents, setStackedEvents] = useState(null)   // { events, anchor }
   const [composeAt, setComposeAt] = useState(null)       // Date when user clicks an empty slot (legacy local-DB flow)
   const [dragCompose, setDragCompose] = useState(null)   // { start, end } from drag-create
   const [loading, setLoading]     = useState(true)
@@ -283,7 +284,7 @@ export default function Calendar() {
               <EmptyState icon={CalendarDays} title="No calendars visible" description="Pick at least one team calendar from the right rail." />
             </div>
           ) : view === 'Month' ? (
-            <MonthView anchor={anchor} events={visibleEvents} calendarsById={calendarsById} onEventClick={setSelectedEvent} />
+            <MonthView anchor={anchor} events={visibleEvents} calendarsById={calendarsById} onEventClick={(ev, anchorRect) => setSelectedEvent({ event: ev, anchor: anchorRect })} />
           ) : (
             <TimeGrid
               view={view}
@@ -291,7 +292,8 @@ export default function Calendar() {
               calendars={visibleCalendars}
               events={eventsInView}
               calendarsById={calendarsById}
-              onEventClick={setSelectedEvent}
+              onEventClick={(ev, anchorRect) => setSelectedEvent({ event: ev, anchor: anchorRect })}
+              onStackClick={(evs, anchorRect) => setStackedEvents({ events: evs, anchor: anchorRect })}
               onSlotClick={(date, calId) => setComposeAt({ date, calendar_id: calId })}
               onDragCreate={(start, end) => {
                 if (!googleConnected) {
@@ -389,17 +391,32 @@ export default function Calendar() {
             )}
           </section>
 
-          {/* Selected event detail */}
-          {selectedEvent && (
-            <EventDetail
-              event={selectedEvent}
-              calendar={calendarsById.get(selectedEvent.calendar_id)}
-              people={people}
-              onClose={() => setSelectedEvent(null)}
-            />
-          )}
         </aside>
       </div>
+
+      {/* Event popover — appears at the click position rather than the right rail
+          so the partner doesn't have to hunt in the corner. */}
+      {selectedEvent && (
+        <EventPopover
+          event={selectedEvent.event}
+          anchor={selectedEvent.anchor}
+          calendar={calendarsById.get(selectedEvent.event.calendar_id)}
+          people={people}
+          onClose={() => setSelectedEvent(null)}
+        />
+      )}
+
+      {/* Stacked-events popover — every event at a slot when the +N chip is clicked.
+          Each row drills into the single-event popover. */}
+      {stackedEvents && (
+        <StackedEventsPopover
+          events={stackedEvents.events}
+          anchor={stackedEvents.anchor}
+          calendarsById={calendarsById}
+          onPick={(ev, rect) => { setStackedEvents(null); setSelectedEvent({ event: ev, anchor: rect }) }}
+          onClose={() => setStackedEvents(null)}
+        />
+      )}
 
       {/* Drag-create composer — Google-style modal, writes to Google Calendar */}
       {dragCompose && (
@@ -471,7 +488,7 @@ const HEADER_HEIGHT = 48
 // instead of a sliver too narrow to read.
 const MAX_VISIBLE_LANES = 2
 
-function TimeGrid({ view, anchor, calendars, events, calendarsById, onEventClick, onSlotClick, onDragCreate }) {
+function TimeGrid({ view, anchor, calendars, events, calendarsById, onEventClick, onStackClick, onSlotClick, onDragCreate }) {
   const days = view === 'Day' ? [anchor] : Array.from({ length: 7 }, (_, i) => addDays(weekStart(anchor), i))
   const totalRows = DAY_END_HOUR - DAY_START_HOUR
   const totalHeight = totalRows * HOUR_HEIGHT
@@ -503,6 +520,7 @@ function TimeGrid({ view, anchor, calendars, events, calendarsById, onEventClick
               calendars={calendars}
               calendarsById={calendarsById}
               onEventClick={onEventClick}
+              onStackClick={onStackClick}
               onSlotClick={onSlotClick}
               onDragCreate={onDragCreate}
               totalHeight={totalHeight}
@@ -514,7 +532,7 @@ function TimeGrid({ view, anchor, calendars, events, calendarsById, onEventClick
   )
 }
 
-function DayColumn({ date, events, calendars, calendarsById, onEventClick, onSlotClick, onDragCreate, totalHeight }) {
+function DayColumn({ date, events, calendars, calendarsById, onEventClick, onStackClick, onSlotClick, onDragCreate, totalHeight }) {
   const isToday = isSameDay(date, new Date())
   const laidOut = useMemo(() => layoutDayColumn(events), [events])
 
@@ -577,7 +595,7 @@ function DayColumn({ date, events, calendars, calendarsById, onEventClick, onSlo
               key={ev.id}
               data-event-card
               onMouseDown={e => e.stopPropagation()}
-              onClick={(e) => { e.stopPropagation(); onEventClick(ev) }}
+              onClick={(e) => { e.stopPropagation(); onEventClick(ev, e.currentTarget.getBoundingClientRect()) }}
               className={`absolute rounded-md border px-1.5 py-1 text-left leading-snug transition shadow-sm ${cls}`}
               style={{
                 top: startMin + 1,
@@ -602,21 +620,27 @@ function DayColumn({ date, events, calendars, calendarsById, onEventClick, onSlo
           )
         })}
 
-        {/* "+N more" overflow chips for slots with too many overlaps */}
-        {Array.from(overflowByMinute.entries()).map(([key, evs]) => {
+        {/* "+N more" overflow chips for slots with too many overlaps. Clicking
+            opens a popover listing every event at that slot — visible AND
+            hidden — so the partner doesn't have to hunt for the +1's in a
+            corner. */}
+        {Array.from(overflowByMinute.entries()).map(([key, hiddenEvs]) => {
           const start = new Date(key)
           const startMin = (start.getHours() + start.getMinutes() / 60 - DAY_START_HOUR) * HOUR_HEIGHT
+          // Bundle every event that overlaps this start time (visible + hidden)
+          // so the popover shows the full stack.
+          const stack = laidOut.filter(ev => new Date(ev.starts_at).toISOString() === key)
           return (
             <button
               key={`overflow-${key}`}
               data-event-card
               onMouseDown={e => e.stopPropagation()}
-              onClick={(e) => { e.stopPropagation(); onEventClick(evs[0]) }}
+              onClick={(e) => { e.stopPropagation(); onStackClick?.(stack, e.currentTarget.getBoundingClientRect()) }}
               className="absolute right-1 rounded-full bg-valence-ink/80 px-1.5 py-0.5 text-[9px] font-bold text-white shadow-sm hover:bg-valence-ink"
               style={{ top: startMin + 2, zIndex: 5 }}
-              title={evs.map(e => e.title).join(' · ')}
+              title="Click to see every event in this slot"
             >
-              +{evs.length}
+              +{hiddenEvs.length}
             </button>
           )
         })}
@@ -753,7 +777,7 @@ function MonthView({ anchor, events, calendarsById, onEventClick }) {
                   return (
                     <li key={ev.id}>
                       <button
-                        onClick={() => onEventClick(ev)}
+                        onClick={(e) => onEventClick(ev, e.currentTarget.getBoundingClientRect())}
                         className={`w-full truncate rounded border px-1.5 py-0.5 text-left text-[10px] leading-tight ${cls}`}
                         title={ev.title}
                       >
@@ -773,55 +797,135 @@ function MonthView({ anchor, events, calendarsById, onEventClick }) {
 }
 
 // ============================================================================
-// Event detail panel — surfaces People CRM personas for matching attendees
+// Floating popover anchored near the click target. Constrains itself to the
+// viewport so it never spills off-screen. Closes on click-outside or Escape.
 // ============================================================================
-function EventDetail({ event, calendar, people, onClose }) {
+const POPOVER_WIDTH = 360
+function popoverPosition(anchor, height = 320) {
+  if (!anchor) return { left: 100, top: 100 }
+  const margin = 12
+  const vw = typeof window !== 'undefined' ? window.innerWidth  : 1200
+  const vh = typeof window !== 'undefined' ? window.innerHeight : 800
+  // Prefer placing the popover to the right of the event card; flip left if
+  // there's no room.
+  let left = anchor.right + 8
+  if (left + POPOVER_WIDTH + margin > vw) left = Math.max(margin, anchor.left - POPOVER_WIDTH - 8)
+  let top = anchor.top
+  if (top + height + margin > vh) top = Math.max(margin, vh - height - margin)
+  return { left, top }
+}
+
+function ClickAwayOverlay({ onClose }) {
+  useEffect(() => {
+    function onKey(e) { if (e.key === 'Escape') onClose() }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [onClose])
+  return <div className="fixed inset-0 z-40" onMouseDown={onClose} />
+}
+
+// Single-event popover — surfaces People CRM personas for matching attendees.
+function EventPopover({ event, anchor, calendar, people, onClose }) {
   const start = new Date(event.starts_at)
   const end   = new Date(event.ends_at)
   const cls = colorClassesFor(calendar?.color || 'blue').dot
   const attendees = attendeesWithPersonas(event, people)
+  const pos = popoverPosition(anchor, 380)
 
   return (
-    <section className="vl-card p-4 space-y-3">
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <div className="flex items-center gap-2">
-            <span className={`h-2.5 w-2.5 rounded-full ${cls}`} />
-            <p className="text-xs text-valence-muted">{calendar?.name || 'Unknown calendar'}</p>
+    <>
+      <ClickAwayOverlay onClose={onClose} />
+      <div
+        className="fixed z-50 rounded-2xl border border-valence-border bg-white shadow-2xl"
+        style={{ left: pos.left, top: pos.top, width: POPOVER_WIDTH, maxHeight: '70vh', overflowY: 'auto' }}
+        onMouseDown={e => e.stopPropagation()}
+      >
+        <div className="flex items-start justify-between gap-3 px-5 pt-4 pb-3">
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-2">
+              <span className={`h-2.5 w-2.5 rounded-full ${cls}`} />
+              <p className="text-xs text-valence-muted truncate">{calendar?.name || 'Unknown calendar'}</p>
+            </div>
+            <h3 className="mt-1 text-base font-semibold text-valence-text">{event.title}</h3>
           </div>
-          <h3 className="mt-1 text-base font-semibold text-valence-text">{event.title}</h3>
+          <button onClick={onClose} className="rounded-md p-1 text-valence-muted hover:bg-valence-surface" aria-label="Close"><X className="h-3.5 w-3.5" /></button>
         </div>
-        <button onClick={onClose} className="rounded-md p-1 text-valence-muted hover:bg-valence-surface" aria-label="Close"><X className="h-3.5 w-3.5" /></button>
+        <div className="px-5 pb-4 space-y-3">
+          <div className="space-y-1.5 text-[12px] text-valence-muted">
+            <p className="inline-flex items-center gap-1.5"><Clock className="h-3 w-3" /> {format(start, 'EEE LLL d · HH:mm')}–{format(end, 'HH:mm')}</p>
+            {event.location && <p className="inline-flex items-center gap-1.5"><MapPin className="h-3 w-3" /> {event.location}</p>}
+            {event.description && <p className="text-valence-text whitespace-pre-wrap">{event.description}</p>}
+          </div>
+          {attendees.length > 0 && (
+            <div className="space-y-2">
+              <p className="vl-eyebrow-ink inline-flex items-center gap-1.5"><Users className="h-3 w-3" /> Attendees ({attendees.length})</p>
+              <ul className="space-y-1">
+                {attendees.map((a, i) => (
+                  <li key={i} className="flex items-start gap-2 rounded-md border border-valence-border bg-white px-2 py-1.5">
+                    <div className="grid h-7 w-7 place-items-center rounded-full bg-valence-blue-soft text-[10px] font-bold text-valence-blue shrink-0">
+                      {(a.name || a.email || '?').slice(0, 1).toUpperCase()}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-[12px] font-semibold text-valence-text truncate">{a.name || a.email}</p>
+                      {a.email && a.email !== a.name && <p className="text-[10px] text-valence-muted truncate">{a.email}</p>}
+                      {a.person && (
+                        <a href={`/people?open=${a.person.id}`} className="mt-1 inline-flex items-center gap-1 rounded-md border border-valence-blue/30 bg-valence-blue-soft px-1.5 py-0.5 text-[10px] font-semibold text-valence-blue">
+                          <ExternalLink className="h-2.5 w-2.5" /> {a.person.role || 'Person'} · {a.person.company || 'on file'}
+                        </a>
+                      )}
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </div>
       </div>
-      <div className="space-y-1.5 text-[12px] text-valence-muted">
-        <p className="inline-flex items-center gap-1.5"><Clock className="h-3 w-3" /> {format(start, 'EEE LLL d · HH:mm')}–{format(end, 'HH:mm')}</p>
-        {event.location && <p className="inline-flex items-center gap-1.5"><MapPin className="h-3 w-3" /> {event.location}</p>}
-        {event.description && <p className="text-valence-text whitespace-pre-wrap">{event.description}</p>}
-      </div>
-      {attendees.length > 0 && (
-        <div className="space-y-2">
-          <p className="vl-eyebrow-ink inline-flex items-center gap-1.5"><Users className="h-3 w-3" /> Attendees</p>
-          <ul className="space-y-1">
-            {attendees.map((a, i) => (
-              <li key={i} className="flex items-start gap-2 rounded-md border border-valence-border bg-white px-2 py-1.5">
-                <div className="grid h-7 w-7 place-items-center rounded-full bg-valence-blue-soft text-[10px] font-bold text-valence-blue shrink-0">
-                  {(a.name || a.email || '?').slice(0, 1).toUpperCase()}
-                </div>
-                <div className="min-w-0 flex-1">
-                  <p className="text-[12px] font-semibold text-valence-text truncate">{a.name || a.email}</p>
-                  {a.email && a.email !== a.name && <p className="text-[10px] text-valence-muted truncate">{a.email}</p>}
-                  {a.person && (
-                    <a href={`/people?open=${a.person.id}`} className="mt-1 inline-flex items-center gap-1 rounded-md border border-valence-blue/30 bg-valence-blue-soft px-1.5 py-0.5 text-[10px] font-semibold text-valence-blue">
-                      <ExternalLink className="h-2.5 w-2.5" /> {a.person.role || 'Person'} · {a.person.company || 'on file'}
-                    </a>
-                  )}
-                </div>
+    </>
+  )
+}
+
+// Stacked-events popover — fires when the +N overflow chip is clicked. Lists
+// every event at that slot (visible + hidden). Each row click drills into the
+// single-event popover.
+function StackedEventsPopover({ events, anchor, calendarsById, onPick, onClose }) {
+  const pos = popoverPosition(anchor, Math.min(420, 80 + events.length * 60))
+  return (
+    <>
+      <ClickAwayOverlay onClose={onClose} />
+      <div
+        className="fixed z-50 rounded-2xl border border-valence-border bg-white shadow-2xl"
+        style={{ left: pos.left, top: pos.top, width: POPOVER_WIDTH, maxHeight: '70vh', overflowY: 'auto' }}
+        onMouseDown={e => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between px-5 pt-4 pb-2 border-b border-valence-border">
+          <p className="text-sm font-semibold text-valence-text">{events.length} events at this slot</p>
+          <button onClick={onClose} className="rounded-md p-1 text-valence-muted hover:bg-valence-surface" aria-label="Close"><X className="h-3.5 w-3.5" /></button>
+        </div>
+        <ul className="p-2 space-y-1">
+          {events.map(ev => {
+            const cal = calendarsById.get(ev.calendar_id)
+            const dot = colorClassesFor(cal?.color || 'blue').dot
+            const start = new Date(ev.starts_at)
+            const end   = new Date(ev.ends_at)
+            return (
+              <li key={ev.id}>
+                <button
+                  onClick={e => onPick(ev, e.currentTarget.getBoundingClientRect())}
+                  className="w-full text-left flex items-start gap-2 rounded-lg border border-valence-border bg-white px-3 py-2 hover:bg-valence-surface/60 hover:border-valence-blue/40 transition"
+                >
+                  <span className={`mt-1 h-2 w-2 rounded-full shrink-0 ${dot}`} />
+                  <div className="flex-1 min-w-0">
+                    <p className="truncate text-sm font-semibold text-valence-text">{ev.title}</p>
+                    <p className="mt-0.5 text-[10px] text-valence-muted tabular-nums">{format(start, 'HH:mm')} – {format(end, 'HH:mm')} · {cal?.name || 'Unknown calendar'}</p>
+                  </div>
+                </button>
               </li>
-            ))}
-          </ul>
-        </div>
-      )}
-    </section>
+            )
+          })}
+        </ul>
+      </div>
+    </>
   )
 }
 
