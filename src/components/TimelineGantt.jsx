@@ -283,12 +283,6 @@ export default function TimelineGantt({ deals, activities, zoom = 'months', onOp
                             className={`relative h-full w-full rounded-md text-[10px] font-semibold tracking-tight transition-all duration-150 hover:scale-[1.02] hover:brightness-105 ${segmentClass(seg, p)}`}
                           >
                             {w > 60 && <span className="px-2 truncate block leading-7">{seg.stage}</span>}
-                            {seg.kind === 'current' && (
-                              <span className="absolute -top-[10px] left-1/2 -translate-x-1/2 inline-flex items-center gap-1 rounded-full bg-valence-ink text-white px-2 py-0.5 text-[9px] font-bold uppercase tracking-[0.14em] shadow-[0_2px_8px_rgba(8,16,40,0.25)] ring-1 ring-white/15 whitespace-nowrap">
-                                <span className="h-1 w-1 rounded-full bg-valence-blue shadow-[0_0_6px_#3399FF] animate-pulse" />
-                                We are here
-                              </span>
-                            )}
                           </button>
                         </div>
                       )
