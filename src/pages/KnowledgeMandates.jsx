@@ -9,6 +9,7 @@ import ConfigBanner from '../components/ConfigBanner.jsx'
 import EmptyState from '../components/EmptyState.jsx'
 import KbFolderTree from '../components/KbFolderTree.jsx'
 import KbNoteEditor from '../components/KbNoteEditor.jsx'
+import KbFolderFiles from '../components/KbFolderFiles.jsx'
 import { useToast } from '../components/Toast.jsx'
 
 // Three-pane layout — mandate picker (left), folder tree (middle), notes
@@ -410,6 +411,10 @@ export function MandatesPanel() {
 
               <div className="pt-3 border-t border-valence-border">
                 <KbNoteEditor note={selectedNote} folder={selectedFolder} onSaved={onNoteSaved} />
+              </div>
+
+              <div className="pt-3 border-t border-valence-border">
+                <KbFolderFiles folder={selectedFolder} />
               </div>
             </>
           )}
