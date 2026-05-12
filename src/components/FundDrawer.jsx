@@ -8,6 +8,7 @@ import { DEMO_PEOPLE } from '../lib/people.js'
 import EntityMentions from './EntityMentions.jsx'
 import WikilinkTextarea from './WikilinkTextarea.jsx'
 import WikilinkText from './WikilinkText.jsx'
+import InlineEditableText from './InlineEditableText.jsx'
 
 const TABS = [
   { id: 'overview', label: 'Overview' },
@@ -30,7 +31,7 @@ const BLANK = {
   notes: ''
 }
 
-export default function FundDrawer({ open, onClose, existing, onSubmit }) {
+export default function FundDrawer({ open, onClose, existing, onSubmit, onRename }) {
   const [tab, setTab] = useState('overview')
   const [form, setForm] = useState(BLANK)
   const [contacts, setContacts] = useState([])
@@ -90,7 +91,16 @@ export default function FundDrawer({ open, onClose, existing, onSubmit }) {
     <Drawer
       open={open}
       onClose={onClose}
-      title={existing ? existing.name : 'New fund'}
+      // Click-to-rename on existing funds. New-fund flow keeps a static title.
+      title={
+        existing
+          ? <InlineEditableText
+              value={existing.name}
+              onSave={async (next) => { if (onRename) await onRename(existing.id, next) }}
+              disabled={!onRename}
+            />
+          : 'New fund'
+      }
       footer={
         tab === 'overview' || tab === 'notes' ? (
           <div className="flex items-center justify-end gap-3">
