@@ -177,39 +177,6 @@ export default function KbFolderTree({ mandate, mandateId, scope = 'mandate', se
     onSelect?.(data)
   }
 
-  // Seed the firm library with a sensible default set when it's empty.
-  async function seedFirmDefaults() {
-    if (spawning) return
-    setSpawning(true)
-    const seeds = [
-      { name: 'NDA templates',       sort: 10 },
-      { name: 'Engagement letters',  sort: 20 },
-      { name: 'Internal playbooks',  sort: 30 },
-      { name: 'Misc',                sort: 40 }
-    ]
-    try {
-      if (!isSupabaseConfigured) {
-        const now = Date.now()
-        const out = seeds.map((s, i) => ({ id: `local-firm-${now}-${i}`, parent_id: null, mandate_id: null, name: s.name, folder_type: 'firm_wide', sort_order: s.sort }))
-        setFolders(out)
-        setExpanded(new Set(out.map(f => f.id)))
-        onSelect?.(out[0])
-        toast.success('Firm library ready (demo mode — not persisted)')
-        return
-      }
-      const { data, error } = await supabase.from('kb_folders').insert(
-        seeds.map(s => ({ parent_id: null, mandate_id: null, name: s.name, folder_type: 'firm_wide', sort_order: s.sort }))
-      ).select()
-      if (error) return toast.error(error.message)
-      setFolders(data || [])
-      setExpanded(new Set((data || []).map(f => f.id)))
-      if (data && data[0]) onSelect?.(data[0])
-      toast.success('Firm library ready')
-    } finally {
-      setSpawning(false)
-    }
-  }
-
   async function renameFolder(folder) {
     const next = renameValue.trim()
     if (!next || next === folder.name) { setRenaming(null); return }
@@ -247,19 +214,14 @@ export default function KbFolderTree({ mandate, mandateId, scope = 'mandate', se
             <Library className="h-4 w-4 text-valence-blue" />
           </div>
           <div>
-            <p className="text-sm font-semibold text-valence-text">Firm library is empty</p>
+            <p className="text-sm font-semibold text-valence-text">No folders yet</p>
             <p className="mt-1 text-[11px] leading-relaxed text-valence-muted max-w-xs mx-auto">
-              A shared space for templates, playbooks, and anything that isn't tied to one mandate. Seed it with starter folders or create your own.
+              Create whatever folders you like — templates, playbooks, anything cross-mandate. Files and notes both live inside.
             </p>
           </div>
-          <div className="flex items-center justify-center gap-2">
-            <button onClick={seedFirmDefaults} disabled={spawning} className="vl-btn-primary text-xs">
-              {spawning ? <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Seeding…</> : <><Sparkles className="h-3.5 w-3.5" /> Seed defaults</>}
-            </button>
-            <button onClick={() => { setCreatingTop(true); setTopValue('') }} className="vl-btn-secondary text-xs">
-              <Plus className="h-3.5 w-3.5" /> New folder
-            </button>
-          </div>
+          <button onClick={() => { setCreatingTop(true); setTopValue('') }} className="vl-btn-primary text-xs">
+            <Plus className="h-3.5 w-3.5" /> New folder
+          </button>
         </div>
       )
     }
