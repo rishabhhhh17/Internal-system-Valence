@@ -155,11 +155,11 @@ export default function Interactions() {
       {loading ? (
         <ListSkeleton />
       ) : loadError ? (
-        <EmptyState icon={MessageSquare} title="Couldn't load interactions" description={loadError} action={<button onClick={load} className="vl-btn-primary">Retry</button>} />
+        <EmptyState icon={MessageSquare} title="Couldn't load interactions" description={loadError} action={<button onClick={load} className="vl-btn-primary">Retry</button>} sampleEligible={false} />
       ) : rows.length === 0 ? (
         <EmptyState icon={MessageSquare} title="No interactions yet" description="Log your first touchpoint to start building the funnel." action={<button onClick={() => setDrawer('new')} className="vl-btn-primary"><Plus className="h-4 w-4" /> Log interaction</button>} />
       ) : filtered.length === 0 ? (
-        <EmptyState icon={MessageSquare} title="No interactions match your filters" description="Clear a filter, or log a new touchpoint." action={<button onClick={() => setDrawer('new')} className="vl-btn-primary"><Plus className="h-4 w-4" /> Log interaction</button>} />
+        <EmptyState icon={MessageSquare} title="No interactions match your filters" description="Clear a filter, or log a new touchpoint." action={<button onClick={() => setDrawer('new')} className="vl-btn-primary"><Plus className="h-4 w-4" /> Log interaction</button>} sampleEligible={false} />
       ) : (
         <ul className="vl-card divide-y divide-valence-border/60 overflow-hidden">
           {filtered.map(r => (

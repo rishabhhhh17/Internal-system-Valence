@@ -132,11 +132,11 @@ export default function People() {
       {loading ? (
         <GridSkeleton />
       ) : loadError ? (
-        <EmptyState icon={UserCircle} title="Couldn't load people" description={loadError} action={<button onClick={load} className="vl-btn-primary">Retry</button>} />
+        <EmptyState icon={UserCircle} title="Couldn't load people" description={loadError} action={<button onClick={load} className="vl-btn-primary">Retry</button>} sampleEligible={false} />
       ) : rows.length === 0 ? (
         <EmptyState icon={UserCircle} title="No people yet" description="Add the first persona to start the CRM." action={<button onClick={() => setDrawer('new')} className="vl-btn-primary"><Plus className="h-4 w-4" /> Add person</button>} />
       ) : filtered.length === 0 ? (
-        <EmptyState icon={UserCircle} title="No people match your filters" description="Clear a tag or broaden your search." />
+        <EmptyState icon={UserCircle} title="No people match your filters" description="Clear a tag or broaden your search." sampleEligible={false} />
       ) : isSimple || view === 'grid' ? (
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
           {filtered.map(p => <PersonCard key={p.id} person={p} onOpen={() => setDrawer({ row: p })} />)}

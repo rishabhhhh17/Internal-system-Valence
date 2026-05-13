@@ -3,6 +3,7 @@ import Topbar from './Topbar.jsx'
 import MobileNav from './MobileNav.jsx'
 import CommandPalette from './CommandPalette.jsx'
 import ShortcutsOverlay from './ShortcutsOverlay.jsx'
+import WelcomeOverlay from './WelcomeOverlay.jsx'
 
 export default function Layout({ children }) {
   return (
@@ -19,6 +20,7 @@ export default function Layout({ children }) {
       </div>
       <CommandPalette />
       <ShortcutsOverlay />
+      <WelcomeOverlay />
     </div>
   )
 }

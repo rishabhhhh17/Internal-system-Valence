@@ -135,11 +135,11 @@ export default function Funds() {
       {loading ? (
         <GridSkeleton />
       ) : loadError ? (
-        <EmptyState icon={Building2} title="Couldn't load funds" description={loadError} action={<button onClick={load} className="vl-btn-primary">Retry</button>} />
+        <EmptyState icon={Building2} title="Couldn't load funds" description={loadError} action={<button onClick={load} className="vl-btn-primary">Retry</button>} sampleEligible={false} />
       ) : rows.length === 0 ? (
         <EmptyState icon={Building2} title="No funds yet" description="Add your first fund to start the relationship CRM." action={<button onClick={() => setDrawer('new')} className="vl-btn-primary"><Plus className="h-4 w-4" /> New fund</button>} />
       ) : filtered.length === 0 ? (
-        <EmptyState icon={Building2} title="No funds match your filters" description="Clear a filter or broaden your search." />
+        <EmptyState icon={Building2} title="No funds match your filters" description="Clear a filter or broaden your search." sampleEligible={false} />
       ) : isSimple || view === 'grid' ? (
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
           {filtered.map(f => <FundCard key={f.id} fund={f} onOpen={() => setDrawer({ row: f })} />)}

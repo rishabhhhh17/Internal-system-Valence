@@ -375,6 +375,7 @@ export default function Deals() {
           title="Couldn't load deals"
           description={loadError}
           action={<button onClick={load} className="vl-btn-primary">Retry</button>}
+          sampleEligible={false}
         />
       ) : deals.length === 0 ? (
         <EmptyState
@@ -389,6 +390,7 @@ export default function Deals() {
           title="No deals match your filters"
           description="Try clearing a filter, or log your first mandate."
           action={<button onClick={() => setModal('new')} className="vl-btn-primary"><Plus className="h-4 w-4" /> New deal</button>}
+          sampleEligible={false}
         />
       ) : view === 'board' ? (
         <DealKanban deals={filtered} onOpen={setDrawer} onStageChange={changeStage} />
