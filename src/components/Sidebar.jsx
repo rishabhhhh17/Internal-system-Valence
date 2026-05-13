@@ -119,21 +119,15 @@ export default function Sidebar() {
         ))}
       </nav>
 
-      <div className="px-3 pb-5">
-        <div className="vl-ink-card p-4 relative overflow-hidden">
-          <div className="absolute -right-6 -top-6 h-24 w-24 rounded-full bg-valence-blue/20 blur-2xl" aria-hidden />
-          <div className="relative">
-            <div className="flex items-center gap-2">
-              <div className="h-1.5 w-1.5 rounded-full bg-valence-blue shadow-[0_0_8px_#3399FF]" />
-              <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-white/60">Live</p>
-            </div>
-            <p className="mt-2 text-sm font-semibold text-white leading-tight">
-              Mumbai <span className="text-valence-blue">·</span> London
-            </p>
-            <p className="mt-1.5 text-[11px] leading-relaxed text-white/60">
-              Advisory across buy-side and sell-side mandates.
-            </p>
-          </div>
+      {/* Sidebar footer — minimal status pip + offices. Drops the marketing
+          tagline so the sidebar reads as an operational tool, not a sales
+          page. */}
+      <div className="px-3 pb-5 pt-2">
+        <div className="flex items-center gap-2 px-2 text-[11px] text-valence-subtle">
+          <span className="h-1.5 w-1.5 rounded-full bg-valence-blue shadow-[0_0_6px_#3399FF]" />
+          <span className="font-medium text-valence-muted">Mumbai</span>
+          <span className="text-valence-subtle/50">·</span>
+          <span className="font-medium text-valence-muted">London</span>
         </div>
       </div>
     </aside>

@@ -1,24 +1,25 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
-import { Bold, Italic, List, Link2, Loader2, Check, AtSign, Hash, Mic, Sparkles, FileAudio, Trash2, Link as LinkIcon, FileText } from 'lucide-react'
+import { useEffect, useRef, useState } from 'react'
+import { Loader2, Check, AtSign, Hash, Mic, Sparkles, FileAudio, Trash2, Link as LinkIcon, FileText } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
 import { supabase, isSupabaseConfigured } from '../lib/supabase.js'
 import { parseTags, syncMentions, renderMentionToken, embedNote, fetchBacklinks } from '../lib/kb.js'
-import { caretCoordinates } from '../lib/caretCoordinates.js'
 import { uploadVoiceMemo, transcribeAndSummarise } from '../lib/voiceMemo.js'
 import { isGeminiConfigured } from '../lib/gemini.js'
 import { useToast } from './Toast.jsx'
+import WikilinkTextarea from './WikilinkTextarea.jsx'
 
-// Note editor — title + textarea body + small toolbar.
-// Body uses a minimal markdown-ish convention:
-//   **bold**          /  *italic*
-//   - line            (bulleted list)
-//   [text](url)       (link)
-//   [[type:id|name]]  (global wikilink — autocompletes from People / Funds / Mandates)
+// Note editor — title + body. The body is a wikilink-aware contentEditable
+// (same component used by the homepage Daily Note) so [[person:uuid|Name]]
+// tokens render as inline pills instead of leaking the raw token text into
+// view after the user picks an entity.
+//
+// Body convention:
+//   [[type:id|name]]  (global wikilink — autocompletes from People / Funds / Mandates / Notes)
 //   #tag              (folder-local tag, harvested into kb_notes.tags)
 //
-// We deliberately do not ship a markdown live preview. The textarea is the
-// editor and the source. A read-only renderer (KbNoteView) shows the same
-// body with tokens swapped for live entity names + click-through links.
+// The contentEditable serialises back to canonical [[type:id|name]] form for
+// storage so backlinks / search / KbNoteView keep working without any
+// downstream change.
 
 export default function KbNoteEditor({ note, folder, onSaved }) {
   const toast = useToast()
@@ -26,14 +27,6 @@ export default function KbNoteEditor({ note, folder, onSaved }) {
   const [body,  setBody]      = useState('')
   const [saving, setSaving]   = useState(false)
   const [savedAt, setSavedAt] = useState(0)
-
-  // Wikilink autocomplete state
-  const textareaRef = useRef(null)
-  const [linkOpen, setLinkOpen]     = useState(false)
-  const [linkQuery, setLinkQuery]   = useState('')
-  const [linkAnchor, setLinkAnchor] = useState(0)
-  const [pickerPos, setPickerPos]   = useState({ top: 0, left: 0, flipUp: false })
-  const [entities, setEntities]     = useState({ people: [], funds: [], mandates: [], notes: [] })
 
   // Backlinks — other notes that wikilink to this one.
   const [backlinks, setBacklinks]   = useState([])
@@ -60,30 +53,6 @@ export default function KbNoteEditor({ note, folder, onSaved }) {
     setTranscriptSummary(note?.transcript_summary || '')
     setSavedAt(0)
   }, [note?.id])
-
-  // Pull entity universe for the [[autocomplete. People + Funds + Mandates +
-  // other KB notes. Notes are sorted by recency so the picker leads with the
-  // ones the user most likely wants to link.
-  useEffect(() => {
-    if (!isSupabaseConfigured) {
-      setEntities({ people: [], funds: [], mandates: [], notes: [] })
-      return
-    }
-    ;(async () => {
-      const [p, f, d, n] = await Promise.all([
-        supabase.from('people').select('id, full_name, company').limit(500),
-        supabase.from('funds').select('id, name, fund_type').limit(500),
-        supabase.from('deals').select('id, client_name, stage').limit(500),
-        supabase.from('kb_notes').select('id, title').order('updated_at', { ascending: false }).limit(500)
-      ])
-      setEntities({
-        people:   p.data || [],
-        funds:    f.data || [],
-        mandates: d.data || [],
-        notes:    n.data || []
-      })
-    })()
-  }, [])
 
   // Backlinks — reload whenever we switch notes. Also re-fetched after every
   // save so a new self-cross-link from another note shows up without reload.
@@ -237,103 +206,6 @@ export default function KbNoteEditor({ note, folder, onSaved }) {
     }
   }
 
-  // Wraps the current selection with the given prefix/suffix (e.g. ** for bold).
-  function wrap(prefix, suffix = prefix) {
-    const ta = textareaRef.current
-    if (!ta) return
-    const start = ta.selectionStart
-    const end   = ta.selectionEnd
-    const next  = body.slice(0, start) + prefix + body.slice(start, end) + suffix + body.slice(end)
-    setBody(next)
-    requestAnimationFrame(() => {
-      ta.focus()
-      ta.setSelectionRange(start + prefix.length, end + prefix.length)
-    })
-  }
-
-  function insertBullet() {
-    const ta = textareaRef.current
-    if (!ta) return
-    const start = ta.selectionStart
-    const before = body.slice(0, start)
-    const lineStart = before.lastIndexOf('\n') + 1
-    const next = body.slice(0, lineStart) + '- ' + body.slice(lineStart)
-    setBody(next)
-    requestAnimationFrame(() => {
-      ta.focus()
-      ta.setSelectionRange(start + 2, start + 2)
-    })
-  }
-
-  // Listen for [[ to trigger autocomplete and # for tag hint surfaces.
-  // Picker anchors to the measured caret position via caretCoordinates so it
-  // appears under the line being typed instead of at the textarea's bottom.
-  function onBodyChange(e) {
-    const value = e.target.value
-    setBody(value)
-
-    const ta = e.target
-    const cursor = ta.selectionStart
-    const before = value.slice(0, cursor)
-    const lastOpen = before.lastIndexOf('[[')
-    const lastClose = before.lastIndexOf(']]')
-    if (lastOpen > lastClose) {
-      const inner = before.slice(lastOpen + 2)
-      if (!inner.includes('\n')) {
-        const coords = caretCoordinates(ta, lastOpen)
-        const top  = coords.top  + coords.lineHeight - ta.scrollTop + 4
-        const left = coords.left - ta.scrollLeft
-        const taRect = ta.getBoundingClientRect()
-        const flipUp = (taRect.top + top + 280) > (window.innerHeight - 12)
-        setPickerPos({ top: flipUp ? coords.top - ta.scrollTop - 8 : top, left, flipUp })
-        setLinkOpen(true)
-        setLinkQuery(inner)
-        setLinkAnchor(lastOpen)
-        return
-      }
-    }
-    setLinkOpen(false)
-  }
-
-  // Filter entities by the typed [[query]]. Cap at 12 total.
-  // Notes that match the current note are filtered out — no self-links.
-  const linkSuggestions = useMemo(() => {
-    const q = linkQuery.trim().toLowerCase()
-    if (!linkOpen) return []
-    const notesPool = (entities.notes || []).filter(n => n.id !== note?.id)
-    const out = []
-    if (!q) {
-      // Show recent entities: top 3 of each kind, prefixed with their type label.
-      out.push(...entities.people.slice(0, 3).map(p => ({ type: 'person',  id: p.id, label: p.full_name, sub: p.company })))
-      out.push(...entities.funds.slice(0, 3).map(f  => ({ type: 'fund',    id: f.id, label: f.name,      sub: f.fund_type })))
-      out.push(...entities.mandates.slice(0, 3).map(m => ({ type: 'mandate', id: m.id, label: m.client_name, sub: m.stage })))
-      out.push(...notesPool.slice(0, 3).map(n => ({ type: 'note', id: n.id, label: n.title || 'Untitled note', sub: 'note' })))
-      return out.slice(0, 12)
-    }
-    for (const p of entities.people)   if (p.full_name?.toLowerCase().includes(q))   out.push({ type: 'person',  id: p.id, label: p.full_name, sub: p.company })
-    for (const f of entities.funds)    if (f.name?.toLowerCase().includes(q))        out.push({ type: 'fund',    id: f.id, label: f.name,      sub: f.fund_type })
-    for (const m of entities.mandates) if (m.client_name?.toLowerCase().includes(q)) out.push({ type: 'mandate', id: m.id, label: m.client_name, sub: m.stage })
-    for (const n of notesPool)         if (n.title?.toLowerCase().includes(q))       out.push({ type: 'note',    id: n.id, label: n.title,      sub: 'note' })
-    return out.slice(0, 12)
-  }, [linkOpen, linkQuery, entities, note?.id])
-
-  // Pick a suggestion → splice [[type:id|label]] into the body where the [[ started.
-  function pickLink(s) {
-    const ta = textareaRef.current
-    if (!ta) return
-    const before = body.slice(0, linkAnchor)
-    const after  = body.slice(ta.selectionStart)
-    const token  = `[[${s.type}:${s.id}|${s.label}]]`
-    const next   = before + token + after
-    setBody(next)
-    setLinkOpen(false)
-    requestAnimationFrame(() => {
-      ta.focus()
-      const pos = (before + token).length
-      ta.setSelectionRange(pos, pos)
-    })
-  }
-
   if (!note) return (
     <div className="rounded-lg border border-dashed border-valence-border bg-valence-surface px-5 py-12 text-center text-sm text-valence-muted">
       Select a note to start writing — or use the "+ Note" button to create one in this folder.
@@ -356,45 +228,25 @@ export default function KbNoteEditor({ note, folder, onSaved }) {
         </span>
       </div>
 
-      {/* Toolbar — icons only. Inline helper text moved into the placeholder. */}
-      <div className="flex items-center gap-0.5 border-b border-valence-border pb-1.5">
-        <ToolbarBtn onClick={() => wrap('**')} title="Bold"><Bold className="h-3.5 w-3.5" /></ToolbarBtn>
-        <ToolbarBtn onClick={() => wrap('*')}  title="Italic"><Italic className="h-3.5 w-3.5" /></ToolbarBtn>
-        <ToolbarBtn onClick={insertBullet}     title="Bullet"><List className="h-3.5 w-3.5" /></ToolbarBtn>
-        <ToolbarBtn onClick={() => wrap('[', '](https://)')} title="Link"><Link2 className="h-3.5 w-3.5" /></ToolbarBtn>
-        <span className="ml-auto text-[10px] text-valence-subtle inline-flex items-center gap-1" title="Type [[ to link a person, fund, or mandate · #tag for folder-local tags">
-          <AtSign className="h-3 w-3" /><span className="vl-kbd">[[</span>
-          <Hash className="h-3 w-3 ml-2" /><span className="vl-kbd">#</span>
+      {/* Inline hints: linking and tags. No markdown toolbar — typing [[ opens
+          the entity picker, picking inserts a pill in-place. */}
+      <div className="flex items-center gap-3 border-b border-valence-border pb-1.5 text-[10px] text-valence-subtle">
+        <span className="inline-flex items-center gap-1" title="Link a person, fund, mandate or note">
+          <AtSign className="h-3 w-3" /> <span className="vl-kbd">[[</span> link
+        </span>
+        <span className="inline-flex items-center gap-1" title="Folder-local tag, harvested into kb_notes.tags">
+          <Hash className="h-3 w-3" /> <span className="vl-kbd">#</span> tag
         </span>
       </div>
 
-      {/* Editor */}
-      <div className="relative">
-        <textarea
-          ref={textareaRef}
-          value={body}
-          onChange={onBodyChange}
-          placeholder="Write the note. Type [[ to link a person / fund / mandate. Use #tag for folder-local tags."
-          className="vl-input min-h-[280px] leading-relaxed font-mono text-[13px] bg-white"
-        />
-
-        {linkOpen && linkSuggestions.length > 0 && (
-          <ul
-            style={{ top: pickerPos.top, left: pickerPos.left, transform: pickerPos.flipUp ? 'translateY(-100%)' : 'none' }}
-            className="absolute z-30 w-72 max-h-64 overflow-y-auto rounded-lg border border-valence-border bg-white shadow-valence"
-          >
-            {linkSuggestions.map(s => (
-              <li key={`${s.type}-${s.id}`}>
-                <button onMouseDown={e => e.preventDefault()} onClick={() => pickLink(s)} className="block w-full px-3 py-2 text-left hover:bg-valence-blue-soft">
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-valence-blue">{s.type}</p>
-                  <p className="text-sm font-semibold text-valence-text">{s.label}</p>
-                  {s.sub && <p className="text-[11px] text-valence-muted">{s.sub}</p>}
-                </button>
-              </li>
-            ))}
-          </ul>
-        )}
-      </div>
+      {/* Body — same editor as the homepage Daily Note. Pills render inline,
+          [[type:id|name]] tokens stay in the saved string for search. */}
+      <WikilinkTextarea
+        value={body}
+        onChange={setBody}
+        placeholder="Write the note. Type [[ to link a person / fund / mandate. Use #tag for folder-local tags."
+        className="vl-input min-h-[280px] leading-relaxed text-[13px] bg-white"
+      />
 
       {/* Voice memo block */}
       <div className="rounded-xl border border-valence-border bg-valence-surface p-4 space-y-3">
@@ -514,20 +366,12 @@ function BacklinksPanel({ loading, rows }) {
   )
 }
 
-function ToolbarBtn({ onClick, title, children }) {
-  return (
-    <button type="button" onClick={onClick} title={title} className="grid h-7 w-7 place-items-center rounded text-valence-muted hover:bg-valence-surface hover:text-valence-text transition">
-      {children}
-    </button>
-  )
-}
-
 // Read-only renderer that swaps [[type:id|name]] tokens for live entity
 // names from the lookups map. Used by entity Mentions tabs and any other
 // surface that displays a saved note body without the editor.
 export function renderNoteBody(body, lookups) {
   if (!body) return ''
-  return body.replace(/\[\[(person|fund|mandate|note):([0-9a-f-]{36})(?:\|([^\]]+))?\]\]/gi, (_, type, id, fallback) => {
-    return renderMentionToken(type.toLowerCase(), id.toLowerCase(), lookups) || fallback || `${type}:${id.slice(0, 8)}`
+  return body.replace(/\[\[(person|fund|mandate|note):([^|\]]+)(?:\|([^\]]+))?\]\]/gi, (_, type, id, fallback) => {
+    return renderMentionToken(type.toLowerCase(), id.toLowerCase(), lookups) || fallback || `${type}:${String(id).slice(0, 8)}`
   })
 }
