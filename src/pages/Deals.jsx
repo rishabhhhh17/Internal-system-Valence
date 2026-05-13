@@ -9,7 +9,7 @@ import {
 } from 'lucide-react'
 import { supabase, isSupabaseConfigured, subscribeTable } from '../lib/supabase.js'
 import { logActivity } from '../lib/activity.js'
-import { spawnMandateFolders } from '../lib/kb.js'
+import { spawnMandateFolders, stripWikilinkTokens } from '../lib/kb.js'
 import { uploadDealFile } from '../lib/storage.js'
 import DealDocumentsUploader from '../components/DealDocumentsUploader.jsx'
 import { STAGES, STAGE_IDS, stageMeta, stageToneClasses, ACTIVE_STAGES } from '../lib/stages.js'
@@ -714,7 +714,7 @@ function DealTable({ deals, onOpen }) {
                     </div>
                     <div>
                       <p className="text-sm font-semibold text-valence-text">{d.client_name}</p>
-                      <p className="text-[11px] text-valence-muted line-clamp-1 max-w-[260px]">{d.notes || '—'}</p>
+                      <p className="text-[11px] text-valence-muted line-clamp-1 max-w-[260px]">{stripWikilinkTokens(d.notes) || '—'}</p>
                     </div>
                   </div>
                 </td>
