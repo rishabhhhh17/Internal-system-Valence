@@ -10,7 +10,7 @@ import {
   syncAllGoogleCalendars,
   DEMO_TEAM_CALENDARS, DEMO_CALENDAR_EVENTS
 } from '../lib/calendar.js'
-import { signInWithGoogle, signOut, GoogleAuthExpired, createCalendarEvent } from '../lib/google.js'
+import { signInWithGoogle, signOut, GoogleAuthExpired, createCalendarEvent, listCalendarsAccessible } from '../lib/google.js'
 import { useAuth } from '../hooks/useAuth.js'
 import ConfigBanner from '../components/ConfigBanner.jsx'
 import WikilinkTextarea from '../components/WikilinkTextarea.jsx'
@@ -47,6 +47,7 @@ export default function Calendar() {
   // Google sync state
   const [syncing, setSyncing] = useState(false)
   const [showAddCal, setShowAddCal] = useState(false)
+  const [showImport, setShowImport] = useState(false)
 
   useEffect(() => { load() }, [])
 
@@ -175,6 +176,44 @@ export default function Calendar() {
     }
   }
 
+  function looksLikeEmail(s) {
+    return /@/.test(s || '') && !/@group\.calendar\.google\.com$/.test(s)
+  }
+
+  // Bulk-import calendars the signed-in user has access to (their own primary
+  // + every calendar shared with them). One round-trip to Google replaces the
+  // "type the calendar ID by hand for every team-member" friction.
+  async function bulkImportCalendars(picks) {
+    if (!isSupabaseConfigured) {
+      toast.error('Connect Supabase to import calendars.')
+      return
+    }
+    const existing = new Set(calendars.map(c => (c.google_calendar_id || '').toLowerCase()).filter(Boolean))
+    const palette = ['blue', 'emerald', 'violet', 'amber', 'rose', 'cyan', 'orange']
+    const rows = picks
+      .filter(p => !existing.has(p.id.toLowerCase()))
+      .map((p, i) => ({
+        name:               p.summary,
+        owner_email:        looksLikeEmail(p.id) ? p.id : null,
+        google_calendar_id: p.id,
+        color:              palette[(calendars.length + i) % palette.length],
+        is_active:          true
+      }))
+    if (rows.length === 0) {
+      toast.info('All those calendars are already added.')
+      setShowImport(false)
+      return
+    }
+    const { data, error } = await supabase.from('team_calendars').insert(rows).select()
+    if (error) return toast.error(error.message)
+    setCalendars(prev => [...prev, ...(data || [])])
+    setShowImport(false)
+    toast.success(`Imported ${data?.length || 0} calendar${data?.length === 1 ? '' : 's'} — running first sync…`)
+    // Kick off an immediate sync so the new rows show events rather than
+    // empty columns until the user manually clicks Sync.
+    if (data?.length) syncFromGoogle()
+  }
+
   async function addGoogleCalendar({ name, owner_email, google_calendar_id, color }) {
     const payload = { name: name.trim(), owner_email: owner_email.trim() || null, google_calendar_id: google_calendar_id.trim(), color, is_active: true }
     if (!isSupabaseConfigured) {
@@ -231,11 +270,14 @@ export default function Calendar() {
         <div className="flex flex-wrap items-center gap-2">
           {googleConnected ? (
             <>
-              <button onClick={syncFromGoogle} disabled={syncing} className="vl-btn-secondary text-xs disabled:opacity-50 disabled:cursor-not-allowed">
-                <RefreshCw className={`h-3.5 w-3.5 ${syncing ? 'animate-spin' : ''}`} /> {syncing ? 'Syncing…' : 'Sync from Google'}
+              <button onClick={() => setShowImport(true)} className="vl-btn-primary text-xs">
+                <Sparkles className="h-3.5 w-3.5" /> Import from Google
               </button>
-              <button onClick={() => setShowAddCal(true)} className="vl-btn-secondary text-xs">
-                <Plus className="h-3.5 w-3.5" /> Add Google calendar
+              <button onClick={syncFromGoogle} disabled={syncing} className="vl-btn-secondary text-xs disabled:opacity-50 disabled:cursor-not-allowed">
+                <RefreshCw className={`h-3.5 w-3.5 ${syncing ? 'animate-spin' : ''}`} /> {syncing ? 'Syncing…' : 'Sync now'}
+              </button>
+              <button onClick={() => setShowAddCal(true)} className="vl-btn-ghost text-xs">
+                <Plus className="h-3.5 w-3.5" /> Add manually
               </button>
               <button onClick={disconnectGoogle} className="vl-btn-ghost text-xs" title={profile?.email ? `Signed in as ${profile.email}` : 'Sign out'}>
                 <LogOut className="h-3.5 w-3.5" /> Sign out
@@ -315,19 +357,40 @@ export default function Calendar() {
               {calendars.map(c => {
                 const cls = colorClassesFor(c.color).dot
                 const checked = c.is_active && !hidden.has(c.id)
+                const status = c.last_sync_status
                 return (
-                  <li key={c.id} className="flex items-center justify-between rounded-md px-2 py-1 hover:bg-valence-surface">
-                    <label className="flex flex-1 items-center gap-2 cursor-pointer">
-                      <input type="checkbox" className="h-3.5 w-3.5 accent-valence-blue" checked={checked} onChange={() => toggleHidden(c.id)} disabled={!c.is_active} />
-                      <span className={`h-2.5 w-2.5 rounded-full ${cls}`} />
-                      <span className="text-sm text-valence-text">{c.name}</span>
-                      {c.google_calendar_id && (
-                        <span className="inline-flex items-center gap-0.5 rounded-full border border-valence-blue/30 bg-valence-blue-soft px-1.5 py-0 text-[9px] font-semibold text-valence-blue" title={`Synced from ${c.google_calendar_id}`}>
-                          <Globe className="h-2.5 w-2.5" /> Google
+                  <li key={c.id} className="rounded-md px-2 py-1 hover:bg-valence-surface">
+                    <div className="flex items-center justify-between gap-2">
+                      <label className="flex flex-1 items-center gap-2 cursor-pointer min-w-0">
+                        <input type="checkbox" className="h-3.5 w-3.5 accent-valence-blue" checked={checked} onChange={() => toggleHidden(c.id)} disabled={!c.is_active} />
+                        <span className={`h-2.5 w-2.5 rounded-full shrink-0 ${cls}`} />
+                        <span className="text-sm text-valence-text truncate">{c.name}</span>
+                      </label>
+                      {!c.is_active && <span className="text-[10px] text-valence-subtle shrink-0">paused</span>}
+                      {c.is_active && status === 'ok' && (
+                        <span className="inline-flex items-center gap-0.5 text-[9px] font-semibold text-valence-success shrink-0" title={c.last_synced_at ? `Synced ${format(new Date(c.last_synced_at), 'd MMM HH:mm')}` : 'Synced'}>
+                          ✓ Synced
                         </span>
                       )}
-                    </label>
-                    {!c.is_active && <span className="text-[10px] text-valence-subtle">paused</span>}
+                      {c.is_active && status === 'forbidden' && (
+                        <span className="inline-flex items-center gap-0.5 rounded-full border border-valence-warning/40 bg-valence-warning/10 px-1.5 py-0 text-[9px] font-semibold text-valence-warning shrink-0" title={`${c.name} hasn't shared their calendar with the signed-in account. Ask them to: Google Calendar → Settings → Share with specific people → See all event details.`}>
+                          ⚠ Not shared
+                        </span>
+                      )}
+                      {c.is_active && status === 'auth_expired' && (
+                        <span className="inline-flex items-center gap-0.5 rounded-full border border-valence-danger/40 bg-valence-danger/10 px-1.5 py-0 text-[9px] font-semibold text-valence-danger shrink-0" title="Google session expired — reconnect.">
+                          ⚠ Reconnect
+                        </span>
+                      )}
+                      {c.is_active && status === 'error' && (
+                        <span className="inline-flex items-center gap-0.5 rounded-full border border-valence-danger/40 bg-valence-danger/10 px-1.5 py-0 text-[9px] font-semibold text-valence-danger shrink-0" title={c.last_sync_error || 'Sync failed'}>
+                          ⚠ Error
+                        </span>
+                      )}
+                      {c.is_active && c.google_calendar_id && !status && (
+                        <span className="text-[9px] text-valence-subtle shrink-0">never synced</span>
+                      )}
+                    </div>
                   </li>
                 )
               })}
@@ -473,6 +536,22 @@ export default function Calendar() {
         size="md"
       >
         <AddGoogleCalendarForm onSubmit={addGoogleCalendar} onCancel={() => setShowAddCal(false)} />
+      </Modal>
+
+      {/* Bulk import modal — lists every calendar Google says this user can
+          access, lets them tick which to add. No typing required. */}
+      <Modal
+        open={showImport}
+        onClose={() => setShowImport(false)}
+        title="Import from Google"
+        description="These are the calendars you already have access to. Tick the ones to add to the team overlay — first sync runs automatically."
+        size="md"
+      >
+        <ImportCalendarsForm
+          existingIds={calendars.map(c => (c.google_calendar_id || '').toLowerCase()).filter(Boolean)}
+          onImport={bulkImportCalendars}
+          onCancel={() => setShowImport(false)}
+        />
       </Modal>
     </div>
   )
@@ -1045,6 +1124,107 @@ function NewEventForm({ initial, calendars, onSubmit, onCancel }) {
       <div className="flex items-center justify-end gap-2 pt-2">
         <button type="button" onClick={onCancel} className="vl-btn-secondary">Cancel</button>
         <button type="submit" className="vl-btn-primary"><Plus className="h-4 w-4" /> Create event</button>
+      </div>
+    </form>
+  )
+}
+
+// Bulk import — list every Google calendar accessible to the signed-in user,
+// let them tick which to add. Skips ones already registered. The toast +
+// auto-sync handshake happens in the parent's bulkImportCalendars handler.
+function ImportCalendarsForm({ existingIds, onImport, onCancel }) {
+  const toast = useToast()
+  const [loading, setLoading] = useState(true)
+  const [error, setError]     = useState(null)
+  const [items, setItems]     = useState([])
+  const [picked, setPicked]   = useState(new Set())
+  const existingSet = useMemo(() => new Set((existingIds || []).map(s => s.toLowerCase())), [existingIds])
+
+  useEffect(() => {
+    let cancelled = false
+    setLoading(true); setError(null)
+    listCalendarsAccessible()
+      .then(list => {
+        if (cancelled) return
+        setItems(list)
+        // Auto-tick the ones the user hasn't added yet. They can untick noise
+        // (Holidays in India, contacts birthdays, etc).
+        const next = new Set()
+        for (const c of list) {
+          if (!existingSet.has(c.id.toLowerCase())) next.add(c.id)
+        }
+        setPicked(next)
+      })
+      .catch(err => {
+        if (cancelled) return
+        if (err instanceof GoogleAuthExpired) setError('Google session expired. Reconnect Google.')
+        else setError(err?.message || 'Could not list calendars')
+      })
+      .finally(() => { if (!cancelled) setLoading(false) })
+    return () => { cancelled = true }
+  }, [existingSet])
+
+  function toggle(id) {
+    setPicked(prev => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id); else next.add(id)
+      return next
+    })
+  }
+
+  async function submit(e) {
+    e.preventDefault()
+    if (picked.size === 0) {
+      toast.error('Pick at least one calendar.')
+      return
+    }
+    const rows = items.filter(c => picked.has(c.id))
+    await onImport(rows)
+  }
+
+  if (loading) return <div className="py-8 text-center text-sm text-valence-muted">Loading your calendars from Google…</div>
+  if (error)   return <div className="py-8 text-center text-sm text-valence-danger">{error}</div>
+  if (items.length === 0) return <div className="py-8 text-center text-sm text-valence-muted">No calendars found.</div>
+
+  return (
+    <form onSubmit={submit} className="space-y-3">
+      <ul className="max-h-[55vh] overflow-y-auto divide-y divide-valence-border/60 rounded-lg border border-valence-border bg-white">
+        {items.map(c => {
+          const already = (existingIds || []).map(s => s.toLowerCase()).includes(c.id.toLowerCase())
+          const checked = picked.has(c.id)
+          return (
+            <li key={c.id}>
+              <label className={`flex items-start gap-3 px-3 py-2.5 cursor-pointer transition ${already ? 'opacity-60' : 'hover:bg-valence-surface/60'}`}>
+                <input
+                  type="checkbox"
+                  checked={checked}
+                  disabled={already}
+                  onChange={() => toggle(c.id)}
+                  className="mt-1 h-4 w-4 rounded border-valence-border"
+                />
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2">
+                    <p className="truncate text-sm font-semibold text-valence-text">{c.summary}</p>
+                    {c.primary && <span className="rounded-full bg-valence-blue-soft px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-valence-blue">Primary</span>}
+                    {already && <span className="text-[10px] text-valence-subtle">already added</span>}
+                  </div>
+                  <p className="truncate text-[10px] text-valence-subtle font-mono">{c.id}</p>
+                  <p className="mt-0.5 text-[10px] text-valence-muted">Access: {c.accessRole}</p>
+                </div>
+              </label>
+            </li>
+          )
+        })}
+      </ul>
+      <p className="text-[11px] text-valence-muted">
+        Tip: if a team-member's calendar isn't here, they need to share it with you in Google Calendar
+        (Settings → Share with specific people → "See all event details"), then come back and re-open this modal.
+      </p>
+      <div className="flex items-center justify-end gap-2 pt-2 border-t border-valence-border">
+        <button type="button" onClick={onCancel} className="vl-btn-secondary">Cancel</button>
+        <button type="submit" disabled={picked.size === 0} className="vl-btn-primary">
+          <Sparkles className="h-4 w-4" /> Import {picked.size > 0 ? `${picked.size} calendar${picked.size === 1 ? '' : 's'}` : ''}
+        </button>
       </div>
     </form>
   )

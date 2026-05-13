@@ -280,19 +280,49 @@ export async function syncCalendarFromGoogle(cal, { from, to }) {
   return { upserted: rows.length, removed: 0 }
 }
 
+// Classify a Google API error so the UI can show the right message. The most
+// common case is a 403 — "this user hasn't shared their calendar with the
+// signed-in account" — which we want to surface explicitly so the partner
+// knows to chase the share request, not "something blew up".
+function classifySyncError(err) {
+  if (err instanceof GoogleAuthExpired) return 'auth_expired'
+  const msg = String(err?.message || '')
+  if (msg.includes('403') || /forbidden|not authorized|insufficient/i.test(msg)) return 'forbidden'
+  if (msg.includes('404')) return 'not_found'
+  return 'error'
+}
+
+async function persistSyncStatus(calendarId, status, errorMessage = null) {
+  if (!isSupabaseConfigured) return
+  try {
+    await supabase.from('team_calendars').update({
+      last_synced_at:   new Date().toISOString(),
+      last_sync_status: status,
+      last_sync_error:  errorMessage
+    }).eq('id', calendarId)
+  } catch (e) {
+    console.warn('Could not persist sync status', e)
+  }
+}
+
 // Sync every team_calendar row that has a google_calendar_id set, returning
-// per-calendar results so the caller can surface partial success.
+// per-calendar results so the caller can surface partial success. Writes the
+// per-row sync status back to team_calendars so the right rail can render
+// "✓ synced 2m ago" vs "⚠️ awaiting share" without re-running the sync.
 export async function syncAllGoogleCalendars(calendars, { from, to }) {
   const results = []
   for (const cal of calendars) {
     if (!cal.google_calendar_id) continue
     try {
       const r = await syncCalendarFromGoogle(cal, { from, to })
+      await persistSyncStatus(cal.id, 'ok', null)
       results.push({ calendar: cal, ...r, ok: true })
     } catch (err) {
-      results.push({ calendar: cal, ok: false, error: err })
+      const status = classifySyncError(err)
+      await persistSyncStatus(cal.id, status, err?.message?.slice(0, 500) || null)
+      results.push({ calendar: cal, ok: false, error: err, status })
       // Bail early on auth expiry — every subsequent call would fail too.
-      if (err instanceof GoogleAuthExpired) break
+      if (status === 'auth_expired') break
     }
   }
   return results
