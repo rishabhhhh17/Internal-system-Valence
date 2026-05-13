@@ -4,7 +4,7 @@ import { format } from 'date-fns'
 import { FilePlus, Search, FolderTree, Trash2, Globe2, ArrowRight, Hash, X, Library } from 'lucide-react'
 import { supabase, isSupabaseConfigured } from '../lib/supabase.js'
 import { stageMeta } from '../lib/stages.js'
-import { spawnMandateFolders, searchKbNotes } from '../lib/kb.js'
+import { spawnMandateFolders, searchKbNotes, stripWikilinkTokens } from '../lib/kb.js'
 import ConfigBanner from '../components/ConfigBanner.jsx'
 import EmptyState from '../components/EmptyState.jsx'
 import KbFolderTree from '../components/KbFolderTree.jsx'
@@ -261,7 +261,7 @@ export function MandatesPanel() {
                     <p className="truncate text-sm font-semibold text-valence-text">{r.title || 'Untitled note'}</p>
                     <span className="text-[10px] tabular-nums text-valence-subtle shrink-0">score {r.total_score?.toFixed(2)}</span>
                   </div>
-                  <p className="mt-0.5 line-clamp-2 text-[12px] leading-relaxed text-valence-muted">{(r.body || '').slice(0, 240)}</p>
+                  <p className="mt-0.5 line-clamp-2 text-[12px] leading-relaxed text-valence-muted">{stripWikilinkTokens(r.body || '').slice(0, 240)}</p>
                   <p className="mt-1 text-[10px] text-valence-subtle inline-flex items-center gap-1">Open <ArrowRight className="h-3 w-3" /></p>
                 </button>
               </li>

@@ -17,6 +17,7 @@ import EmptyState from '../components/EmptyState.jsx'
 import KnowledgeUpload from '../components/KnowledgeUpload.jsx'
 import AskChat from '../components/AskChat.jsx'
 import { WikilinkTextarea, WikilinkContent, useWikilinkEntities } from '../components/Wikilink.jsx'
+import { stripWikilinkTokens } from '../lib/kb.js'
 import { useToast } from '../components/Toast.jsx'
 import { useConfirm } from '../components/ConfirmDialog.jsx'
 import { Bot } from 'lucide-react'
@@ -349,7 +350,7 @@ function Documents() {
                 <span className="text-[11px] text-valence-subtle">{format(new Date(d.created_at), 'd MMM')}</span>
               </div>
               <h3 className="mt-3 text-base font-semibold leading-snug text-valence-text group-hover:text-valence-blue transition">{d.title}</h3>
-              <p className="mt-2 text-xs leading-relaxed text-valence-muted line-clamp-4">{d.content}</p>
+              <p className="mt-2 text-xs leading-relaxed text-valence-muted line-clamp-4">{stripWikilinkTokens(d.content)}</p>
               {(d.tags || []).length > 0 && (
                 <div className="mt-4 flex flex-wrap gap-1.5">
                   {(d.tags || []).slice(0, 4).map(t => (

@@ -133,7 +133,19 @@ export async function spawnMandateFolders(supabase, deal) {
 // Note body uses [[type:id|display]] tokens. Parser returns a deduped list
 // of { entity_type, entity_id }. The display segment is optional; we don't
 // store it server-side, the editor renders it from the live entity.
-const MENTION_RE = /\[\[(person|fund|mandate|note):([0-9a-f-]{36})(?:\|[^\]]+)?\]\]/gi
+const MENTION_RE = /\[\[(person|fund|mandate|note):([^|\]\s]+)(?:\|[^\]]+)?\]\]/gi
+
+// Replace every [[type:id|display]] token in `body` with just `display` (or a
+// short type label when display is missing). Use for any list / preview /
+// snippet surface where pill rendering isn't available — the goal is "no
+// raw UUIDs ever leak into view".
+export function stripWikilinkTokens(body) {
+  if (!body) return ''
+  return body.replace(
+    /\[\[(person|fund|mandate|note):[^|\]\s]+(?:\|([^\]]+))?\]\]/gi,
+    (_, type, display) => display || `@${type}`
+  )
+}
 
 export function parseMentions(body) {
   const out = []
