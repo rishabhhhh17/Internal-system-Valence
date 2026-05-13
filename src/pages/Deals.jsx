@@ -133,6 +133,31 @@ export default function Deals() {
     }
   }, [params, deals])
 
+  // Convert flow from Quick Screener / Intake inbox: /deals?new=1&client_name=…&sector=…&notes=…
+  // Opens the new-deal modal pre-filled with what the convert flow knew about
+  // the inbound mandate so the partner only has to confirm + click save.
+  useEffect(() => {
+    if (params.get('new') !== '1') return
+    const prefill = {
+      client_name:  params.get('client_name')  || '',
+      sector:       params.get('sector')       || '',
+      stage:        params.get('stage')        || 'Origination',
+      deal_types:   (params.get('deal_types')  || '').split(',').filter(Boolean),
+      deal_subtype: params.get('subtype')      || null,
+      ma_side:      params.get('ma_side')      || null,
+      notes:        params.get('notes')        || '',
+      // Carry the intake deck URL through so the new-deal flow can attach it
+      // to deal_files after the deal is created (handled in DealForm submit).
+      __intake_deck_url:  params.get('deck_url')  || null,
+      __intake_deck_name: params.get('deck_name') || null
+    }
+    setModal({ prefill })
+    // Drain the params so reload / back-nav doesn't keep re-opening the modal.
+    const next = new URLSearchParams(params)
+    ;['new','client_name','sector','stage','deal_types','subtype','ma_side','notes','deck_url','deck_name'].forEach(k => next.delete(k))
+    setParams(next, { replace: true })
+  }, [params])
+
   async function load() {
     setLoading(true)
     setLoadError(null)
@@ -429,7 +454,7 @@ export default function Deals() {
           </div>
         )}
         <DealForm
-          initial={modal?.edit}
+          initial={modal?.edit || modal?.prefill}
           onCancel={closeModal}
           onSubmit={(payload) => saveDeal(payload, modal?.edit?.id)}
         />

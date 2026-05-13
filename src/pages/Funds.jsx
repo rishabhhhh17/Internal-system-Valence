@@ -4,15 +4,26 @@ import { Plus, Search, Filter, LayoutGrid, Table as TableIcon, Building2, ArrowU
 import { supabase, isSupabaseConfigured } from '../lib/supabase.js'
 import { FUND_TYPES, WARMTH_LEVELS, warmthTone, fundTypeLabel, DEMO_FUNDS } from '../lib/funds.js'
 import { useViewMode } from '../hooks/useViewMode.jsx'
+import { useCurrency } from '../hooks/useCurrency.jsx'
 import ConfigBanner from '../components/ConfigBanner.jsx'
 import EmptyState from '../components/EmptyState.jsx'
 import FundDrawer from '../components/FundDrawer.jsx'
 import ViewModeToggle from '../components/ViewModeToggle.jsx'
 import { useToast } from '../components/Toast.jsx'
 
+function chequeRange(fund, money) {
+  const lo = fund?.check_size_min_usd_m
+  const hi = fund?.check_size_max_usd_m
+  if (lo == null && hi == null) return '? cheques'
+  if (lo != null && hi != null) return `${money(lo)}–${money(hi)} cheques`
+  if (lo != null)               return `from ${money(lo)} cheques`
+  return `up to ${money(hi)} cheques`
+}
+
 export default function Funds() {
   const toast = useToast()
   const { isSimple } = useViewMode('funds')
+  const { money } = useCurrency()
   const [rows, setRows] = useState([])
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState(null)
@@ -176,6 +187,7 @@ function FilterRow({ label, value, onChange, options }) {
 }
 
 function FundCard({ fund, onOpen }) {
+  const { money } = useCurrency()
   return (
     <button onClick={onOpen} className="vl-card vl-card-hover group block p-5 text-left">
       <div className="flex items-start justify-between gap-3">
@@ -191,7 +203,7 @@ function FundCard({ fund, onOpen }) {
         ))}
       </div>
       <div className="mt-3 flex items-center justify-between text-[11px] text-valence-muted">
-        <span>${fund.check_size_min_usd_m ?? '?'}–{fund.check_size_max_usd_m ?? '?'}M cheques</span>
+        <span>{chequeRange(fund, money)}</span>
         <span className="inline-flex items-center gap-1 text-valence-subtle group-hover:text-valence-blue transition">
           Open <ArrowUpRight className="h-3 w-3" />
         </span>
