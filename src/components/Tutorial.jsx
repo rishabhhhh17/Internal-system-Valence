@@ -18,85 +18,88 @@ import { tutorialFor } from '../lib/tutorials.js'
 // seen the page's tour.
 // --------------------------------------------------------------------------------
 
-const SEEN_KEY        = 'valence.tutorialsSeen.v2'
-const FIRST_RUN_KEY   = 'valence.tutorialFirstRun.v1'
-const SPOTLIGHT_PAD   = 10           // visible padding around the target inside the cutout
-const POPOVER_W       = 360          // fixed width — keeps math simple
-const POPOVER_GAP     = 14           // gap between target and popover
-const ARROW_SZ        = 10           // arrow side-length in px
-const SCREEN_PAD      = 16           // viewport padding when clamping
-const AUTO_OPEN_DELAY = 450          // let the page paint before spotlighting
+const SEEN_KEY      = 'valence.tutorialsSeen.v2'
+const FIRST_RUN_KEY = 'valence.tutorialFirstRun.v1'
+const SPOTLIGHT_PAD = 10
+const POPOVER_MAX_W = 360
+const POPOVER_GAP   = 14
+const ARROW_SZ      = 10
+const SCREEN_PAD    = 16
 
-function readSeen()      { try { return JSON.parse(localStorage.getItem(SEEN_KEY) || '{}') } catch { return {} } }
-function writeSeen(map)  { try { localStorage.setItem(SEEN_KEY, JSON.stringify(map)) } catch {} }
-function firstRunDone()  { try { return Boolean(localStorage.getItem(FIRST_RUN_KEY)) } catch { return true } }
-function markFirstRun()  { try { localStorage.setItem(FIRST_RUN_KEY, '1') } catch {} }
+function readSeen()     { try { return JSON.parse(localStorage.getItem(SEEN_KEY) || '{}') } catch { return {} } }
+function writeSeen(map) { try { localStorage.setItem(SEEN_KEY, JSON.stringify(map)) } catch {} }
+function firstRunDone() { try { return Boolean(localStorage.getItem(FIRST_RUN_KEY)) } catch { return true } }
+function markFirstRun() { try { localStorage.setItem(FIRST_RUN_KEY, '1') } catch {} }
+
+function popoverWidth() {
+  if (typeof window === 'undefined') return POPOVER_MAX_W
+  return Math.min(POPOVER_MAX_W, window.innerWidth - SCREEN_PAD * 2)
+}
 
 function getTargetRect(selector) {
   if (!selector) return null
   try {
     const el = document.querySelector(selector)
     if (!el) return null
-    // Make sure the target is in view before we measure.
     const r = el.getBoundingClientRect()
+    if (r.width === 0 && r.height === 0) return null
     return { top: r.top, left: r.left, width: r.width, height: r.height, el }
   } catch { return null }
 }
 
-// Compute popover position relative to a target rect. Tries the preferred
-// placement first; if the popover would clip the viewport, flips to the
-// opposite side; if still no fit, drops to the side with the most room.
-function placePopover(rect, placement, popoverH) {
-  const vw = window.innerWidth, vh = window.innerHeight
+// Pick the best of 4 sides for the popover. Each candidate is clamped into
+// the viewport; we pick the first that fits without clamping, and otherwise
+// the one with the most natural space (smallest required clamp shift).
+function placePopover(rect, preferred, popoverH, popoverW) {
+  const vw = window.innerWidth
+  const vh = window.innerHeight
   if (!rect) return null
 
-  const candidates = ['bottom', 'top', 'right', 'left'].filter(p => p !== placement)
-  const order = [placement, oppositeOf(placement), ...candidates].filter(Boolean)
+  const ideal = (p) => {
+    if (p === 'bottom') return { top: rect.top + rect.height + POPOVER_GAP, left: rect.left + rect.width / 2 - popoverW / 2 }
+    if (p === 'top')    return { top: rect.top - popoverH - POPOVER_GAP,    left: rect.left + rect.width / 2 - popoverW / 2 }
+    if (p === 'right')  return { top: rect.top + rect.height / 2 - popoverH / 2, left: rect.left + rect.width + POPOVER_GAP }
+    /* left */          return { top: rect.top + rect.height / 2 - popoverH / 2, left: rect.left - popoverW - POPOVER_GAP }
+  }
 
+  const clamp = (t, l) => ({
+    top:  Math.max(SCREEN_PAD, Math.min(t, vh - popoverH - SCREEN_PAD)),
+    left: Math.max(SCREEN_PAD, Math.min(l, vw - popoverW - SCREEN_PAD))
+  })
+
+  // Drop sides that don't have any room at all so we don't sit ON the target.
+  const sideHasRoom = (p) => {
+    if (p === 'bottom') return vh - (rect.top + rect.height) >= popoverH + POPOVER_GAP + SCREEN_PAD
+    if (p === 'top')    return rect.top                       >= popoverH + POPOVER_GAP + SCREEN_PAD
+    if (p === 'right')  return vw - (rect.left + rect.width) >= popoverW + POPOVER_GAP + SCREEN_PAD
+    /* left */          return rect.left                       >= popoverW + POPOVER_GAP + SCREEN_PAD
+  }
+
+  const order = [preferred, oppositeOf(preferred), 'bottom', 'top', 'right', 'left']
+    .filter((v, i, a) => v && a.indexOf(v) === i)
+
+  // First pass: pick the first side with real room.
   for (const p of order) {
-    const pos = tryPlace(rect, p, popoverH, vw, vh)
-    if (pos.fits) return { ...pos, placement: p }
+    if (sideHasRoom(p)) {
+      const i = ideal(p)
+      const c = clamp(i.top, i.left)
+      return { ...c, placement: p }
+    }
   }
-  // Last resort — pick the one with the most room.
-  const scored = order.map(p => tryPlace(rect, p, popoverH, vw, vh))
-  scored.sort((a, b) => b.score - a.score)
-  return { ...scored[0], placement: scored[0].placement }
+  // Nothing fits beside the target — drop the popover into the bottom-most
+  // free region of the viewport (above-or-below the target, whichever has
+  // more room).
+  const roomBelow = vh - (rect.top + rect.height)
+  const roomAbove = rect.top
+  if (roomBelow > roomAbove) {
+    const i = ideal('bottom')
+    return { ...clamp(i.top, i.left), placement: 'bottom' }
+  }
+  const i = ideal('top')
+  return { ...clamp(i.top, i.left), placement: 'top' }
 }
 
-function oppositeOf(p) { return { top: 'bottom', bottom: 'top', left: 'right', right: 'left' }[p] || 'bottom' }
-
-function tryPlace(rect, p, h, vw, vh) {
-  let top, left, score = 0
-  if (p === 'bottom') {
-    top  = rect.top + rect.height + POPOVER_GAP
-    left = rect.left + rect.width / 2 - POPOVER_W / 2
-    score = vh - top
-  } else if (p === 'top') {
-    top  = rect.top - h - POPOVER_GAP
-    left = rect.left + rect.width / 2 - POPOVER_W / 2
-    score = rect.top
-  } else if (p === 'right') {
-    top  = rect.top + rect.height / 2 - h / 2
-    left = rect.left + rect.width + POPOVER_GAP
-    score = vw - left
-  } else {
-    // left
-    top  = rect.top + rect.height / 2 - h / 2
-    left = rect.left - POPOVER_W - POPOVER_GAP
-    score = rect.left
-  }
-  // Clamp into viewport
-  const clampedLeft = Math.max(SCREEN_PAD, Math.min(left, vw - POPOVER_W - SCREEN_PAD))
-  const clampedTop  = Math.max(SCREEN_PAD, Math.min(top,  vh - h        - SCREEN_PAD))
-  const fits =
-    clampedTop  >= SCREEN_PAD &&
-    clampedTop + h <= vh - SCREEN_PAD &&
-    clampedLeft >= SCREEN_PAD &&
-    clampedLeft + POPOVER_W <= vw - SCREEN_PAD
-  // Track where the arrow needs to point relative to the (un-clamped) ideal so
-  // it still lands on the target even when the popover got clamped.
-  return { top: clampedTop, left: clampedLeft, placement: p, fits, score, rect }
-}
+function oppositeOf(p) { return { top: 'bottom', bottom: 'top', left: 'right', right: 'left' }[p] }
 
 function scrollIntoViewSoft(el) {
   if (!el) return
@@ -104,12 +107,14 @@ function scrollIntoViewSoft(el) {
 }
 
 export default function TutorialButton() {
-  const { pathname } = useLocation()
+  const { pathname }      = useLocation()
   const [open, setOpen]   = useState(false)
   const [step, setStep]   = useState(0)
   const [seen, setSeen]   = useState(() => readSeen())
-  const [rect, setRect]   = useState(null)              // target rect
-  const [pos,  setPos]    = useState(null)              // popover {top,left,placement}
+  const [rect, setRect]   = useState(null)
+  const [pos,  setPos]    = useState(null)
+  const [popH, setPopH]   = useState(220)
+  const [popW, setPopW]   = useState(() => popoverWidth())
   const popRef            = useRef(null)
 
   const tour    = tutorialFor(pathname)
@@ -118,44 +123,49 @@ export default function TutorialButton() {
   const isLast  = step === total - 1
   const beenSeenHere = Boolean(seen[pathname])
 
-  // Reset to step 0 whenever route changes.
   useEffect(() => { setStep(0) }, [pathname])
 
-  // Auto-open on first-ever app load: drop the user straight into Today's tour.
+  // Auto-open the very first time the app is opened.
   useEffect(() => {
     if (firstRunDone()) return
-    const t = setTimeout(() => {
-      setOpen(true)
-      markFirstRun()
-    }, 600)
+    const t = setTimeout(() => { setOpen(true); markFirstRun() }, 600)
     return () => clearTimeout(t)
   }, [])
 
-  // Recompute target rect + popover position whenever the step changes or
-  // the window resizes/scrolls.
+  // Recompute target rect + popover position.
   const measure = useCallback(() => {
     if (!open) return
     const r = getTargetRect(current.target)
     if (r) {
-      // Scroll the target into view if it's off-screen.
       const vh = window.innerHeight
-      if (r.top < 0 || r.top + r.height > vh) scrollIntoViewSoft(r.el)
+      if (r.top < SCREEN_PAD || r.top + r.height > vh - SCREEN_PAD) scrollIntoViewSoft(r.el)
     }
+    const w = popoverWidth()
+    setPopW(w)
     setRect(r)
-    const popH = popRef.current?.offsetHeight || 220
-    const placement = current.placement || 'bottom'
-    setPos(r ? placePopover(r, placement, popH) : null)
-  }, [open, current])
+    setPos(r ? placePopover(r, current.placement || 'bottom', popH, w) : null)
+  }, [open, current, popH])
+
+  // Observe the popover's actual rendered size — text wraps differently per
+  // step, so the height we used for positioning may be wrong on first paint.
+  useLayoutEffect(() => {
+    if (!open || !popRef.current) return
+    const el = popRef.current
+    const obs = new ResizeObserver(() => {
+      const h = el.offsetHeight
+      if (h && Math.abs(h - popH) > 2) setPopH(h)
+    })
+    obs.observe(el)
+    return () => obs.disconnect()
+  }, [open, step, popH])
 
   useLayoutEffect(() => {
     if (!open) return
-    // Measure twice — once now, once after the next paint, so we catch
-    // animated mounts and lazy-rendered targets.
     measure()
     const raf = requestAnimationFrame(measure)
-    const t = setTimeout(measure, 200)
+    const t   = setTimeout(measure, 220)
     return () => { cancelAnimationFrame(raf); clearTimeout(t) }
-  }, [open, step, pathname, measure])
+  }, [open, step, pathname, popH, measure])
 
   useEffect(() => {
     if (!open) return
@@ -168,7 +178,6 @@ export default function TutorialButton() {
     }
   }, [open, measure])
 
-  // Keyboard: Escape, arrow keys.
   useEffect(() => {
     if (!open) return
     const onKey = (e) => {
@@ -193,7 +202,6 @@ export default function TutorialButton() {
     setStep(s => Math.min(s + 1, total - 1))
   }
 
-  // ---- Spotlight rectangle (with padding) — only when we have a target ----
   const hasSpotlight = Boolean(rect)
   const spot = rect ? {
     x: rect.left - SPOTLIGHT_PAD,
@@ -201,6 +209,19 @@ export default function TutorialButton() {
     w: rect.width  + SPOTLIGHT_PAD * 2,
     h: rect.height + SPOTLIGHT_PAD * 2
   } : null
+
+  // For the arrow we want to know where to point. Use the un-clamped target
+  // centre relative to the popover's clamped top/left.
+  let arrowOffset = null
+  if (hasSpotlight && pos && pos.placement !== 'center') {
+    const targetCX = rect.left + rect.width / 2
+    const targetCY = rect.top  + rect.height / 2
+    if (pos.placement === 'top' || pos.placement === 'bottom') {
+      arrowOffset = Math.max(20, Math.min(targetCX - pos.left, popW - 20))
+    } else {
+      arrowOffset = Math.max(20, Math.min(targetCY - pos.top,  popH - 20))
+    }
+  }
 
   return (
     <>
@@ -220,9 +241,7 @@ export default function TutorialButton() {
       </button>
 
       {open && (
-        <div className="fixed inset-0 z-[70]" role="dialog" aria-modal="true" aria-label={`Tour: ${tour.title}`}>
-          {/* Spotlight overlay: SVG mask cuts a rounded rectangle around the
-              target. When there's no target, falls back to a full-screen dim. */}
+        <div className="fixed inset-0 z-[70] overflow-hidden" role="dialog" aria-modal="true" aria-label={`Tour: ${tour.title}`}>
           {hasSpotlight ? (
             <svg
               className="absolute inset-0 w-full h-full"
@@ -238,22 +257,14 @@ export default function TutorialButton() {
                   />
                 </mask>
               </defs>
-              <rect
-                width="100%" height="100%"
-                fill="rgba(11,15,32,0.55)"
-                mask="url(#vl-tour-mask)"
-              />
-              {/* Animated ring around the spotlight to draw the eye. */}
+              <rect width="100%" height="100%" fill="rgba(11,15,32,0.55)" mask="url(#vl-tour-mask)" />
               <rect
                 x={spot.x} y={spot.y} width={spot.w} height={spot.h}
                 rx="10" ry="10"
                 fill="none"
                 stroke="#3399FF"
                 strokeWidth="2"
-                style={{
-                  filter: 'drop-shadow(0 0 8px rgba(51,153,255,0.6))',
-                  pointerEvents: 'none'
-                }}
+                style={{ filter: 'drop-shadow(0 0 8px rgba(51,153,255,0.6))', pointerEvents: 'none' }}
               >
                 <animate attributeName="stroke-opacity" values="1;0.4;1" dur="1.8s" repeatCount="indefinite" />
               </rect>
@@ -262,24 +273,18 @@ export default function TutorialButton() {
             <div className="absolute inset-0 bg-valence-ink/45 backdrop-blur-sm animate-fade-in" onClick={() => close(false)} />
           )}
 
-          {/* Popover — anchored to target if we have one, otherwise centered. */}
           <div
             ref={popRef}
             className="absolute animate-slide-up rounded-2xl border border-valence-border bg-white shadow-valence-lg"
             style={
               pos
-                ? { top: pos.top, left: pos.left, width: POPOVER_W }
-                : {
-                    top: '50%', left: '50%',
-                    transform: 'translate(-50%, -50%)',
-                    width: POPOVER_W
-                  }
+                ? { top: pos.top, left: pos.left, width: popW, maxHeight: 'calc(100vh - 32px)', overflow: 'hidden' }
+                : { top: '50%', left: '50%', transform: 'translate(-50%, -50%)', width: popW, maxHeight: 'calc(100vh - 32px)', overflow: 'hidden' }
             }
             role="document"
           >
-            {/* Arrow — visible only when we're actually anchored to a target. */}
-            {hasSpotlight && pos && pos.placement !== 'center' && (
-              <ArrowMarker placement={pos.placement} rect={rect} pos={pos} />
+            {arrowOffset !== null && pos && (
+              <ArrowMarker placement={pos.placement} offset={arrowOffset} popH={popH} popW={popW} />
             )}
 
             <div className="flex items-start justify-between gap-3 border-b border-valence-border px-5 py-3.5">
@@ -287,7 +292,7 @@ export default function TutorialButton() {
                 <p className="vl-eyebrow-ink inline-flex items-center gap-1.5">
                   <Sparkles className="h-3 w-3 text-valence-blue" /> Tour · {tour.title}
                 </p>
-                <p className="mt-1 text-[11px] text-valence-muted">{tour.blurb}</p>
+                <p className="mt-1 text-[11px] text-valence-muted line-clamp-2">{tour.blurb}</p>
               </div>
               <button onClick={() => close(false)} className="vl-btn-ghost shrink-0 -mr-2" aria-label="Close tour">
                 <X className="h-4 w-4" />
@@ -329,7 +334,7 @@ export default function TutorialButton() {
                 )}
               </div>
 
-              <div className="flex items-center gap-1">
+              <div className="hidden sm:flex items-center gap-1">
                 {tour.steps.map((_, i) => (
                   <button
                     key={i}
@@ -351,39 +356,24 @@ export default function TutorialButton() {
   )
 }
 
-// ─── Arrow ──────────────────────────────────────────────────────────────────────
-// Renders a small triangle on the side of the popover facing the target.
-// Positions itself along the popover edge so it visually points at the
-// element's centre — even when the popover has been clamped to the viewport.
-
-function ArrowMarker({ placement, rect, pos }) {
-  if (!rect || !pos) return null
-  const targetCenterX = rect.left + rect.width / 2
-  const targetCenterY = rect.top  + rect.height / 2
-
-  // Where along the popover edge should the arrow sit?
+// Tiny triangle pointing at the spotlit target. The offset is computed so the
+// tip lands on the target's centre even when the popover got clamped.
+function ArrowMarker({ placement, offset, popH, popW }) {
   let style = {}
   if (placement === 'top' || placement === 'bottom') {
-    // Arrow on horizontal edge
-    const localX = Math.max(20, Math.min(targetCenterX - pos.left, POPOVER_W - 20))
     style = {
-      left: localX - ARROW_SZ,
+      left: offset - ARROW_SZ,
       [placement === 'top' ? 'bottom' : 'top']: -ARROW_SZ,
-      width: ARROW_SZ * 2,
-      height: ARROW_SZ,
+      width: 0, height: 0,
       borderLeft:   `${ARROW_SZ}px solid transparent`,
       borderRight:  `${ARROW_SZ}px solid transparent`,
       [placement === 'top' ? 'borderTop' : 'borderBottom']: `${ARROW_SZ}px solid white`
     }
   } else {
-    // Arrow on vertical edge
-    const popH = (popRefSafe() || 200)
-    const localY = Math.max(20, Math.min(targetCenterY - pos.top, popH - 20))
     style = {
-      top: localY - ARROW_SZ,
+      top: offset - ARROW_SZ,
       [placement === 'left' ? 'right' : 'left']: -ARROW_SZ,
-      width: ARROW_SZ,
-      height: ARROW_SZ * 2,
+      width: 0, height: 0,
       borderTop:    `${ARROW_SZ}px solid transparent`,
       borderBottom: `${ARROW_SZ}px solid transparent`,
       [placement === 'left' ? 'borderLeft' : 'borderRight']: `${ARROW_SZ}px solid white`
@@ -391,8 +381,3 @@ function ArrowMarker({ placement, rect, pos }) {
   }
   return <span aria-hidden="true" className="absolute" style={style} />
 }
-
-// Best-effort lookup of popover height for vertical-edge arrow placement.
-// (We can't useRef from inside the helper without prop-drilling; this is a
-// pragmatic fallback that matches the typical rendered height.)
-function popRefSafe() { return 220 }
