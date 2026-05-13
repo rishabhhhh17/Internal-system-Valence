@@ -105,6 +105,29 @@ export async function listTodayEvents() {
   return listEventsBetween(start, end)
 }
 
+// List every calendar the signed-in user has access to — their own primary
+// + any calendar shared with them. Used by the Team Calendar auto-import
+// flow so the partner doesn't have to type Google Calendar IDs by hand.
+// `accessRole` tells us how much they can do with it (owner / writer /
+// reader / freeBusyReader). We surface free-busy too, since that's enough
+// to draw busy blocks on the overlay even without event details.
+export async function listCalendarsAccessible() {
+  const params = new URLSearchParams({
+    minAccessRole: 'freeBusyReader',
+    maxResults: '100',
+    showHidden: 'false'
+  })
+  const data = await gfetch(`https://www.googleapis.com/calendar/v3/users/me/calendarList?${params}`)
+  return (data.items || []).map(c => ({
+    id:           c.id,
+    summary:      c.summary || c.summaryOverride || c.id,
+    description:  c.description || '',
+    accessRole:   c.accessRole,                  // owner | writer | reader | freeBusyReader
+    primary:      Boolean(c.primary),
+    backgroundColor: c.backgroundColor || null
+  }))
+}
+
 export async function listEventsBetween(start, end, calendarId = 'primary') {
   const params = new URLSearchParams({
     timeMin: start.toISOString(),

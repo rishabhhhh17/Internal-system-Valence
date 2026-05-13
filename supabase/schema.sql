@@ -1386,9 +1386,15 @@ create table if not exists public.team_calendars (
   updated_at          timestamptz not null default now()
 );
 alter table public.team_calendars add column if not exists updated_by uuid;
+-- Phase 6 — track per-calendar Google-sync outcome so the UI can show
+-- "✓ synced 2m ago" vs "⚠️ awaiting share" instead of failing silently.
+alter table public.team_calendars add column if not exists last_synced_at   timestamptz;
+alter table public.team_calendars add column if not exists last_sync_status text;     -- 'ok' | 'forbidden' | 'error' | 'auth_expired'
+alter table public.team_calendars add column if not exists last_sync_error  text;
 
 create index if not exists team_calendars_active_idx on public.team_calendars (is_active);
 create index if not exists team_calendars_owner_email_idx on public.team_calendars (lower(owner_email));
+create index if not exists team_calendars_sync_status_idx on public.team_calendars (last_sync_status);
 
 create table if not exists public.calendar_events (
   id           uuid primary key default gen_random_uuid(),
