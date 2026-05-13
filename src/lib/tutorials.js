@@ -1,142 +1,225 @@
-// Per-page tutorial registries. Tight by design — every step is one
-// sentence the partner can scan, not a paragraph they have to read.
+// Per-page tutorial registries.
+//
+// Each step:
+//   { title, body, target?, placement? }
+//
+//   target   — CSS selector to spotlight (data-tour="…" attributes preferred).
+//              If the selector misses, the step gracefully renders in the page
+//              centre — so a missing data-tour never breaks the tour, it just
+//              becomes a centered modal step.
+//   placement — 'top' | 'right' | 'bottom' | 'left' | 'center'. Defaults to 'bottom'.
+//              The Tutorial component will flip to the opposite side if the
+//              preferred side doesn't fit on screen.
+//
 // Routes resolve by longest-prefix match (see tutorialFor below).
 
 const TUTORIALS = {
   '/': {
     title: 'Today',
-    blurb: 'One note per day. Meetings, priorities, free-form body.',
+    blurb: 'Your morning briefing — one note, with meetings, priorities and what you owe people.',
     steps: [
-      { title: 'Meetings',     body: 'Pulled from your Google Calendar.' },
-      { title: 'Priorities',   body: 'Stale mandates, near-close, overdue follow-ups.' },
-      { title: 'Waiting on',   body: 'Mandates blocked on someone else. Click to open.' },
-      { title: 'Body',         body: 'Write today’s note. Auto-saves. Type [[ to link a person, fund, or mandate.' }
+      { target: '[data-tour="topbar-search"]',  placement: 'bottom',
+        title: 'Jump anywhere with ⌘K',
+        body: 'Open the command palette from any page. Search deals, people, funds, memos — or hit a route directly.' },
+      { target: '[data-tour="nav-deals"]',      placement: 'right',
+        title: 'The sidebar is the firm',
+        body: 'Deal Logger, Live Mandates, Interactions, People, Firm — each one tab on the left.' },
+      { target: '[data-tour="today-meetings"]', placement: 'right',
+        title: 'Today\'s meetings',
+        body: 'Pulled live from Google Calendar once you connect. Click a meeting to open the attendee personas.' },
+      { target: '[data-tour="today-priorities"]', placement: 'right',
+        title: 'Priorities surface themselves',
+        body: 'Stale mandates, near-close deals, overdue follow-ups — ranked by what actually needs attention.' },
+      { target: '[data-tour="today-body"]',     placement: 'top',
+        title: 'Write the daily note',
+        body: 'Auto-saves as you type. Use [[ to link a person, fund or mandate — the link shows up everywhere they appear.' }
     ]
   },
+
   '/deals': {
     title: 'Deal Logger',
-    blurb: 'Every live mandate.',
+    blurb: 'Every live mandate, tracked end-to-end.',
     steps: [
-      { title: 'Board vs Table', body: 'Kanban for drag-stage, Table for filters.' },
-      { title: 'Drawer',         body: 'Click any deal → tabs for Overview, Files, Counterparties, Funds, Activity, AI Brief.' },
-      { title: 'New deal',       body: 'Quick form. Use “Advanced” to attach NDA / engagement letter / deck upfront.' },
-      { title: 'Rename inline',  body: 'Click the deal name at the top of the drawer to rename in place.' }
+      { target: '[data-tour="deals-view-toggle"]', placement: 'bottom',
+        title: 'Board or Table',
+        body: 'Board for drag-to-stage. Table for filters, exports, bulk actions.' },
+      { target: '[data-tour="deals-new"]',         placement: 'left',
+        title: 'Log a new mandate in 10 seconds',
+        body: 'Just client, sector and stage — everything else can be filled in later from the drawer.' },
+      { target: '[data-tour="deals-new-advanced"]', placement: 'left',
+        title: 'Or attach docs upfront',
+        body: 'Advanced opens the same form with NDA / engagement letter / teaser / IM uploads built in.' },
+      { title: 'Open any deal for the full record',
+        body: 'Click a card or row — the drawer surfaces Overview, Files, Counterparties, Funds shortlisted, Activity, AI Brief and Stage History.' },
+      { title: 'Rename inline',
+        body: 'Inside the drawer, click the deal name at the top to rename in place. Same trick works for funds and people.' }
     ]
   },
+
   '/mandates': {
     title: 'Live Mandates',
-    blurb: 'Active book, sorted by who’s stuck longest.',
+    blurb: 'The active book, ranked by who\'s been stuck longest.',
     steps: [
-      { title: 'No money here', body: 'Operational view. Fees live on Analytics.' },
-      { title: 'Days in stage', body: '> 21 days gets a warning chip.' },
-      { title: 'Owner filter',  body: 'Top chips scope to one banker.' }
+      { title: 'No money on this page',
+        body: 'Operational view only. Fees, pipeline value and win-rate live on Analytics.' },
+      { title: 'Days-in-stage warns at 21',
+        body: 'A red chip means the mandate hasn\'t moved in three weeks — partner attention.' },
+      { title: 'Owner filter at the top',
+        body: 'Scope to one banker to see only their book.' }
     ]
   },
+
   '/timeline': {
     title: 'Timeline',
-    blurb: 'Gantt of every active mandate, plus a table view with per-stage dates.',
+    blurb: 'Every active mandate, laid out in time.',
     steps: [
-      { title: 'Gantt vs Table', body: 'Toggle top-right. Table shows when each stage was entered.' },
-      { title: 'Today line',     body: 'Bright blue vertical. Pulsing segment is the current stage.' },
-      { title: 'Zoom',           body: 'Weeks for planning, quarters for board view.' },
-      { title: 'Filters',        body: 'Owner, sector, side at the top.' }
+      { title: 'Gantt vs Table',
+        body: 'Top-right toggle. Gantt for visual scan, Table for precise stage-entry dates.' },
+      { title: 'The blue line is today',
+        body: 'A pulsing segment marks the current stage. Older segments dim back so the live work pops.' },
+      { title: 'Zoom to fit the conversation',
+        body: 'Weeks for next-month planning, quarters for the partner board view.' }
     ]
   },
+
   '/interactions': {
     title: 'Interactions',
-    blurb: 'Every touchpoint that isn’t yet a deal.',
+    blurb: 'The pre-mandate funnel — every touchpoint logged.',
     steps: [
-      { title: 'Contexts',      body: '12 contexts across pre-mandate and live execution.' },
-      { title: 'Convert',       body: 'Outcome “converted to mandate” → one-click pre-filled new deal.' },
-      { title: 'Follow-ups',    body: 'Top-right toggle shows only what’s due today or earlier.' }
+      { title: '12 interaction contexts',
+        body: 'From "screening call" to "founder check-in" — the vocabulary an IB partner actually uses.' },
+      { title: 'Convert in one click',
+        body: 'Outcome "converted to mandate" opens a pre-filled new deal — counterparty, sector and notes carried across.' },
+      { title: 'Follow-ups filter',
+        body: 'Top-right toggle shows only what\'s due today or earlier. Treat it as the morning queue.' }
     ]
   },
+
   '/people': {
     title: 'People',
-    blurb: 'Persona-driven CRM. Equal weight to Funds.',
+    blurb: 'Persona-driven CRM. Not a rolodex.',
     steps: [
-      { title: 'Persona fields', body: 'How to talk, what they care about, favours bank, mutuals. Everyone on the team sees everything.' },
-      { title: 'Rename inline',  body: 'Click the name at the top of the drawer to rename.' },
-      { title: 'Linked work',    body: 'Drawer surfaces every interaction, deal, and KB note that mentions them.' }
+      { title: 'Persona over phone number',
+        body: 'How to talk, what they care about, favours bank, mutuals. The reason you walk into every meeting prepared.' },
+      { title: 'Everyone sees everything',
+        body: 'There\'s no "my contacts" silo — the firm shares one persona book.' },
+      { title: 'Linked work in the drawer',
+        body: 'Click anyone — drawer surfaces every interaction, deal and KB note that mentions them.' }
     ]
   },
+
   '/funds': {
     title: 'Firm',
-    blurb: 'Funds Valence covers — sectors, stages, cheque sizes, warmth.',
+    blurb: 'Funds and family offices Valence covers.',
     steps: [
-      { title: 'Warmth',     body: 'Hot · warm · cold · dormant. Drives the match ranking.' },
-      { title: 'Shortlist',  body: 'In any deal: Funds tab → Find matching funds → shortlist in one click.' },
-      { title: 'Rename',     body: 'Click the fund name at the top of the drawer to rename.' }
+      { title: 'Warmth drives the ranking',
+        body: 'Hot · warm · cold · dormant — set it manually or let interactions update it. Match scoring weighs warmth highly.' },
+      { title: 'Shortlist a fund into any deal',
+        body: 'From the deal drawer: Funds tab → Find matching funds → shortlist in one click.' },
+      { title: 'Cheque size, sectors, stages',
+        body: 'Every fund carries the metadata Mandate-Fit needs to rank fast.' }
     ]
   },
+
   '/screen': {
     title: 'Quick Screener',
-    blurb: 'Fund-Match (rank funds for a deal) and Mandate-Fit (verdict on an inbound teaser).',
+    blurb: 'Two modes: rank funds for a deal, or verdict on an inbound teaser.',
     steps: [
-      { title: 'Pick a mode', body: 'Top-right toggle.' },
-      { title: 'Heuristic',   body: 'Falls back to sector / stage / cheque / warmth when AI is offline.' },
-      { title: 'Convert',     body: 'Mandate-Fit verdicts of “pursue” offer a one-click convert.' }
+      { title: 'Pick a mode top-right',
+        body: 'Fund-Match scores funds against a mandate. Mandate-Fit gives a pursue / review / pass verdict on inbound.' },
+      { title: 'Works without AI too',
+        body: 'No Gemini key? Falls back to heuristic ranking on sector, stage, cheque and warmth — never an empty screen.' },
+      { title: 'Convert a pursue verdict',
+        body: 'Mandate-Fit verdicts of "pursue" offer a one-click convert into a fresh deal in Origination.' }
     ]
   },
+
   '/inbox/intake': {
     title: 'Intake inbox',
-    blurb: 'Inbound submissions from /intake.',
+    blurb: 'Inbound submissions from /intake, AI-triaged on arrival.',
     steps: [
-      { title: 'Status chips', body: 'New is the default working set.' },
-      { title: 'AI verdict',   body: 'Every submission runs Mandate-Fit on intake.' },
-      { title: 'Triage',       body: 'Convert · Pass · Mark reviewed · Spam — one click each.' }
+      { title: 'New is your working set',
+        body: 'Status chips at the top scope the list. "New" is what hasn\'t been touched yet.' },
+      { title: 'AI verdict on every row',
+        body: 'Mandate-Fit ran automatically on intake. Click "Why?" to see the reasoning.' },
+      { title: 'Triage in one click',
+        body: 'Convert (becomes a deal) · Pass · Mark reviewed · Spam. The list re-ranks immediately.' }
     ]
   },
+
   '/analytics': {
     title: 'Analytics',
-    blurb: 'Pipeline, conversion, fees, velocity.',
+    blurb: 'Pipeline, conversion, fees, velocity — the firm in numbers.',
     steps: [
-      { title: 'Period',  body: 'QTD / YTD / LTM / All time scopes every chart.' },
-      { title: 'Sector',  body: 'Chip filter applies across all charts.' }
+      { title: 'Period scope every chart',
+        body: 'QTD / YTD / LTM / All time toggle at the top.' },
+      { title: 'Sector chips cross-filter',
+        body: 'Click a sector chip — every chart on the page re-renders to that sector.' },
+      { title: 'This is where money lives',
+        body: 'Pipeline value, weighted fees, win-rate. Deliberately not on the homepage so partners don\'t walk past it daily.' }
     ]
   },
+
   '/planner': {
     title: 'Day Planner',
-    blurb: 'Today’s meetings, tasks, free-slot suggestions.',
+    blurb: 'Today\'s meetings, tasks, free slots and proposal drafting.',
     steps: [
-      { title: 'Connect Google', body: 'Adds your real calendar + sends invites from your Gmail.' },
-      { title: 'AI summary',     body: 'Three-sentence read of your day.' },
-      { title: 'Free slots',     body: 'Tap a slot → drafts a meeting-proposal email.' }
+      { title: 'Connect Google first',
+        body: 'Pulls your calendar in and sends invites from your real Gmail. One-tap OAuth at top-right.' },
+      { title: 'Three-sentence AI summary',
+        body: 'Read of your day in 5 seconds — who you\'re meeting, what they care about, what\'s likely to come up.' },
+      { title: 'Tap a free slot, draft a meeting',
+        body: 'Click any open slot — auto-drafts a proposal email with the slot inserted. Edit and send.' }
     ]
   },
+
   '/calendar': {
     title: 'Team Calendar',
-    blurb: 'Side-by-side overlay of every team-member’s week.',
+    blurb: 'Side-by-side overlay of every team-member\'s week.',
     steps: [
-      { title: 'Views',          body: 'Day / Week / Month top-right. Week is the default.' },
-      { title: 'Visibility',     body: 'Right-rail checkboxes hide / show each banker’s calendar.' },
-      { title: 'Slot finder',    body: 'Pick attendees + duration → common windows in the next 7 days.' },
-      { title: 'Personas',       body: 'Attendee emails matching the People CRM surface persona context.' }
+      { title: 'Day / Week / Month',
+        body: 'Toggle top-right. Week is the default — best balance of detail vs context.' },
+      { title: 'Drag-to-create events',
+        body: 'Click and drag on any empty slot → name it, add guests, hit Save. Real Google invite goes out.' },
+      { title: 'Right rail toggles calendars',
+        body: 'Show or hide each banker\'s calendar. Sync-status pills tell you which ones are healthy.' },
+      { title: 'Slot finder for groups',
+        body: 'Pick attendees + duration → free windows in the next 7 days, ranked by all-can-attend.' }
     ]
   },
+
   '/knowledge': {
     title: 'Knowledge',
-    blurb: 'Firm-shared (with mandate notes folded in) or private.',
+    blurb: 'Firm-shared or private — pick a track.',
     steps: [
-      { title: 'Firm-shared', body: 'One surface, six tabs: Ask, Search, Memos, Files, Comps, Mandate notes.' },
-      { title: 'Private',     body: 'Your personal Google Drive surfaced inside ValenceOS.' }
+      { title: 'Firm-shared',
+        body: 'One surface, six tabs: Ask, Search, Memos, Files, Comps, Mandate notes. Everyone on the team sees it.' },
+      { title: 'Private',
+        body: 'Your personal Google Drive surfaced inside ValenceOS. Stays yours.' }
     ]
   },
+
   '/knowledge/shared': {
     title: 'Firm-shared knowledge',
     blurb: 'Ask, search, memos, files, comps, mandate notes — one tab bar.',
     steps: [
-      { title: 'Ask',           body: 'Plain-English questions with citations from memos / files / deals / comps.' },
-      { title: 'Search',        body: 'One search across everything indexed firm-wide.' },
-      { title: 'Mandate notes', body: 'Per-mandate folder tree. Type [[ to link people / funds / mandates / notes. #tag for folder-local concepts.' },
-      { title: 'Voice memos',   body: 'In any KB note: record audio → click Transcribe & summarise.' }
+      { title: 'Ask plain-English questions',
+        body: '"What did Renuka say about HoV Mushrooms?" — gets a cited answer pulled from interactions, memos and KB notes.' },
+      { title: 'One search across everything',
+        body: 'Memos, files, comps, mandate notes, voice transcripts — hybrid keyword + semantic. One box.' },
+      { title: 'Mandate notes use [[wikilinks]]',
+        body: 'Type [[ to link a person, fund, mandate or another note. #tag for folder-local concepts.' },
+      { title: 'Voice memos transcribe in place',
+        body: 'In any KB note: record audio → click Transcribe & summarise. Becomes searchable like text.' }
     ]
   },
+
   '/team': {
     title: 'Team',
     blurb: 'The Valence directory.',
     steps: [
-      { title: 'Coverage', body: 'Each profile shows sector / city coverage.' }
+      { title: 'Sector + city coverage',
+        body: 'Each profile shows what they cover. The firm\'s "who knows who" surface.' }
     ]
   }
 }

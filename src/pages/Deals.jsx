@@ -341,7 +341,7 @@ export default function Deals() {
           <FilterPill label="Subtype" value={fSubtype} onChange={setFSubtype} options={['fundraise', 'm_and_a', 'exit']} />
           <FilterPill label="NDA"     value={fNda}     onChange={setFNda}     options={NDA} />
 
-          <div className="flex items-center rounded-lg border border-valence-border bg-valence-surface p-0.5">
+          <div data-tour="deals-view-toggle" className="flex items-center rounded-lg border border-valence-border bg-valence-surface p-0.5">
             <button onClick={() => setView('board')}
               className={`inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-semibold transition ${view === 'board' ? 'bg-valence-blue-soft text-valence-text' : 'text-valence-muted hover:text-valence-text'}`}>
               <LayoutGrid className="h-3.5 w-3.5" /> Board
@@ -356,11 +356,11 @@ export default function Deals() {
             <Download className="h-4 w-4" /> Export
           </button>
           {/* Quick capture — just the form. Lowest-friction path for "this just came in". */}
-          <button onClick={() => setModal('new')} className="vl-btn-primary">
+          <button data-tour="deals-new" onClick={() => setModal('new')} className="vl-btn-primary">
             <Plus className="h-4 w-4" /> New deal
           </button>
           {/* Advanced flow — attach NDA / engagement letter / deck / etc. upfront. */}
-          <button onClick={() => setModal('new-advanced')} className="vl-btn-secondary" title="New deal with documents attached upfront">
+          <button data-tour="deals-new-advanced" onClick={() => setModal('new-advanced')} className="vl-btn-secondary" title="New deal with documents attached upfront">
             <Settings2 className="h-4 w-4" /> Advanced
           </button>
         </div>
