@@ -224,6 +224,89 @@ const TUTORIALS = {
   }
 }
 
+// --------------------------------------------------------------------------------
+// Cross-page scripted trials. Each step carries a `route` — the Tour runner
+// navigates there, waits for `target` to mount, then renders the popover.
+// `waitMs` overrides the default 800ms timeout when the page is slow to paint.
+// --------------------------------------------------------------------------------
+
+export const QUICK_TRIAL = {
+  title: 'Guided trial',
+  blurb: '5-minute hands-on walk through the daily loop.',
+  steps: [
+    { route: '/', target: '[data-tour="today-meetings"]', placement: 'right',
+      title: 'Step 1 — Start with Today',
+      body: 'Every morning opens here: meetings, priorities, what you owe people. The Daily Note auto-saves as you type.' },
+    { route: '/', target: '[data-tour="today-body"]', placement: 'top',
+      title: 'Write in your own words',
+      body: 'Type [[ to link a person, fund or mandate. The link shows up everywhere they appear across the firm.' },
+    { route: '/deals', target: '[data-tour="deals-view-toggle"]', placement: 'bottom',
+      title: 'Step 2 — The pipeline',
+      body: 'Every live mandate. Board for drag-to-stage, Table for filters and exports.' },
+    { route: '/deals', target: '[data-tour="deals-new"]', placement: 'left',
+      title: 'Log a deal in 10 seconds',
+      body: 'Just client, sector and stage — everything else can be filled in later from the drawer.' },
+    { route: '/funds', placement: 'center',
+      title: 'Step 3 — Your fund universe',
+      body: 'Funds and family offices with persona context: Sumant\'s lengthy DD, Renuka\'s rapid decisions, Pavninder\'s tough valuations. Walk into every meeting prepared.' },
+    { route: '/people', placement: 'center',
+      title: 'Step 4 — People, not contacts',
+      body: 'Persona-driven CRM: how to talk, what they care about, favours bank, mutuals. Everyone on the team sees everything.' },
+    { route: '/screen', placement: 'center',
+      title: 'Step 5 — Quick Screener',
+      body: 'Two modes: Fund-Match (rank funds for a deal) or Mandate-Fit (pursue / review / pass on an inbound teaser). Both run in under 10 seconds.' },
+    { route: '/knowledge/shared', placement: 'center',
+      title: 'Step 6 — Firm-shared knowledge',
+      body: 'Ask plain-English questions and get cited answers pulled from memos, files, mandate notes and interactions. One firm brain.' }
+  ]
+}
+
+export const ADVANCED_TRIAL = {
+  title: 'Advanced trial',
+  blurb: '10-minute deep-dive into the AI surfaces and team workflows.',
+  steps: [
+    { route: '/', target: '[data-tour="topbar-search"]', placement: 'bottom',
+      title: 'Step 1 — ⌘K is your fastest move',
+      body: 'Command palette from anywhere. Search every deal, person, fund, memo or interaction. Or jump straight to a route.' },
+    { route: '/deals', target: '[data-tour="deals-new-advanced"]', placement: 'left',
+      title: 'Step 2 — Advanced deal capture',
+      body: 'New deal with NDA / engagement letter / teaser / IM attached upfront. Everything indexed for Knowledge Ask from minute one.' },
+    { route: '/timeline', placement: 'center',
+      title: 'Step 3 — Gantt across the book',
+      body: 'Every active mandate, laid out in time. Spot stuck deals at a glance — anything red has been in stage > 21 days.' },
+    { route: '/interactions', placement: 'center',
+      title: 'Step 4 — The pre-mandate funnel',
+      body: '12 interaction contexts. Outcome "converted to mandate" opens a pre-filled deal in one click — counterparty, sector, notes carried across.' },
+    { route: '/inbox/intake', placement: 'center',
+      title: 'Step 5 — AI-triaged inbound',
+      body: 'Every submission from /intake runs Mandate-Fit on arrival. Click "Why?" to see the reasoning. Triage in one click: Convert · Pass · Mark reviewed · Spam.' },
+    { route: '/screen', placement: 'center',
+      title: 'Step 6 — Quick Screener up close',
+      body: 'Fund-Match scores funds against a mandate using sector, stage, cheque size and warmth. Falls back to heuristics when AI is offline — never an empty screen.' },
+    { route: '/planner', placement: 'center',
+      title: 'Step 7 — Walk into your day prepared',
+      body: 'AI summary of today in three sentences. Tap a free slot → drafts a meeting-proposal email. Connect Google and invites go out from your real Gmail.' },
+    { route: '/calendar', placement: 'center',
+      title: 'Step 8 — Team calendar with slot-finder',
+      body: 'Side-by-side overlay of every team-member\'s week. Drag-to-create events that send real Google invites. Slot-finder finds windows where everyone can attend.' },
+    { route: '/knowledge/shared', placement: 'center',
+      title: 'Step 9 — Knowledge Ask',
+      body: 'Plain-English questions with citations: "What did Renuka say about HoV Mushrooms?" — answer pulled from interactions, KB notes and memos.' },
+    { route: '/analytics', placement: 'center',
+      title: 'Step 10 — The firm in numbers',
+      body: 'Pipeline value, weighted fees, win rate, velocity. Deliberately not on the homepage so partners don\'t walk past it daily — but here when you need it.' }
+  ]
+}
+
+// --------------------------------------------------------------------------------
+// Walkthrough video URL. Configure via VITE_DEMO_VIDEO_URL in .env. Falls back
+// to a marketing-friendly Loom placeholder so the modal renders without
+// breaking when no env var is set.
+// --------------------------------------------------------------------------------
+export const DEMO_VIDEO_URL =
+  import.meta?.env?.VITE_DEMO_VIDEO_URL ||
+  'https://www.loom.com/embed/0000000000000000000000000000000000000000'
+
 // Resolve a tutorial for a given pathname. Falls back to longest-prefix match
 // so /knowledge/shared still finds the /knowledge tour.
 export function tutorialFor(pathname) {
