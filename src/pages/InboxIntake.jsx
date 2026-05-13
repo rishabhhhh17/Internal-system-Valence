@@ -4,6 +4,7 @@ import { Inbox, Filter, Sparkles, Check, X, AlertTriangle, ArrowRight, ExternalL
 import { supabase, isSupabaseConfigured } from '../lib/supabase.js'
 import ConfigBanner from '../components/ConfigBanner.jsx'
 import EmptyState from '../components/EmptyState.jsx'
+import MandateFitVerdict from '../components/MandateFitVerdict.jsx'
 import { useToast } from '../components/Toast.jsx'
 
 const STATUSES = ['new', 'reviewed', 'converted', 'passed', 'spam']
@@ -164,13 +165,14 @@ function SubmissionCard({ row, onStatus, onConvert }) {
       )}
       {row.situation && <p className="mt-3 text-sm leading-relaxed text-valence-muted whitespace-pre-wrap">{row.situation}</p>}
 
-      {row.ai_screener_output?.lines?.length > 0 && (
-        <div className="mt-3 rounded-lg border border-valence-blue/30 bg-valence-blue-soft/30 p-3">
-          <p className="vl-eyebrow-ink inline-flex items-center gap-1.5"><Sparkles className="h-3 w-3 text-valence-blue" /> AI screen</p>
-          {row.ai_screener_output.one_line && <p className="mt-1.5 text-sm text-valence-text">{row.ai_screener_output.one_line}</p>}
-          <ol className="mt-2 list-decimal pl-5 space-y-1 text-[12px] leading-relaxed text-valence-muted">
-            {row.ai_screener_output.lines.slice(0, 5).map((l, i) => l ? <li key={i}>{l}</li> : null)}
-          </ol>
+      {row.ai_screener_output && (row.ai_screener_output.lines?.length > 0 || row.ai_screener_output.one_line) && (
+        <div className="mt-3">
+          <MandateFitVerdict
+            output={row.ai_screener_output}
+            onConvert={() => onConvert(row)}
+            eyebrow="AI screen on intake"
+            dense
+          />
         </div>
       )}
 
