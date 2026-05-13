@@ -8,6 +8,7 @@ import {
 import { supabase, isSupabaseConfigured } from '../lib/supabase.js'
 import { useAuth } from '../hooks/useAuth.js'
 import { stageMeta } from '../lib/stages.js'
+import { listTodayEvents, GoogleAuthExpired } from '../lib/google.js'
 import ConfigBanner from '../components/ConfigBanner.jsx'
 import WikilinkTextarea from '../components/WikilinkTextarea.jsx'
 import WikilinkText from '../components/WikilinkText.jsx'
@@ -19,11 +20,12 @@ import WikilinkText from '../components/WikilinkText.jsx'
 const STALE_THRESHOLD_DAYS = 7
 
 export default function DailyNote() {
-  const { profile } = useAuth()
+  const { profile, googleConnected } = useAuth()
   const [deals, setDeals]         = useState([])
   const [activities, setActivities] = useState([])
   const [interactions, setInteractions] = useState([])
   const [meetings, setMeetings]   = useState([])
+  const [meetingsSource, setMeetingsSource] = useState('local') // 'local' | 'google'
   const [note, setNote]           = useState(null)         // { id, body }
   const [body, setBody]           = useState('')
   const [saving, setSaving]       = useState(false)
@@ -53,8 +55,40 @@ export default function DailyNote() {
       setActivities(a.data || [])
       setInteractions(i.data || [])
       setMeetings(m.data || [])
+      setMeetingsSource('local')
     })()
   }, [dateIso])
+
+  // Prefer Google Calendar when connected — the daily_notes 'meetings' table
+  // was always a stub. If Google is wired, swap today's meetings list to the
+  // real Calendar events so the partner sees the day they actually have.
+  useEffect(() => {
+    if (!googleConnected) return
+    let cancelled = false
+    ;(async () => {
+      try {
+        const evs = await listTodayEvents()
+        if (cancelled) return
+        // Translate Google event shape → the local row shape this card renders.
+        const mapped = (evs || [])
+          .filter(ev => !ev.allDay && ev.start)
+          .sort((a, b) => a.start - b.start)
+          .map(ev => ({
+            id: ev.id,
+            title: ev.summary,
+            attendee_name: (ev.attendees || []).map(a => a.name || a.email).filter(Boolean).slice(0, 2).join(', '),
+            date: dateIso,
+            time: `${String(ev.start.getHours()).padStart(2, '0')}:${String(ev.start.getMinutes()).padStart(2, '0')}`
+          }))
+        setMeetings(mapped)
+        setMeetingsSource('google')
+      } catch (err) {
+        if (err instanceof GoogleAuthExpired) console.warn('Google session expired; keeping local meetings')
+        else console.warn('Google calendar fetch failed', err)
+      }
+    })()
+    return () => { cancelled = true }
+  }, [googleConnected, dateIso])
 
   // Upsert today's daily_note row on first load.
   useEffect(() => {
@@ -178,7 +212,7 @@ export default function DailyNote() {
 
       {/* Auto sections — read-only, regenerated every render */}
       <section className="grid gap-4 lg:grid-cols-2">
-        <Card icon={Calendar} title="Today's meetings" subtitle="From your calendar">
+        <Card icon={Calendar} title="Today's meetings" subtitle={meetingsSource === 'google' ? 'From your Google Calendar' : 'From your calendar'}>
           {meetings.length === 0 ? (
             <Empty>No meetings on the board today.</Empty>
           ) : (
@@ -198,7 +232,7 @@ export default function DailyNote() {
           )}
         </Card>
 
-        <Card icon={Sparkles} title="Priorities" subtitle="Heuristic ranking — connect Gemini for a smarter take">
+        <Card icon={Sparkles} title="Priorities" subtitle="Stale mandates · close-window · overdue follow-ups">
           {auto.priorities.length === 0 ? (
             <Empty>Inbox zero. Rare day.</Empty>
           ) : (

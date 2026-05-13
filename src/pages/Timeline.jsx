@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { Filter, GanttChartSquare, Table as TableIcon } from 'lucide-react'
 import { supabase, isSupabaseConfigured } from '../lib/supabase.js'
 import { useViewMode } from '../hooks/useViewMode.jsx'
@@ -126,6 +127,13 @@ export default function Timeline() {
         <div className="vl-card p-10 grid place-items-center text-sm text-valence-muted">Drawing the timeline…</div>
       ) : loadError ? (
         <EmptyState icon={GanttChartSquare} title="Couldn't load timeline" description={loadError} action={<button onClick={load} className="vl-btn-primary">Retry</button>} />
+      ) : filtered.length === 0 ? (
+        <EmptyState
+          icon={GanttChartSquare}
+          title={deals.length === 0 ? 'No mandates to chart yet' : 'No mandates match your filters'}
+          description={deals.length === 0 ? 'Log a mandate in Deal Logger and it\'ll appear here automatically.' : 'Try widening the owner / sector / side filters.'}
+          action={deals.length === 0 ? <Link to="/deals" className="vl-btn-primary">Open Deal Logger</Link> : null}
+        />
       ) : view === 'table' ? (
         <TimelineTable deals={filtered} activities={activities} onOpenDeal={openDeal} />
       ) : (
