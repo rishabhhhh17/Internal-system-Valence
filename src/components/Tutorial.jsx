@@ -1,164 +1,323 @@
 import { useEffect, useLayoutEffect, useRef, useState, useCallback } from 'react'
-import { useLocation } from 'react-router-dom'
-import { HelpCircle, X, ArrowLeft, ArrowRight, Sparkles, Check } from 'lucide-react'
-import { tutorialFor } from '../lib/tutorials.js'
+import { useLocation, useNavigate } from 'react-router-dom'
+import {
+  HelpCircle, X, ArrowLeft, ArrowRight, Sparkles, Check,
+  Zap, Compass, Rocket, ChevronRight
+} from 'lucide-react'
+import { tutorialFor, QUICK_TRIAL, ADVANCED_TRIAL } from '../lib/tutorials.js'
 
 // --------------------------------------------------------------------------------
-// Anchored, spotlight-based tour.
+// Tour center. Three modes off one entry point:
+//   menu      — the launcher cards (default when the pill is clicked)
+//   quick     — per-page spotlight tour from tutorialFor(pathname)
+//   trial     — multi-page scripted hands-on (QUICK_TRIAL)
+//   advanced  — deeper multi-page scripted walk-through (ADVANCED_TRIAL)
 //
-// Each step in lib/tutorials.js may carry a `target` CSS selector and a
-// `placement`. When a target exists on-screen, the overlay punches a hole
-// around it ("spotlight") and floats the popover beside it with an arrow.
-// When no target is found (or none was provided), the popover gracefully
-// renders as a centered modal — so the tour never breaks if a page hasn't
-// yet been instrumented with data-tour attributes.
-//
-// First-time arrival on any page auto-opens the tour once. Returning users
-// see a quiet "Tour" pill at the top-right; the dot disappears after they've
-// seen the page's tour.
+// `trial` and `advanced` reuse the same spotlight runner as `quick` — the only
+// difference is that each step also carries a `route`, and we auto-navigate
+// across the firm as the user clicks Next.
 // --------------------------------------------------------------------------------
 
-const SEEN_KEY        = 'valence.tutorialsSeen.v2'
-const FIRST_RUN_KEY   = 'valence.tutorialFirstRun.v1'
-const SPOTLIGHT_PAD   = 10           // visible padding around the target inside the cutout
-const POPOVER_W       = 360          // fixed width — keeps math simple
-const POPOVER_GAP     = 14           // gap between target and popover
-const ARROW_SZ        = 10           // arrow side-length in px
-const SCREEN_PAD      = 16           // viewport padding when clamping
-const AUTO_OPEN_DELAY = 450          // let the page paint before spotlighting
+const SEEN_KEY      = 'valence.tutorialsSeen.v2'
+const FIRST_RUN_KEY = 'valence.tutorialFirstRun.v1'
+const SPOTLIGHT_PAD = 10
+const POPOVER_MAX_W = 360
+const POPOVER_GAP   = 14
+const ARROW_SZ      = 10
+const SCREEN_PAD    = 16
+const ROUTE_WAIT_MS = 350           // after a navigate(), give the page time to paint
 
-function readSeen()      { try { return JSON.parse(localStorage.getItem(SEEN_KEY) || '{}') } catch { return {} } }
-function writeSeen(map)  { try { localStorage.setItem(SEEN_KEY, JSON.stringify(map)) } catch {} }
-function firstRunDone()  { try { return Boolean(localStorage.getItem(FIRST_RUN_KEY)) } catch { return true } }
-function markFirstRun()  { try { localStorage.setItem(FIRST_RUN_KEY, '1') } catch {} }
+function readSeen()     { try { return JSON.parse(localStorage.getItem(SEEN_KEY) || '{}') } catch { return {} } }
+function writeSeen(map) { try { localStorage.setItem(SEEN_KEY, JSON.stringify(map)) } catch {} }
+function firstRunDone() { try { return Boolean(localStorage.getItem(FIRST_RUN_KEY)) } catch { return true } }
+function markFirstRun() { try { localStorage.setItem(FIRST_RUN_KEY, '1') } catch {} }
+
+function popoverWidth() {
+  if (typeof window === 'undefined') return POPOVER_MAX_W
+  return Math.min(POPOVER_MAX_W, window.innerWidth - SCREEN_PAD * 2)
+}
 
 function getTargetRect(selector) {
   if (!selector) return null
   try {
     const el = document.querySelector(selector)
     if (!el) return null
-    // Make sure the target is in view before we measure.
     const r = el.getBoundingClientRect()
+    if (r.width === 0 && r.height === 0) return null
     return { top: r.top, left: r.left, width: r.width, height: r.height, el }
   } catch { return null }
 }
 
-// Compute popover position relative to a target rect. Tries the preferred
-// placement first; if the popover would clip the viewport, flips to the
-// opposite side; if still no fit, drops to the side with the most room.
-function placePopover(rect, placement, popoverH) {
-  const vw = window.innerWidth, vh = window.innerHeight
+function placePopover(rect, preferred, popoverH, popoverW) {
+  const vw = window.innerWidth
+  const vh = window.innerHeight
   if (!rect) return null
 
-  const candidates = ['bottom', 'top', 'right', 'left'].filter(p => p !== placement)
-  const order = [placement, oppositeOf(placement), ...candidates].filter(Boolean)
+  const ideal = (p) => {
+    if (p === 'bottom') return { top: rect.top + rect.height + POPOVER_GAP, left: rect.left + rect.width / 2 - popoverW / 2 }
+    if (p === 'top')    return { top: rect.top - popoverH - POPOVER_GAP,    left: rect.left + rect.width / 2 - popoverW / 2 }
+    if (p === 'right')  return { top: rect.top + rect.height / 2 - popoverH / 2, left: rect.left + rect.width + POPOVER_GAP }
+    return                     { top: rect.top + rect.height / 2 - popoverH / 2, left: rect.left - popoverW - POPOVER_GAP }
+  }
+  const clamp = (t, l) => ({
+    top:  Math.max(SCREEN_PAD, Math.min(t, vh - popoverH - SCREEN_PAD)),
+    left: Math.max(SCREEN_PAD, Math.min(l, vw - popoverW - SCREEN_PAD))
+  })
+  const sideHasRoom = (p) => {
+    if (p === 'bottom') return vh - (rect.top + rect.height) >= popoverH + POPOVER_GAP + SCREEN_PAD
+    if (p === 'top')    return rect.top                       >= popoverH + POPOVER_GAP + SCREEN_PAD
+    if (p === 'right')  return vw - (rect.left + rect.width) >= popoverW + POPOVER_GAP + SCREEN_PAD
+    return                     rect.left                       >= popoverW + POPOVER_GAP + SCREEN_PAD
+  }
+
+  const order = [preferred, oppositeOf(preferred), 'bottom', 'top', 'right', 'left']
+    .filter((v, i, a) => v && a.indexOf(v) === i)
 
   for (const p of order) {
-    const pos = tryPlace(rect, p, popoverH, vw, vh)
-    if (pos.fits) return { ...pos, placement: p }
+    if (sideHasRoom(p)) {
+      const i = ideal(p)
+      return { ...clamp(i.top, i.left), placement: p }
+    }
   }
-  // Last resort — pick the one with the most room.
-  const scored = order.map(p => tryPlace(rect, p, popoverH, vw, vh))
-  scored.sort((a, b) => b.score - a.score)
-  return { ...scored[0], placement: scored[0].placement }
+  const roomBelow = vh - (rect.top + rect.height)
+  const roomAbove = rect.top
+  const p = roomBelow > roomAbove ? 'bottom' : 'top'
+  const i = ideal(p)
+  return { ...clamp(i.top, i.left), placement: p }
 }
 
-function oppositeOf(p) { return { top: 'bottom', bottom: 'top', left: 'right', right: 'left' }[p] || 'bottom' }
-
-function tryPlace(rect, p, h, vw, vh) {
-  let top, left, score = 0
-  if (p === 'bottom') {
-    top  = rect.top + rect.height + POPOVER_GAP
-    left = rect.left + rect.width / 2 - POPOVER_W / 2
-    score = vh - top
-  } else if (p === 'top') {
-    top  = rect.top - h - POPOVER_GAP
-    left = rect.left + rect.width / 2 - POPOVER_W / 2
-    score = rect.top
-  } else if (p === 'right') {
-    top  = rect.top + rect.height / 2 - h / 2
-    left = rect.left + rect.width + POPOVER_GAP
-    score = vw - left
-  } else {
-    // left
-    top  = rect.top + rect.height / 2 - h / 2
-    left = rect.left - POPOVER_W - POPOVER_GAP
-    score = rect.left
-  }
-  // Clamp into viewport
-  const clampedLeft = Math.max(SCREEN_PAD, Math.min(left, vw - POPOVER_W - SCREEN_PAD))
-  const clampedTop  = Math.max(SCREEN_PAD, Math.min(top,  vh - h        - SCREEN_PAD))
-  const fits =
-    clampedTop  >= SCREEN_PAD &&
-    clampedTop + h <= vh - SCREEN_PAD &&
-    clampedLeft >= SCREEN_PAD &&
-    clampedLeft + POPOVER_W <= vw - SCREEN_PAD
-  // Track where the arrow needs to point relative to the (un-clamped) ideal so
-  // it still lands on the target even when the popover got clamped.
-  return { top: clampedTop, left: clampedLeft, placement: p, fits, score, rect }
-}
+function oppositeOf(p) { return { top: 'bottom', bottom: 'top', left: 'right', right: 'left' }[p] }
 
 function scrollIntoViewSoft(el) {
   if (!el) return
   try { el.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' }) } catch {}
 }
 
+// ─── Public entry point ─────────────────────────────────────────────────────────
+
 export default function TutorialButton() {
   const { pathname } = useLocation()
-  const [open, setOpen]   = useState(false)
-  const [step, setStep]   = useState(0)
-  const [seen, setSeen]   = useState(() => readSeen())
-  const [rect, setRect]   = useState(null)              // target rect
-  const [pos,  setPos]    = useState(null)              // popover {top,left,placement}
-  const popRef            = useRef(null)
+  const [mode, setMode]  = useState(null)         // null | 'menu' | 'quick' | 'video' | 'trial' | 'advanced'
+  const [seen, setSeen]  = useState(() => readSeen())
+  const beenSeenHere     = Boolean(seen[pathname])
 
-  const tour    = tutorialFor(pathname)
-  const total   = tour.steps.length
-  const current = tour.steps[step] || tour.steps[0]
-  const isLast  = step === total - 1
-  const beenSeenHere = Boolean(seen[pathname])
-
-  // Reset to step 0 whenever route changes.
-  useEffect(() => { setStep(0) }, [pathname])
-
-  // Auto-open on first-ever app load: drop the user straight into Today's tour.
+  // Auto-open the menu on first-ever app load.
   useEffect(() => {
     if (firstRunDone()) return
-    const t = setTimeout(() => {
-      setOpen(true)
-      markFirstRun()
-    }, 600)
+    const t = setTimeout(() => { setMode('menu'); markFirstRun() }, 600)
     return () => clearTimeout(t)
   }, [])
 
-  // Recompute target rect + popover position whenever the step changes or
-  // the window resizes/scrolls.
+  function onClose(markSeenForPath) {
+    if (markSeenForPath) {
+      const next = { ...seen, [markSeenForPath]: new Date().toISOString() }
+      setSeen(next); writeSeen(next)
+    }
+    setMode(null)
+  }
+
+  return (
+    <>
+      <button
+        onClick={() => setMode('menu')}
+        className={`relative inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-semibold transition ${
+          beenSeenHere
+            ? 'border-valence-border bg-white text-valence-muted hover:text-valence-text'
+            : 'border-valence-blue/40 bg-valence-blue-soft text-valence-blue hover:bg-valence-blue-soft/80'
+        }`}
+        title="Tour the product"
+        data-tour="topbar-tour-button"
+      >
+        <HelpCircle className="h-3 w-3" />
+        Tour
+        {!beenSeenHere && <span className="absolute -right-0.5 -top-0.5 h-1.5 w-1.5 rounded-full bg-valence-blue shadow-[0_0_6px_#3399FF]" />}
+      </button>
+
+      {mode === 'menu'     && <TourMenu       onPick={setMode} onClose={() => setMode(null)} />}
+      {mode === 'quick'    && <SpotlightRunner kind="quick"    pathname={pathname} onClose={onClose} />}
+      {mode === 'trial'    && <SpotlightRunner kind="trial"    pathname={pathname} onClose={onClose} />}
+      {mode === 'advanced' && <SpotlightRunner kind="advanced" pathname={pathname} onClose={onClose} />}
+    </>
+  )
+}
+
+// ─── Tour menu — four big cards ────────────────────────────────────────────────
+
+function TourMenu({ onPick, onClose }) {
+  return (
+    <div className="fixed inset-0 z-[70]" role="dialog" aria-modal="true" aria-label="Tour ValenceOS">
+      <div className="absolute inset-0 bg-valence-ink/45 backdrop-blur-sm animate-fade-in" onClick={onClose} />
+      <div className="relative mx-auto mt-[10vh] w-[min(680px,calc(100vw-32px))] animate-slide-up rounded-2xl border border-valence-border bg-white shadow-valence-lg">
+        <div className="flex items-start justify-between gap-3 border-b border-valence-border px-6 py-4">
+          <div>
+            <p className="vl-eyebrow-ink inline-flex items-center gap-1.5">
+              <Sparkles className="h-3 w-3 text-valence-blue" /> Tour ValenceOS
+            </p>
+            <h2 className="mt-1 font-display text-lg font-semibold tracking-tight text-valence-text">
+              Pick how you want to walk through
+            </h2>
+            <p className="mt-1 text-[12px] text-valence-muted">
+              Built for boutique IB firms — Mandate · Pre-Mandate · teaser · IM · LOI · SPA. Not a CRM.
+            </p>
+          </div>
+          <button onClick={onClose} className="vl-btn-ghost shrink-0 -mr-2" aria-label="Close">
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 p-6">
+          <TourCard
+            icon={Zap}
+            tone="blue"
+            title="Quick tour"
+            sub="60-second spotlight"
+            body="A handful of pointers around this page. The fastest way to see what's where."
+            onClick={() => onPick('quick')}
+          />
+          <TourCard
+            icon={Compass}
+            tone="green"
+            title="Guided trial"
+            sub="5-min · 8 pages"
+            body="We walk you across the firm — Today, Deals, Funds, People, Screener, Knowledge. Click Next at your own pace."
+            onClick={() => onPick('trial')}
+            recommended
+          />
+          <TourCard
+            icon={Rocket}
+            tone="amber"
+            title="Advanced trial"
+            sub="10-min · 10 pages"
+            body="The same loop, plus the AI surfaces — Mandate Screener, Intake triage, Knowledge Ask, Team Calendar slot finder."
+            onClick={() => onPick('advanced')}
+          />
+        </div>
+
+        <div className="border-t border-valence-border px-6 py-3 flex items-center justify-between text-[11px] text-valence-subtle">
+          <span>Press <span className="vl-kbd">Esc</span> any time to exit a tour.</span>
+          <span>Built by Rishabh — questions: <a className="text-valence-blue hover:underline" href="mailto:rishabh@valencegrowth.com">rishabh@valencegrowth.com</a></span>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function TourCard({ icon: Icon, tone, title, sub, body, onClick, recommended }) {
+  const tones = {
+    blue:   'border-valence-blue/30 bg-valence-blue-soft text-valence-blue',
+    violet: 'border-violet-300/40 bg-violet-50 text-violet-600',
+    green:  'border-emerald-300/40 bg-emerald-50 text-emerald-600',
+    amber:  'border-amber-300/40 bg-amber-50 text-amber-700'
+  }
+  return (
+    <button
+      onClick={onClick}
+      className="group relative rounded-xl border border-valence-border bg-white p-4 text-left transition hover:border-valence-ink/30 hover:shadow-valence"
+    >
+      {recommended && (
+        <span className="absolute -top-2 right-3 inline-flex items-center rounded-full bg-valence-ink px-2 py-0.5 text-[9px] font-semibold uppercase tracking-[0.14em] text-white">
+          Recommended
+        </span>
+      )}
+      <div className="flex items-start gap-3">
+        <span className={`inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border ${tones[tone]}`}>
+          <Icon className="h-4 w-4" />
+        </span>
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center justify-between gap-2">
+            <p className="font-display font-semibold tracking-tight text-valence-text">{title}</p>
+            <ChevronRight className="h-3.5 w-3.5 text-valence-subtle group-hover:text-valence-text transition" />
+          </div>
+          <p className="mt-0.5 text-[11px] font-semibold uppercase tracking-[0.14em] text-valence-subtle">{sub}</p>
+          <p className="mt-1.5 text-[12px] leading-relaxed text-valence-muted">{body}</p>
+        </div>
+      </div>
+    </button>
+  )
+}
+
+// ─── Spotlight runner — used by quick / trial / advanced ───────────────────────
+
+function SpotlightRunner({ kind, pathname, onClose }) {
+  const navigate = useNavigate()
+  const [step, setStep] = useState(0)
+  const [rect, setRect] = useState(null)
+  const [pos,  setPos]  = useState(null)
+  const [popH, setPopH] = useState(220)
+  const [popW, setPopW] = useState(() => popoverWidth())
+  const [retry, setRetry] = useState(0)        // bumps when target isn't ready yet
+  const popRef = useRef(null)
+
+  // Pick the right script.
+  const tour =
+    kind === 'trial'    ? QUICK_TRIAL
+  : kind === 'advanced' ? ADVANCED_TRIAL
+  :                       tutorialFor(pathname)
+
+  const total   = tour.steps.length
+  const current = tour.steps[step] || tour.steps[0]
+  const isLast  = step === total - 1
+  const scripted = kind === 'trial' || kind === 'advanced'
+
+  // For scripted tours: auto-navigate when the step's route differs from the
+  // current one. The route change re-renders Layout; we then retry measure
+  // until the target shows up (or fall through to a centered modal step).
+  useEffect(() => {
+    if (!scripted) return
+    const want = current.route
+    if (want && want !== pathname) {
+      navigate(want)
+    }
+  }, [scripted, step, current.route, pathname, navigate])
+
+  // Measure target + position popover.
   const measure = useCallback(() => {
-    if (!open) return
     const r = getTargetRect(current.target)
     if (r) {
-      // Scroll the target into view if it's off-screen.
       const vh = window.innerHeight
-      if (r.top < 0 || r.top + r.height > vh) scrollIntoViewSoft(r.el)
+      if (r.top < SCREEN_PAD || r.top + r.height > vh - SCREEN_PAD) scrollIntoViewSoft(r.el)
     }
+    const w = popoverWidth()
+    setPopW(w)
     setRect(r)
-    const popH = popRef.current?.offsetHeight || 220
-    const placement = current.placement || 'bottom'
-    setPos(r ? placePopover(r, placement, popH) : null)
-  }, [open, current])
+    setPos(r ? placePopover(r, current.placement || 'bottom', popH, w) : null)
+  }, [current, popH])
 
+  // ResizeObserver tracks the popover's actual rendered height — step copy
+  // varies in length so a single estimate would let some steps clip.
   useLayoutEffect(() => {
-    if (!open) return
-    // Measure twice — once now, once after the next paint, so we catch
-    // animated mounts and lazy-rendered targets.
+    if (!popRef.current) return
+    const el = popRef.current
+    const obs = new ResizeObserver(() => {
+      const h = el.offsetHeight
+      if (h && Math.abs(h - popH) > 2) setPopH(h)
+    })
+    obs.observe(el)
+    return () => obs.disconnect()
+  }, [step, popH])
+
+  // Measure on step / pathname / height / retry change.
+  useLayoutEffect(() => {
     measure()
     const raf = requestAnimationFrame(measure)
-    const t = setTimeout(measure, 200)
-    return () => { cancelAnimationFrame(raf); clearTimeout(t) }
-  }, [open, step, pathname, measure])
+    const t1  = setTimeout(measure, ROUTE_WAIT_MS)
+    const t2  = setTimeout(measure, ROUTE_WAIT_MS + 300)
+    return () => { cancelAnimationFrame(raf); clearTimeout(t1); clearTimeout(t2) }
+  }, [step, pathname, popH, retry, measure])
+
+  // If we're in a scripted tour, the target may not exist yet — retry every
+  // 150ms for up to 1.5s before giving up and showing the centered version.
+  useEffect(() => {
+    if (!current.target) return
+    if (rect) return
+    if (retry > 10) return
+    const t = setTimeout(() => setRetry(r => r + 1), 150)
+    return () => clearTimeout(t)
+  }, [current.target, rect, retry])
+
+  useEffect(() => { setRetry(0) }, [step])
 
   useEffect(() => {
-    if (!open) return
     const onResize = () => measure()
     window.addEventListener('resize', onResize)
     window.addEventListener('scroll', onResize, true)
@@ -166,34 +325,23 @@ export default function TutorialButton() {
       window.removeEventListener('resize', onResize)
       window.removeEventListener('scroll', onResize, true)
     }
-  }, [open, measure])
+  }, [measure])
 
-  // Keyboard: Escape, arrow keys.
   useEffect(() => {
-    if (!open) return
     const onKey = (e) => {
-      if (e.key === 'Escape')     close(false)
+      if (e.key === 'Escape')     onClose(scripted ? null : pathname)
       if (e.key === 'ArrowRight') setStep(s => Math.min(s + 1, total - 1))
       if (e.key === 'ArrowLeft')  setStep(s => Math.max(s - 1, 0))
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [open, total])
-
-  function close(markSeen) {
-    if (markSeen) {
-      const next = { ...seen, [pathname]: new Date().toISOString() }
-      setSeen(next); writeSeen(next)
-    }
-    setOpen(false)
-  }
+  }, [total, onClose, scripted, pathname])
 
   function nextStep() {
-    if (isLast) { close(true); return }
+    if (isLast) { onClose(scripted ? null : pathname); return }
     setStep(s => Math.min(s + 1, total - 1))
   }
 
-  // ---- Spotlight rectangle (with padding) — only when we have a target ----
   const hasSpotlight = Boolean(rect)
   const spot = rect ? {
     x: rect.left - SPOTLIGHT_PAD,
@@ -202,188 +350,138 @@ export default function TutorialButton() {
     h: rect.height + SPOTLIGHT_PAD * 2
   } : null
 
+  let arrowOffset = null
+  if (hasSpotlight && pos) {
+    const targetCX = rect.left + rect.width / 2
+    const targetCY = rect.top  + rect.height / 2
+    if (pos.placement === 'top' || pos.placement === 'bottom') {
+      arrowOffset = Math.max(20, Math.min(targetCX - pos.left, popW - 20))
+    } else {
+      arrowOffset = Math.max(20, Math.min(targetCY - pos.top,  popH - 20))
+    }
+  }
+
   return (
-    <>
-      <button
-        onClick={() => setOpen(true)}
-        className={`relative inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-semibold transition ${
-          beenSeenHere
-            ? 'border-valence-border bg-white text-valence-muted hover:text-valence-text'
-            : 'border-valence-blue/40 bg-valence-blue-soft text-valence-blue hover:bg-valence-blue-soft/80'
-        }`}
-        title="Show me how this page works"
-        data-tour="topbar-tour-button"
-      >
-        <HelpCircle className="h-3 w-3" />
-        Tour
-        {!beenSeenHere && <span className="absolute -right-0.5 -top-0.5 h-1.5 w-1.5 rounded-full bg-valence-blue shadow-[0_0_6px_#3399FF]" />}
-      </button>
-
-      {open && (
-        <div className="fixed inset-0 z-[70]" role="dialog" aria-modal="true" aria-label={`Tour: ${tour.title}`}>
-          {/* Spotlight overlay: SVG mask cuts a rounded rectangle around the
-              target. When there's no target, falls back to a full-screen dim. */}
-          {hasSpotlight ? (
-            <svg
-              className="absolute inset-0 w-full h-full"
-              style={{ pointerEvents: 'auto' }}
-              onClick={() => close(false)}
-            >
-              <defs>
-                <mask id="vl-tour-mask">
-                  <rect width="100%" height="100%" fill="white" />
-                  <rect
-                    x={spot.x} y={spot.y} width={spot.w} height={spot.h}
-                    rx="10" ry="10" fill="black"
-                  />
-                </mask>
-              </defs>
-              <rect
-                width="100%" height="100%"
-                fill="rgba(11,15,32,0.55)"
-                mask="url(#vl-tour-mask)"
-              />
-              {/* Animated ring around the spotlight to draw the eye. */}
-              <rect
-                x={spot.x} y={spot.y} width={spot.w} height={spot.h}
-                rx="10" ry="10"
-                fill="none"
-                stroke="#3399FF"
-                strokeWidth="2"
-                style={{
-                  filter: 'drop-shadow(0 0 8px rgba(51,153,255,0.6))',
-                  pointerEvents: 'none'
-                }}
-              >
-                <animate attributeName="stroke-opacity" values="1;0.4;1" dur="1.8s" repeatCount="indefinite" />
-              </rect>
-            </svg>
-          ) : (
-            <div className="absolute inset-0 bg-valence-ink/45 backdrop-blur-sm animate-fade-in" onClick={() => close(false)} />
-          )}
-
-          {/* Popover — anchored to target if we have one, otherwise centered. */}
-          <div
-            ref={popRef}
-            className="absolute animate-slide-up rounded-2xl border border-valence-border bg-white shadow-valence-lg"
-            style={
-              pos
-                ? { top: pos.top, left: pos.left, width: POPOVER_W }
-                : {
-                    top: '50%', left: '50%',
-                    transform: 'translate(-50%, -50%)',
-                    width: POPOVER_W
-                  }
-            }
-            role="document"
+    <div className="fixed inset-0 z-[70] overflow-hidden" role="dialog" aria-modal="true" aria-label={`Tour: ${tour.title}`}>
+      {hasSpotlight ? (
+        <svg className="absolute inset-0 w-full h-full" style={{ pointerEvents: 'auto' }} onClick={() => onClose(scripted ? null : pathname)}>
+          <defs>
+            <mask id="vl-tour-mask">
+              <rect width="100%" height="100%" fill="white" />
+              <rect x={spot.x} y={spot.y} width={spot.w} height={spot.h} rx="10" ry="10" fill="black" />
+            </mask>
+          </defs>
+          <rect width="100%" height="100%" fill="rgba(11,15,32,0.55)" mask="url(#vl-tour-mask)" />
+          <rect
+            x={spot.x} y={spot.y} width={spot.w} height={spot.h}
+            rx="10" ry="10"
+            fill="none" stroke="#3399FF" strokeWidth="2"
+            style={{ filter: 'drop-shadow(0 0 8px rgba(51,153,255,0.6))', pointerEvents: 'none' }}
           >
-            {/* Arrow — visible only when we're actually anchored to a target. */}
-            {hasSpotlight && pos && pos.placement !== 'center' && (
-              <ArrowMarker placement={pos.placement} rect={rect} pos={pos} />
-            )}
-
-            <div className="flex items-start justify-between gap-3 border-b border-valence-border px-5 py-3.5">
-              <div className="min-w-0">
-                <p className="vl-eyebrow-ink inline-flex items-center gap-1.5">
-                  <Sparkles className="h-3 w-3 text-valence-blue" /> Tour · {tour.title}
-                </p>
-                <p className="mt-1 text-[11px] text-valence-muted">{tour.blurb}</p>
-              </div>
-              <button onClick={() => close(false)} className="vl-btn-ghost shrink-0 -mr-2" aria-label="Close tour">
-                <X className="h-4 w-4" />
-              </button>
-            </div>
-
-            <div className="px-5 py-4">
-              <div className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.18em] text-valence-subtle">
-                <span>Step {step + 1} of {total}</span>
-                <span className="flex-1 h-1 rounded-full bg-valence-surface overflow-hidden">
-                  <span className="block h-full bg-valence-blue transition-all" style={{ width: `${((step + 1) / total) * 100}%` }} />
-                </span>
-              </div>
-              <h3 className="mt-3 font-display text-[15px] font-semibold leading-snug text-valence-text">
-                {current.title}
-              </h3>
-              <p className="mt-1.5 text-[13px] leading-relaxed text-valence-muted">
-                {current.body}
-              </p>
-            </div>
-
-            <div className="flex items-center justify-between gap-2 border-t border-valence-border px-5 py-3">
-              <div className="flex items-center gap-1.5">
-                <button
-                  onClick={() => setStep(s => Math.max(s - 1, 0))}
-                  disabled={step === 0}
-                  className="vl-btn-ghost text-[11px] disabled:opacity-40 disabled:cursor-not-allowed"
-                >
-                  <ArrowLeft className="h-3 w-3" /> Back
-                </button>
-                {!isLast && (
-                  <button
-                    onClick={() => close(true)}
-                    className="text-[11px] font-medium text-valence-subtle hover:text-valence-muted transition"
-                    title="Skip the rest of this tour"
-                  >
-                    Skip
-                  </button>
-                )}
-              </div>
-
-              <div className="flex items-center gap-1">
-                {tour.steps.map((_, i) => (
-                  <button
-                    key={i}
-                    onClick={() => setStep(i)}
-                    className={`h-1.5 w-1.5 rounded-full transition ${i === step ? 'bg-valence-blue' : 'bg-valence-border hover:bg-valence-subtle'}`}
-                    aria-label={`Step ${i + 1}`}
-                  />
-                ))}
-              </div>
-
-              <button onClick={nextStep} className="vl-btn-primary text-[11px]">
-                {isLast ? <><Check className="h-3 w-3" /> Got it</> : <>Next <ArrowRight className="h-3 w-3" /></>}
-              </button>
-            </div>
-          </div>
-        </div>
+            <animate attributeName="stroke-opacity" values="1;0.4;1" dur="1.8s" repeatCount="indefinite" />
+          </rect>
+        </svg>
+      ) : (
+        <div className="absolute inset-0 bg-valence-ink/45 backdrop-blur-sm animate-fade-in" onClick={() => onClose(scripted ? null : pathname)} />
       )}
-    </>
+
+      <div
+        ref={popRef}
+        className="absolute animate-slide-up rounded-2xl border border-valence-border bg-white shadow-valence-lg"
+        style={
+          pos
+            ? { top: pos.top, left: pos.left, width: popW, maxHeight: 'calc(100vh - 32px)', overflow: 'hidden' }
+            : { top: '50%', left: '50%', transform: 'translate(-50%, -50%)', width: popW, maxHeight: 'calc(100vh - 32px)', overflow: 'hidden' }
+        }
+        role="document"
+      >
+        {arrowOffset !== null && pos && (
+          <ArrowMarker placement={pos.placement} offset={arrowOffset} popH={popH} popW={popW} />
+        )}
+
+        <div className="flex items-start justify-between gap-3 border-b border-valence-border px-5 py-3.5">
+          <div className="min-w-0">
+            <p className="vl-eyebrow-ink inline-flex items-center gap-1.5">
+              <Sparkles className="h-3 w-3 text-valence-blue" /> {scripted ? tour.title : `Tour · ${tour.title}`}
+            </p>
+            <p className="mt-1 text-[11px] text-valence-muted line-clamp-2">{tour.blurb}</p>
+          </div>
+          <button onClick={() => onClose(scripted ? null : pathname)} className="vl-btn-ghost shrink-0 -mr-2" aria-label="Close tour">
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+
+        <div className="px-5 py-4">
+          <div className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.18em] text-valence-subtle">
+            <span>Step {step + 1} of {total}</span>
+            <span className="flex-1 h-1 rounded-full bg-valence-surface overflow-hidden">
+              <span className="block h-full bg-valence-blue transition-all" style={{ width: `${((step + 1) / total) * 100}%` }} />
+            </span>
+          </div>
+          <h3 className="mt-3 font-display text-[15px] font-semibold leading-snug text-valence-text">
+            {current.title}
+          </h3>
+          <p className="mt-1.5 text-[13px] leading-relaxed text-valence-muted">
+            {current.body}
+          </p>
+        </div>
+
+        <div className="flex items-center justify-between gap-2 border-t border-valence-border px-5 py-3">
+          <div className="flex items-center gap-1.5">
+            <button
+              onClick={() => setStep(s => Math.max(s - 1, 0))}
+              disabled={step === 0}
+              className="vl-btn-ghost text-[11px] disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              <ArrowLeft className="h-3 w-3" /> Back
+            </button>
+            {!isLast && (
+              <button
+                onClick={() => onClose(scripted ? null : pathname)}
+                className="text-[11px] font-medium text-valence-subtle hover:text-valence-muted transition"
+                title="Skip the rest"
+              >
+                Skip
+              </button>
+            )}
+          </div>
+
+          <div className="hidden sm:flex items-center gap-1">
+            {tour.steps.map((_, i) => (
+              <button
+                key={i}
+                onClick={() => setStep(i)}
+                className={`h-1.5 w-1.5 rounded-full transition ${i === step ? 'bg-valence-blue' : 'bg-valence-border hover:bg-valence-subtle'}`}
+                aria-label={`Step ${i + 1}`}
+              />
+            ))}
+          </div>
+
+          <button onClick={nextStep} className="vl-btn-primary text-[11px]">
+            {isLast ? <><Check className="h-3 w-3" /> Got it</> : <>Next <ArrowRight className="h-3 w-3" /></>}
+          </button>
+        </div>
+      </div>
+    </div>
   )
 }
 
-// ─── Arrow ──────────────────────────────────────────────────────────────────────
-// Renders a small triangle on the side of the popover facing the target.
-// Positions itself along the popover edge so it visually points at the
-// element's centre — even when the popover has been clamped to the viewport.
-
-function ArrowMarker({ placement, rect, pos }) {
-  if (!rect || !pos) return null
-  const targetCenterX = rect.left + rect.width / 2
-  const targetCenterY = rect.top  + rect.height / 2
-
-  // Where along the popover edge should the arrow sit?
+function ArrowMarker({ placement, offset, popH, popW }) {
   let style = {}
   if (placement === 'top' || placement === 'bottom') {
-    // Arrow on horizontal edge
-    const localX = Math.max(20, Math.min(targetCenterX - pos.left, POPOVER_W - 20))
     style = {
-      left: localX - ARROW_SZ,
+      left: offset - ARROW_SZ,
       [placement === 'top' ? 'bottom' : 'top']: -ARROW_SZ,
-      width: ARROW_SZ * 2,
-      height: ARROW_SZ,
+      width: 0, height: 0,
       borderLeft:   `${ARROW_SZ}px solid transparent`,
       borderRight:  `${ARROW_SZ}px solid transparent`,
       [placement === 'top' ? 'borderTop' : 'borderBottom']: `${ARROW_SZ}px solid white`
     }
   } else {
-    // Arrow on vertical edge
-    const popH = (popRefSafe() || 200)
-    const localY = Math.max(20, Math.min(targetCenterY - pos.top, popH - 20))
     style = {
-      top: localY - ARROW_SZ,
+      top: offset - ARROW_SZ,
       [placement === 'left' ? 'right' : 'left']: -ARROW_SZ,
-      width: ARROW_SZ,
-      height: ARROW_SZ * 2,
+      width: 0, height: 0,
       borderTop:    `${ARROW_SZ}px solid transparent`,
       borderBottom: `${ARROW_SZ}px solid transparent`,
       [placement === 'left' ? 'borderLeft' : 'borderRight']: `${ARROW_SZ}px solid white`
@@ -391,8 +489,3 @@ function ArrowMarker({ placement, rect, pos }) {
   }
   return <span aria-hidden="true" className="absolute" style={style} />
 }
-
-// Best-effort lookup of popover height for vertical-edge arrow placement.
-// (We can't useRef from inside the helper without prop-drilling; this is a
-// pragmatic fallback that matches the typical rendered height.)
-function popRefSafe() { return 220 }
