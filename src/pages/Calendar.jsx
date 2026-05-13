@@ -253,8 +253,8 @@ export default function Calendar() {
   }
 
   const headerLabel = useMemo(() => {
-    if (view === 'Day')  return format(anchor, 'EEEE · LLL d, yyyy')
-    if (view === 'Week') return `${format(weekStart(anchor), 'LLL d')} – ${format(weekEnd(anchor), 'LLL d, yyyy')}`
+    if (view === 'Day')  return format(anchor, 'EEEE · d MMM yyyy')
+    if (view === 'Week') return `${format(weekStart(anchor), 'd MMM')} – ${format(weekEnd(anchor), 'd MMM yyyy')}`
     return format(anchor, 'LLLL yyyy')
   }, [view, anchor])
 
