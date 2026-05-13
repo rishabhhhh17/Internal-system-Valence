@@ -328,18 +328,19 @@ export function MandatesPanel() {
         </aside>
 
         {/* Notes column */}
-        <section className="vl-card p-5 space-y-4 lg:max-h-[80vh] lg:overflow-y-auto">
+        <section className="vl-card p-4 space-y-3 lg:max-h-[80vh] lg:overflow-y-auto">
           {!selectedFolder ? (
             <EmptyState icon={FolderTree} title="Pick a folder" description="Choose a folder from the tree to see its notes." />
           ) : (
             <>
-              <div className="flex items-center justify-between gap-3">
-                <div>
-                  <p className="vl-eyebrow-ink">Folder</p>
-                  <p className="text-sm font-semibold text-valence-text">{selectedFolder.name}</p>
-                </div>
-                <button onClick={newNote} className="vl-btn-primary text-xs">
-                  <FilePlus className="h-3.5 w-3.5" /> New note
+              <div className="flex items-center justify-between gap-3 pb-2 border-b border-valence-border">
+                <p className="inline-flex items-center gap-1.5 text-sm font-semibold text-valence-text">
+                  <FolderTree className="h-3.5 w-3.5 text-valence-blue" />
+                  {selectedFolder.name}
+                  {notes.length > 0 && <span className="text-[11px] font-normal text-valence-subtle">· {notes.length}</span>}
+                </p>
+                <button onClick={newNote} className="inline-flex items-center gap-1 rounded-md border border-valence-blue/30 bg-valence-blue-soft px-2 py-0.5 text-[11px] font-semibold text-valence-blue hover:bg-valence-blue hover:text-white transition">
+                  <FilePlus className="h-3 w-3" /> New note
                 </button>
               </div>
 
@@ -375,39 +376,39 @@ export function MandatesPanel() {
                 </div>
               )}
 
-              {/* Notes list */}
-              <ul className="grid gap-2">
-                {notes.length === 0 ? (
-                  <li className="rounded-lg border border-dashed border-valence-border bg-valence-surface px-4 py-6 text-center text-xs text-valence-muted">
-                    No notes in this folder yet. Click "+ New note" to start.
-                  </li>
-                ) : visibleNotes.length === 0 ? (
-                  <li className="rounded-lg border border-dashed border-valence-border bg-valence-surface px-4 py-6 text-center text-xs text-valence-muted">
-                    No notes match the active tag filter. <button onClick={() => setActiveTags([])} className="font-semibold text-valence-blue hover:underline">Clear filter</button> to see all {notes.length}.
-                  </li>
-                ) : visibleNotes.map(n => {
-                  const active = n.id === selectedNote?.id
-                  return (
-                    <li key={n.id}>
-                      <div className={`flex items-center gap-2 rounded-lg border px-3 py-2 transition ${active ? 'border-valence-blue/40 bg-valence-blue-soft' : 'border-valence-border bg-white hover:bg-valence-surface'}`}>
-                        <button onClick={() => setSelectedNote(n)} className="flex-1 min-w-0 text-left">
-                          <p className="truncate text-sm font-semibold text-valence-text">{n.title || 'Untitled note'}</p>
-                          <div className="mt-0.5 flex items-center gap-2 text-[10px]">
-                            <span className="text-valence-muted">{n.updated_at ? `Updated ${format(new Date(n.updated_at), 'd MMM · HH:mm')}` : 'Just now'}</span>
+              {/* Notes list — compact single-line rows with hover-only delete */}
+              {notes.length === 0 ? (
+                <div className="rounded-lg border border-dashed border-valence-border bg-valence-surface px-4 py-6 text-center text-xs text-valence-muted">
+                  No notes in this folder yet. Click "+ New note" to start.
+                </div>
+              ) : visibleNotes.length === 0 ? (
+                <div className="rounded-lg border border-dashed border-valence-border bg-valence-surface px-4 py-6 text-center text-xs text-valence-muted">
+                  No notes match the active tag filter. <button onClick={() => setActiveTags([])} className="font-semibold text-valence-blue hover:underline">Clear filter</button> to see all {notes.length}.
+                </div>
+              ) : (
+                <ul className="divide-y divide-valence-border/60 rounded-lg border border-valence-border bg-white max-h-[180px] overflow-y-auto">
+                  {visibleNotes.map(n => {
+                    const active = n.id === selectedNote?.id
+                    return (
+                      <li key={n.id}>
+                        <div className={`group flex items-center gap-2 px-3 py-1.5 transition ${active ? 'bg-valence-blue-soft' : 'hover:bg-valence-surface/60'}`}>
+                          <button onClick={() => setSelectedNote(n)} className="flex-1 min-w-0 text-left flex items-center gap-2">
+                            <span className={`truncate text-[13px] ${active ? 'font-semibold text-valence-text' : 'font-medium text-valence-text'}`}>{n.title || 'Untitled note'}</span>
                             {(n.tags || []).length > 0 && (
-                              <span className="inline-flex items-center gap-1 text-valence-subtle">
-                                {(n.tags || []).slice(0, 3).map(t => <span key={t}>#{t}</span>)}
-                                {(n.tags || []).length > 3 && <span>+{n.tags.length - 3}</span>}
+                              <span className="hidden sm:inline-flex items-center gap-1 text-[10px] text-valence-subtle shrink-0">
+                                {(n.tags || []).slice(0, 2).map(t => <span key={t}>#{t}</span>)}
+                                {(n.tags || []).length > 2 && <span>+{n.tags.length - 2}</span>}
                               </span>
                             )}
-                          </div>
-                        </button>
-                        <button onClick={() => deleteNote(n)} className="p-1 text-valence-subtle hover:text-valence-danger" title="Delete"><Trash2 className="h-3 w-3" /></button>
-                      </div>
-                    </li>
-                  )
-                })}
-              </ul>
+                            <span className="ml-auto text-[10px] text-valence-subtle tabular-nums shrink-0">{n.updated_at ? format(new Date(n.updated_at), 'd MMM') : 'now'}</span>
+                          </button>
+                          <button onClick={() => deleteNote(n)} className="p-1 text-valence-subtle hover:text-valence-danger opacity-0 group-hover:opacity-100 transition" title="Delete"><Trash2 className="h-3 w-3" /></button>
+                        </div>
+                      </li>
+                    )
+                  })}
+                </ul>
+              )}
 
               <div className="pt-3 border-t border-valence-border">
                 <KbNoteEditor note={selectedNote} folder={selectedFolder} onSaved={onNoteSaved} />

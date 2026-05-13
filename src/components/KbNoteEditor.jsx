@@ -341,35 +341,31 @@ export default function KbNoteEditor({ note, folder, onSaved }) {
   )
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-2">
       <div className="flex items-center justify-between gap-3">
         <input
           value={title}
           onChange={e => setTitle(e.target.value)}
           placeholder="Untitled note"
-          className="flex-1 bg-transparent text-xl font-semibold tracking-tight text-valence-text outline-none placeholder:text-valence-subtle"
+          className="flex-1 bg-transparent text-lg font-semibold tracking-tight text-valence-text outline-none placeholder:text-valence-subtle"
         />
-        <span className="text-[11px] text-valence-subtle inline-flex items-center gap-1.5 shrink-0">
-          {saving ? <><Loader2 className="h-3 w-3 animate-spin" /> Saving…</>
+        <span className="text-[10px] text-valence-subtle inline-flex items-center gap-1 shrink-0">
+          {saving ? <><Loader2 className="h-3 w-3 animate-spin" /> Saving</>
             : savedAt ? <><Check className="h-3 w-3 text-valence-success" /> Saved</>
             : null}
         </span>
       </div>
 
-      {folder && (
-        <p className="text-[11px] text-valence-muted">
-          In folder · <span className="font-semibold text-valence-text">{folder.name}</span>
-        </p>
-      )}
-
-      {/* Toolbar */}
-      <div className="flex items-center gap-1 border-b border-valence-border pb-2">
-        <ToolbarBtn onClick={() => wrap('**')} title="Bold (wraps **selection**)"><Bold className="h-3.5 w-3.5" /></ToolbarBtn>
-        <ToolbarBtn onClick={() => wrap('*')}  title="Italic (wraps *selection*)"><Italic className="h-3.5 w-3.5" /></ToolbarBtn>
-        <ToolbarBtn onClick={insertBullet}     title="Bullet line"><List className="h-3.5 w-3.5" /></ToolbarBtn>
+      {/* Toolbar — icons only. Inline helper text moved into the placeholder. */}
+      <div className="flex items-center gap-0.5 border-b border-valence-border pb-1.5">
+        <ToolbarBtn onClick={() => wrap('**')} title="Bold"><Bold className="h-3.5 w-3.5" /></ToolbarBtn>
+        <ToolbarBtn onClick={() => wrap('*')}  title="Italic"><Italic className="h-3.5 w-3.5" /></ToolbarBtn>
+        <ToolbarBtn onClick={insertBullet}     title="Bullet"><List className="h-3.5 w-3.5" /></ToolbarBtn>
         <ToolbarBtn onClick={() => wrap('[', '](https://)')} title="Link"><Link2 className="h-3.5 w-3.5" /></ToolbarBtn>
-        <span className="ml-2 text-[11px] text-valence-subtle inline-flex items-center gap-1"><AtSign className="h-3 w-3" /> Type <span className="vl-kbd">[[</span> to link a person, fund, or mandate</span>
-        <span className="ml-2 text-[11px] text-valence-subtle inline-flex items-center gap-1"><Hash className="h-3 w-3" /> Use <span className="vl-kbd">#tag</span> for folder-local tags</span>
+        <span className="ml-auto text-[10px] text-valence-subtle inline-flex items-center gap-1" title="Type [[ to link a person, fund, or mandate · #tag for folder-local tags">
+          <AtSign className="h-3 w-3" /><span className="vl-kbd">[[</span>
+          <Hash className="h-3 w-3 ml-2" /><span className="vl-kbd">#</span>
+        </span>
       </div>
 
       {/* Editor */}
@@ -378,8 +374,8 @@ export default function KbNoteEditor({ note, folder, onSaved }) {
           ref={textareaRef}
           value={body}
           onChange={onBodyChange}
-          placeholder="Write the note… reference people / funds / mandates with [[ and tag scoped concepts with #."
-          className="vl-input min-h-[420px] leading-relaxed font-mono text-[13px] bg-white"
+          placeholder="Write the note. Type [[ to link a person / fund / mandate. Use #tag for folder-local tags."
+          className="vl-input min-h-[280px] leading-relaxed font-mono text-[13px] bg-white"
         />
 
         {linkOpen && linkSuggestions.length > 0 && (
