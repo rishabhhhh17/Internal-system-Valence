@@ -298,15 +298,6 @@ export const ADVANCED_TRIAL = {
   ]
 }
 
-// --------------------------------------------------------------------------------
-// Walkthrough video URL. Configure via VITE_DEMO_VIDEO_URL in .env. Falls back
-// to a marketing-friendly Loom placeholder so the modal renders without
-// breaking when no env var is set.
-// --------------------------------------------------------------------------------
-export const DEMO_VIDEO_URL =
-  import.meta?.env?.VITE_DEMO_VIDEO_URL ||
-  'https://www.loom.com/embed/0000000000000000000000000000000000000000'
-
 // Resolve a tutorial for a given pathname. Falls back to longest-prefix match
 // so /knowledge/shared still finds the /knowledge tour.
 export function tutorialFor(pathname) {

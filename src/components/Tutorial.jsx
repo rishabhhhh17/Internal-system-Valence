@@ -2,15 +2,14 @@ import { useEffect, useLayoutEffect, useRef, useState, useCallback } from 'react
 import { useLocation, useNavigate } from 'react-router-dom'
 import {
   HelpCircle, X, ArrowLeft, ArrowRight, Sparkles, Check,
-  Zap, PlayCircle, Compass, Rocket, ChevronRight
+  Zap, Compass, Rocket, ChevronRight
 } from 'lucide-react'
-import { tutorialFor, QUICK_TRIAL, ADVANCED_TRIAL, DEMO_VIDEO_URL } from '../lib/tutorials.js'
+import { tutorialFor, QUICK_TRIAL, ADVANCED_TRIAL } from '../lib/tutorials.js'
 
 // --------------------------------------------------------------------------------
-// Tour center. Four modes off one entry point:
+// Tour center. Three modes off one entry point:
 //   menu      — the launcher cards (default when the pill is clicked)
 //   quick     — per-page spotlight tour from tutorialFor(pathname)
-//   video     — Loom-style embedded walkthrough
 //   trial     — multi-page scripted hands-on (QUICK_TRIAL)
 //   advanced  — deeper multi-page scripted walk-through (ADVANCED_TRIAL)
 //
@@ -135,7 +134,6 @@ export default function TutorialButton() {
       </button>
 
       {mode === 'menu'     && <TourMenu       onPick={setMode} onClose={() => setMode(null)} />}
-      {mode === 'video'    && <VideoModal     onClose={() => setMode(null)} />}
       {mode === 'quick'    && <SpotlightRunner kind="quick"    pathname={pathname} onClose={onClose} />}
       {mode === 'trial'    && <SpotlightRunner kind="trial"    pathname={pathname} onClose={onClose} />}
       {mode === 'advanced' && <SpotlightRunner kind="advanced" pathname={pathname} onClose={onClose} />}
@@ -167,7 +165,7 @@ function TourMenu({ onPick, onClose }) {
           </button>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-6">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 p-6">
           <TourCard
             icon={Zap}
             tone="blue"
@@ -177,18 +175,10 @@ function TourMenu({ onPick, onClose }) {
             onClick={() => onPick('quick')}
           />
           <TourCard
-            icon={PlayCircle}
-            tone="violet"
-            title="Watch the demo"
-            sub="3-min walkthrough"
-            body="A short video by the builder. Best if you want to lean back and just watch."
-            onClick={() => onPick('video')}
-          />
-          <TourCard
             icon={Compass}
             tone="green"
             title="Guided trial"
-            sub="5-min hands-on · 8 pages"
+            sub="5-min · 8 pages"
             body="We walk you across the firm — Today, Deals, Funds, People, Screener, Knowledge. Click Next at your own pace."
             onClick={() => onPick('trial')}
             recommended
@@ -197,7 +187,7 @@ function TourMenu({ onPick, onClose }) {
             icon={Rocket}
             tone="amber"
             title="Advanced trial"
-            sub="10-min deep-dive · 10 pages"
+            sub="10-min · 10 pages"
             body="The same loop, plus the AI surfaces — Mandate Screener, Intake triage, Knowledge Ask, Team Calendar slot finder."
             onClick={() => onPick('advanced')}
           />
@@ -243,67 +233,6 @@ function TourCard({ icon: Icon, tone, title, sub, body, onClick, recommended }) 
         </div>
       </div>
     </button>
-  )
-}
-
-// ─── Video modal — embedded Loom / Vimeo / YouTube ─────────────────────────────
-
-function VideoModal({ onClose }) {
-  useEffect(() => {
-    const onKey = (e) => { if (e.key === 'Escape') onClose() }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [onClose])
-
-  const url = DEMO_VIDEO_URL
-  const isPlaceholder = url.includes('0000000000000000000000000000000000000000')
-
-  return (
-    <div className="fixed inset-0 z-[70] flex items-center justify-center" role="dialog" aria-modal="true" aria-label="Demo video">
-      <div className="absolute inset-0 bg-valence-ink/70 backdrop-blur-sm animate-fade-in" onClick={onClose} />
-      <div className="relative w-[min(960px,calc(100vw-32px))] animate-slide-up rounded-2xl border border-valence-border bg-white shadow-valence-lg overflow-hidden">
-        <div className="flex items-start justify-between gap-3 border-b border-valence-border px-6 py-3">
-          <div>
-            <p className="vl-eyebrow-ink inline-flex items-center gap-1.5">
-              <PlayCircle className="h-3 w-3 text-violet-600" /> Walkthrough
-            </p>
-            <p className="mt-0.5 text-[12px] text-valence-muted">
-              Three-minute tour by the builder. Lean back and watch.
-            </p>
-          </div>
-          <button onClick={onClose} className="vl-btn-ghost shrink-0 -mr-2" aria-label="Close">
-            <X className="h-4 w-4" />
-          </button>
-        </div>
-        <div className="bg-valence-ink/95">
-          {isPlaceholder ? (
-            <div className="aspect-video flex items-center justify-center text-center px-8 text-white">
-              <div className="max-w-md">
-                <PlayCircle className="h-12 w-12 mx-auto text-white/70" />
-                <p className="mt-3 font-display text-lg font-semibold">Video coming soon</p>
-                <p className="mt-1.5 text-[13px] text-white/70 leading-relaxed">
-                  Drop a Loom / Vimeo / YouTube embed URL into <code className="px-1 py-0.5 rounded bg-white/10">VITE_DEMO_VIDEO_URL</code> in <code className="px-1 py-0.5 rounded bg-white/10">.env</code> and re-deploy. Until then, try the guided trial instead.
-                </p>
-                <button
-                  onClick={onClose}
-                  className="mt-4 inline-flex items-center gap-1.5 rounded-full border border-white/30 px-3 py-1.5 text-[12px] font-semibold text-white hover:bg-white/10 transition"
-                >
-                  Close
-                </button>
-              </div>
-            </div>
-          ) : (
-            <iframe
-              src={url}
-              title="ValenceOS walkthrough"
-              className="aspect-video w-full"
-              allow="autoplay; fullscreen; encrypted-media"
-              allowFullScreen
-            />
-          )}
-        </div>
-      </div>
-    </div>
   )
 }
 
