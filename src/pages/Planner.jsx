@@ -10,7 +10,8 @@ import { generateDaySummary, draftMeetingMessage, isGeminiConfigured } from '../
 import { googleCalendarUrl } from '../lib/calendar.js'
 import {
   listTodayEvents, computeFreeSlots, createCalendarEvent,
-  GoogleAuthExpired, signInWithGoogle
+  GoogleAuthExpired, signInWithGoogle,
+  sendGmail, createGmailDraft
 } from '../lib/google.js'
 import { useAuth } from '../hooks/useAuth.js'
 import { logActivity } from '../lib/activity.js'
@@ -472,7 +473,7 @@ export default function Planner() {
         description="Review, copy, and send. You can also add the event straight to Google Calendar."
         size="lg"
       >
-        {drafted && <DraftedMessage drafted={drafted} onClose={() => setDrafted(null)} />}
+        {drafted && <DraftedMessage drafted={drafted} googleConnected={googleConnected} onClose={() => setDrafted(null)} />}
       </Modal>
     </div>
   )
@@ -721,8 +722,10 @@ function MeetingForm({ deals = [], onSubmit, onCancel }) {
   )
 }
 
-function DraftedMessage({ drafted, onClose }) {
+function DraftedMessage({ drafted, googleConnected, onClose }) {
   const [copied, setCopied] = useState(false)
+  const [sending, setSending] = useState(false)
+  const toast = useToast()
   const textareaRef = useRef(null)
   const { meeting, message } = drafted
 
@@ -740,6 +743,36 @@ function DraftedMessage({ drafted, onClose }) {
   async function copy() {
     await navigator.clipboard.writeText(current())
     setCopied(true); setTimeout(() => setCopied(false), 1500)
+  }
+
+  async function sendViaGmail() {
+    if (sending) return
+    setSending(true)
+    try {
+      await sendGmail({ to: meeting.attendee_email, subject, body: current() })
+      toast.success(`Email sent to ${meeting.attendee_name}`)
+      onClose()
+    } catch (err) {
+      if (err instanceof GoogleAuthExpired) toast.error('Google session expired — reconnect Google.')
+      else toast.error(err?.message || 'Could not send')
+    } finally {
+      setSending(false)
+    }
+  }
+
+  async function saveGmailDraft() {
+    if (sending) return
+    setSending(true)
+    try {
+      await createGmailDraft({ to: meeting.attendee_email, subject, body: current() })
+      toast.success('Saved as Gmail draft')
+      onClose()
+    } catch (err) {
+      if (err instanceof GoogleAuthExpired) toast.error('Google session expired — reconnect Google.')
+      else toast.error(err?.message || 'Could not save draft')
+    } finally {
+      setSending(false)
+    }
   }
 
   return (
@@ -772,12 +805,23 @@ function DraftedMessage({ drafted, onClose }) {
         <a href={gcal} target="_blank" rel="noreferrer" className="vl-btn-secondary">
           <CalendarPlus className="h-4 w-4" /> Add to Google Calendar
         </a>
-        <a href={mailto} className="vl-btn-secondary">
-          <Mail className="h-4 w-4" /> Open in mail
-        </a>
-        <button onClick={copy} className="vl-btn-primary">
-          {copied ? <><Check className="h-4 w-4" /> Copied</> : <><Copy className="h-4 w-4" /> Copy message</>}
+        <button onClick={copy} className="vl-btn-secondary">
+          {copied ? <><Check className="h-4 w-4" /> Copied</> : <><Copy className="h-4 w-4" /> Copy</>}
         </button>
+        {googleConnected ? (
+          <>
+            <button onClick={saveGmailDraft} disabled={sending} className="vl-btn-secondary">
+              <Mail className="h-4 w-4" /> Save Gmail draft
+            </button>
+            <button onClick={sendViaGmail} disabled={sending} className="vl-btn-primary">
+              <Mail className="h-4 w-4" /> {sending ? 'Sending…' : 'Send via Gmail'}
+            </button>
+          </>
+        ) : (
+          <a href={mailto} className="vl-btn-primary">
+            <Mail className="h-4 w-4" /> Open in mail
+          </a>
+        )}
       </div>
     </div>
   )
