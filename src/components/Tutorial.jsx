@@ -112,11 +112,26 @@ export default function TutorialButton() {
   const [seen, setSeen]  = useState(() => readSeen())
   const beenSeenHere     = Boolean(seen[pathname])
 
-  // Auto-open the menu on first-ever app load.
+  // Auto-open the menu on first-ever app load. The welcome overlay already
+  // covers most cold-start customers, so this fires only when they skipped
+  // the welcome (welcome dismisses without setting valence.tutorialFirstRun).
   useEffect(() => {
     if (firstRunDone()) return
     const t = setTimeout(() => { setMode('menu'); markFirstRun() }, 600)
     return () => clearTimeout(t)
+  }, [])
+
+  // The welcome overlay (or any other surface) can dispatch
+  // `valence:start-tour` with detail.mode = 'menu'|'quick'|'trial'|'advanced'
+  // to open the tour from outside this component.
+  useEffect(() => {
+    const onExternal = (e) => {
+      const next = e?.detail?.mode || 'menu'
+      setMode(next)
+      markFirstRun()
+    }
+    window.addEventListener('valence:start-tour', onExternal)
+    return () => window.removeEventListener('valence:start-tour', onExternal)
   }, [])
 
   function onClose(markSeenForPath) {

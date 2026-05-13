@@ -6,6 +6,7 @@ import GoogleButton from './GoogleButton.jsx'
 import CurrencyToggle from './CurrencyToggle.jsx'
 import NotificationCenter, { useNotifications } from './NotificationCenter.jsx'
 import TutorialButton from './Tutorial.jsx'
+import SampleDataChip from './SampleDataChip.jsx'
 
 // Title + subtitle per route. Keep titles in lockstep with the sidebar
 // labels so the topbar / sidebar / page hero never disagree about what
@@ -81,6 +82,7 @@ export default function Topbar() {
           )}
         </button>
 
+        <SampleDataChip />
         <TutorialButton />
         <CurrencyToggle />
         <GoogleButton />
