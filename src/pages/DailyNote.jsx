@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom'
 import { format, parseISO, differenceInCalendarDays, differenceInDays, startOfToday, addDays } from 'date-fns'
 import {
   Sparkles, Briefcase, Handshake, MessageSquare, Pencil, Calendar,
-  AlertTriangle, Clock, ArrowUpRight
+  AlertTriangle, Clock, ArrowUpRight, ChevronDown, ChevronUp
 } from 'lucide-react'
 import { supabase, isSupabaseConfigured } from '../lib/supabase.js'
 import { useAuth } from '../hooks/useAuth.js'
@@ -192,7 +192,9 @@ export default function DailyNote() {
       .filter(d => ['Pre-Mandate', 'Mandate'].includes(d.stage) && d.nda_status === 'Pending')
       .map(d => ({ id: d.id, label: `${d.client_name} — NDA still pending` }))
 
-    return { priorities: priorities.slice(0, 8), waitingOn: waitingOn.slice(0, 6) }
+    // No hard cap — the Priorities / Waiting-on cards collapse the list to
+    // a small preview by default and let the user expand to see the rest.
+    return { priorities, waitingOn }
   }, [deals, activities, interactions, today])
 
   return (
@@ -232,12 +234,18 @@ export default function DailyNote() {
           )}
         </Card>
 
-        <Card tour="today-priorities" icon={Sparkles} title="Priorities" subtitle="Stale mandates · close-window · overdue follow-ups">
+        <Card
+          tour="today-priorities"
+          icon={Sparkles}
+          title="Priorities"
+          subtitle="Stale mandates · close-window · overdue follow-ups"
+          countBadge={auto.priorities.length}
+        >
           {auto.priorities.length === 0 ? (
             <Empty>Inbox zero. Rare day.</Empty>
           ) : (
-            <ul className="divide-y divide-valence-border/60">
-              {auto.priorities.map(p => (
+            <ExpandableList items={auto.priorities} initial={4} kind="priorities">
+              {p => (
                 <li key={p.id} className="flex items-start gap-3 py-2">
                   <span className={`mt-1.5 h-1.5 w-1.5 rounded-full shrink-0 ${SEV_DOT[p.severity]}`} />
                   <div className="min-w-0 flex-1">
@@ -245,23 +253,28 @@ export default function DailyNote() {
                     {p.detail && <p className="mt-0.5 text-[11px] text-valence-muted">{p.detail}</p>}
                   </div>
                 </li>
-              ))}
-            </ul>
+              )}
+            </ExpandableList>
           )}
         </Card>
 
-        <Card icon={Clock} title="Waiting on" subtitle="Where we're blocked on someone else">
+        <Card
+          icon={Clock}
+          title="Waiting on"
+          subtitle="Where we're blocked on someone else"
+          countBadge={auto.waitingOn.length}
+        >
           {auto.waitingOn.length === 0 ? (
             <Empty>Nothing flagged.</Empty>
           ) : (
-            <ul className="divide-y divide-valence-border/60">
-              {auto.waitingOn.map(w => (
+            <ExpandableList items={auto.waitingOn} initial={3} kind="items">
+              {w => (
                 <li key={w.id} className="flex items-start gap-3 py-2">
                   <AlertTriangle className="h-3 w-3 mt-1 text-valence-warning shrink-0" />
                   <Link to={`/deals?open=${w.id}`} className="text-sm text-valence-text hover:text-valence-blue">{w.label}</Link>
                 </li>
-              ))}
-            </ul>
+              )}
+            </ExpandableList>
           )}
         </Card>
 
@@ -303,15 +316,53 @@ const SEV_DOT = {
   info: 'bg-valence-blue'
 }
 
-function Card({ icon: Icon, title, subtitle, children, tour }) {
+function Card({ icon: Icon, title, subtitle, children, tour, countBadge }) {
   return (
     <section data-tour={tour} className="vl-card p-5">
-      <div className="mb-3">
-        <p className="vl-eyebrow-ink inline-flex items-center gap-1.5"><Icon className="h-3 w-3" /> {title}</p>
-        {subtitle && <p className="mt-0.5 text-[11px] text-valence-muted">{subtitle}</p>}
+      <div className="mb-3 flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="vl-eyebrow-ink inline-flex items-center gap-1.5"><Icon className="h-3 w-3" /> {title}</p>
+          {subtitle && <p className="mt-0.5 text-[11px] text-valence-muted">{subtitle}</p>}
+        </div>
+        {typeof countBadge === 'number' && countBadge > 0 && (
+          <span className="inline-flex items-center justify-center rounded-full bg-valence-blue-soft px-2 py-0.5 text-[10px] font-semibold tabular-nums text-valence-blue shrink-0">
+            {countBadge}
+          </span>
+        )}
       </div>
       {children}
     </section>
+  )
+}
+
+// Collapsed-by-default list that reveals the remainder behind a "Show all"
+// toggle. Caller supplies a render function for each item — we keep the
+// container <ul> + divider styling consistent across the Today cards.
+//
+//   <ExpandableList items={priorities} initial={4} kind="priorities">
+//     {item => <li key={item.id}>…</li>}
+//   </ExpandableList>
+function ExpandableList({ items, initial = 4, kind = 'items', children }) {
+  const [expanded, setExpanded] = useState(false)
+  const hasOverflow = items.length > initial
+  const visible = expanded ? items : items.slice(0, initial)
+  return (
+    <>
+      <ul className="divide-y divide-valence-border/60">
+        {visible.map(children)}
+      </ul>
+      {hasOverflow && (
+        <button
+          type="button"
+          onClick={() => setExpanded(e => !e)}
+          className="mt-2 inline-flex items-center gap-1 text-[11px] font-semibold text-valence-blue hover:text-valence-blue/80 transition"
+        >
+          {expanded
+            ? <>Show less <ChevronUp className="h-3 w-3" /></>
+            : <>Show all {items.length} {kind} <ChevronDown className="h-3 w-3" /></>}
+        </button>
+      )}
+    </>
   )
 }
 
