@@ -273,9 +273,9 @@ export function MandatesPanel() {
         )}
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-[260px_280px_1fr] min-h-[600px]">
+      <div className="grid gap-4 lg:grid-cols-[260px_280px_1fr] lg:min-h-[600px]">
         {/* Mandate picker — Firm library pinned at the top */}
-        <aside className="vl-card p-3 space-y-2 lg:max-h-[80vh] lg:overflow-y-auto">
+        <aside className="vl-card p-3 space-y-2 max-h-[40vh] lg:max-h-[80vh] overflow-y-auto">
           <button
             onClick={() => setSelectedMandateId(FIRM_SCOPE)}
             className={`block w-full text-left rounded-lg px-2.5 py-2 text-xs transition border ${
@@ -317,7 +317,7 @@ export function MandatesPanel() {
         </aside>
 
         {/* Folder tree — switches between per-mandate and firm-wide scopes */}
-        <aside className="vl-card p-3 lg:max-h-[80vh] lg:overflow-y-auto">
+        <aside className="vl-card p-3 max-h-[40vh] lg:max-h-[80vh] overflow-y-auto">
           {selectedMandateId === FIRM_SCOPE ? (
             <KbFolderTree scope="firm" selectedFolderId={selectedFolder?.id} onSelect={setSelectedFolder} />
           ) : selectedMandateId ? (
@@ -328,7 +328,7 @@ export function MandatesPanel() {
         </aside>
 
         {/* Notes column */}
-        <section className="vl-card p-4 space-y-3 lg:max-h-[80vh] lg:overflow-y-auto">
+        <section className="vl-card p-4 space-y-3 lg:max-h-[80vh] lg:overflow-y-auto min-w-0">
           {!selectedFolder ? (
             <EmptyState icon={FolderTree} title="Pick a folder" description="Choose a folder from the tree to see its notes." />
           ) : (

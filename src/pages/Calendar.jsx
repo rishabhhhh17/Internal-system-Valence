@@ -854,7 +854,7 @@ function EventPopover({ event, anchor, calendar, people, onClose }) {
       <ClickAwayOverlay onClose={onClose} />
       <div
         className="fixed z-50 rounded-2xl border border-valence-border bg-white shadow-2xl"
-        style={{ left: pos.left, top: pos.top, width: POPOVER_WIDTH, maxHeight: '70vh', overflowY: 'auto' }}
+        style={{ left: pos.left, top: pos.top, width: 'min(' + POPOVER_WIDTH + 'px, calc(100vw - 24px))', maxHeight: '70vh', overflowY: 'auto' }}
         onMouseDown={e => e.stopPropagation()}
       >
         <div className="flex items-start justify-between gap-3 px-5 pt-4 pb-3">

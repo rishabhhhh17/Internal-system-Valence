@@ -139,13 +139,17 @@ function describeDealForPrompt(deal, mode) {
 export async function screenMandateFit({ teaserText, criteria }) {
   const profile = criteriaPrompt(criteria)
   if (!isGeminiConfigured) {
+    // Neutral verdict — do NOT default to 'pursue' here. The UI surfaces a
+    // 'Convert to mandate' CTA on `pursue`, which would mislead the user
+    // into one-click converting every offline submission.
     return {
-      verdict: 'pursue',
+      verdict: 'review',
+      score: 0,
       one_line: 'Gemini key not configured — verdict not generated.',
       lines: [
         'Mandate-Fit needs a Gemini key to run.',
-        'Set VITE_GEMINI_API_KEY in your environment.',
-        'Until then this is a no-op and the form just records the upload.',
+        'Set VITE_GEMINI_API_KEY in your environment to enable AI verdicts.',
+        'The submission was still recorded with the teaser + deck for manual review.',
         '',
         ''
       ]
