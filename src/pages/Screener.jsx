@@ -7,6 +7,7 @@ import { screenForFundsAI, screenMandateFit } from '../lib/screener.js'
 import { DEMO_FUNDS, screenerModeForDeal, audienceLabelFor } from '../lib/funds.js'
 import ConfigBanner from '../components/ConfigBanner.jsx'
 import EmptyState from '../components/EmptyState.jsx'
+import MandateFitVerdict from '../components/MandateFitVerdict.jsx'
 import { useToast } from '../components/Toast.jsx'
 
 const MODES = [
@@ -436,27 +437,9 @@ function FundMatchOutput({ output, onShortlist, pingedFundIds, canShortlist, aud
 }
 
 function MandateFitOutput({ output, onConvert }) {
-  const verdict = output?.verdict || 'watch'
-  const tone = ({ pursue: 'border-valence-success/30 bg-valence-success/10 text-valence-success', pass: 'border-valence-danger/30 bg-valence-danger/10 text-valence-danger', watch: 'border-valence-warning/30 bg-valence-warning/10 text-valence-warning' })[verdict] || 'border-valence-border bg-valence-surface text-valence-muted'
-  return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-semibold capitalize ${tone}`}>{verdict}</span>
-        {typeof output?.score === 'number' && <span className="text-[11px] text-valence-muted">Score · <b className="text-valence-text tabular-nums">{output.score}</b>/100</span>}
-      </div>
-      {output?.one_line && <p className="text-sm text-valence-text leading-relaxed">{output.one_line}</p>}
-      <ol className="space-y-2 text-sm leading-relaxed text-valence-muted list-decimal pl-5">
-        {(output?.lines || []).slice(0, 5).map((l, i) => l ? <li key={i}>{l}</li> : null)}
-      </ol>
-      {verdict === 'pursue' && (
-        <div className="pt-2 flex justify-end">
-          <button onClick={onConvert} className="vl-btn-primary text-xs">
-            <ArrowRight className="h-4 w-4" /> Convert to origination deal
-          </button>
-        </div>
-      )}
-    </div>
-  )
+  // Polished IB-diligence-style verdict block. The wrapper is intentionally
+  // stripped down — MandateFitVerdict carries its own card chrome.
+  return <MandateFitVerdict output={output} onConvert={onConvert} eyebrow="Quick Screener · Mandate-Fit" />
 }
 
 function AdvisoryNotApplicable() {
