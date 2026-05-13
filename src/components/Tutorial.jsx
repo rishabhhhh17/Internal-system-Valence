@@ -1,10 +1,21 @@
 import { useEffect, useLayoutEffect, useRef, useState, useCallback } from 'react'
+import { createPortal } from 'react-dom'
 import { useLocation, useNavigate } from 'react-router-dom'
 import {
   HelpCircle, X, ArrowLeft, ArrowRight, Sparkles, Check,
   Zap, Compass, Rocket, ChevronRight
 } from 'lucide-react'
 import { tutorialFor, QUICK_TRIAL, ADVANCED_TRIAL } from '../lib/tutorials.js'
+
+// Portal helper. The Tour button is mounted inside the Topbar, which uses
+// `backdrop-filter` — that creates a new containing block for any
+// `position: fixed` descendant, so `fixed inset-0` would only cover the
+// topbar (a 60px-tall strip) instead of the viewport. Rendering via a
+// portal to <body> escapes that containing block.
+function ToBody({ children }) {
+  if (typeof document === 'undefined') return null
+  return createPortal(children, document.body)
+}
 
 // --------------------------------------------------------------------------------
 // Tour center. Three modes off one entry point:
@@ -145,6 +156,7 @@ export default function TutorialButton() {
 
 function TourMenu({ onPick, onClose }) {
   return (
+    <ToBody>
     <div className="fixed inset-0 z-[70]" role="dialog" aria-modal="true" aria-label="Tour ValenceOS">
       <div className="absolute inset-0 bg-valence-ink/45 backdrop-blur-sm animate-fade-in" onClick={onClose} />
       <div className="relative mx-auto mt-[10vh] w-[min(680px,calc(100vw-32px))] animate-slide-up rounded-2xl border border-valence-border bg-white shadow-valence-lg">
@@ -199,6 +211,7 @@ function TourMenu({ onPick, onClose }) {
         </div>
       </div>
     </div>
+    </ToBody>
   )
 }
 
@@ -362,6 +375,7 @@ function SpotlightRunner({ kind, pathname, onClose }) {
   }
 
   return (
+    <ToBody>
     <div className="fixed inset-0 z-[70] overflow-hidden" role="dialog" aria-modal="true" aria-label={`Tour: ${tour.title}`}>
       {hasSpotlight ? (
         <svg className="absolute inset-0 w-full h-full" style={{ pointerEvents: 'auto' }} onClick={() => onClose(scripted ? null : pathname)}>
@@ -463,6 +477,7 @@ function SpotlightRunner({ kind, pathname, onClose }) {
         </div>
       </div>
     </div>
+    </ToBody>
   )
 }
 
