@@ -212,7 +212,7 @@ export default function DailyNote() {
 
       {/* Auto sections — read-only, regenerated every render */}
       <section className="grid gap-4 lg:grid-cols-2">
-        <Card icon={Calendar} title="Today's meetings" subtitle={meetingsSource === 'google' ? 'From your Google Calendar' : 'From your calendar'}>
+        <Card tour="today-meetings" icon={Calendar} title="Today's meetings" subtitle={meetingsSource === 'google' ? 'From your Google Calendar' : 'From your calendar'}>
           {meetings.length === 0 ? (
             <Empty>No meetings on the board today.</Empty>
           ) : (
@@ -232,7 +232,7 @@ export default function DailyNote() {
           )}
         </Card>
 
-        <Card icon={Sparkles} title="Priorities" subtitle="Stale mandates · close-window · overdue follow-ups">
+        <Card tour="today-priorities" icon={Sparkles} title="Priorities" subtitle="Stale mandates · close-window · overdue follow-ups">
           {auto.priorities.length === 0 ? (
             <Empty>Inbox zero. Rare day.</Empty>
           ) : (
@@ -279,7 +279,7 @@ export default function DailyNote() {
       </section>
 
       {/* Free-form body */}
-      <section className="vl-card p-6 space-y-3">
+      <section data-tour="today-body" className="vl-card p-6 space-y-3">
         <div className="flex items-center justify-between">
           <p className="vl-eyebrow-ink inline-flex items-center gap-1.5"><Pencil className="h-3 w-3" /> Today, in your own words</p>
           <span className="text-[11px] text-valence-subtle">
@@ -306,9 +306,9 @@ const SEV_DOT = {
   info: 'bg-valence-blue'
 }
 
-function Card({ icon: Icon, title, subtitle, children }) {
+function Card({ icon: Icon, title, subtitle, children, tour }) {
   return (
-    <section className="vl-card p-5">
+    <section data-tour={tour} className="vl-card p-5">
       <div className="mb-3">
         <p className="vl-eyebrow-ink inline-flex items-center gap-1.5"><Icon className="h-3 w-3" /> {title}</p>
         {subtitle && <p className="mt-0.5 text-[11px] text-valence-muted">{subtitle}</p>}

@@ -88,6 +88,7 @@ export default function Sidebar() {
                   key={to}
                   to={to}
                   end={to === '/'}
+                  data-tour={`nav-${to === '/' ? 'today' : to.replace(/^\//, '').replace(/\//g, '-')}`}
                   className={({ isActive }) =>
                     `group flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition ${
                       isActive

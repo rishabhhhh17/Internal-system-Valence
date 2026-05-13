@@ -59,6 +59,7 @@ export default function Topbar() {
         <div className="relative">
           <button
             onClick={openPalette}
+            data-tour="topbar-search"
             className="hidden md:flex items-center gap-2 rounded-lg border border-valence-border bg-white px-3 py-1.5 text-sm text-valence-muted w-72 hover:border-valence-ink/30 transition text-left"
           >
             <Search className="h-3.5 w-3.5" />
