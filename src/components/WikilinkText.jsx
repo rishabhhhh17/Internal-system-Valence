@@ -13,7 +13,11 @@ import { Link } from 'react-router-dom'
 //   <WikilinkText>{deal.notes}</WikilinkText>
 //   <WikilinkText className="text-sm">{interaction.notes}</WikilinkText>
 
-const TOKEN_RE = /\[\[(person|fund|mandate|note):([0-9a-f-]{36})(?:\|([^\]]+))?\]\]/gi
+// Match canonical [[type:id|name]] tokens. The id is intentionally loose
+// (anything non-pipe / non-]) so demo seed ids like "p1"/"f2" render the
+// same way real UUIDs do — same regex shape as WikilinkTextarea uses for
+// editing.
+const TOKEN_RE = /\[\[(person|fund|mandate|note):([^|\]\s]+)(?:\|([^\]]+))?\]\]/gi
 
 const TYPE_CLASS = {
   person:  'bg-blue-50 text-blue-800 border-blue-200 hover:bg-blue-100',

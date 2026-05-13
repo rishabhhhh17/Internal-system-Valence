@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { format, parseISO, differenceInCalendarDays, differenceInDays, startOfToday, addDays } from 'date-fns'
 import {
-  Sparkles, Briefcase, Handshake, MessageSquare, MicOff, Pencil, Calendar,
+  Sparkles, Briefcase, Handshake, MessageSquare, Pencil, Calendar,
   AlertTriangle, Clock, ArrowUpRight
 } from 'lucide-react'
 import { supabase, isSupabaseConfigured } from '../lib/supabase.js'
@@ -272,9 +272,6 @@ export default function DailyNote() {
             <ActionLink to="/mandates" icon={Handshake} label="Live Mandates" />
             <ActionLink to="/planner" icon={Calendar} label="Day Planner" />
           </div>
-          <p className="mt-3 text-[11px] text-valence-muted inline-flex items-center gap-1.5">
-            <MicOff className="h-3 w-3" /> Voice memos arrive in Phase 2 (Knowledge Base).
-          </p>
         </Card>
       </section>
 
