@@ -5,6 +5,7 @@ import {
   Sparkles, Briefcase, Handshake, MessageSquare, Pencil, Calendar,
   AlertTriangle, Clock, ArrowUpRight, ChevronDown, ChevronUp
 } from 'lucide-react'
+import MeetingPrepCard from '../components/MeetingPrepCard.jsx'
 import { supabase, isSupabaseConfigured } from '../lib/supabase.js'
 import { useAuth } from '../hooks/useAuth.js'
 import { stageMeta } from '../lib/stages.js'
@@ -25,6 +26,7 @@ export default function DailyNote() {
   const [activities, setActivities] = useState([])
   const [interactions, setInteractions] = useState([])
   const [meetings, setMeetings]   = useState([])
+  const [prepMeeting, setPrepMeeting] = useState(null) // meeting object → opens MeetingPrepCard
   const [meetingsSource, setMeetingsSource] = useState('local') // 'local' | 'google'
   const [note, setNote]           = useState(null)         // { id, body }
   const [body, setBody]           = useState('')
@@ -220,14 +222,25 @@ export default function DailyNote() {
           ) : (
             <ul className="divide-y divide-valence-border/60">
               {meetings.slice(0, 5).map(m => (
-                <li key={m.id} className="flex items-start gap-3 py-2">
+                <li key={m.id} className="group flex items-start gap-3 py-2">
                   <span className="text-[11px] tabular-nums font-semibold text-valence-blue shrink-0 w-12">
                     {m.time?.slice(0, 5) || '--:--'}
                   </span>
-                  <div className="min-w-0">
+                  <div className="min-w-0 flex-1">
                     <p className="truncate text-sm text-valence-text">{m.title}</p>
                     <p className="truncate text-[11px] text-valence-muted">{m.attendee_name}</p>
                   </div>
+                  {/* "Prep" button — opens MeetingPrepCard with persona,
+                      recent interactions, open mandates, talking points.
+                      Always visible on hover so the partner finds it. */}
+                  <button
+                    type="button"
+                    onClick={() => setPrepMeeting(m)}
+                    className="shrink-0 inline-flex items-center gap-1 rounded-full border border-valence-blue/30 bg-valence-blue-soft px-2 py-0.5 text-[10px] font-semibold text-valence-blue opacity-0 group-hover:opacity-100 focus:opacity-100 transition"
+                    title="60-second prep for this meeting"
+                  >
+                    <Sparkles className="h-2.5 w-2.5" /> Prep
+                  </button>
                 </li>
               ))}
             </ul>
@@ -306,6 +319,12 @@ export default function DailyNote() {
           Auto-saves as you type. The day's note is keyed to {dateIso}; opening tomorrow creates a new one.
         </p>
       </section>
+
+      {/* Meeting prep modal — opens when a partner clicks "Prep" on a row
+          above. Pulls persona / interactions / mandates / talking points. */}
+      {prepMeeting && (
+        <MeetingPrepCard meeting={prepMeeting} onClose={() => setPrepMeeting(null)} />
+      )}
     </div>
   )
 }

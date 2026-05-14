@@ -9,6 +9,7 @@ import { DEMO_PEOPLE } from '../lib/people.js'
 import { extractText } from '../lib/fileParse.js'
 import { transcribeAndSummarise } from '../lib/voiceMemo.js'
 import { isGeminiConfigured } from '../lib/gemini.js'
+import { isFathomConfigured, pullLatestMeeting } from '../lib/fathom.js'
 import { useToast } from './Toast.jsx'
 import WikilinkTextarea from './WikilinkTextarea.jsx'
 import Typeahead from './Typeahead.jsx'
@@ -448,15 +449,28 @@ function TranscriptSection({ form, update }) {
   }
 
   async function pullFromFathom() {
+    if (!isFathomConfigured) {
+      toast.info('Fathom not connected. Add VITE_FATHOM_API_KEY (Fathom → Settings → Integrations → API).')
+      return
+    }
     setPullingFathom(true)
-    // Stub: real Fathom integration needs a Fathom API key + OAuth flow.
-    // For now we surface a clear "not connected" message and tell the
-    // user how to wire it. The schema column external_ref is reserved
-    // for the Fathom meeting URL once the integration is real.
-    setTimeout(() => {
-      toast.info('Fathom integration not connected yet. Add a Fathom API key + an OAuth flow under Settings → Integrations to enable one-click pulls.')
+    try {
+      const m = await pullLatestMeeting()
+      // Stuff the pulled meeting into the form. The transcript +
+      // summary become the interaction body, and the title / attendee
+      // names autofill the counterparty fields when they're empty.
+      update({
+        transcript: m.transcript || '',
+        transcript_summary: m.summary || '',
+        ...(form.counterparty_name ? {} : { counterparty_name: m.attendees?.[0]?.name || form.counterparty_name }),
+        ...(form.notes ? {} : { notes: m.summary ? m.summary : (m.transcript || '').slice(0, 1200) })
+      })
+      toast.success(`Pulled "${m.title || 'meeting'}" from Fathom.`)
+    } catch (err) {
+      toast.error(err?.message || 'Fathom pull failed')
+    } finally {
       setPullingFathom(false)
-    }, 500)
+    }
   }
 
   async function summarise() {
