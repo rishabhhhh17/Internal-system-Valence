@@ -47,8 +47,13 @@ export default function SampleDataChip() {
 
   if (!isSupabaseConfigured) return null
 
-  const isEmpty = counts && counts.deals === 0 && counts.funds === 0 && counts.people === 0
-  const hasData = counts && (counts.deals > 0 || counts.funds > 0 || counts.people > 0)
+  // Render-state machine: `counts` is null until Supabase responds. We use
+  // three explicit states (loading / empty / hasData) so the label + title
+  // branches never read `counts.funds` on null.
+  const loadingCounts = counts === null
+  const isEmpty       = !loadingCounts && counts.deals === 0 && counts.funds === 0 && counts.people === 0
+  const hasData       = !loadingCounts && (counts.deals > 0 || counts.funds > 0 || counts.people > 0)
+  const totalRows     = loadingCounts ? 0 : (counts.funds + counts.people + counts.deals)
 
   async function onSeed() {
     setBusy('seed')
@@ -87,14 +92,18 @@ export default function SampleDataChip() {
             ? 'border-valence-blue/40 bg-valence-blue-soft text-valence-blue hover:bg-valence-blue-soft/80'
             : 'border-valence-border bg-white text-valence-muted hover:text-valence-text'
         }`}
-        title={isEmpty
-          ? 'Load sample firm'
-          : `Manage sample data · ${counts.funds} funds · ${counts.people} people · ${counts.deals} mandates`}
+        title={
+          loadingCounts ? 'Checking firm state…'
+        : isEmpty       ? 'Load sample firm'
+        :                 `Manage sample data · ${counts.funds} funds · ${counts.people} people · ${counts.deals} mandates`
+        }
       >
         <Database className="h-3 w-3" />
-        {isEmpty
-          ? 'Load sample'
-          : <>Sample · <span className="tabular-nums opacity-70">{counts.funds + counts.people + counts.deals}</span></>}
+        {loadingCounts
+          ? 'Sample data'
+          : isEmpty
+            ? 'Load sample'
+            : <>Sample · <span className="tabular-nums opacity-70">{totalRows}</span></>}
       </button>
 
       {open && (
