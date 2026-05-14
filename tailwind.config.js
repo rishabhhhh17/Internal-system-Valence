@@ -74,7 +74,11 @@ export default {
         'slide-up':       'slideUp 0.28s cubic-bezier(0.22, 1, 0.36, 1)',
         'slide-up-sm':    'slideUpSm 0.2s cubic-bezier(0.22, 1, 0.36, 1)',
         'pulse-soft':     'pulseSoft 2s ease-in-out infinite',
-        'shimmer':        'shimmer 2s linear infinite'
+        'shimmer':        'shimmer 2s linear infinite',
+        // Soft attention-grabber for the Tour pill on first visit.
+        // Glow pulses the box-shadow + background. Ring grows + fades.
+        'attention-glow': 'attentionGlow 2.2s ease-in-out infinite',
+        'attention-ring': 'attentionRing 2.2s ease-out infinite'
       },
       keyframes: {
         fadeIn:        { '0%': { opacity: 0 }, '100%': { opacity: 1 } },
@@ -82,7 +86,16 @@ export default {
         slideUp:       { '0%': { transform: 'translateY(12px)', opacity: 0 }, '100%': { transform: 'translateY(0)', opacity: 1 } },
         slideUpSm:     { '0%': { transform: 'translateY(4px)', opacity: 0 }, '100%': { transform: 'translateY(0)', opacity: 1 } },
         pulseSoft:     { '0%,100%': { opacity: 1 }, '50%': { opacity: 0.6 } },
-        shimmer:       { '0%': { backgroundPosition: '-200% 0' }, '100%': { backgroundPosition: '200% 0' } }
+        shimmer:       { '0%': { backgroundPosition: '-200% 0' }, '100%': { backgroundPosition: '200% 0' } },
+        attentionGlow: {
+          '0%,100%': { boxShadow: '0 0 0 0 rgba(51,153,255,0.55), 0 0 0 0 rgba(51,153,255,0.0)' },
+          '50%':     { boxShadow: '0 0 0 4px rgba(51,153,255,0.18), 0 0 12px 2px rgba(51,153,255,0.35)' }
+        },
+        attentionRing: {
+          '0%':   { transform: 'scale(0.85)', opacity: 0.65 },
+          '70%':  { transform: 'scale(1.55)', opacity: 0 },
+          '100%': { transform: 'scale(1.55)', opacity: 0 }
+        }
       }
     }
   },

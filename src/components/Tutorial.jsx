@@ -110,20 +110,19 @@ export default function TutorialButton() {
   const { pathname } = useLocation()
   const [mode, setMode]  = useState(null)         // null | 'menu' | 'quick' | 'video' | 'trial' | 'advanced'
   const [seen, setSeen]  = useState(() => readSeen())
+  // `engaged` = has the user ever opened the Tour Center on this browser?
+  // Drives the pulsing attention-glow on the topbar pill. Once they click
+  // even once, the pulse stops permanently — repeats would feel naggy.
+  const [engaged, setEngaged] = useState(() => firstRunDone())
   const beenSeenHere     = Boolean(seen[pathname])
 
-  // Auto-open the menu on first-ever app load. The welcome overlay already
-  // covers most cold-start customers, so this fires only when they skipped
-  // the welcome (welcome dismisses without setting valence.tutorialFirstRun).
-  useEffect(() => {
-    if (firstRunDone()) return
-    const t = setTimeout(() => { setMode('menu'); markFirstRun() }, 600)
-    return () => clearTimeout(t)
-  }, [])
+  // No auto-open. The Tour pill in the topbar pulses on first visit (see
+  // animation classes below) until the user clicks it themselves — much
+  // calmer first impression than a modal that ambushes them on landing.
 
-  // The welcome overlay (or any other surface) can dispatch
+  // The welcome overlay (or any other surface) can still dispatch
   // `valence:start-tour` with detail.mode = 'menu'|'quick'|'trial'|'advanced'
-  // to open the tour from outside this component.
+  // to open the tour explicitly.
   useEffect(() => {
     const onExternal = (e) => {
       const next = e?.detail?.mode || 'menu'
@@ -145,18 +144,31 @@ export default function TutorialButton() {
   return (
     <>
       <button
-        onClick={() => setMode('menu')}
+        onClick={() => { setMode('menu'); if (!engaged) { markFirstRun(); setEngaged(true) } }}
         className={`relative inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-semibold transition ${
-          beenSeenHere
+          engaged
             ? 'border-valence-border bg-white text-valence-muted hover:text-valence-text'
-            : 'border-valence-blue/40 bg-valence-blue-soft text-valence-blue hover:bg-valence-blue-soft/80'
+            : 'border-valence-blue/50 bg-valence-blue-soft text-valence-blue hover:bg-valence-blue-soft/80 animate-attention-glow'
         }`}
         title="Tour the product"
         data-tour="topbar-tour-button"
       >
+        {/* Expanding ring + pulsing dot — only on first ever visit. Stops the
+            moment the partner clicks the pill, so it never feels naggy. */}
+        {!engaged && (
+          <span
+            aria-hidden
+            className="absolute inset-0 rounded-full border border-valence-blue/60 animate-attention-ring pointer-events-none"
+          />
+        )}
         <HelpCircle className="h-3 w-3" />
         Tour
-        {!beenSeenHere && <span className="absolute -right-0.5 -top-0.5 h-1.5 w-1.5 rounded-full bg-valence-blue shadow-[0_0_6px_#3399FF]" />}
+        {!engaged && (
+          <span
+            aria-hidden
+            className="absolute -right-0.5 -top-0.5 h-1.5 w-1.5 rounded-full bg-valence-blue shadow-[0_0_6px_#3399FF] animate-pulse-soft"
+          />
+        )}
       </button>
 
       {mode === 'menu'     && <TourMenu       onPick={setMode} onClose={() => setMode(null)} />}
