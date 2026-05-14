@@ -1,16 +1,20 @@
-// Vercel function — proxies the Fathom REST API so the client doesn't
+// Vercel function — proxies the Fathom External API so the client doesn't
 // run into CORS (Fathom doesn't send Access-Control-Allow-Origin for
 // arbitrary browser origins) AND so the Fathom API key never reaches
 // the browser bundle.
 //
+// Fathom API reference: https://developers.fathom.ai
+// Base:   https://api.fathom.ai/external/v1
+// Auth:   X-Api-Key: <key>
+//
 // Endpoints (all GET):
 //   /api/fathom?op=list[&limit=10]
-//   /api/fathom?op=meeting&id=<meeting_id>
-//   /api/fathom?op=latest
+//   /api/fathom?op=meeting&id=<recording_id>   → summary + transcript merged
+//   /api/fathom?op=latest                       → list + summary + transcript
 //
-// Env: FATHOM_API_KEY (NOT prefixed with VITE_ — this is server-only)
+// Env: FATHOM_API_KEY (server-only, NOT VITE_ prefixed)
 
-const BASE = 'https://api.fathom.video/external/v1'
+const BASE = 'https://api.fathom.ai/external/v1'
 
 export default async function handler(req, res) {
   res.setHeader('Cache-Control', 'no-store')
@@ -27,31 +31,55 @@ export default async function handler(req, res) {
   try {
     if (op === 'list') {
       const data = await call(`/meetings?limit=${limit}`, key)
-      return res.status(200).json(normaliseListResponse(data))
+      return res.status(200).json(normaliseList(data))
     }
+
     if (op === 'meeting') {
-      if (!id) return res.status(400).json({ error: 'id query param required' })
-      const data = await call(`/meetings/${encodeURIComponent(id)}`, key)
-      return res.status(200).json(normaliseMeeting(data))
+      if (!id) return res.status(400).json({ error: 'id query param required (Fathom recording id)' })
+      const merged = await fetchMeetingDetail(id, key)
+      return res.status(200).json(merged)
     }
+
     if (op === 'latest') {
-      const list = normaliseListResponse(await call(`/meetings?limit=5`, key))
+      const list = normaliseList(await call(`/meetings?limit=5`, key))
       if (list.length === 0) return res.status(200).json(null)
-      const detail = await call(`/meetings/${encodeURIComponent(list[0].id)}`, key)
-      return res.status(200).json(normaliseMeeting(detail))
+      // Pick the newest with a recording_id (some scheduled meetings may not
+      // have one yet — skip those rather than 500'ing on a missing id).
+      const newest = list.find(m => m.id) || list[0]
+      if (!newest.id) return res.status(200).json({ ...newest, summary: '', transcript: '', actionItems: [] })
+      const detail = await fetchMeetingDetail(newest.id, key)
+      // Carry the list-level metadata (title / attendees / url) onto the
+      // merged response so the caller has everything in one shot.
+      return res.status(200).json({ ...newest, ...detail })
     }
+
     return res.status(400).json({ error: `Unknown op: ${op}` })
   } catch (err) {
     return res.status(502).json({ error: err?.message || 'Fathom proxy error' })
   }
 }
 
+// Pull summary + transcript for one recording and merge them.
+async function fetchMeetingDetail(recordingId, key) {
+  const [summaryRes, transcriptRes] = await Promise.allSettled([
+    call(`/recordings/${encodeURIComponent(recordingId)}/summary`,   key),
+    call(`/recordings/${encodeURIComponent(recordingId)}/transcript`, key)
+  ])
+  const summary    = summaryRes.status    === 'fulfilled' ? extractSummary(summaryRes.value)       : ''
+  const transcript = transcriptRes.status === 'fulfilled' ? extractTranscript(transcriptRes.value) : ''
+  return {
+    id:          recordingId,
+    summary,
+    transcript,
+    actionItems: extractActionItems(summaryRes.status === 'fulfilled' ? summaryRes.value : null)
+  }
+}
+
 async function call(path, key) {
   const r = await fetch(`${BASE}${path}`, {
     headers: {
-      'X-Api-Key':     key,
-      'Authorization': `Bearer ${key}`,
-      'Accept':        'application/json'
+      'X-Api-Key': key,
+      'Accept':    'application/json'
     }
   })
   if (!r.ok) {
@@ -61,35 +89,62 @@ async function call(path, key) {
   return r.json()
 }
 
-function normaliseListResponse(data) {
-  const rows = Array.isArray(data) ? data : (data?.meetings || data?.data || data?.results || [])
+// --- Normalisers — defensive against shape renames ----------------------
+
+function normaliseList(data) {
+  const rows = data?.items || data?.meetings || data?.data || (Array.isArray(data) ? data : [])
   return rows.map(m => ({
-    id:          m?.id || m?.meeting_id,
-    title:       m?.title || m?.subject || 'Meeting',
-    started_at:  m?.started_at || m?.scheduled_start || m?.start_time || null,
-    ended_at:    m?.ended_at   || m?.end_time || null,
-    attendees:   normaliseAttendees(m?.attendees || m?.participants),
-    summary_url: m?.share_url  || m?.url || null
+    id:           m?.recording_id || m?.id || m?.meeting_id || null,
+    title:        m?.title || m?.meeting_title || 'Meeting',
+    started_at:   m?.scheduled_start_time || m?.recording_start_time || m?.started_at || null,
+    ended_at:     m?.scheduled_end_time   || m?.recording_end_time   || m?.ended_at   || null,
+    attendees:    normaliseAttendees(m?.calendar_invitees || m?.attendees || m?.participants),
+    share_url:    m?.share_url || m?.url || null,
+    meeting_type: m?.meeting_type || null
   }))
 }
 
-function normaliseMeeting(data) {
-  return {
-    id:          data?.id || null,
-    title:       data?.title || data?.subject || '',
-    started_at:  data?.started_at || data?.scheduled_start || null,
-    ended_at:    data?.ended_at || null,
-    attendees:   normaliseAttendees(data?.attendees || data?.participants),
-    summary:     data?.summary?.text  || data?.summary  || '',
-    transcript:  data?.transcript?.text || data?.transcript || '',
-    actionItems: Array.isArray(data?.action_items) ? data.action_items : []
+function extractSummary(data) {
+  // Direct shape: { summary: { ... } } — extract a readable string.
+  const s = data?.summary || data
+  if (!s) return ''
+  if (typeof s === 'string') return s
+  if (s.text) return s.text
+  if (s.markdown) return s.markdown
+  if (Array.isArray(s.sections)) {
+    return s.sections.map(sec => {
+      const heading = sec.title || sec.name || ''
+      const body    = sec.text || sec.content || (Array.isArray(sec.bullets) ? sec.bullets.map(b => `• ${b}`).join('\n') : '')
+      return heading ? `${heading}\n${body}` : body
+    }).filter(Boolean).join('\n\n')
   }
+  return JSON.stringify(s).slice(0, 2000)
+}
+
+function extractTranscript(data) {
+  const t = data?.transcript || data
+  if (!t) return ''
+  if (typeof t === 'string') return t
+  if (t.text) return t.text
+  if (Array.isArray(t.utterances)) {
+    return t.utterances.map(u => `${u.speaker || ''}${u.speaker ? ': ' : ''}${u.text || ''}`).join('\n')
+  }
+  return ''
+}
+
+function extractActionItems(data) {
+  const s = data?.summary || data
+  if (!s) return []
+  if (Array.isArray(s.action_items)) return s.action_items
+  if (Array.isArray(data?.action_items)) return data.action_items
+  return []
 }
 
 function normaliseAttendees(attendees) {
   if (!Array.isArray(attendees)) return []
   return attendees.map(a => ({
-    name:  a?.name || a?.full_name || a?.email || '',
-    email: a?.email || ''
+    name:     a?.name || a?.full_name || a?.email || '',
+    email:    a?.email || '',
+    external: a?.is_external ?? null
   }))
 }
