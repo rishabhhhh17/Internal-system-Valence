@@ -11,6 +11,7 @@ import { transcribeAndSummarise } from '../lib/voiceMemo.js'
 import { isGeminiConfigured } from '../lib/gemini.js'
 import { useToast } from './Toast.jsx'
 import WikilinkTextarea from './WikilinkTextarea.jsx'
+import Typeahead from './Typeahead.jsx'
 
 const TRANSCRIPT_SOURCES = [
   { id: 'manual',     label: 'Paste / type',  icon: FileText, blurb: 'Type or paste a transcript directly' },
@@ -260,7 +261,37 @@ export default function InteractionDrawer({ open, onClose, existing, onSubmit })
           <div className="grid gap-3 sm:grid-cols-2">
             <div>
               <label className="vl-label">Company</label>
-              <input className="vl-input mt-1.5 bg-white" value={form.counterparty_company} onChange={e => update({ counterparty_company: e.target.value })} placeholder="Nimbus Health" />
+              {/* Autocomplete against both the funds universe AND known
+                  client companies (from people.company). Picking a fund
+                  also stamps the company name — partners shouldn't type
+                  "Kedaara Capital" by hand if it's already in the firm. */}
+              <Typeahead
+                value={form.counterparty_company}
+                onChange={v => update({ counterparty_company: v })}
+                placeholder="Nimbus Health"
+                className="vl-input mt-1.5 bg-white"
+                fetcher={async q => {
+                  if (!isSupabaseConfigured) return []
+                  const [{ data: fundsRes }, { data: peopleRes }] = await Promise.all([
+                    supabase.from('funds').select('id, name, fund_type, hq_city').ilike('name', `%${q}%`).limit(6),
+                    supabase.from('people').select('company').ilike('company', `%${q}%`).not('company', 'is', null).limit(20)
+                  ])
+                  const out = []
+                  for (const f of (fundsRes || [])) {
+                    out.push({ id: `fund-${f.id}`, label: f.name, sub: [f.fund_type, f.hq_city].filter(Boolean).join(' · '), type: 'Fund' })
+                  }
+                  // De-dupe client companies and skip ones already covered by a fund name.
+                  const seen = new Set(out.map(o => o.label.toLowerCase()))
+                  for (const p of (peopleRes || [])) {
+                    const co = (p.company || '').trim()
+                    if (!co || seen.has(co.toLowerCase())) continue
+                    seen.add(co.toLowerCase())
+                    out.push({ id: `client-${co}`, label: co, sub: 'Client company', type: 'Client' })
+                  }
+                  return out.slice(0, 10)
+                }}
+                onPick={s => update({ counterparty_company: s.label })}
+              />
             </div>
             <div>
               <label className="vl-label">Role</label>
@@ -269,7 +300,33 @@ export default function InteractionDrawer({ open, onClose, existing, onSubmit })
           </div>
           <div>
             <label className="vl-label">Lead owner</label>
-            <input className="vl-input mt-1.5 bg-white" value={form.lead_owner} onChange={e => update({ lead_owner: e.target.value })} placeholder="Neha Jain" />
+            {/* Autocomplete against historical lead_owner values across both
+                interactions and deals — the partner shouldn't have to remember
+                exact spelling, the firm already has the list. */}
+            <Typeahead
+              value={form.lead_owner}
+              onChange={v => update({ lead_owner: v })}
+              placeholder="Neha Jain"
+              className="vl-input mt-1.5 bg-white"
+              minChars={1}
+              fetcher={async q => {
+                if (!isSupabaseConfigured) return []
+                const [{ data: a }, { data: b }] = await Promise.all([
+                  supabase.from('interactions').select('lead_owner').ilike('lead_owner', `%${q}%`).not('lead_owner', 'is', null).limit(50),
+                  supabase.from('deals').select('lead_owner').ilike('lead_owner', `%${q}%`).not('lead_owner', 'is', null).limit(50)
+                ])
+                const seen = new Set()
+                const out = []
+                for (const row of [...(a || []), ...(b || [])]) {
+                  const v = (row.lead_owner || '').trim()
+                  if (!v || seen.has(v.toLowerCase())) continue
+                  seen.add(v.toLowerCase())
+                  out.push({ id: `lead-${v}`, label: v, sub: 'Team', type: null })
+                }
+                return out.slice(0, 8)
+              }}
+              onPick={s => update({ lead_owner: s.label })}
+            />
           </div>
         </div>
 

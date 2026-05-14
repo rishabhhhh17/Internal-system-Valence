@@ -48,17 +48,38 @@ function escapeRegExp(s) {
   return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 }
 
-// Tokenise the query into words (≥3 chars), drop common stopwords. We OR
+// Tokenise the query into words (≥2 chars), drop common stopwords. We OR
 // the tokens in Postgres so "seed B 30M revenue" matches an interaction
-// note containing any combination.
-const STOPWORDS = new Set(['the','and','for','with','that','this','they','their','what','when','from','have','will','only','above','below','more','less'])
+// note containing any combination. Keep 2-letter tokens so "B" in "Series
+// B" survives the filter.
+const STOPWORDS = new Set(['the','and','for','with','that','this','they','their','what','when','from','have','will','only','above','below','more','less','who','can','our','are','out','its','one','any'])
 function tokenise(q) {
   return String(q || '')
     .toLowerCase()
     .split(/[\s,\.;:/!?()]+/)
     .map(w => w.replace(/['"]/g, ''))
-    .filter(w => w.length >= 3 && !STOPWORDS.has(w))
+    .filter(w => w.length >= 2 && !STOPWORDS.has(w))
     .slice(0, 8)
+}
+
+// Score a row by counting keyword hits across both scalar columns and any
+// array-valued columns (sectors, stage_focus, tags). Arrays are joined into
+// a single haystack so "Series A" inside `stage_focus: ['Series A','Growth']`
+// still scores like a column-level hit.
+function hitCountWithArrays(row, scalarCols, arrayCols, tokens) {
+  let blob = scalarCols.map(c => row[c] || '').join(' ')
+  for (const col of arrayCols) {
+    const arr = row[col]
+    if (Array.isArray(arr)) blob += ' ' + arr.join(' ')
+  }
+  blob = blob.toLowerCase()
+  let hits = 0
+  for (const t of tokens) {
+    const re = new RegExp(escapeRegExp(t), 'gi')
+    const m = blob.match(re)
+    if (m) hits += m.length
+  }
+  return hits
 }
 
 function ilikePattern(token) {
@@ -119,56 +140,92 @@ export async function smartEntitySearch(query, { sourceFilter = null } = {}) {
   const tasks = []
 
   if (wantPeople) {
-    const filter = orFilter(['full_name','role','company','how_to_talk','what_they_care_about'], tokens)
+    // Pull ALL people (typically a few hundred per firm). Filter and score
+    // client-side so we can hit the `tags` array along with the scalar
+    // persona fields — PostgREST's array filtering is unwieldy here.
     tasks.push(
       supabase
         .from('people')
         .select('id, full_name, role, company, city, country, how_to_talk, what_they_care_about, tags')
-        .or(filter)
-        .limit(MAX_PER_SOURCE)
+        .limit(500)
         .then(({ data, error }) => {
           if (error || !data) return []
-          return data.map(p => {
-            const score = 1.0 + hitCount(p, ['full_name','role','company','how_to_talk','what_they_care_about'], tokens) * 0.4
-            // Pick whichever persona line actually contains the search
-            // terms for the snippet — that's what the partner came for.
-            const snippetSource = [p.how_to_talk, p.what_they_care_about, p.role, p.company]
-              .find(s => s && tokens.some(t => String(s).toLowerCase().includes(t))) || p.how_to_talk || p.what_they_care_about || p.company || ''
-            return {
-              source_type: 'person',
-              source_id:   p.id,
-              title:       p.full_name,
-              snippet:     highlight(snippetSource, tokens),
-              score,
-              metadata:    { company: p.company, role: p.role, tags: p.tags || [] }
-            }
-          })
+          const scored = data
+            .map(p => {
+              const hits = hitCountWithArrays(p,
+                ['full_name','role','company','city','country','how_to_talk','what_they_care_about'],
+                ['tags'],
+                tokens)
+              if (hits === 0) return null
+              const score = 1.0 + hits * 0.5
+              const snippetSource = [p.how_to_talk, p.what_they_care_about, p.role, p.company]
+                .find(s => s && tokens.some(t => String(s).toLowerCase().includes(t))) || p.how_to_talk || p.what_they_care_about || p.company || ''
+              return {
+                source_type: 'person',
+                source_id:   p.id,
+                title:       p.full_name,
+                snippet:     highlight(snippetSource, tokens),
+                score,
+                metadata:    { company: p.company, role: p.role, tags: p.tags || [] }
+              }
+            })
+            .filter(Boolean)
+            .sort((a, b) => b.score - a.score)
+            .slice(0, MAX_PER_SOURCE)
+          return scored
         })
     )
   }
 
   if (wantFunds) {
-    const filter = orFilter(['name','persona_notes','hq_city'], tokens)
+    // Same approach as people: pull every fund (universes are typically
+    // <500) and score across the FULL fund profile — including the array
+    // columns `sectors` and `stage_focus` so a query like "series a
+    // investor" surfaces funds whose stage_focus contains 'Series A'.
     tasks.push(
       supabase
         .from('funds')
-        .select('id, name, fund_type, hq_city, warmth, persona_notes, sectors, check_size_min_usd_m, check_size_max_usd_m')
-        .or(filter)
-        .limit(MAX_PER_SOURCE)
+        .select('id, name, fund_type, hq_city, hq_country, warmth, persona_notes, sectors, stage_focus, check_size_min_usd_m, check_size_max_usd_m')
+        .limit(500)
         .then(({ data, error }) => {
           if (error || !data) return []
-          return data.map(f => {
-            const score = 1.1 + hitCount(f, ['name','persona_notes','hq_city'], tokens) * 0.4
-            const snippet = f.persona_notes || (f.sectors || []).join(' · ') || f.hq_city || ''
-            return {
-              source_type: 'fund',
-              source_id:   f.id,
-              title:       f.name,
-              snippet:     highlight(snippet, tokens),
-              score,
-              metadata:    { warmth: f.warmth, fund_type: f.fund_type, hq_city: f.hq_city, sectors: f.sectors || [] }
-            }
-          })
+          const scored = data
+            .map(f => {
+              const hits = hitCountWithArrays(f,
+                ['name','fund_type','hq_city','hq_country','persona_notes','warmth'],
+                ['sectors','stage_focus'],
+                tokens)
+              if (hits === 0) return null
+              const score = 1.1 + hits * 0.5
+              // Build a snippet that highlights WHY this fund matched —
+              // prefer the field that actually contained the query terms.
+              const stageMatch  = (f.stage_focus || []).find(s => tokens.some(t => s.toLowerCase().includes(t)))
+              const sectorMatch = (f.sectors || []).find(s => tokens.some(t => s.toLowerCase().includes(t)))
+              const snippet = [
+                f.persona_notes,
+                stageMatch  ? `Stage focus · ${(f.stage_focus || []).join(' · ')}` : null,
+                sectorMatch ? `Sectors · ${(f.sectors || []).join(' · ')}` : null,
+                (f.check_size_min_usd_m || f.check_size_max_usd_m) ? `Cheque · $${f.check_size_min_usd_m ?? '?'}–${f.check_size_max_usd_m ?? '?'}M` : null
+              ].filter(Boolean).join(' · ')
+              return {
+                source_type: 'fund',
+                source_id:   f.id,
+                title:       f.name,
+                snippet:     highlight(snippet || f.hq_city || '', tokens),
+                score,
+                metadata:    {
+                  warmth: f.warmth,
+                  fund_type: f.fund_type,
+                  hq_city: f.hq_city,
+                  sectors: f.sectors || [],
+                  stage_focus: f.stage_focus || []
+                }
+              }
+            })
+            .filter(Boolean)
+            .sort((a, b) => b.score - a.score)
+            .slice(0, MAX_PER_SOURCE)
+          return scored
         })
     )
   }
