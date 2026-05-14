@@ -25,6 +25,8 @@ import WikilinkText from '../components/WikilinkText.jsx'
 import ActivityTimeline from '../components/ActivityTimeline.jsx'
 import StageHistorySpine from '../components/StageHistorySpine.jsx'
 import DealBrief from '../components/DealBrief.jsx'
+import EntityMentions from '../components/EntityMentions.jsx'
+import { AtSign } from 'lucide-react'
 import EmailComposer from '../components/EmailComposer.jsx'
 import SimilarDeals from '../components/SimilarDeals.jsx'
 import CIMGenerator from '../components/CIMGenerator.jsx'
@@ -492,6 +494,7 @@ function DealDrawerBody({ deal, onEdit, onDelete, onComposeEmail }) {
     { id: 'targets',    label: 'Targets',        icon: UsersIcon },
     { id: 'cim',        label: 'CIM',            icon: FileText },
     { id: 'brief',      label: 'AI Brief',       icon: Sparkles },
+    { id: 'mentions',   label: 'Mentions',       icon: AtSign },
     { id: 'share',      label: 'Share',          icon: ExternalLink }
   ]
 
@@ -538,6 +541,7 @@ function DealDrawerBody({ deal, onEdit, onDelete, onComposeEmail }) {
         {tab === 'targets'    && <TargetList deal={deal} />}
         {tab === 'cim'        && <CIMGenerator deal={deal} />}
         {tab === 'brief'      && <DealBrief deal={deal} />}
+        {tab === 'mentions'   && <EntityMentions entityType="mandate" entityId={deal.id} entityName={deal.client_name} />}
         {tab === 'share'      && <ShareManager deal={deal} />}
       </div>
     </div>
