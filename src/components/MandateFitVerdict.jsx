@@ -1,4 +1,4 @@
-import { Sparkles, CheckCircle2, AlertTriangle, XCircle, ArrowRight } from 'lucide-react'
+import { Sparkles, CheckCircle2, AlertTriangle, XCircle, ArrowRight, Check, AlertCircle } from 'lucide-react'
 import { isGeminiConfigured } from '../lib/gemini.js'
 
 // Polished verdict block shared between the Quick Screener (live result)
@@ -136,18 +136,29 @@ export default function MandateFitVerdict({ output, onConvert, dense = false, ey
         )}
 
         {/* Reasoning chips — numbered so partners can reference "point 3" in
-            conversation. Color-tinted to the verdict so the visual identity
-            is consistent top-to-bottom. */}
+            conversation. Each line carries a ✓ or ⚠ marker depending on
+            whether it reads as supporting evidence or a caution. Lets a
+            partner scan the *shape* of the reasoning before reading. */}
         {lines.length > 0 && (
           <ol className="mt-3 space-y-1.5">
-            {lines.map((l, i) => (
-              <li key={i} className={`flex items-start gap-2.5 rounded-lg border px-3 py-2 text-[12.5px] leading-relaxed ${tone.chipBg}`}>
-                <span className={`inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full text-[9px] font-bold tabular-nums ${tone.num}`}>
-                  {i + 1}
-                </span>
-                <span>{l}</span>
-              </li>
-            ))}
+            {lines.map((l, i) => {
+              const signal = signalFor(l)
+              const SignalIcon = signal === 'positive' ? Check : signal === 'caution' ? AlertCircle : null
+              return (
+                <li key={i} className={`flex items-start gap-2.5 rounded-lg border px-3 py-2 text-[12.5px] leading-relaxed ${tone.chipBg}`}>
+                  <span className={`inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full text-[9px] font-bold tabular-nums ${tone.num}`}>
+                    {i + 1}
+                  </span>
+                  {SignalIcon && (
+                    <SignalIcon
+                      className={`h-3.5 w-3.5 shrink-0 mt-0.5 ${signal === 'positive' ? 'text-emerald-600' : 'text-amber-700'}`}
+                      aria-label={signal === 'positive' ? 'Supporting' : 'Caution'}
+                    />
+                  )}
+                  <span>{l}</span>
+                </li>
+              )
+            })}
           </ol>
         )}
 
@@ -163,4 +174,27 @@ export default function MandateFitVerdict({ output, onConvert, dense = false, ey
       </div>
     </div>
   )
+}
+
+// Heuristic classifier for a reasoning line. Returns 'positive' for lines
+// that read as supporting evidence ("Sector match...", "...sits inside the
+// firm's band"), 'caution' for lines that read as risks ("hard exclude",
+// "below the firm's floor"), 'neutral' otherwise. Cheap pattern match —
+// good enough to colour a chip without an LLM call.
+const POSITIVE_PHRASES = [
+  'match', 'aligns', 'aligned', 'inside', 'fits', 'in band', 'in the band',
+  'within', 'familiar', 'sweet spot', 'comfortably', 'precedent', 'crossover',
+  'mission-aligned'
+]
+const CAUTION_PHRASES = [
+  'unclear', 'not disclosed', 'no firm-coverage', 'no match', 'outside',
+  'exceeds', 'below', 'not on the radar', 'hard exclude',
+  'recommend a polite decline', 'borderline', 'adjacent', 'specialist'
+]
+function signalFor(line) {
+  if (!line) return 'neutral'
+  const t = String(line).toLowerCase()
+  if (CAUTION_PHRASES.some(p => t.includes(p))) return 'caution'
+  if (POSITIVE_PHRASES.some(p => t.includes(p))) return 'positive'
+  return 'neutral'
 }

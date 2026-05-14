@@ -37,7 +37,13 @@ export default function Typeahead({
   // When false, the dropdown does NOT show even with focus + input. Useful
   // when the parent wants to suppress suggestions briefly (e.g. immediately
   // after picking, before the next keystroke).
-  enabled = true
+  enabled = true,
+  // Optional: fetcher invoked with an empty string when the input gets
+  // focus with no text. Lets the caller surface a small "recent" or
+  // "popular" set so the dropdown isn't a dead end on first click.
+  // Defaults to calling the regular fetcher with '' — most fetchers can
+  // handle that, but pass null to opt out.
+  focusFetcher
 }) {
   const inputRef = useRef(null)
   const containerRef = useRef(null)
@@ -45,20 +51,25 @@ export default function Typeahead({
   const [loading, setLoading] = useState(false)
   const [items, setItems] = useState([])
   const [active, setActive] = useState(0)
+  const [isFocused, setIsFocused] = useState(false)
   const reqIdRef = useRef(0)
   const debounceRef = useRef(null)
 
-  // Debounced fetcher. Skips when the query is too short to be useful.
+  // Debounced fetcher. When the query is shorter than minChars we either
+  // fall through to focusFetcher (if provided) or close the dropdown.
   useEffect(() => {
     if (!enabled) { setItems([]); setOpen(false); return }
     const q = (value || '').trim()
-    if (q.length < minChars) { setItems([]); setOpen(false); return }
     clearTimeout(debounceRef.current)
+    const tooShort = q.length < minChars
+    const useFocus = tooShort && isFocused && focusFetcher !== null
+    if (tooShort && !useFocus) { setItems([]); setOpen(false); return }
     debounceRef.current = setTimeout(async () => {
       const myReq = ++reqIdRef.current
       setLoading(true)
       try {
-        const out = await fetcher(q)
+        const fn = useFocus ? (focusFetcher || fetcher) : fetcher
+        const out = await fn(q)
         if (myReq !== reqIdRef.current) return
         setItems(Array.isArray(out) ? out.slice(0, 12) : [])
         setActive(0)
@@ -68,9 +79,9 @@ export default function Typeahead({
       } finally {
         if (myReq === reqIdRef.current) setLoading(false)
       }
-    }, DEBOUNCE_MS)
+    }, useFocus ? 0 : DEBOUNCE_MS)
     return () => clearTimeout(debounceRef.current)
-  }, [value, enabled, minChars, fetcher])
+  }, [value, enabled, minChars, isFocused, fetcher, focusFetcher])
 
   // Close when clicking outside the input + dropdown wrapper.
   useEffect(() => {
@@ -102,7 +113,8 @@ export default function Typeahead({
         ref={inputRef}
         value={value || ''}
         onChange={e => onChange(e.target.value)}
-        onFocus={() => { if (items.length > 0) setOpen(true) }}
+        onFocus={() => { setIsFocused(true); if (items.length > 0) setOpen(true) }}
+        onBlur={() => setIsFocused(false)}
         onKeyDown={handleKeyDown}
         placeholder={placeholder}
         className={className}

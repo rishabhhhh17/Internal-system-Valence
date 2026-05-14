@@ -255,6 +255,20 @@ function ResultRow({ r, onOpen }) {
           <div className="flex items-center gap-2 flex-wrap">
             <p className="truncate text-sm font-semibold text-valence-text group-hover:text-valence-blue transition">{r.title || '(untitled)'}</p>
             <span className="vl-chip">{meta.label}</span>
+            {/* "Matched on" badge — tells the partner WHICH field/dimension
+                caused this row to surface. Defined by smartEntitySearch on
+                people / funds / interactions; absent on knowledge-RPC rows
+                where the match dimension isn't exposed by the RPC. */}
+            {r.matched_on && (
+              <span className="inline-flex items-center rounded-full border border-valence-blue/30 bg-valence-blue-soft px-1.5 py-0 text-[9.5px] font-semibold uppercase tracking-[0.14em] text-valence-blue">
+                Matched · {r.matched_on}
+              </span>
+            )}
+            {r.metadata?.warmth && (
+              <span className="inline-flex items-center rounded-full border border-valence-border bg-white px-1.5 py-0 text-[9.5px] font-semibold uppercase tracking-[0.14em] text-valence-muted">
+                {r.metadata.warmth}
+              </span>
+            )}
             {r.metadata?.sector && <span className="vl-chip-blue">{r.metadata.sector}</span>}
             {r.matchCount > 1 && <span className="text-[10px] text-valence-subtle">{r.matchCount} matching sections</span>}
           </div>

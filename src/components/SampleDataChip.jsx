@@ -87,10 +87,14 @@ export default function SampleDataChip() {
             ? 'border-valence-blue/40 bg-valence-blue-soft text-valence-blue hover:bg-valence-blue-soft/80'
             : 'border-valence-border bg-white text-valence-muted hover:text-valence-text'
         }`}
-        title={isEmpty ? 'Load sample firm' : 'Manage sample data'}
+        title={isEmpty
+          ? 'Load sample firm'
+          : `Manage sample data · ${counts.funds} funds · ${counts.people} people · ${counts.deals} mandates`}
       >
         <Database className="h-3 w-3" />
-        {isEmpty ? 'Load sample' : 'Sample data'}
+        {isEmpty
+          ? 'Load sample'
+          : <>Sample · <span className="tabular-nums opacity-70">{counts.funds + counts.people + counts.deals}</span></>}
       </button>
 
       {open && (

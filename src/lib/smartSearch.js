@@ -158,14 +158,23 @@ export async function smartEntitySearch(query, { sourceFilter = null } = {}) {
                 tokens)
               if (hits === 0) return null
               const score = 1.0 + hits * 0.5
-              const snippetSource = [p.how_to_talk, p.what_they_care_about, p.role, p.company]
-                .find(s => s && tokens.some(t => String(s).toLowerCase().includes(t))) || p.how_to_talk || p.what_they_care_about || p.company || ''
+              // Pick the field where the match actually landed so the row
+              // can tell the partner WHY this person came up.
+              const matched = pickMatchedField(p, tokens, [
+                ['how_to_talk',         'How to talk'],
+                ['what_they_care_about','What they care about'],
+                ['role',                'Role'],
+                ['company',             'Company'],
+                ['tags',                'Tags']
+              ])
+              const snippetSource = matched?.value || p.how_to_talk || p.what_they_care_about || p.company || ''
               return {
                 source_type: 'person',
                 source_id:   p.id,
                 title:       p.full_name,
                 snippet:     highlight(snippetSource, tokens),
                 score,
+                matched_on:  matched?.label || null,
                 metadata:    { company: p.company, role: p.role, tags: p.tags || [] }
               }
             })
@@ -197,8 +206,17 @@ export async function smartEntitySearch(query, { sourceFilter = null } = {}) {
                 tokens)
               if (hits === 0) return null
               const score = 1.1 + hits * 0.5
-              // Build a snippet that highlights WHY this fund matched —
-              // prefer the field that actually contained the query terms.
+              // Pick the most diagnostic matched field for the badge.
+              const matched = pickMatchedField(f, tokens, [
+                ['stage_focus',   'Stage focus'],
+                ['sectors',       'Sector'],
+                ['persona_notes', 'Persona notes'],
+                ['fund_type',     'Fund type'],
+                ['hq_city',       'HQ'],
+                ['name',          'Name']
+              ])
+              // Snippet shows the persona note as the lead, plus the
+              // matched-field value when distinct, so partners scan it fast.
               const stageMatch  = (f.stage_focus || []).find(s => tokens.some(t => s.toLowerCase().includes(t)))
               const sectorMatch = (f.sectors || []).find(s => tokens.some(t => s.toLowerCase().includes(t)))
               const snippet = [
@@ -213,6 +231,7 @@ export async function smartEntitySearch(query, { sourceFilter = null } = {}) {
                 title:       f.name,
                 snippet:     highlight(snippet || f.hq_city || '', tokens),
                 score,
+                matched_on:  matched?.label || null,
                 metadata:    {
                   warmth: f.warmth,
                   fund_type: f.fund_type,
@@ -246,12 +265,20 @@ export async function smartEntitySearch(query, { sourceFilter = null } = {}) {
             // tribal knowledge is captured here, and a match means a real
             // conversation exists in the firm about this exact thing.
             const score = 1.3 + hitCount(i, ['counterparty_name','counterparty_company','notes','type','outcome'], tokens) * 0.5
+            const matched = pickMatchedField(i, tokens, [
+              ['notes',                'Meeting notes'],
+              ['counterparty_company', 'Company'],
+              ['counterparty_name',    'Counterparty'],
+              ['outcome',              'Outcome'],
+              ['type',                 'Type']
+            ])
             return {
               source_type: 'interaction',
               source_id:   i.id,
               title:       `${i.counterparty_name}${i.counterparty_company ? ' · ' + i.counterparty_company : ''}`,
               snippet:     highlight(i.notes || `${i.type} · ${i.outcome}`, tokens),
               score,
+              matched_on:  matched?.label || null,
               metadata:    {
                 type:      i.type,
                 outcome:   i.outcome,
@@ -276,4 +303,21 @@ export async function smartEntitySearch(query, { sourceFilter = null } = {}) {
 export function mergeAndRank(knowledgeResults = [], entityResults = []) {
   const all = [...(knowledgeResults || []), ...(entityResults || [])]
   return all.sort((a, b) => (b.score || 0) - (a.score || 0))
+}
+
+// Walk a list of [columnKey, displayLabel] pairs and return the first one
+// whose value (scalar or joined array) contains any token. Lets a result
+// row badge itself with WHY it matched ("Stage focus", "Persona notes",
+// "Meeting notes") instead of forcing the partner to guess.
+function pickMatchedField(row, tokens, fieldList) {
+  for (const [key, label] of fieldList) {
+    const raw = row[key]
+    if (raw == null) continue
+    const text = Array.isArray(raw) ? raw.join(' ') : String(raw)
+    const low = text.toLowerCase()
+    if (tokens.some(t => low.includes(t))) {
+      return { key, label, value: Array.isArray(raw) ? raw.join(' · ') : text }
+    }
+  }
+  return null
 }
