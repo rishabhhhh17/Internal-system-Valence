@@ -4,10 +4,12 @@ import { format, formatDistanceToNow } from 'date-fns'
 import {
   Plus, Search, BookOpen, Tag as TagIcon, Hash, Trash2, Table as TableIcon,
   Sparkles, Download, Briefcase, ExternalLink, Loader2,
-  Filter as FilterIcon, File as FileIcon, FolderTree
+  Filter as FilterIcon, File as FileIcon, FolderTree,
+  User2, Building2, MessageSquare
 } from 'lucide-react'
 import { supabase, isSupabaseConfigured, subscribeTable } from '../lib/supabase.js'
 import { searchKnowledge, groupResults, filePublicUrl, deleteKnowledgeFile } from '../lib/knowledge.js'
+import { smartEntitySearch, mergeAndRank } from '../lib/smartSearch.js'
 import { embeddingsEnabled } from '../lib/embeddings.js'
 import { useAuth } from '../hooks/useAuth.js'
 import ConfigBanner from '../components/ConfigBanner.jsx'
@@ -24,11 +26,16 @@ import { Bot } from 'lucide-react'
 import { MandatesPanel } from './KnowledgeMandates.jsx'
 
 const SOURCE_LABELS = {
-  document:  { label: 'Memo',       icon: BookOpen,   color: 'text-valence-blue' },
-  file:      { label: 'File',       icon: FileIcon,   color: 'text-valence-blue' },
-  comp:      { label: 'Comp',       icon: TableIcon,  color: 'text-valence-success' },
-  deal:      { label: 'Deal',       icon: Briefcase,  color: 'text-valence-text' },
-  deal_file: { label: 'Deal file',  icon: FileIcon,   color: 'text-valence-warning' }
+  document:    { label: 'Memo',         icon: BookOpen,        color: 'text-valence-blue' },
+  file:        { label: 'File',         icon: FileIcon,        color: 'text-valence-blue' },
+  comp:        { label: 'Comp',         icon: TableIcon,       color: 'text-valence-success' },
+  deal:        { label: 'Deal',         icon: Briefcase,       color: 'text-valence-text' },
+  deal_file:   { label: 'Deal file',    icon: FileIcon,        color: 'text-valence-warning' },
+  // Entity surfaces — added by smartEntitySearch so a search across the
+  // firm also reaches persona fields and meeting notes.
+  person:      { label: 'Person',       icon: User2,           color: 'text-valence-blue' },
+  fund:        { label: 'Fund',         icon: Building2,       color: 'text-violet-600' },
+  interaction: { label: 'Interaction',  icon: MessageSquare,   color: 'text-emerald-700' }
 }
 
 export default function Knowledge() {
@@ -105,13 +112,18 @@ function SearchPortal({ onSelectTab }) {
     const myReq = ++reqIdRef.current
     setLoading(true); setError('')
     try {
-      const { results, mode } = await searchKnowledge(query, {
-        matchCount: 30,
-        sourceFilter: src === 'all' ? null : [src]
-      })
+      const filter = src === 'all' ? null : [src]
+      // Hit both surfaces in parallel: the knowledge_chunks RPC (memos,
+      // files, comps, deal chunks) AND the entity tables (people, funds,
+      // interactions). Merged + re-ranked by score so an interaction note
+      // matching "seed B $30M revenue" can outrank a name-only fund hit.
+      const [kb, entities] = await Promise.all([
+        searchKnowledge(query, { matchCount: 30, sourceFilter: filter }),
+        query?.trim() ? smartEntitySearch(query, { sourceFilter: filter }) : Promise.resolve([])
+      ])
       if (myReq !== reqIdRef.current) return
-      setResults(results)
-      setMode(mode)
+      setResults(mergeAndRank(kb.results, entities))
+      setMode(kb.mode)
     } catch (e) {
       if (myReq !== reqIdRef.current) return
       setError(e.message || 'Search failed')
@@ -125,6 +137,9 @@ function SearchPortal({ onSelectTab }) {
 
   function openResult(r) {
     if (r.source_type === 'document') navigate(`/knowledge?tab=memos&open=${r.source_id}`)
+    else if (r.source_type === 'person')      navigate(`/people?open=${r.source_id}`)
+    else if (r.source_type === 'fund')        navigate(`/funds?open=${r.source_id}`)
+    else if (r.source_type === 'interaction') navigate(r.metadata?.deal_id ? `/deals?open=${r.metadata.deal_id}` : '/interactions')
     else if (r.source_type === 'deal' || r.source_type === 'deal_file')
       navigate(`/deals?open=${r.metadata?.deal_id || r.source_id}`)
     else if (r.source_type === 'file') {
@@ -170,12 +185,15 @@ function SearchPortal({ onSelectTab }) {
               <FilterIcon className="inline h-3 w-3 mr-1" /> Show
             </span>
             {[
-              ['all',      'Everything'],
-              ['document', 'Memos'],
-              ['file',     'Files'],
-              ['comp',     'Comps'],
-              ['deal',     'Deals'],
-              ['deal_file','Deal files']
+              ['all',         'Everything'],
+              ['document',    'Memos'],
+              ['file',        'Files'],
+              ['comp',        'Comps'],
+              ['deal',        'Deals'],
+              ['deal_file',   'Deal files'],
+              ['person',      'People'],
+              ['fund',        'Funds'],
+              ['interaction', 'Interactions']
             ].map(([id, label]) => (
               <button
                 key={id} onClick={() => setSource(id)}

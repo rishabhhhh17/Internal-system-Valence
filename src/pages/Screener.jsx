@@ -381,7 +381,7 @@ export default function Screener() {
           ) : !output ? (
             <EmptyState icon={Sparkles} title="No screener run yet" description="Fill the inputs and click the button to run the screener." />
           ) : mode === 'fund_match' ? (
-            <FundMatchOutput output={output} pingedFundIds={pingedFundIds} onShortlist={shortlistMatch} canShortlist={Boolean(selectedDealId)} audience={audience} />
+            <FundMatchOutput output={output} funds={funds} pingedFundIds={pingedFundIds} onShortlist={shortlistMatch} canShortlist={Boolean(selectedDealId)} audience={audience} />
           ) : (
             <MandateFitOutput output={output} onConvert={convertToOrigination} />
           )}
@@ -400,33 +400,128 @@ function Field({ label, children }) {
   )
 }
 
-function FundMatchOutput({ output, onShortlist, pingedFundIds, canShortlist, audience }) {
+// Warmth → diligence-card color tokens. Hot = hot lead, walk in expecting
+// a meeting; cold = relationship building still.
+const WARMTH_TONE = {
+  hot:     { pill: 'border-rose-300/50 bg-rose-50 text-rose-700',           ring: 'ring-rose-200/50',     bar: 'bg-rose-500',     track: 'bg-rose-100' },
+  warm:    { pill: 'border-amber-300/50 bg-amber-50 text-amber-800',        ring: 'ring-amber-200/50',    bar: 'bg-amber-500',    track: 'bg-amber-100' },
+  cold:    { pill: 'border-sky-300/50 bg-sky-50 text-sky-700',              ring: 'ring-sky-200/50',      bar: 'bg-sky-500',      track: 'bg-sky-100' },
+  dormant: { pill: 'border-valence-border bg-valence-surface text-valence-muted', ring: 'ring-valence-border', bar: 'bg-valence-muted', track: 'bg-valence-surface' }
+}
+
+function FundMatchOutput({ output, funds, onShortlist, pingedFundIds, canShortlist, audience }) {
   const matches = output?.matches || []
   const heading = audience?.plural ? `Top ${audience.plural}` : 'Top matches'
+  // Index funds by id and by normalised name so we can enrich AI matches
+  // (which only carry fund_name + score) with warmth, persona notes, HQ
+  // city, sectors, and check-size band for the card display.
+  const byId   = new Map((funds || []).map(f => [f.id, f]))
+  const byName = new Map((funds || []).map(f => [(f.name || '').toLowerCase().trim(), f]))
+  const lookup = (m) => byId.get(m.fund_id) || byName.get((m.fund_name || '').toLowerCase().trim())
+
   return (
     <div className="space-y-3">
-      <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-valence-muted">{heading}</p>
-      {output?.reasoning && <p className="text-xs italic text-valence-muted leading-relaxed">{output.reasoning}</p>}
+      <div className="flex items-center justify-between gap-3">
+        <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-valence-muted">{heading}</p>
+        {matches.length > 0 && <span className="text-[10px] tabular-nums text-valence-subtle">{matches.length} ranked</span>}
+      </div>
+      {output?.reasoning && (
+        <p className="rounded-lg border border-valence-border bg-valence-surface/60 px-3 py-2 text-[12px] italic text-valence-muted leading-relaxed">
+          {output.reasoning}
+        </p>
+      )}
       {matches.length === 0 ? (
         <p className="text-sm text-valence-muted">No matches returned.</p>
       ) : (
-        <ul className="space-y-2">
+        <ul className="space-y-2.5">
           {matches.map((m, i) => {
+            const fund    = lookup(m) || {}
             const already = m.fund_id && pingedFundIds.has(m.fund_id)
+            const warmth  = (fund.warmth || 'dormant').toLowerCase()
+            const tone    = WARMTH_TONE[warmth] || WARMTH_TONE.dormant
+            const score   = Math.max(0, Math.min(100, Number(m.score) || 0))
+            const sectors = (fund.sectors || []).slice(0, 3).join(' · ')
+            const cheque  = (fund.check_size_min_usd_m || fund.check_size_max_usd_m)
+              ? `$${fund.check_size_min_usd_m ?? '?'}–${fund.check_size_max_usd_m ?? '?'}M cheque`
+              : null
+            const persona = fund.persona_notes || ''
+            const rank    = i + 1
             return (
-              <li key={i} className="flex items-start gap-3 rounded-lg border border-valence-border bg-white px-3 py-2.5">
-                <div className="grid h-9 w-9 place-items-center rounded-lg bg-valence-blue-soft text-[11px] font-bold tabular-nums text-valence-blue shrink-0">{m.score ?? '?'}</div>
-                <div className="min-w-0 flex-1">
-                  <p className="text-sm font-semibold text-valence-text">{m.fund_name}</p>
-                  {m.reasons?.length > 0 && <p className="mt-1 text-[11px] text-valence-muted leading-relaxed">{m.reasons.slice(0, 4).join(' · ')}</p>}
+              <li key={i} className={`vl-card p-3.5 ring-1 ${tone.ring}`}>
+                <div className="flex items-start gap-3">
+                  {/* Rank + score, stacked. The big number is the AI's score,
+                      not the rank — partners read score first. */}
+                  <div className="shrink-0 text-center w-14">
+                    <div className="font-display text-[24px] font-semibold leading-none tabular-nums text-valence-text">{score}</div>
+                    <div className="mt-0.5 text-[9px] uppercase tracking-[0.14em] text-valence-subtle">/ 100</div>
+                    <div className={`mt-1.5 h-1 rounded-full overflow-hidden ${tone.track}`}>
+                      <div className={`h-full ${tone.bar} transition-[width] duration-700 ease-out`} style={{ width: `${score}%` }} aria-hidden />
+                    </div>
+                    <div className="mt-1.5 text-[9px] uppercase tracking-[0.14em] text-valence-subtle">#{rank}</div>
+                  </div>
+
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
+                      <p className="font-display text-[15px] font-semibold tracking-tight text-valence-text">{m.fund_name}</p>
+                      {fund.fund_type && (
+                        <span className="inline-flex items-center rounded-full border border-valence-border bg-valence-surface px-1.5 py-0 text-[10px] font-semibold text-valence-muted">
+                          {fund.fund_type}
+                        </span>
+                      )}
+                      {fund.warmth && (
+                        <span className={`inline-flex items-center rounded-full border px-1.5 py-0 text-[10px] font-semibold uppercase tracking-[0.12em] ${tone.pill}`}>
+                          {fund.warmth}
+                        </span>
+                      )}
+                      {fund.hq_city && (
+                        <span className="text-[10.5px] text-valence-muted">· {fund.hq_city}</span>
+                      )}
+                    </div>
+
+                    {/* Persona one-liner — the firm's reason this fund is on
+                        the radar. Pulled from the Fund record's persona_notes
+                        (the "Sumant pays par" / "Pavninder tough on price"
+                        line every IB partner writes). */}
+                    {persona && (
+                      <p className="mt-1.5 text-[12.5px] italic leading-relaxed text-valence-text/80">
+                        “{persona}”
+                      </p>
+                    )}
+
+                    {/* AI reasons as chips. Numbered so partners can
+                        reference “point 2” in conversation. */}
+                    {m.reasons?.length > 0 && (
+                      <ul className="mt-2 flex flex-wrap gap-1">
+                        {m.reasons.slice(0, 5).map((r, j) => (
+                          <li key={j} className="inline-flex items-center gap-1 rounded-md border border-valence-border bg-valence-surface px-1.5 py-0.5 text-[10.5px] text-valence-muted">
+                            <span className="font-bold tabular-nums text-valence-blue">{j + 1}</span>
+                            <span>{r}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+
+                    {/* Meta strip — sectors, cheque band. Quiet, partner can
+                        scan without reading. */}
+                    {(sectors || cheque) && (
+                      <p className="mt-2 text-[10.5px] text-valence-subtle">
+                        {sectors}{sectors && cheque ? ' · ' : ''}{cheque}
+                      </p>
+                    )}
+                  </div>
+
+                  {canShortlist ? (
+                    <button
+                      onClick={() => onShortlist(m)}
+                      disabled={already}
+                      className={`shrink-0 text-[11px] ${already ? 'vl-btn-ghost opacity-50 cursor-not-allowed' : 'vl-btn-primary'}`}
+                    >
+                      {already ? <><Check className="h-3 w-3" /> Added</> : <><Plus className="h-3 w-3" /> Shortlist</>}
+                    </button>
+                  ) : (
+                    <span className="shrink-0 text-[10px] text-valence-subtle max-w-[80px] text-right">Pick a deal to shortlist</span>
+                  )}
                 </div>
-                {canShortlist ? (
-                  <button onClick={() => onShortlist(m)} disabled={already} className={`vl-btn-ghost text-[11px] shrink-0 ${already ? 'opacity-50 cursor-not-allowed' : ''}`}>
-                    {already ? <><Check className="h-3 w-3" /> Added</> : <><Plus className="h-3 w-3" /> Add to shortlist</>}
-                  </button>
-                ) : (
-                  <span className="text-[10px] text-valence-subtle">Pick a deal to shortlist</span>
-                )}
               </li>
             )
           })}

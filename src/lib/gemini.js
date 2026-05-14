@@ -46,6 +46,11 @@ Write the message now.`
 }
 
 // ============ DEAL BRIEFER ============
+// Produces an IB-diligence-style internal brief in four labelled sections.
+// Commercials (size, fees, stage) are surfaced as chips in the UI, so the
+// prose stays focused on judgement: thesis, counterparties, risks, next
+// moves. The prompt forbids bullets / markdown so the renderer can rely on
+// the four labels for structure.
 export async function generateDealBrief({ deal, contacts = [], files = [], activities = [] }) {
   const money = deal.ticket_size_usd_m ? `USD ${deal.ticket_size_usd_m}M EV` : 'EV not disclosed'
   const fees  = [
@@ -53,16 +58,18 @@ export async function generateDealBrief({ deal, contacts = [], files = [], activ
     deal.fee_success_pct    ? `${deal.fee_success_pct}% success fee` : null
   ].filter(Boolean).join(' + ') || 'Fee structure TBD'
 
-  const prompt = `You are a senior associate at Valence Growth Partners preparing a one-page internal brief on a live mandate. Write crisp, pragmatic, investment-banking-grade prose. No emojis, no fluff, no bullet headers. Produce four short labelled sections exactly in this order, each 1–2 sentences:
+  const prompt = `You are a senior associate at Valence Growth Partners preparing an internal one-pager on a live mandate, the kind a partner would scan five minutes before walking into a meeting. Tone: crisp, pragmatic, investment-banking-grade. No emojis, no markdown, no bullet markers in prose — the renderer styles structure from the section labels.
 
-SITUATION — the core of the mandate.
-COMMERCIALS — deal size, fee structure, stage, target close.
-COUNTERPARTIES — who's on the other side, any notable external parties.
-NEXT STEPS — 2 practical actions to move this forward this week.
+Produce four short labelled sections in this exact order, each 2–3 sentences:
 
-Use plain labels "SITUATION:", "COMMERCIALS:", "COUNTERPARTIES:", "NEXT STEPS:" at the start of each paragraph (no markdown). Keep the whole brief under 180 words.
+THESIS — what's the core opportunity here. Why is this mandate worth running. The "why now" angle.
+COUNTERPARTIES — who's on the other side that matters. Name names, note temperature where you can.
+RISKS — what could derail this. Be specific: counterparty risk, structuring risk, market timing, founder dynamics.
+NEXT MOVES — 2 concrete actions for this week. Verb-led ("Send teaser to X by Friday", "Schedule pitch with Y"). Numbered 1. / 2.
 
-Here is the live data:
+Use plain labels "THESIS:", "COUNTERPARTIES:", "RISKS:", "NEXT MOVES:" at the start of each paragraph. Keep the whole brief under 220 words.
+
+Live data:
 
 CLIENT: ${deal.client_name}
 TYPE: ${deal.deal_type}   SIDE: ${deal.side || 'Advisory'}   SECTOR: ${deal.sector || '—'}
@@ -82,7 +89,7 @@ ${activities.slice(0, 8).map(a => `- ${a.kind}: ${a.body || ''}`).join('\n') || 
 
 Write the brief now.`
 
-  return gemini(prompt, { temperature: 0.45, maxOutputTokens: 520 })
+  return gemini(prompt, { temperature: 0.45, maxOutputTokens: 620 })
 }
 
 // ============ EMAIL SCENARIOS ============
