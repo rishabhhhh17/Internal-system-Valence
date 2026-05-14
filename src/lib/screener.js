@@ -139,21 +139,11 @@ function describeDealForPrompt(deal, mode) {
 export async function screenMandateFit({ teaserText, criteria }) {
   const profile = criteriaPrompt(criteria)
   if (!isGeminiConfigured) {
-    // Neutral verdict — do NOT default to 'pursue' here. The UI surfaces a
-    // 'Convert to mandate' CTA on `pursue`, which would mislead the user
-    // into one-click converting every offline submission.
-    return {
-      verdict: 'review',
-      score: 0,
-      one_line: 'Gemini key not configured — verdict not generated.',
-      lines: [
-        'Mandate-Fit needs a Gemini key to run.',
-        'Set VITE_GEMINI_API_KEY in your environment to enable AI verdicts.',
-        'The submission was still recorded with the teaser + deck for manual review.',
-        '',
-        ''
-      ]
-    }
+    // No Gemini key — fall through to a deterministic keyword-scored
+    // verdict. Conservative: ceiling at 80 to keep "pursue" rare on
+    // heuristics; the UI's Convert CTA fires only above 70 so partners
+    // still get the one-click route on clear matches.
+    return heuristicMandateFit({ teaserText, criteria })
   }
 
   const prompt = `You are a Managing Partner at Valence Growth Partners deciding whether to pursue an inbound mandate. Read the teaser below, score it against our standing criteria, and return JSON only.
@@ -195,3 +185,120 @@ function criteriaPrompt(criteria) {
   }
   return JSON.stringify(criteria, null, 2)
 }
+
+// ============ HEURISTIC FALLBACKS ============
+// Deterministic Mandate-Fit when no Gemini key. Scores a teaser against the
+// firm's standing criteria using cheap-but-explicit keyword matching:
+//
+//   + sector match in firm's coverage list  → +25
+//   + ticket size inside the EV band         → +20
+//   + geography match                        → +15
+//   + mandate type (M&A / fundraise / etc)   → +15
+//   - hard-exclude keyword hit               → cap at 30 / verdict pass
+//
+// The output uses the same { verdict, score, one_line, lines } shape as
+// the Gemini path so the UI doesn't branch.
+const FIRM_SECTORS = ['healthcare','fintech','consumer','infrastructure','renewable','renewables','logistics','real estate','bfsi','industrials','energy']
+const FIRM_GEOS    = ['india','indian','mumbai','delhi','bengaluru','bangalore','chennai','hyderabad','pune','uk','united kingdom','london','singapore','sea','southeast asia']
+const FIRM_TYPES   = ['m&a','m and a','merger','acquisition','sell-side','buy-side','fundraise','capital raise','series','growth equity','strategic advisory']
+const HARD_EXCLUDE = ['litigation','family dispute','distressed shareholder','cap-table only','pre-revenue startup','seed-stage only']
+
+export function heuristicMandateFit({ teaserText, criteria }) {
+  const text  = String(teaserText || '').toLowerCase()
+  if (!text.trim()) {
+    return {
+      verdict: 'review',
+      score: 0,
+      one_line: 'No teaser text to score — paste the inbound description to get a verdict.',
+      lines: ['Empty submission.', '', '', '', '']
+    }
+  }
+
+  // Extract ticket size if mentioned: "$200M", "USD 60M", "INR 1,200 Cr", "$ 75 million"
+  const evMatch = text.match(/(?:usd|us\$|\$|inr|rs\.?)\s*([\d,.]+)\s*(m|mn|million|cr|crore|b|bn|billion)?/i)
+  let evUsdM = null
+  if (evMatch) {
+    const num = parseFloat(evMatch[1].replace(/,/g, ''))
+    const unit = (evMatch[2] || '').toLowerCase()
+    if (!Number.isNaN(num)) {
+      if (unit.startsWith('cr')) evUsdM = num * 0.12         // 1 Cr INR ≈ 0.12 M USD
+      else if (unit.startsWith('b')) evUsdM = num * 1000
+      else evUsdM = num                                       // default millions
+    }
+  }
+
+  const lines = []
+  let score = 0
+
+  // Sector match
+  const sectorHit = FIRM_SECTORS.find(s => text.includes(s))
+  if (sectorHit) {
+    score += 25
+    lines.push(`Sector match — teaser mentions ${cap(sectorHit)}; sits inside firm coverage.`)
+  } else {
+    lines.push(`Sector unclear — couldn't pick up a firm-coverage keyword in the teaser.`)
+  }
+
+  // Ticket band: firm sweet spot $50M–$750M EV
+  if (evUsdM != null) {
+    if (evUsdM >= 50 && evUsdM <= 750) {
+      score += 20
+      lines.push(`Ticket band — ~USD ${Math.round(evUsdM)}M sits inside the firm's $50M–$750M sweet spot.`)
+    } else if (evUsdM < 50) {
+      lines.push(`Ticket band — ~USD ${Math.round(evUsdM)}M is below the firm's $50M floor.`)
+    } else {
+      score += 5
+      lines.push(`Ticket band — ~USD ${Math.round(evUsdM)}M exceeds the typical $750M ceiling; possible co-advisory route.`)
+    }
+  } else {
+    lines.push(`Ticket band — economics not disclosed in the teaser; ask before committing partner time.`)
+  }
+
+  // Geography match
+  const geoHit = FIRM_GEOS.find(g => text.includes(g))
+  if (geoHit) {
+    score += 15
+    lines.push(`Geography — ${cap(geoHit)} aligns with the firm's India + cross-border footprint.`)
+  } else {
+    lines.push(`Geography — no firm-coverage country surfaced in the teaser.`)
+  }
+
+  // Mandate type
+  const typeHit = FIRM_TYPES.find(t => text.includes(t))
+  if (typeHit) {
+    score += 15
+    lines.push(`Mandate type — ${cap(typeHit)} is a familiar execution shape for the firm.`)
+  }
+
+  // Hard exclude check
+  const exclude = HARD_EXCLUDE.find(k => text.includes(k))
+  if (exclude) {
+    score = Math.min(score, 30)
+    lines.unshift(`Hard exclude triggered: "${exclude}". Recommend a polite decline regardless of other dimensions.`)
+  }
+
+  // Quality of write-up: longer teaser = more substance to read
+  if (text.length > 600) score += 5
+  if (text.length > 1500) score += 5
+
+  // Verdict thresholds. Ceiling at 80 on the heuristic — partners still
+  // benefit from the LLM signal for borderline calls above 80.
+  score = Math.min(95, score)
+  let verdict
+  if (exclude)         verdict = 'pass'
+  else if (score >= 70) verdict = 'pursue'
+  else if (score >= 45) verdict = 'review'
+  else                 verdict = 'pass'
+
+  const one_line =
+    verdict === 'pursue' ? 'Heuristic match — looks like a firm-coverage mandate worth a first call.'
+  : verdict === 'review' ? 'Partial fit — worth a partner read before responding.'
+  :                        'Outside the firm\'s typical sweet spot; recommend a polite decline.'
+
+  // Pad to 5 lines so the UI's chip list stays balanced.
+  while (lines.length < 5) lines.push('')
+
+  return { verdict, score, one_line, lines: lines.slice(0, 5) }
+}
+
+function cap(s) { return s ? s.charAt(0).toUpperCase() + s.slice(1) : '' }

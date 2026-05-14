@@ -1,4 +1,5 @@
 import { Sparkles, CheckCircle2, AlertTriangle, XCircle, ArrowRight } from 'lucide-react'
+import { isGeminiConfigured } from '../lib/gemini.js'
 
 // Polished verdict block shared between the Quick Screener (live result)
 // and the Intake inbox (cached AI output on the submission row).
@@ -97,6 +98,14 @@ export default function MandateFitVerdict({ output, onConvert, dense = false, ey
         <div className="flex items-center justify-between gap-2">
           <p className="vl-eyebrow-ink inline-flex items-center gap-1.5">
             <Sparkles className="h-3 w-3 text-valence-blue" /> {eyebrow}
+            {!isGeminiConfigured && (
+              <span
+                className="inline-flex items-center rounded-full border border-amber-300/50 bg-amber-50 px-1.5 py-0 text-[9px] font-semibold uppercase tracking-[0.14em] text-amber-700"
+                title="Heuristic mode — Gemini key not configured. Verdict produced by keyword-scored rules."
+              >
+                Heuristic
+              </span>
+            )}
           </p>
           <span className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-[11px] font-semibold uppercase tracking-[0.14em] ${tone.pill}`}>
             <Icon className="h-3 w-3" /> {meta.label}

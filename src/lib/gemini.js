@@ -51,7 +51,15 @@ Write the message now.`
 // prose stays focused on judgement: thesis, counterparties, risks, next
 // moves. The prompt forbids bullets / markdown so the renderer can rely on
 // the four labels for structure.
+//
+// Falls back to a deterministic heuristic brief when no Gemini key is set
+// (see `heuristicDealBrief` below). The fallback uses the same four labels
+// so the renderer doesn't need to know the difference. This is what keeps
+// the cold-demo experience working without an API key.
 export async function generateDealBrief({ deal, contacts = [], files = [], activities = [] }) {
+  if (!isGeminiConfigured) {
+    return heuristicDealBrief({ deal, contacts, files, activities })
+  }
   const money = deal.ticket_size_usd_m ? `USD ${deal.ticket_size_usd_m}M EV` : 'EV not disclosed'
   const fees  = [
     deal.fee_retainer_usd   ? `$${Number(deal.fee_retainer_usd).toLocaleString()} retainer` : null,
@@ -199,4 +207,141 @@ Context:
 
 Write the email now.`
   return gemini(prompt, { temperature: 0.65, maxOutputTokens: 420 })
+}
+
+// ============ HEURISTIC FALLBACKS ============
+// These run when no Gemini key is configured so the demo still works
+// end-to-end — cold customers don't need to provision an API key just to
+// see what the surface looks like populated.
+
+// Deterministic Deal Brief in the same four-section shape as the LLM
+// output. Rules of thumb encoded here mirror what a senior associate
+// would write on the back of an envelope.
+export function heuristicDealBrief({ deal, contacts = [], files = [], activities = [] }) {
+  const sector       = deal.sector || 'this sector'
+  const stage        = deal.stage  || 'Origination'
+  const dealType     = (deal.deal_type || 'transaction').toLowerCase()
+  const subtype      = (deal.deal_subtype || '').replace(/_/g, ' ')
+  const side         = deal.ma_side ? `${deal.ma_side}-side` : (deal.side || 'advisory').toLowerCase()
+  const ev           = deal.ticket_size_usd_m
+                       ? `USD ${deal.ticket_size_usd_m}M EV`
+                       : (deal.target_raise_usd_m ? `USD ${deal.target_raise_usd_m}M raise` : 'undisclosed economics')
+  const lead         = deal.lead_owner || 'the lead banker'
+  const targetClose  = deal.target_close ? new Date(deal.target_close) : null
+  const nda          = deal.nda_status || 'Unknown'
+  const noteLine     = deal.notes ? ` ${trimSentence(deal.notes)}` : ''
+
+  // ---- THESIS ----
+  const thesisBits = []
+  thesisBits.push(`${deal.client_name || 'The client'} is running a ${subtype || dealType} mandate in ${sector} at ${ev}.`)
+  if (side && side !== 'advisory') thesisBits.push(`Side: ${side}.`)
+  if (deal.acquisition_brief) thesisBits.push(trimSentence(deal.acquisition_brief))
+  else if (noteLine) thesisBits.push(noteLine)
+  const thesis = thesisBits.join(' ')
+
+  // ---- COUNTERPARTIES ----
+  let counterparties
+  if (contacts.length === 0) {
+    counterparties = `No counterparties logged yet. Add the lead from the other side under the Counterparties tab so the rest of this brief can sharpen on the next regenerate.`
+  } else {
+    const named = contacts.slice(0, 4).map(c => {
+      const role = c.role ? ` (${c.role})` : ''
+      const co   = c.company ? `, ${c.company}` : ''
+      return `${c.name}${role}${co}`
+    }).join('; ')
+    counterparties = `${contacts.length} counterpart${contacts.length === 1 ? 'y' : 'ies'} logged: ${named}.`
+    if (contacts.length > 4) counterparties += ` Plus ${contacts.length - 4} more.`
+  }
+
+  // ---- RISKS ----
+  const risks = []
+  // Staleness: no activity in 21+ days
+  const lastTouch = activities.length
+    ? new Date(activities[0].created_at)
+    : (deal.updated_at ? new Date(deal.updated_at) : null)
+  if (lastTouch) {
+    const days = Math.floor((Date.now() - lastTouch.getTime()) / 86400000)
+    if (days >= 21) risks.push(`No activity logged in ${days} days — momentum risk; counterparty cool-off likely.`)
+  }
+  if (nda === 'Pending' && (stage === 'Pre-Mandate' || stage === 'Mandate'))
+    risks.push(`NDA still pending at ${stage} — blocks diligence room sharing and slows pricing work.`)
+  if (!deal.fee_retainer_usd && !deal.fee_success_pct && stage === 'Mandate')
+    risks.push(`Fee structure not set on a live mandate — revisit the engagement letter before next stage.`)
+  if (contacts.length === 0)
+    risks.push(`No counterparty logged — relationship is in ${lead}'s head only, not the firm's.`)
+  if (targetClose) {
+    const daysToClose = Math.floor((targetClose.getTime() - Date.now()) / 86400000)
+    if (daysToClose < 0) risks.push(`Target close was ${Math.abs(daysToClose)} days ago — refresh the timeline with the counterparty.`)
+    else if (daysToClose <= 14) risks.push(`Target close in ${daysToClose} days — confirm both sides are aligned on the closing checklist.`)
+  }
+  if (risks.length === 0) risks.push(`Standard execution risks for ${sector} at ${stage}: counterparty diligence pace, market windows, and any pending regulatory approvals.`)
+  const risksText = risks.slice(0, 3).join(' ')
+
+  // ---- NEXT MOVES ----
+  // Stage-aware playbook. Verb-led, two concrete actions for this week.
+  const moves = nextMovesFor(stage, deal, contacts)
+  const nextMoves = moves.map((m, i) => `${i + 1}. ${m}`).join(' ')
+
+  return [
+    `THESIS: ${thesis}`,
+    `COUNTERPARTIES: ${counterparties}`,
+    `RISKS: ${risksText}`,
+    `NEXT MOVES: ${nextMoves}`
+  ].join('\n\n')
+}
+
+function nextMovesFor(stage, deal, contacts) {
+  const counterpartyName = contacts[0]?.name || 'the lead counterparty'
+  const lead             = deal.lead_owner || 'the lead banker'
+  switch (stage) {
+    case 'Origination':
+      return [
+        `Confirm the engagement framing with ${counterpartyName} this week — scope, fees, timeline.`,
+        `Spin up the data room template for ${deal.sector || 'the sector'} and seed it with the top three precedent comps.`
+      ]
+    case 'Pitching':
+      return [
+        `Walk ${counterpartyName} through the pitch deck and capture two objections to address before the IC.`,
+        `Shortlist five fund counterparties whose persona fits and warm-intro by Friday.`
+      ]
+    case 'Pre-Mandate':
+      return [
+        `Close out the NDA${deal.nda_status === 'Pending' ? ' — currently pending' : ''} so diligence work isn't blocked.`,
+        `Draft the engagement letter (retainer + success fee) and circulate internally for ${lead} to sign off.`
+      ]
+    case 'Mandate':
+      return [
+        `Refresh the live pipeline of interested counterparties — add new touches under the Interactions tab.`,
+        `Run a mid-mandate diligence checklist: docs, comps, model, regulatory. Flag any gaps to ${lead}.`
+      ]
+    case 'Closed':
+      return [
+        `Log the final fee position and close-out memo under the Files tab.`,
+        `Schedule the 30-day post-close debrief with ${counterpartyName} to seed the next mandate.`
+      ]
+    case 'On Hold':
+      return [
+        `Confirm the hold trigger (market, counterparty, internal) and set a calendar reminder to revisit in 30 days.`,
+        `Park the data room and notify any active funds so they de-prioritise without going cold.`
+      ]
+    case 'Lost':
+      return [
+        `Write the loss reason into the Activity log so the firm learns from this counterparty.`,
+        `Stay in touch every quarter — losses today are mandates tomorrow.`
+      ]
+    default:
+      return [
+        `Move the mandate forward by logging the next concrete action under Activity.`,
+        `Re-confirm scope, timing, and economics with ${counterpartyName}.`
+      ]
+  }
+}
+
+function trimSentence(s) {
+  const t = String(s || '').trim()
+  if (!t) return ''
+  // Take the first sentence (or 180 chars) so the brief stays tight.
+  const period = t.search(/[.!?](\s|$)/)
+  const first = period > 0 ? t.slice(0, period + 1) : t
+  return first.length > 200 ? first.slice(0, 197) + '…' : first
 }

@@ -45,10 +45,9 @@ export default function DealBrief({ deal }) {
   const [copied, setCopied] = useState(false)
 
   async function run() {
-    if (!isGeminiConfigured) {
-      setError('Add VITE_GEMINI_API_KEY to generate briefs.')
-      return
-    }
+    // Heuristic fallback runs when no Gemini key — the generator returns a
+    // deterministic brief in the same shape, so the renderer doesn't need
+    // to branch. We just flag the mode in the header so partners know.
     setLoading(true); setError(''); setBrief('')
     try {
       let contacts = [], files = [], activities = []
@@ -136,7 +135,17 @@ export default function DealBrief({ deal }) {
             <Sparkles className="h-4 w-4 text-valence-blue" />
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-semibold text-valence-text">AI one-page brief</p>
+            <div className="flex items-center gap-2 flex-wrap">
+              <p className="text-sm font-semibold text-valence-text">AI one-page brief</p>
+              {!isGeminiConfigured && (
+                <span
+                  className="inline-flex items-center rounded-full border border-amber-300/50 bg-amber-50 px-1.5 py-0 text-[9.5px] font-semibold uppercase tracking-[0.14em] text-amber-700"
+                  title="Heuristic mode — Gemini key not configured. Connect a key to switch to the AI-generated brief."
+                >
+                  Heuristic mode
+                </span>
+              )}
+            </div>
             <p className="mt-0.5 text-[11px] text-valence-muted leading-relaxed">
               Crisp, partner-grade read of this mandate. Pulls live data, counterparties, files and recent activity into four sections: Thesis · Counterparties · Risks · Next moves.
             </p>
