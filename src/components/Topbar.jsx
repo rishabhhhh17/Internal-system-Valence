@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
-import { useLocation } from 'react-router-dom'
-import { Search, Bell } from 'lucide-react'
+import { useLocation, Link } from 'react-router-dom'
+import { Search, Bell, Activity as ActivityIcon } from 'lucide-react'
 import Logo from './Logo.jsx'
 import GoogleButton from './GoogleButton.jsx'
 import CurrencyToggle from './CurrencyToggle.jsx'
@@ -69,6 +69,23 @@ export default function Topbar() {
             <span className="vl-kbd">⌘K</span>
           </button>
         </div>
+
+        {/* Firm pulse — small icon-only entry into the firm-wide activity
+            feed. Lives in the topbar (not the main sidebar) because it's
+            a glance-at-it surface, not a route partners come back to
+            daily. Same visual weight as the notification bell. */}
+        <Link
+          to="/feed"
+          className={`relative grid h-9 w-9 place-items-center rounded-lg border transition ${
+            pathname === '/feed'
+              ? 'border-valence-blue/40 bg-valence-blue-soft text-valence-blue'
+              : 'border-valence-border bg-white text-valence-muted hover:text-valence-text hover:border-valence-ink/30'
+          }`}
+          aria-label="Firm pulse"
+          title="Firm pulse — everything the team did"
+        >
+          <ActivityIcon className="h-4 w-4" />
+        </Link>
 
         <button
           onClick={() => setNotifOpen(true)}
