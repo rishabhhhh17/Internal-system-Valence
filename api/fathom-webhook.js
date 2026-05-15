@@ -111,7 +111,11 @@ export default async function handler(req, res) {
       interaction_purpose:  'relationship_building',
       counterparty_name:    counterpartyName || 'Fathom meeting',
       counterparty_company: counterpartyCompany || null,
-      type:                 'meeting',
+      // Allowed types per the schema check: intro_call, pitch_meeting,
+      // coffee, email_thread, referral_in/out, event, phone_call,
+      // whatsapp, other. Fathom recordings come from Zoom / Meet / Teams
+      // — closest match is `phone_call` (treat video conf as a call).
+      type:                 'phone_call',
       outcome:              'in_progress',
       notes,
       transcript,
