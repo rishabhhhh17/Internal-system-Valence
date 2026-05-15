@@ -31,6 +31,15 @@ const GROUPS = [
       ['Click row / card', 'Open the deal drawer'],
       ['Tab inside drawer', 'Cycle between Overview / Files / Counterparties / Activity / Similar / AI Brief']
     ]
+  },
+  {
+    name: 'Deal Table — row nav',
+    items: [
+      ['J or ↓',  'Focus next row'],
+      ['K or ↑',  'Focus previous row'],
+      ['O or ↵',  'Open drawer for focused row'],
+      ['Esc',     'Clear row focus']
+    ]
   }
 ]
 

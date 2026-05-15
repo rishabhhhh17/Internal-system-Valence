@@ -101,6 +101,9 @@ export default function Deals() {
   const [view, setView]     = useState('board') // 'board' | 'table'
 
   const [drawer, setDrawer] = useState(null)
+  // Keyboard-focused row on the Table view (separate from open drawer so
+  // partners can scan rows with j/k without opening each one).
+  const [focusedDealId, setFocusedDealId] = useState(null)
   // Modal shape: null | 'new' | 'new-advanced' | { edit: deal }.
   // 'new'           — quick capture; just the form
   // 'new-advanced'  — full creator with document attachments captured upfront
@@ -397,8 +400,19 @@ export default function Deals() {
       ) : view === 'board' ? (
         <DealKanban deals={filtered} onOpen={setDrawer} onStageChange={changeStage} />
       ) : (
-        <DealTable deals={filtered} onOpen={setDrawer} />
+        <DealTable deals={filtered} onOpen={setDrawer} focusedId={focusedDealId} onFocus={setFocusedDealId} />
       )}
+
+      {/* Power-user keyboard nav scoped to /deals Table view. j/k moves the
+          focus ring up/down across rows, o/Enter opens the drawer for the
+          focused row. Skipped when typing in any input. */}
+      <DealsKeyboardNav
+        enabled={view === 'table' && filtered.length > 0 && !drawer && !modal}
+        deals={filtered}
+        focusedId={focusedDealId}
+        setFocusedId={setFocusedDealId}
+        onOpen={setDrawer}
+      />
 
       {/* Drawer with tabs. The title is click-to-edit — rename the deal
           inline without opening the full Edit modal. */}
@@ -692,7 +706,13 @@ function Field({ label, value, accent = false }) {
 }
 
 // ============ TABLE VIEW ============
-function DealTable({ deals, onOpen }) {
+function DealTable({ deals, onOpen, focusedId = null, onFocus = () => {} }) {
+  // Auto-scroll focused row into view when the partner navigates with j/k.
+  const rowRefs = useRef({})
+  useEffect(() => {
+    const el = focusedId ? rowRefs.current[focusedId] : null
+    if (el) el.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
+  }, [focusedId])
   return (
     <div className="vl-card overflow-hidden">
       <div className="overflow-x-auto">
@@ -710,7 +730,13 @@ function DealTable({ deals, onOpen }) {
           </thead>
           <tbody className="divide-y divide-valence-border">
             {deals.map(d => (
-              <tr key={d.id} onClick={() => onOpen(d)} className="cursor-pointer transition hover:bg-valence-surface">
+              <tr
+                key={d.id}
+                ref={el => { if (el) rowRefs.current[d.id] = el }}
+                onClick={() => { onFocus(d.id); onOpen(d) }}
+                onMouseEnter={() => onFocus(d.id)}
+                className={`cursor-pointer transition ${focusedId === d.id ? 'bg-valence-blue-soft/50 ring-2 ring-valence-blue/30 ring-inset' : 'hover:bg-valence-surface'}`}
+              >
                 <td className="px-5 py-4">
                   <div className="flex items-center gap-3">
                     <div className="grid h-9 w-9 place-items-center rounded-lg bg-valence-blue-soft ring-1 ring-valence-blue/20">
@@ -1114,4 +1140,44 @@ function TableSkeleton() {
       </div>
     </div>
   )
+}
+
+// Power-user keyboard nav for /deals Table view. Listens at the window
+// level; ignores keystrokes inside any input/textarea so partners typing
+// in the search box aren't accidentally jumping rows.
+//
+//   j / ↓  →  move focus to next row (wraps)
+//   k / ↑  →  move focus to previous row (wraps)
+//   o / ↵  →  open drawer for focused row
+//   Esc    →  clear row focus
+function DealsKeyboardNav({ enabled, deals, focusedId, setFocusedId, onOpen }) {
+  useEffect(() => {
+    if (!enabled) return
+    const onKey = (e) => {
+      const tag = (e.target?.tagName || '').toLowerCase()
+      if (tag === 'input' || tag === 'textarea' || tag === 'select') return
+      if (e.metaKey || e.ctrlKey || e.altKey) return
+
+      const idx = deals.findIndex(d => d.id === focusedId)
+      if (e.key === 'j' || e.key === 'ArrowDown') {
+        e.preventDefault()
+        const next = idx < 0 ? 0 : (idx + 1) % deals.length
+        setFocusedId(deals[next]?.id || null)
+      } else if (e.key === 'k' || e.key === 'ArrowUp') {
+        e.preventDefault()
+        const prev = idx < 0 ? deals.length - 1 : (idx - 1 + deals.length) % deals.length
+        setFocusedId(deals[prev]?.id || null)
+      } else if (e.key === 'o' || e.key === 'Enter') {
+        if (focusedId) {
+          const row = deals.find(d => d.id === focusedId)
+          if (row) { e.preventDefault(); onOpen(row) }
+        }
+      } else if (e.key === 'Escape') {
+        if (focusedId) { e.preventDefault(); setFocusedId(null) }
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [enabled, deals, focusedId, setFocusedId, onOpen])
+  return null
 }
