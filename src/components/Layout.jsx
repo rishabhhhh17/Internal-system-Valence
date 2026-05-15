@@ -11,9 +11,14 @@ export default function Layout({ children }) {
       <div className="pointer-events-none fixed inset-0 bg-valence-radial" aria-hidden />
       <div className="pointer-events-none fixed inset-0 bg-valence-aurora opacity-90" aria-hidden />
       <Sidebar />
-      <div className="relative z-10 flex min-h-screen flex-1 flex-col">
+      <div className="relative z-10 flex min-w-0 min-h-screen flex-1 flex-col">
         <Topbar />
-        <main className="flex-1 px-4 pt-10 pb-10 sm:px-6 lg:px-12">
+        {/* Padding tightened on narrow viewports — pt-6 / pb-20 on mobile so
+            MobileNav doesn't overlap content, then a normal-density lg
+            breakpoint. min-w-0 on the parent prevents flex children from
+            forcing horizontal scroll when content overflows (e.g. wide
+            tables on /deals). */}
+        <main className="flex-1 px-3 pt-5 pb-24 sm:px-5 sm:pt-7 sm:pb-10 lg:px-10 lg:pt-9">
           <div className="mx-auto w-full max-w-[1280px]">{children}</div>
         </main>
         <MobileNav />

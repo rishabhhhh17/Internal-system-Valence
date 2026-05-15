@@ -48,7 +48,7 @@ export default function Topbar() {
 
   return (
     <>
-      <header className="sticky top-0 z-30 flex h-16 items-center gap-4 border-b border-valence-border vl-glass-bar px-5 lg:px-8">
+      <header className="sticky top-0 z-30 flex h-14 sm:h-16 items-center gap-2 sm:gap-3 lg:gap-4 border-b border-valence-border vl-glass-bar px-3 sm:px-5 lg:px-8">
         <div className="flex items-center gap-3 lg:hidden">
           <Logo compact />
         </div>
@@ -100,9 +100,13 @@ export default function Topbar() {
           )}
         </button>
 
-        <SampleDataChip />
-        <TutorialButton />
-        <CurrencyToggle />
+        {/* Visibility tiers on the trailing chips so the topbar doesn't
+            overflow on narrow viewports. Mobile (<sm) keeps only the
+            pulse + bell + avatar — everything else lives one tap away
+            in the command palette / sample chip drawer. */}
+        <div className="hidden sm:flex"><SampleDataChip /></div>
+        <div className="hidden md:flex"><TutorialButton /></div>
+        <div className="hidden lg:flex"><CurrencyToggle /></div>
         <GoogleButton />
       </header>
 

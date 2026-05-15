@@ -27,6 +27,7 @@ const more = [
   { to: '/funds',       label: 'Firm',          icon: Building2 },
   { to: '/screen',      label: 'Quick Screener',icon: Sparkles },
   { to: '/inbox/intake',label: 'Intake inbox',  icon: Inbox },
+  { to: '/feed',        label: 'Firm pulse',    icon: Activity },
   { to: '/analytics',   label: 'Analytics',     icon: BarChart3 },
   { to: '/team',        label: 'Team',          icon: FolderTree }
 ]

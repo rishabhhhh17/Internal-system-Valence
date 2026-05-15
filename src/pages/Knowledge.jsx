@@ -155,7 +155,7 @@ function SearchPortal({ onSelectTab }) {
   return (
     <div className="space-y-5">
       {/* Hero search */}
-      <section className="relative overflow-hidden rounded-2xl border border-valence-border bg-white vl-circles py-16 px-8 lg:py-24 lg:px-14">
+      <section className="relative overflow-hidden rounded-2xl border border-valence-border bg-white vl-circles py-8 px-5 sm:py-12 sm:px-8 lg:py-20 lg:px-14">
         <div className="absolute inset-0 bg-valence-grid opacity-50" aria-hidden />
         <div className="relative max-w-3xl z-10">
           <p className="vl-eyebrow">Firm-wide search</p>
