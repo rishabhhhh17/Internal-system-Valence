@@ -106,6 +106,9 @@ export default async function handler(req, res) {
       'Prefer':        'return=representation'
     },
     body: JSON.stringify({
+      // `interaction_purpose` is NOT NULL — pick the most defensible
+      // default for an auto-imported meeting. The user can edit later.
+      interaction_purpose:  'relationship_building',
       counterparty_name:    counterpartyName || 'Fathom meeting',
       counterparty_company: counterpartyCompany || null,
       type:                 'meeting',
