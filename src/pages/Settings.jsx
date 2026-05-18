@@ -13,6 +13,7 @@ import { PITCH_MODE } from '../lib/featureFlags.js'
 import GoogleWorkspacePanel from '../components/GoogleWorkspacePanel.jsx'
 import SampleDataPanel from '../components/SampleDataPanel.jsx'
 import GeminiKeyPanel from '../components/GeminiKeyPanel.jsx'
+import CsvContactImport from '../components/CsvContactImport.jsx'
 
 function ComingSoon({ label }) {
   return (
@@ -134,8 +135,9 @@ function IntegrationsSection() {
 function DataSection() {
   return (
     <div className="space-y-4">
+      <CsvContactImport />
       <SampleDataPanel />
-      <ComingSoon label="CSV contact importer · drag-to-attach on People" />
+      <ComingSoon label="Drag-to-attach contacts on People" />
     </div>
   )
 }
