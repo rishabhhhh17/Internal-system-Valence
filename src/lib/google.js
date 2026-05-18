@@ -16,6 +16,9 @@ export const GOOGLE_SCOPES = [
   // Read-only header access — powers the deal drawer's "Sync Gmail" feature.
   // We never read bodies; metadataHeaders is limited to From/To/CC/Date/Subject.
   'https://www.googleapis.com/auth/gmail.metadata',
+  // Read + write the user's Google Tasks so the Day Planner Tasks panel
+  // can be the source of truth for the partner's to-do list.
+  'https://www.googleapis.com/auth/tasks',
   'openid', 'email', 'profile'
 ].join(' ')
 
@@ -240,6 +243,97 @@ export async function listDriveFiles({ q = '', pageSize = 40 } = {}) {
   })
   const data = await gfetch(`https://www.googleapis.com/drive/v3/files?${params}`)
   return data.files || []
+}
+
+// ============ GOOGLE TASKS ============
+// Wraps the Google Tasks API (tasks.googleapis.com/tasks/v1). Operates on
+// the user's default task list — we don't surface multi-list management
+// because the Day Planner panel is a single inbox, not a project tool.
+// Every response has `source: 'google'` tagged on so the Planner can tell
+// Google rows apart from local Supabase rows when merging.
+
+const TASKS_BASE = 'https://tasks.googleapis.com/tasks/v1'
+
+async function defaultTaskListId() {
+  const data = await gfetch(`${TASKS_BASE}/users/@me/lists?maxResults=1`)
+  return data.items?.[0]?.id || '@default'
+}
+
+function normalizeGoogleTask(t, listId) {
+  // Google's `due` is RFC3339; we keep just the date portion to align with
+  // our local `due_date` (yyyy-MM-dd) for sorting/grouping.
+  let due_date = null
+  if (t.due) {
+    try { due_date = String(t.due).slice(0, 10) } catch { /* leave null */ }
+  }
+  return {
+    id: `gtask:${t.id}`,
+    google_task_id: t.id,
+    google_task_list_id: listId,
+    source: 'google',
+    title: t.title || '',
+    notes: t.notes || '',
+    due_date,
+    completed: t.status === 'completed',
+    completed_at: t.completed || null,
+    created_at: t.updated || null,
+    updated_at: t.updated || null
+  }
+}
+
+export async function listGoogleTasks() {
+  const listId = await defaultTaskListId()
+  // showCompleted=true so we can render the "Done" section. showHidden
+  // is left false — that's Google's archive bucket; not a partner-facing
+  // concern.
+  const params = new URLSearchParams({
+    maxResults: '100',
+    showCompleted: 'true',
+    showHidden: 'false'
+  })
+  const data = await gfetch(`${TASKS_BASE}/lists/${encodeURIComponent(listId)}/tasks?${params}`)
+  return (data.items || []).map(t => normalizeGoogleTask(t, listId))
+}
+
+export async function createGoogleTask({ title, notes = '', due_date = null } = {}) {
+  if (!title || !title.trim()) throw new Error('Task title is required')
+  const listId = await defaultTaskListId()
+  const body = { title: title.trim() }
+  if (notes && notes.trim()) body.notes = notes.trim()
+  if (due_date) {
+    // Google wants RFC3339; encode at midnight UTC so it round-trips with
+    // our YYYY-MM-DD storage.
+    body.due = `${due_date}T00:00:00.000Z`
+  }
+  const data = await gfetch(`${TASKS_BASE}/lists/${encodeURIComponent(listId)}/tasks`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body)
+  })
+  return normalizeGoogleTask(data, listId)
+}
+
+export async function toggleGoogleTask(task) {
+  if (!task?.google_task_id || !task?.google_task_list_id) {
+    throw new Error('Not a Google task')
+  }
+  const nextStatus = task.completed ? 'needsAction' : 'completed'
+  const data = await gfetch(`${TASKS_BASE}/lists/${encodeURIComponent(task.google_task_list_id)}/tasks/${encodeURIComponent(task.google_task_id)}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ status: nextStatus })
+  })
+  return normalizeGoogleTask(data, task.google_task_list_id)
+}
+
+export async function deleteGoogleTask(task) {
+  if (!task?.google_task_id || !task?.google_task_list_id) {
+    throw new Error('Not a Google task')
+  }
+  await gfetch(`${TASKS_BASE}/lists/${encodeURIComponent(task.google_task_list_id)}/tasks/${encodeURIComponent(task.google_task_id)}`, {
+    method: 'DELETE'
+  })
+  return true
 }
 
 // ============ FREE SLOTS ============
