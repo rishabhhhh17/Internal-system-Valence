@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { format, formatDistanceToNowStrict, parseISO, differenceInCalendarDays } from 'date-fns'
-import { Plus, Search, Filter, Sparkles, ArrowRight, AlertCircle, MessageSquare } from 'lucide-react'
+import { Plus, Search, Filter, Sparkles, ArrowRight, AlertCircle, MessageSquare, Download } from 'lucide-react'
 import { supabase, isSupabaseConfigured } from '../lib/supabase.js'
 import {
   PURPOSES, CONTEXT_GROUPS, DEMO_INTERACTIONS, purposeLabel, typeLabel, outcomeLabel, outcomeTone
 } from '../lib/interactions.js'
+import { toCSV, downloadCSV, timestampedFilename } from '../lib/csvExport.js'
 import { useViewMode } from '../hooks/useViewMode.jsx'
 import ConfigBanner from '../components/ConfigBanner.jsx'
 import EmptyState from '../components/EmptyState.jsx'
@@ -72,6 +73,31 @@ export default function Interactions() {
     load()
   }
 
+  function exportFilteredCSV() {
+    if (filtered.length === 0) {
+      toast.error('No rows to export — clear a filter first.')
+      return
+    }
+    const columns = [
+      { key: 'created_at',          label: 'Logged at' },
+      { key: 'date',                label: 'Date' },
+      { key: 'counterparty_name',   label: 'Counterparty' },
+      { key: 'counterparty_company',label: 'Company' },
+      { key: 'counterparty_role',   label: 'Role' },
+      { key: 'interaction_type',    label: 'Type' },
+      { key: 'interaction_purpose', label: 'Purpose' },
+      { key: 'outcome',             label: 'Outcome' },
+      { key: 'follow_up_date',      label: 'Follow-up date' },
+      { key: 'lead_owner',          label: 'Owner' },
+      { key: 'notes',               label: 'Notes' }
+    ]
+    const csv = toCSV(filtered, columns)
+    const stem = purpose === 'All' ? 'interactions' : `interactions-${purpose}`
+    const ok = downloadCSV(timestampedFilename(stem), csv)
+    if (ok) toast.success(`Exported ${filtered.length} interactions.`)
+    else toast.error('Download failed.')
+  }
+
   async function convertToOrigination(row) {
     // Stub: opens Deal Logger pre-filled. Until the deal modal accepts a deeplinked draft,
     // we just hand off to /deals?new with the counterparty as the prospective client name.
@@ -108,6 +134,15 @@ export default function Interactions() {
         </div>
         <div className="flex items-center gap-3">
           <ViewModeToggle pageKey="interactions" />
+          <button
+            onClick={exportFilteredCSV}
+            disabled={loading || filtered.length === 0}
+            title="Export currently filtered rows as CSV"
+            className="vl-btn-secondary-sm"
+          >
+            <Download className="h-3.5 w-3.5" />
+            Export CSV
+          </button>
           <button onClick={() => setDrawer('new')} className="vl-btn-primary">
             <Plus className="h-4 w-4" /> Log interaction
           </button>
