@@ -276,10 +276,11 @@ export function MandatesPanel() {
 
       {/* macOS Finder–style three-column frame.
           One bordered rectangle, vertical dividers between columns, each column
-          has its own slim header bar and scrolls independently. No nested
-          card chrome — clean and dense. */}
+          has its own slim header bar and scrolls independently. Capped at
+          40vh so the note editor + files panel below stay visible in the
+          same viewport — discoverability over Finder fidelity. */}
       <div className="rounded-lg border border-valence-border bg-valence-elevated overflow-hidden">
-        <div className="grid grid-cols-1 lg:grid-cols-[240px_260px_1fr] divide-y lg:divide-y-0 lg:divide-x divide-valence-border h-[70vh] min-h-[480px]">
+        <div className="grid grid-cols-1 lg:grid-cols-[240px_260px_1fr] divide-y lg:divide-y-0 lg:divide-x divide-valence-border h-[40vh] min-h-[320px]">
 
           {/* Column 1 — Sources */}
           <div className="flex flex-col min-h-0 bg-valence-surface/40">
@@ -345,8 +346,8 @@ export function MandatesPanel() {
                 {selectedFolder && notes.length > 0 && <span className="ml-1.5 text-valence-subtle/80 normal-case tracking-normal">· {notes.length}</span>}
               </span>
               {selectedFolder && (
-                <button onClick={newNote} className="inline-flex items-center gap-1 rounded text-[11px] font-medium text-valence-blue hover:text-valence-blue-hover transition">
-                  <FilePlus className="h-3 w-3" /> New
+                <button onClick={newNote} className="inline-flex items-center gap-1 rounded-md bg-valence-blue px-2 py-0.5 text-[11px] font-semibold text-white hover:bg-valence-blue-hover transition">
+                  <FilePlus className="h-3 w-3" /> New note
                 </button>
               )}
             </div>
@@ -410,14 +411,29 @@ export function MandatesPanel() {
       </div>
 
       {/* Editor + files panel — full-width below the Finder frame so the
-          three columns stay clean and the editor gets the room it needs. */}
-      {selectedFolder && (
-        <div className="rounded-lg border border-valence-border bg-valence-elevated p-4 space-y-3">
-          <KbNoteEditor note={selectedNote} folder={selectedFolder} onSaved={onNoteSaved} />
+          three columns stay clean and the editor gets the room it needs.
+          Always visible when a folder is selected — discoverability for
+          'where do I add things'. */}
+      {selectedFolder ? (
+        <div className="rounded-lg border border-valence-border bg-valence-elevated p-4 space-y-4">
+          <div>
+            <p className="vl-eyebrow-ink inline-flex items-center gap-1.5">
+              <FilePlus className="h-3 w-3 text-valence-blue" /> Note editor
+              {selectedNote && <span className="text-valence-subtle/80 font-normal normal-case tracking-normal">· {selectedNote.title || 'Untitled'}</span>}
+            </p>
+            {!selectedNote && notes.length === 0 && (
+              <p className="text-[11px] text-valence-muted mt-1">Click <span className="font-semibold text-valence-blue">+ New note</span> in the Notes column above to start writing.</p>
+            )}
+            <div className="mt-2">
+              <KbNoteEditor note={selectedNote} folder={selectedFolder} onSaved={onNoteSaved} />
+            </div>
+          </div>
           <div className="pt-3 border-t border-valence-border">
             <KbFolderFiles folder={selectedFolder} />
           </div>
         </div>
+      ) : (
+        <p className="px-1 text-[12px] text-valence-muted">Pick a folder to write notes or attach files.</p>
       )}
     </div>
   )
