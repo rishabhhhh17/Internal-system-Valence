@@ -6,11 +6,12 @@
 const PREFIX = 'valence.workspace.'
 
 export const WORKSPACE_KEYS = Object.freeze({
-  firmName:    'firmName',
-  firmKicker:  'firmKicker',
-  density:     'density',           // 'comfortable' | 'compact'
-  browserTitle:'browserTitle',
-  theme:       'theme'              // 'light' | 'dark' | 'auto'
+  firmName:        'firmName',
+  firmKicker:      'firmKicker',
+  density:         'density',           // 'comfortable' | 'compact'
+  browserTitle:    'browserTitle',
+  theme:           'theme',             // 'light' | 'dark' | 'auto'
+  sidebarCollapsed:'sidebarCollapsed'   // '' (default = expanded) | 'true'
 })
 
 export const WORKSPACE_DEFAULTS = Object.freeze({
@@ -18,7 +19,8 @@ export const WORKSPACE_DEFAULTS = Object.freeze({
   firmKicker: 'Growth Partners',
   density: 'comfortable',
   browserTitle: '',  // empty = use the firm name
-  theme: 'light'
+  theme: 'light',
+  sidebarCollapsed: ''
 })
 
 const VALID_DENSITY = new Set(['comfortable', 'compact'])

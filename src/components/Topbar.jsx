@@ -1,12 +1,14 @@
 import { useEffect, useState } from 'react'
 import { useLocation, Link } from 'react-router-dom'
-import { Search, Bell, Activity as ActivityIcon } from 'lucide-react'
+import { Search, Bell, Activity as ActivityIcon, PanelLeftClose, PanelLeftOpen } from 'lucide-react'
 import Logo from './Logo.jsx'
 import GoogleButton from './GoogleButton.jsx'
 import CurrencyToggle from './CurrencyToggle.jsx'
 import NotificationCenter, { useNotifications } from './NotificationCenter.jsx'
 import TutorialButton from './Tutorial.jsx'
 import { PITCH_MODE } from '../lib/featureFlags.js'
+import { useWorkspaceSetting } from '../hooks/useWorkspaceSetting.js'
+import { WORKSPACE_KEYS, setWorkspaceSetting } from '../lib/workspace.js'
 
 // Title + subtitle per route. Keep titles in lockstep with the sidebar
 // labels so the topbar / sidebar / page hero never disagree about what
@@ -40,18 +42,36 @@ export default function Topbar() {
 
   const [notifOpen, setNotifOpen] = useState(false)
   const notifs = useNotifications({ live: true })
+  const sidebarCollapsed = useWorkspaceSetting(WORKSPACE_KEYS.sidebarCollapsed) === 'true'
 
   function openPalette() {
     const ev = new KeyboardEvent('keydown', { key: 'k', metaKey: true, bubbles: true })
     window.dispatchEvent(ev)
   }
 
+  function toggleSidebar() {
+    setWorkspaceSetting(WORKSPACE_KEYS.sidebarCollapsed, sidebarCollapsed ? '' : 'true')
+  }
+
   return (
     <>
       <header className="sticky top-0 z-30 flex h-14 sm:h-16 items-center gap-2 sm:gap-3 lg:gap-4 border-b border-valence-border vl-glass-bar px-3 sm:px-5 lg:px-8">
+        <button
+          onClick={toggleSidebar}
+          aria-label={sidebarCollapsed ? 'Show sidebar' : 'Hide sidebar'}
+          title={sidebarCollapsed ? 'Show sidebar' : 'Hide sidebar'}
+          className="hidden lg:inline-flex h-9 w-9 items-center justify-center rounded-lg border border-valence-border bg-valence-elevated text-valence-muted hover:text-valence-text hover:border-valence-ink/30 transition shrink-0"
+        >
+          {sidebarCollapsed ? <PanelLeftOpen className="h-4 w-4" /> : <PanelLeftClose className="h-4 w-4" />}
+        </button>
         <div className="flex items-center gap-3 lg:hidden">
           <Logo compact />
         </div>
+        {sidebarCollapsed && (
+          <div className="hidden lg:flex items-center gap-2 shrink-0">
+            <Logo compact />
+          </div>
+        )}
 
         <div className="min-w-0 flex-1">
           <h1 className="truncate text-[15px] font-semibold tracking-tight text-valence-text">{meta.title}</h1>

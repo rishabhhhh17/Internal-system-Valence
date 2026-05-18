@@ -122,26 +122,20 @@ export default function People() {
   }, [rows, q, tagFilter])
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <ConfigBanner />
 
-      <div className="flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <p className="vl-eyebrow-ink">People CRM</p>
-          <h1 className="mt-2 font-display text-feature font-bold text-valence-text">
-            Every person we know.
-          </h1>
-        </div>
-        <div className="flex items-center gap-2">
-          <ViewModeToggle pageKey="people" />
-          {!isSimple && (
-            <div className="inline-flex items-center rounded-full border border-valence-border bg-valence-elevated p-0.5">
-              <button onClick={() => setView('grid')}  className={`rounded-full px-2.5 py-1 transition ${view === 'grid'  ? 'bg-valence-ink text-white' : 'text-valence-muted hover:text-valence-text'}`} title="Card view"><LayoutGrid className="h-3.5 w-3.5" /></button>
-              <button onClick={() => setView('table')} className={`rounded-full px-2.5 py-1 transition ${view === 'table' ? 'bg-valence-ink text-white' : 'text-valence-muted hover:text-valence-text'}`} title="Table view"><TableIcon className="h-3.5 w-3.5" /></button>
-            </div>
-          )}
-          <button onClick={() => setDrawer('new')} className="vl-btn-primary"><Plus className="h-4 w-4" /> Add person</button>
-        </div>
+      {/* Page hero collapsed — title lives in the topbar so a second
+          giant heading just steals vertical space. Just the action row. */}
+      <div className="flex flex-wrap items-center justify-end gap-2">
+        <ViewModeToggle pageKey="people" />
+        {!isSimple && (
+          <div className="inline-flex items-center rounded-full border border-valence-border bg-valence-elevated p-0.5">
+            <button onClick={() => setView('grid')}  className={`rounded-full px-2.5 py-1 transition ${view === 'grid'  ? 'bg-valence-ink text-white' : 'text-valence-muted hover:text-valence-text'}`} title="Card view"><LayoutGrid className="h-3.5 w-3.5" /></button>
+            <button onClick={() => setView('table')} className={`rounded-full px-2.5 py-1 transition ${view === 'table' ? 'bg-valence-ink text-white' : 'text-valence-muted hover:text-valence-text'}`} title="Table view"><TableIcon className="h-3.5 w-3.5" /></button>
+          </div>
+        )}
+        <button onClick={() => setDrawer('new')} className="vl-btn-primary-sm"><Plus className="h-4 w-4" /> Add person</button>
       </div>
 
       <div className="flex flex-wrap items-center gap-3">
