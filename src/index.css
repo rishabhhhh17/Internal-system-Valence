@@ -3,8 +3,85 @@
 @tailwind utilities;
 
 @layer base {
+  /* ============ THEME TOKENS ============
+     RGB triplets so Tailwind's `<alpha-value>` modifier works (e.g.
+     `bg-valence-blue/20`). Tailwind config reads these via
+     `rgb(var(--valence-x) / <alpha-value>)`. Toggling the `dark` class
+     on <html> swaps to the dark palette. */
   :root {
     color-scheme: light;
+    --valence-bg:           255 255 255;
+    --valence-surface:      246 247 247;
+    --valence-elevated:     255 255 255;
+    --valence-ink:           13  30  58;
+    --valence-ink-soft:      23  49  90;
+    --valence-text:          13  30  58;
+    --valence-muted:         75  88 114;
+    --valence-subtle:       148 163 184;
+    --valence-faint:        203 213 225;
+    --valence-blue:          51 153 255;
+    --valence-blue-hover:    26 133 255;
+    --valence-blue-deep:     26 102 204;
+    --valence-blue-soft:    230 242 255;
+    --valence-success:       53 123  73;
+    --valence-success-soft: 220 234 223;
+    --valence-warning:      180  83   9;
+    --valence-warning-soft: 254 243 199;
+    --valence-danger:       220  38  38;
+    --valence-danger-soft:  254 226 226;
+    --valence-border:        rgba(0, 0, 0, 0.06);
+    --valence-border-strong: rgba(0, 0, 0, 0.16);
+    --valence-border-ink:    rgba(255, 255, 255, 0.10);
+    --valence-blue-ring:     rgba(51, 153, 255, 0.22);
+    /* Used by hardcoded scrollbar / selection / focus-ring offsets that
+       can't read Tailwind classes. */
+    --vl-selection-bg:    rgba(51, 153, 255, 0.22);
+    --vl-selection-text:  #0D1E3A;
+    --vl-scrollbar-thumb: rgba(13, 30, 58, 0.12);
+    --vl-scrollbar-hover: rgba(13, 30, 58, 0.22);
+    --vl-focus-offset:    #ffffff;
+    /* Glass surfaces — translucent overlays whose RGBA can't read
+       per-channel vars. Define the rgba directly per theme. */
+    --vl-glass-base:    rgba(255, 255, 255, 0.62);
+    --vl-glass-bar:     rgba(255, 255, 255, 0.72);
+    --vl-glass-side:    rgba(255, 255, 255, 0.78);
+    --vl-glass-border:  rgba(255, 255, 255, 0.45);
+  }
+
+  html.dark {
+    color-scheme: dark;
+    --valence-bg:           10  15  30;
+    --valence-surface:      20  32  44;
+    --valence-elevated:     26  42  62;
+    --valence-ink:          13  30  58;  /* stays dark — used as button bg */
+    --valence-ink-soft:     23  49  90;
+    --valence-text:        232 239 248;
+    --valence-muted:       170 186 210;
+    --valence-subtle:      125 144 175;
+    --valence-faint:        85 110 150;
+    --valence-blue:         91 173 255;  /* slightly brighter on dark */
+    --valence-blue-hover:  125 192 255;
+    --valence-blue-deep:    51 153 255;
+    --valence-blue-soft:    26  44  74;
+    --valence-success:     124 199 144;
+    --valence-success-soft: 29  58  42;
+    --valence-warning:     246 167  64;
+    --valence-warning-soft: 58  42  20;
+    --valence-danger:      240 100 100;
+    --valence-danger-soft:  58  24  24;
+    --valence-border:        rgba(255, 255, 255, 0.10);
+    --valence-border-strong: rgba(255, 255, 255, 0.22);
+    --valence-border-ink:    rgba(255, 255, 255, 0.14);
+    --valence-blue-ring:     rgba(91, 173, 255, 0.32);
+    --vl-selection-bg:    rgba(91, 173, 255, 0.30);
+    --vl-selection-text:  #ffffff;
+    --vl-scrollbar-thumb: rgba(255, 255, 255, 0.18);
+    --vl-scrollbar-hover: rgba(255, 255, 255, 0.30);
+    --vl-focus-offset:    #0a0f1e;
+    --vl-glass-base:    rgba(20, 32, 44, 0.62);
+    --vl-glass-bar:     rgba(20, 32, 44, 0.72);
+    --vl-glass-side:    rgba(20, 32, 44, 0.78);
+    --vl-glass-border:  rgba(255, 255, 255, 0.10);
   }
 
   html, body, #root {
@@ -20,21 +97,24 @@
   }
 
   ::selection {
-    background: rgba(51, 153, 255, 0.22);
-    color: #0D1E3A;
+    background: var(--vl-selection-bg);
+    color: var(--vl-selection-text);
   }
 
   /* Editorial focus rings — soft, branded */
   *:focus-visible {
-    @apply outline-none ring-2 ring-valence-blue-ring ring-offset-2 ring-offset-white;
+    outline: none;
+    box-shadow:
+      0 0 0 2px var(--vl-focus-offset),
+      0 0 0 4px var(--valence-blue-ring);
   }
   button:focus:not(:focus-visible) { outline: none; }
 
-  /* Scrollbar — subtle, light */
+  /* Scrollbar — subtle */
   ::-webkit-scrollbar        { width: 10px; height: 10px; }
   ::-webkit-scrollbar-track  { background: transparent; }
-  ::-webkit-scrollbar-thumb  { background: rgba(13, 30, 58, 0.12); border-radius: 8px; }
-  ::-webkit-scrollbar-thumb:hover { background: rgba(13, 30, 58, 0.22); }
+  ::-webkit-scrollbar-thumb  { background: var(--vl-scrollbar-thumb); border-radius: 8px; }
+  ::-webkit-scrollbar-thumb:hover { background: var(--vl-scrollbar-hover); }
 
   /* Display type — Manrope (primary face on valencegrowth.com) */
   .font-display {
@@ -56,7 +136,7 @@
 @layer components {
   /* ============ SURFACES ============ */
   .vl-card {
-    @apply rounded-xl border border-valence-border bg-white;
+    @apply rounded-xl border border-valence-border bg-valence-elevated;
   }
   .vl-card-subtle {
     @apply rounded-xl border border-valence-border bg-valence-surface;
@@ -73,8 +153,9 @@
      Data tables/cards stay solid for readability — glass on dense data
      hurts more than it helps. */
   .vl-glass {
-    @apply rounded-2xl border border-white/45;
-    background-color: rgba(255, 255, 255, 0.62);
+    @apply rounded-2xl border;
+    border-color: var(--vl-glass-border);
+    background-color: var(--vl-glass-base);
     backdrop-filter: blur(24px) saturate(180%);
     -webkit-backdrop-filter: blur(24px) saturate(180%);
     box-shadow:
@@ -83,12 +164,12 @@
       0 12px 32px -10px rgba(13, 30, 58, 0.18);
   }
   .vl-glass-bar {
-    background-color: rgba(255, 255, 255, 0.72);
+    background-color: var(--vl-glass-bar);
     backdrop-filter: blur(20px) saturate(180%);
     -webkit-backdrop-filter: blur(20px) saturate(180%);
   }
   .vl-glass-side {
-    background-color: rgba(255, 255, 255, 0.78);
+    background-color: var(--vl-glass-side);
     backdrop-filter: blur(18px) saturate(180%);
     -webkit-backdrop-filter: blur(18px) saturate(180%);
   }
@@ -109,7 +190,7 @@
 
   /* ============ INPUTS ============ */
   .vl-input {
-    @apply w-full rounded-lg border border-valence-border bg-white px-3.5 py-2.5 text-sm text-valence-text placeholder:text-valence-subtle outline-none transition focus:border-valence-blue focus:ring-2 focus:ring-valence-blue-ring;
+    @apply w-full rounded-lg border border-valence-border bg-valence-elevated px-3.5 py-2.5 text-sm text-valence-text placeholder:text-valence-subtle outline-none transition focus:border-valence-blue focus:ring-2 focus:ring-valence-blue-ring;
   }
   .vl-label {
     @apply block text-[10px] font-semibold uppercase tracking-[0.14em] text-valence-muted mb-1.5;
@@ -125,7 +206,7 @@
     @apply inline-flex items-center justify-center gap-2.5 rounded-full bg-valence-blue px-5 py-3 text-xs font-semibold uppercase tracking-[0.14em] text-white transition-all duration-200 hover:bg-valence-blue-hover focus:outline-none focus:ring-2 focus:ring-valence-blue-ring disabled:opacity-50 disabled:cursor-not-allowed;
   }
   .vl-btn-secondary {
-    @apply inline-flex items-center justify-center gap-2.5 rounded-full border border-valence-ink bg-white px-5 py-3 text-xs font-semibold uppercase tracking-[0.14em] text-valence-text transition-all duration-200 hover:bg-valence-ink hover:text-white;
+    @apply inline-flex items-center justify-center gap-2.5 rounded-full border border-valence-ink bg-valence-elevated px-5 py-3 text-xs font-semibold uppercase tracking-[0.14em] text-valence-text transition-all duration-200 hover:bg-valence-ink hover:text-white;
   }
   .vl-btn-ghost {
     @apply inline-flex items-center justify-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-valence-muted transition hover:bg-valence-surface hover:text-valence-text;
@@ -136,12 +217,12 @@
     @apply inline-flex items-center justify-center gap-2 rounded-lg bg-valence-ink px-3.5 py-2 text-sm font-semibold text-white transition hover:bg-valence-ink-soft focus:outline-none focus:ring-2 focus:ring-valence-blue-ring disabled:opacity-50 disabled:cursor-not-allowed;
   }
   .vl-btn-secondary-sm {
-    @apply inline-flex items-center justify-center gap-2 rounded-lg border border-valence-border bg-white px-3.5 py-2 text-sm font-semibold text-valence-text transition hover:border-valence-ink/30 hover:bg-valence-surface;
+    @apply inline-flex items-center justify-center gap-2 rounded-lg border border-valence-border bg-valence-elevated px-3.5 py-2 text-sm font-semibold text-valence-text transition hover:border-valence-ink/30 hover:bg-valence-surface;
   }
 
   /* ============ CHIPS ============ */
   .vl-chip {
-    @apply inline-flex items-center gap-1.5 rounded-full border border-valence-border bg-white px-2.5 py-1 text-xs font-medium text-valence-muted;
+    @apply inline-flex items-center gap-1.5 rounded-full border border-valence-border bg-valence-elevated px-2.5 py-1 text-xs font-medium text-valence-muted;
   }
   .vl-chip-blue {
     @apply inline-flex items-center gap-1.5 rounded-full border border-valence-blue/30 bg-valence-blue-soft px-2.5 py-1 text-xs font-semibold text-valence-blue-deep;
@@ -169,7 +250,7 @@
 
   /* ============ KBD ============ */
   .vl-kbd {
-    @apply rounded border border-valence-border bg-white px-1.5 py-0.5 text-[10px] font-medium text-valence-muted;
+    @apply rounded border border-valence-border bg-valence-elevated px-1.5 py-0.5 text-[10px] font-medium text-valence-muted;
   }
 
   /* ============ INK PANELS (dark contrast sections like site footer) ============ */

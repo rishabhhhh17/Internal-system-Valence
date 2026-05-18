@@ -25,7 +25,6 @@ export default function WorkspacePreferencesPanel() {
   const toast = useToast()
   const firmName = useWorkspaceSetting(WORKSPACE_KEYS.firmName)
   const firmKicker = useWorkspaceSetting(WORKSPACE_KEYS.firmKicker)
-  const density = useWorkspaceSetting(WORKSPACE_KEYS.density)
   const browserTitle = useWorkspaceSetting(WORKSPACE_KEYS.browserTitle)
   const { currency, setCurrency } = useCurrency()
 
@@ -100,30 +99,6 @@ export default function WorkspacePreferencesPanel() {
           </select>
         </Field>
       </div>
-
-      <Field label="Density">
-        <div className="inline-flex rounded-lg border border-valence-border bg-white p-0.5">
-          {[
-            { id: 'comfortable', label: 'Comfortable' },
-            { id: 'compact',     label: 'Compact' }
-          ].map(opt => (
-            <button
-              key={opt.id}
-              type="button"
-              onClick={() => {
-                if (update(WORKSPACE_KEYS.density, opt.id)) flash('density')
-              }}
-              className={`px-3 py-1.5 text-xs font-semibold rounded-md transition ${
-                density === opt.id
-                  ? 'bg-valence-ink text-white'
-                  : 'text-valence-muted hover:text-valence-text'
-              }`}
-            >
-              {opt.label}
-            </button>
-          ))}
-        </div>
-      </Field>
 
       {savedFlash && (
         <p className="text-[11px] inline-flex items-center gap-1 text-valence-blue">

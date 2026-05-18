@@ -5,6 +5,7 @@ import {
   clearWorkspaceSetting,
   subscribeWorkspace,
   effectiveBrowserTitle,
+  resolveTheme,
   WORKSPACE_KEYS,
   WORKSPACE_DEFAULTS
 } from '../lib/workspace.js'
@@ -163,5 +164,72 @@ describe('localStorage unavailable', () => {
   it('set returns false without throwing', () => {
     vi.stubGlobal('window', {})
     expect(setWorkspaceSetting(WORKSPACE_KEYS.firmName, 'X')).toBe(false)
+  })
+})
+
+describe('theme setting', () => {
+  it('defaults to light', () => {
+    expect(getWorkspaceSetting(WORKSPACE_KEYS.theme)).toBe('light')
+    expect(WORKSPACE_DEFAULTS.theme).toBe('light')
+  })
+
+  it('accepts light / dark / auto', () => {
+    expect(setWorkspaceSetting(WORKSPACE_KEYS.theme, 'dark')).toBe(true)
+    expect(getWorkspaceSetting(WORKSPACE_KEYS.theme)).toBe('dark')
+    expect(setWorkspaceSetting(WORKSPACE_KEYS.theme, 'auto')).toBe(true)
+    expect(getWorkspaceSetting(WORKSPACE_KEYS.theme)).toBe('auto')
+    expect(setWorkspaceSetting(WORKSPACE_KEYS.theme, 'light')).toBe(true)
+    // 'light' is the default, so it removes the storage key but reads as 'light'
+    expect(getWorkspaceSetting(WORKSPACE_KEYS.theme)).toBe('light')
+  })
+
+  it('rejects invalid theme tokens', () => {
+    expect(setWorkspaceSetting(WORKSPACE_KEYS.theme, 'midnight')).toBe(false)
+    expect(setWorkspaceSetting(WORKSPACE_KEYS.theme, 'sepia')).toBe(false)
+  })
+
+  it('falls back to default when stored value is corrupted', () => {
+    storage.setItem('valence.workspace.theme', 'midnight')
+    expect(getWorkspaceSetting(WORKSPACE_KEYS.theme)).toBe('light')
+  })
+})
+
+describe('resolveTheme', () => {
+  it('returns the explicit value for light/dark', () => {
+    expect(resolveTheme('light')).toBe('light')
+    expect(resolveTheme('dark')).toBe('dark')
+  })
+
+  it('treats unknown tokens as light', () => {
+    expect(resolveTheme('midnight')).toBe('light')
+    expect(resolveTheme(null)).toBe('light')
+    expect(resolveTheme(undefined)).toBe('light')
+  })
+
+  it('honors injected system preference for auto', () => {
+    expect(resolveTheme('auto', true)).toBe('dark')
+    expect(resolveTheme('auto', false)).toBe('light')
+  })
+
+  it('falls back to light for auto when matchMedia is unavailable', () => {
+    vi.stubGlobal('window', {})
+    expect(resolveTheme('auto')).toBe('light')
+  })
+
+  it('reads matchMedia when no system pref override is given', () => {
+    vi.stubGlobal('window', {
+      matchMedia: (q) => ({
+        matches: q === '(prefers-color-scheme: dark)',
+        media: q
+      })
+    })
+    expect(resolveTheme('auto')).toBe('dark')
+  })
+
+  it('survives a matchMedia that throws', () => {
+    vi.stubGlobal('window', {
+      matchMedia: () => { throw new Error('not supported') }
+    })
+    expect(resolveTheme('auto')).toBe('light')
   })
 })

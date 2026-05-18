@@ -9,17 +9,20 @@ export const WORKSPACE_KEYS = Object.freeze({
   firmName:    'firmName',
   firmKicker:  'firmKicker',
   density:     'density',           // 'comfortable' | 'compact'
-  browserTitle:'browserTitle'
+  browserTitle:'browserTitle',
+  theme:       'theme'              // 'light' | 'dark' | 'auto'
 })
 
 export const WORKSPACE_DEFAULTS = Object.freeze({
   firmName: 'Valence',
   firmKicker: 'Growth Partners',
   density: 'comfortable',
-  browserTitle: ''  // empty = use the firm name
+  browserTitle: '',  // empty = use the firm name
+  theme: 'light'
 })
 
 const VALID_DENSITY = new Set(['comfortable', 'compact'])
+const VALID_THEME = new Set(['light', 'dark', 'auto'])
 
 function safeStorage() {
   try {
@@ -45,6 +48,9 @@ export function getWorkspaceSetting(key, fallback) {
   if (key === WORKSPACE_KEYS.density) {
     return VALID_DENSITY.has(raw) ? raw : fb
   }
+  if (key === WORKSPACE_KEYS.theme) {
+    return VALID_THEME.has(raw) ? raw : fb
+  }
   return raw
 }
 
@@ -52,8 +58,9 @@ export function setWorkspaceSetting(key, value) {
   const store = safeStorage()
   if (!store) return false
   if (!Object.values(WORKSPACE_KEYS).includes(key)) return false
-  // Density only accepts a known token.
+  // Density / theme only accept their known tokens.
   if (key === WORKSPACE_KEYS.density && value && !VALID_DENSITY.has(value)) return false
+  if (key === WORKSPACE_KEYS.theme && value && !VALID_THEME.has(value)) return false
   try {
     const v = value === null || value === undefined ? '' : String(value).trim()
     if (v === '' || v === WORKSPACE_DEFAULTS[key]) {
@@ -99,4 +106,21 @@ export function effectiveBrowserTitle() {
   if (explicit && explicit.trim()) return explicit.trim()
   const firmName = getWorkspaceSetting(WORKSPACE_KEYS.firmName, WORKSPACE_DEFAULTS.firmName)
   return `${firmName}OS`
+}
+
+// Resolve theme preference ('auto' → check the OS pref). Always returns
+// 'light' or 'dark'. systemPrefersDark lets tests inject a value rather
+// than relying on a real matchMedia binding.
+export function resolveTheme(theme, systemPrefersDark) {
+  const t = VALID_THEME.has(theme) ? theme : 'light'
+  if (t === 'auto') {
+    if (systemPrefersDark === true) return 'dark'
+    if (systemPrefersDark === false) return 'light'
+    if (typeof window !== 'undefined' && typeof window.matchMedia === 'function') {
+      try { return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light' }
+      catch { return 'light' }
+    }
+    return 'light'
+  }
+  return t
 }

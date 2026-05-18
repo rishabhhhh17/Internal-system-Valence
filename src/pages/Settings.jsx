@@ -17,6 +17,7 @@ import CsvContactImport from '../components/CsvContactImport.jsx'
 import ScoringCriteriaPanel from '../components/ScoringCriteriaPanel.jsx'
 import BulkAddPeoplePanel from '../components/BulkAddPeoplePanel.jsx'
 import WorkspacePreferencesPanel from '../components/WorkspacePreferencesPanel.jsx'
+import AppearancePanel from '../components/AppearancePanel.jsx'
 
 function ComingSoon({ label }) {
   return (
@@ -163,7 +164,7 @@ function SectionBody({ id }) {
     case 'data':
       return <DataSection />
     case 'appearance':
-      return <ComingSoon label="Appearance" />
+      return <AppearancePanel />
     default:
       return null
   }
