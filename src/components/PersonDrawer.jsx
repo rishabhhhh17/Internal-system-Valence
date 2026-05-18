@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { Mail, Phone, Linkedin, MessageSquare, MapPin, Building2, Briefcase, Sparkles, ArrowUpRight, Hash } from 'lucide-react'
 import Drawer from './Drawer.jsx'
 import { supabase, isSupabaseConfigured } from '../lib/supabase.js'
-import { TAG_SUGGESTIONS } from '../lib/people.js'
+import { TAG_SUGGESTIONS, extractCompanies } from '../lib/people.js'
 import { Link } from 'react-router-dom'
 import EntityMentions from './EntityMentions.jsx'
 import WikilinkTextarea from './WikilinkTextarea.jsx'
@@ -29,6 +29,7 @@ export default function PersonDrawer({ open, onClose, existing, onSubmit, onRena
   const [tab, setTab] = useState('overview')
   const [form, setForm] = useState(BLANK)
   const [funds, setFunds] = useState([])
+  const [companies, setCompanies] = useState([])
   const [interactions, setInteractions] = useState([])
   const [deals, setDeals] = useState([])
 
@@ -38,12 +39,18 @@ export default function PersonDrawer({ open, onClose, existing, onSubmit, onRena
     setForm(existing ? { ...BLANK, ...stringify(existing) } : BLANK)
   }, [open, existing])
 
-  // Reference data — funds for the dropdown.
+  // Reference data — funds for the dropdown, plus the distinct list of
+  // existing companies so the Company field can autocomplete the user's
+  // current roster (no typos like "Peak XV" vs "Peak Xv").
   useEffect(() => {
     if (!open || !isSupabaseConfigured) return
     ;(async () => {
-      const { data } = await supabase.from('funds').select('id, name').order('name')
-      setFunds(data || [])
+      const [{ data: fundData }, { data: peopleData }] = await Promise.all([
+        supabase.from('funds').select('id, name').order('name'),
+        supabase.from('people').select('company')
+      ])
+      setFunds(fundData || [])
+      setCompanies(extractCompanies(peopleData || []).map(c => c.name))
     })()
   }, [open])
 
@@ -142,7 +149,17 @@ export default function PersonDrawer({ open, onClose, existing, onSubmit, onRena
               <input className="vl-input" value={form.role} onChange={e => update({ role: e.target.value })} placeholder="Principal" />
             </Field>
             <Field label="Company">
-              <input className="vl-input" value={form.company} onChange={e => update({ company: e.target.value })} placeholder="Peak XV Partners" />
+              <input
+                className="vl-input"
+                list="person-company-suggestions"
+                value={form.company}
+                onChange={e => update({ company: e.target.value })}
+                placeholder="Peak XV Partners"
+                autoComplete="organization"
+              />
+              <datalist id="person-company-suggestions">
+                {companies.map(c => <option key={c} value={c} />)}
+              </datalist>
             </Field>
             <Field label="Fund (if applicable)">
               <select className="vl-input" value={form.fund_id || ''} onChange={e => update({ fund_id: e.target.value })}>
