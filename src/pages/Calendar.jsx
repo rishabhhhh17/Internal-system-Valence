@@ -51,6 +51,22 @@ export default function Calendar() {
 
   useEffect(() => { load() }, [])
 
+  // Auto-sync: if there are eligible calendars (have a google_calendar_id,
+  // are active) that have never been synced, kick off an initial sync so
+  // the user doesn't have to hunt for the "Sync now" button. Runs once
+  // per page load when Google is connected.
+  const autoSyncRef = useRef(false)
+  useEffect(() => {
+    if (autoSyncRef.current) return
+    if (!googleConnected) return
+    if (!calendars || calendars.length === 0) return
+    const unsynced = calendars.filter(c => c.is_active && c.google_calendar_id && !c.last_synced_at)
+    if (unsynced.length === 0) return
+    autoSyncRef.current = true
+    syncFromGoogle()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [calendars, googleConnected])
+
   async function load() {
     setLoading(true); setLoadError(null)
     if (!isSupabaseConfigured) {

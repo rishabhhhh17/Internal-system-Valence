@@ -536,8 +536,8 @@ function DealDrawerBody({ deal, onEdit, onDelete, onComposeEmail }) {
           ))}
         </div>
         {/* Edge fades so users know the tab list scrolls */}
-        <div className="pointer-events-none absolute inset-y-0 left-0 w-6 bg-gradient-to-r from-white to-transparent" aria-hidden />
-        <div className="pointer-events-none absolute inset-y-0 right-0 w-6 bg-gradient-to-l from-white to-transparent" aria-hidden />
+        <div className="pointer-events-none absolute inset-y-0 left-0 w-6 bg-gradient-to-r from-valence-elevated to-transparent" aria-hidden />
+        <div className="pointer-events-none absolute inset-y-0 right-0 w-6 bg-gradient-to-l from-valence-elevated to-transparent" aria-hidden />
       </div>
 
       <div>
