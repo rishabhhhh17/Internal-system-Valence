@@ -17,6 +17,41 @@ export function locationLine(p) {
   return [p.city, p.country].filter(Boolean).join(', ')
 }
 
+// ============ DRAG-TO-ATTACH HELPERS ============
+// Used by the Companies rail on /people. Pure functions so the page
+// component stays a thin orchestrator — tests live next to the lib.
+
+export function extractCompanies(people) {
+  if (!Array.isArray(people)) return []
+  const counts = new Map()
+  for (const p of people) {
+    const c = (p?.company || '').trim()
+    if (!c) continue
+    counts.set(c, (counts.get(c) || 0) + 1)
+  }
+  return Array.from(counts.entries())
+    .map(([name, count]) => ({ name, count }))
+    .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name))
+}
+
+export function applyCompanyAssignment(people, personId, newCompany) {
+  if (!Array.isArray(people) || !personId) return people
+  const next = typeof newCompany === 'string' ? newCompany.trim() : ''
+  return people.map(p =>
+    p?.id === personId ? { ...p, company: next || null } : p
+  )
+}
+
+// Indicates whether a drop would change anything — lets the UI suppress
+// pointless no-op writes.
+export function wouldChangeCompany(people, personId, newCompany) {
+  if (!Array.isArray(people) || !personId) return false
+  const target = people.find(p => p?.id === personId)
+  if (!target) return false
+  const next = typeof newCompany === 'string' ? newCompany.trim() : ''
+  return (target.company || '') !== next
+}
+
 // Demo data — used when Supabase is unconfigured. ~30 personas across
 // Indian + global funds, founders, and lawyers Valence actually deals with.
 export const DEMO_PEOPLE = [

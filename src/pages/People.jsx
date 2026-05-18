@@ -1,8 +1,15 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { Plus, Search, Filter, LayoutGrid, Table as TableIcon, UserCircle, ArrowUpRight, MapPin, Mail, Phone } from 'lucide-react'
+import { Plus, Search, Filter, LayoutGrid, Table as TableIcon, UserCircle, ArrowUpRight, MapPin, Mail, Phone, Building2, GripVertical } from 'lucide-react'
 import { supabase, isSupabaseConfigured } from '../lib/supabase.js'
-import { TAG_SUGGESTIONS, DEMO_PEOPLE, locationLine } from '../lib/people.js'
+import {
+  TAG_SUGGESTIONS,
+  DEMO_PEOPLE,
+  locationLine,
+  extractCompanies,
+  applyCompanyAssignment,
+  wouldChangeCompany
+} from '../lib/people.js'
 import { useViewMode } from '../hooks/useViewMode.jsx'
 import ConfigBanner from '../components/ConfigBanner.jsx'
 import EmptyState from '../components/EmptyState.jsx'
@@ -56,6 +63,27 @@ export default function People() {
     }
   }
 
+  async function assignCompany(personId, newCompany) {
+    if (!wouldChangeCompany(rows, personId, newCompany)) return
+    const before = rows
+    const target = rows.find(p => p.id === personId)
+    setRows(prev => applyCompanyAssignment(prev, personId, newCompany))
+    if (!isSupabaseConfigured) {
+      toast.success(`${target.full_name} → ${newCompany}`)
+      return
+    }
+    const { error } = await supabase
+      .from('people')
+      .update({ company: newCompany || null })
+      .eq('id', personId)
+    if (error) {
+      setRows(before)
+      toast.error(error.message || 'Could not move contact')
+      return
+    }
+    toast.success(`${target.full_name} → ${newCompany}`)
+  }
+
   async function save(payload, existingId) {
     if (!isSupabaseConfigured) {
       if (existingId) setRows(prev => prev.map(r => r.id === existingId ? { ...r, ...payload } : r))
@@ -79,6 +107,8 @@ export default function People() {
     for (const p of rows) for (const t of (p.tags || [])) set.add(t)
     return Array.from(set).sort()
   }, [rows])
+
+  const companies = useMemo(() => extractCompanies(rows), [rows])
 
   const filtered = useMemo(() => {
     const needle = q.trim().toLowerCase()
@@ -138,9 +168,12 @@ export default function People() {
       ) : filtered.length === 0 ? (
         <EmptyState icon={UserCircle} title="No people match your filters" description="Clear a tag or broaden your search." sampleEligible={false} />
       ) : isSimple || view === 'grid' ? (
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-          {filtered.map(p => <PersonCard key={p.id} person={p} onOpen={() => setDrawer({ row: p })} />)}
-        </div>
+        <>
+          <CompaniesRail companies={companies} onDropPerson={assignCompany} />
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+            {filtered.map(p => <PersonCard key={p.id} person={p} onOpen={() => setDrawer({ row: p })} />)}
+          </div>
+        </>
       ) : (
         <PersonTable rows={filtered} onOpen={p => setDrawer({ row: p })} />
       )}
@@ -173,28 +206,116 @@ function chipClass(active) {
 }
 
 function PersonCard({ person, onOpen }) {
+  const [dragging, setDragging] = useState(false)
+
+  function onDragStart(e) {
+    if (!person?.id) return
+    e.dataTransfer.effectAllowed = 'move'
+    e.dataTransfer.setData('application/x-valence-person', String(person.id))
+    // Generic mime so other apps don't accidentally accept a drop on us.
+    e.dataTransfer.setData('text/plain', person.full_name)
+    setDragging(true)
+  }
+
+  function onDragEnd() {
+    setDragging(false)
+  }
+
   return (
-    <button onClick={onOpen} className="vl-card vl-card-hover group block p-5 text-left">
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0 flex-1">
-          <p className="text-sm font-semibold text-valence-text truncate">{person.full_name}</p>
-          <p className="mt-0.5 text-[11px] text-valence-muted">{[person.role, person.company].filter(Boolean).join(' · ') || '—'}</p>
+    <div
+      draggable
+      onDragStart={onDragStart}
+      onDragEnd={onDragEnd}
+      className={`relative group ${dragging ? 'opacity-50' : ''}`}
+    >
+      <button onClick={onOpen} className="vl-card vl-card-hover block w-full p-5 text-left">
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0 flex-1">
+            <p className="text-sm font-semibold text-valence-text truncate">{person.full_name}</p>
+            <p className="mt-0.5 text-[11px] text-valence-muted">{[person.role, person.company].filter(Boolean).join(' · ') || '—'}</p>
+          </div>
+          {person.tags?.length > 0 && (
+            <span className="inline-flex items-center rounded-full border border-valence-border bg-valence-surface px-2 py-0.5 text-[10px] font-semibold text-valence-muted shrink-0">
+              {person.tags[0]}
+            </span>
+          )}
         </div>
-        {person.tags?.length > 0 && (
-          <span className="inline-flex items-center rounded-full border border-valence-border bg-valence-surface px-2 py-0.5 text-[10px] font-semibold text-valence-muted shrink-0">
-            {person.tags[0]}
-          </span>
+        {person.how_to_talk && (
+          <p className="mt-3 line-clamp-2 text-[12px] leading-relaxed text-valence-muted italic">"{person.how_to_talk}"</p>
         )}
+        <div className="mt-3 flex items-center justify-between text-[11px] text-valence-muted">
+          <span className="inline-flex items-center gap-1"><MapPin className="h-3 w-3" /> {locationLine(person) || '—'}</span>
+          <span className="inline-flex items-center gap-1 text-valence-subtle group-hover:text-valence-blue transition">
+            Open <ArrowUpRight className="h-3 w-3" />
+          </span>
+        </div>
+      </button>
+      <span
+        className="absolute top-2 right-2 hidden group-hover:inline-flex items-center justify-center rounded-md bg-white/95 border border-valence-border p-1 text-valence-subtle cursor-grab active:cursor-grabbing"
+        title="Drag onto a company to attach"
+      >
+        <GripVertical className="h-3 w-3" />
+      </span>
+    </div>
+  )
+}
+
+function CompaniesRail({ companies, onDropPerson }) {
+  if (!companies || companies.length === 0) return null
+  return (
+    <div className="vl-card-subtle p-4 space-y-2">
+      <div className="flex items-center justify-between gap-3">
+        <div className="vl-eyebrow-ink inline-flex items-center gap-1.5">
+          <Building2 className="h-3 w-3" /> Companies · {companies.length}
+        </div>
+        <p className="text-[11px] text-valence-subtle">Drag a person onto a company to attach them.</p>
       </div>
-      {person.how_to_talk && (
-        <p className="mt-3 line-clamp-2 text-[12px] leading-relaxed text-valence-muted italic">"{person.how_to_talk}"</p>
-      )}
-      <div className="mt-3 flex items-center justify-between text-[11px] text-valence-muted">
-        <span className="inline-flex items-center gap-1"><MapPin className="h-3 w-3" /> {locationLine(person) || '—'}</span>
-        <span className="inline-flex items-center gap-1 text-valence-subtle group-hover:text-valence-blue transition">
-          Open <ArrowUpRight className="h-3 w-3" />
-        </span>
+      <div className="flex flex-wrap gap-2">
+        {companies.map(c => (
+          <CompanyDropChip key={c.name} company={c} onDropPerson={onDropPerson} />
+        ))}
       </div>
+    </div>
+  )
+}
+
+function CompanyDropChip({ company, onDropPerson }) {
+  const [hot, setHot] = useState(false)
+
+  function onDragOver(e) {
+    const types = Array.from(e.dataTransfer.types || [])
+    if (!types.includes('application/x-valence-person')) return
+    e.preventDefault()
+    e.dataTransfer.dropEffect = 'move'
+    if (!hot) setHot(true)
+  }
+
+  function onDragLeave() {
+    setHot(false)
+  }
+
+  function onDrop(e) {
+    e.preventDefault()
+    const id = e.dataTransfer.getData('application/x-valence-person')
+    setHot(false)
+    if (id) onDropPerson(id, company.name)
+  }
+
+  return (
+    <button
+      type="button"
+      onDragOver={onDragOver}
+      onDragLeave={onDragLeave}
+      onDrop={onDrop}
+      className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-[11px] font-semibold transition ${
+        hot
+          ? 'border-valence-blue bg-valence-blue text-white shadow-[0_0_0_3px_rgba(51,153,255,0.18)]'
+          : 'border-valence-border bg-white text-valence-text hover:border-valence-ink/30'
+      }`}
+    >
+      <Building2 className="h-3 w-3" />
+      <span>{company.name}</span>
+      <span className={`tabular-nums ${hot ? 'text-white/80' : 'text-valence-subtle'}`}>{company.count}</span>
     </button>
   )
 }
