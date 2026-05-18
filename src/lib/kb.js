@@ -9,25 +9,24 @@
 //                          Never leaks across folders.
 
 // ============ DEFAULT FOLDER TEMPLATES ============
-// Locked-in proposals from the v2 spec, sign-off given. When a mandate is
-// created, Deals.jsx auto-spawns this structure under the mandate root.
+// Locked-in proposals from the v2 spec. When a mandate is created,
+// Deals.jsx auto-spawns this structure under the mandate root.
 //
-// Shape: array of { name, children: [{ name, children: [...] }] }.
-// Two-level depth max (activity → category). Spec says 2–3 layers; we go 2.
+// Flat (one level) per current direction — sub-categories like
+// Investor Meetings → Notes / Documents / Feedback were collapsed into
+// the parent so the folder tree reads cleanly without disclosure
+// triangles. spawnMandateFolders happily walks any depth, so re-adding
+// children later is just a matter of editing these arrays.
 
 const TEMPLATE_FUNDRAISE = [
-  { name: 'Investor Meetings', children: [
-    { name: 'Notes' }, { name: 'Documents' }, { name: 'Feedback' }
-  ]},
+  { name: 'Investor Meetings' },
   { name: 'Internal' },
   { name: 'Client Communication' },
   { name: 'Diligence' }
 ]
 
 const TEMPLATE_MA_SELL = [
-  { name: 'Buyer Meetings', children: [
-    { name: 'Notes' }, { name: 'Documents' }, { name: 'Feedback' }
-  ]},
+  { name: 'Buyer Meetings' },
   { name: 'Diligence' },
   { name: 'Internal' },
   { name: 'Client Communication' }
@@ -35,18 +34,14 @@ const TEMPLATE_MA_SELL = [
 
 const TEMPLATE_MA_BUY = [
   { name: 'Target Research' },
-  { name: 'Acquisition Targets', children: [
-    { name: 'Notes' }, { name: 'Documents' }, { name: 'Feedback' }
-  ]},
+  { name: 'Acquisition Targets' },
   { name: 'Diligence' },
   { name: 'Internal' },
   { name: 'Client Communication' }
 ]
 
 const TEMPLATE_EXIT = [
-  { name: 'Counterparty Meetings', children: [
-    { name: 'Notes' }, { name: 'Documents' }, { name: 'Feedback' }
-  ]},
+  { name: 'Counterparty Meetings' },
   { name: 'Internal' },
   { name: 'Client Communication' },
   { name: 'Diligence' }
