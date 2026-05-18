@@ -52,10 +52,24 @@ export default function FundDrawer({ open, onClose, existing, onSubmit, onRename
       return
     }
     ;(async () => {
+      // People CRM linkage to a fund happens via EITHER:
+      //   - people.fund_id (explicit FK, set on funds the user picked from
+      //     the dropdown in PersonDrawer), or
+      //   - people.company (free-text name typed into the Company
+      //     autocomplete — what most users actually do today).
+      // Match on both so a person typed as "Lightspeed India" in the
+      // Company field shows up under the Lightspeed India fund.
+      const fundName = String(existing.name || '').replace(/,/g, '')  // PostgREST or() splits on commas
+      const peopleFilter = supabase
+        .from('people')
+        .select('*')
+        .or(`fund_id.eq.${existing.id},company.ilike.${fundName}`)
+        .order('full_name')
+
       const [c, p, pp] = await Promise.all([
         supabase.from('fund_contacts').select('*').eq('fund_id', existing.id).order('created_at', { ascending: false }),
         supabase.from('deal_fund_pings').select('*, deals(client_name, stage)').eq('fund_id', existing.id).order('pinged_at', { ascending: false }),
-        supabase.from('people').select('*').eq('fund_id', existing.id).order('full_name')
+        peopleFilter
       ])
       setContacts(c.data || [])
       setPings(p.data || [])
