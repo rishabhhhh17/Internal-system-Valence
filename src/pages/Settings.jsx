@@ -10,6 +10,8 @@ import {
   setMeetingTool
 } from '../lib/settings.js'
 import { PITCH_MODE } from '../lib/featureFlags.js'
+import GoogleWorkspacePanel from '../components/GoogleWorkspacePanel.jsx'
+import SampleDataPanel from '../components/SampleDataPanel.jsx'
 
 function ComingSoon({ label }) {
   return (
@@ -122,7 +124,17 @@ function IntegrationsSection() {
   return (
     <div className="space-y-4">
       <MeetingToolPicker />
-      <ComingSoon label="Google Workspace · Gemini API key" />
+      <GoogleWorkspacePanel />
+      <ComingSoon label="Gemini API key" />
+    </div>
+  )
+}
+
+function DataSection() {
+  return (
+    <div className="space-y-4">
+      <SampleDataPanel />
+      <ComingSoon label="CSV contact importer · drag-to-attach on People" />
     </div>
   )
 }
@@ -134,7 +146,7 @@ function SectionBody({ id }) {
     case 'integrations':
       return <IntegrationsSection />
     case 'data':
-      return <ComingSoon label="Data" />
+      return <DataSection />
     case 'appearance':
       return <ComingSoon label="Appearance" />
     default:
