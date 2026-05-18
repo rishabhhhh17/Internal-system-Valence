@@ -10,6 +10,8 @@ import {
 import { supabase, isSupabaseConfigured, subscribeTable } from '../lib/supabase.js'
 import { searchKnowledge, groupResults, filePublicUrl, deleteKnowledgeFile } from '../lib/knowledge.js'
 import { smartEntitySearch, mergeAndRank } from '../lib/smartSearch.js'
+import { PITCH_MODE } from '../lib/featureFlags.js'
+import { isGeminiConfigured } from '../lib/gemini.js'
 import { embeddingsEnabled } from '../lib/embeddings.js'
 import { useAuth } from '../hooks/useAuth.js'
 import ConfigBanner from '../components/ConfigBanner.jsx'
@@ -55,23 +57,47 @@ export default function Knowledge() {
         <h1 className="mt-2 font-display text-feature font-bold text-valence-text">Everything the firm knows.</h1>
       </div>
 
-      {/* Pitch branch — three tabs. Memos fold into Files. Comps deferred.
-          Search lives in ⌘K. Legacy URL params (tab=memos / search / comps)
-          fall back to the closest surviving tab below so old links don't
-          404. */}
+      {/* Pitch branch — four tabs with the Mandates / Company split from the
+          partner conversation. Ask is gated when Gemini isn't configured
+          (PITCH_MODE deploys without a key would otherwise hit a dead
+          chat). Memos fold into Files. Search lives in ⌘K. Comps deferred. */}
       <div className="flex items-center gap-1 rounded-lg border border-valence-border bg-valence-surface p-1 w-fit overflow-x-auto">
-        <TabButton active={tab === 'ask'}                              onClick={() => setTab('ask')}      icon={Bot}>Ask</TabButton>
-        <TabButton active={tab === 'files' || tab === 'memos'}         onClick={() => setTab('files')}    icon={FileIcon}>Files</TabButton>
-        <TabButton active={tab === 'mandates'}                         onClick={() => setTab('mandates')} icon={FolderTree}>Mandate notes</TabButton>
+        {(isGeminiConfigured || !PITCH_MODE) && (
+          <TabButton active={tab === 'ask'}                          onClick={() => setTab('ask')}      icon={Bot}>Ask</TabButton>
+        )}
+        <TabButton active={tab === 'files' || tab === 'memos'}       onClick={() => setTab('files')}    icon={FileIcon}>Files</TabButton>
+        <TabButton active={tab === 'mandates'}                       onClick={() => setTab('mandates')} icon={FolderTree}>Mandates</TabButton>
+        <TabButton active={tab === 'company'}                        onClick={() => setTab('company')}  icon={Building2}>Company</TabButton>
       </div>
 
-      {tab === 'ask'                                        && <AskChat />}
+      {tab === 'ask' && (isGeminiConfigured || !PITCH_MODE)   && <AskChat />}
+      {tab === 'ask' && isGeminiConfigured === false && PITCH_MODE && <FilesSection />}
       {/* Files absorbs the old Memos tab — memo uploads land in Files now. */}
-      {(tab === 'files' || tab === 'memos')                 && <FilesSection />}
-      {tab === 'mandates'                                   && <MandatesPanel />}
-      {/* Search + Comps are temporarily hidden on the pitch branch.
-          Old URL with ?tab=search / ?tab=comps falls back to Ask. */}
-      {(tab === 'search' || tab === 'comps')                && <AskChat />}
+      {(tab === 'files' || tab === 'memos')                   && <FilesSection />}
+      {tab === 'mandates'                                     && <MandatesPanel />}
+      {tab === 'company'                                      && <CompanyPanel />}
+      {/* Legacy ?tab=search / ?tab=comps fall back to Files (not Ask —
+          Ask hard-fails without a Gemini key, Files always works). */}
+      {(tab === 'search' || tab === 'comps')                  && <FilesSection />}
+    </div>
+  )
+}
+
+// Company panel — placeholder shell for the firm-wide brand / templates
+// area called out in the partner conversation. Phase 3 (Finder column
+// rebuild) replaces this with a real folder tree split: Mandates on the
+// left, Company on the right.
+function CompanyPanel() {
+  return (
+    <div className="vl-card p-8 text-center">
+      <Building2 className="h-7 w-7 mx-auto text-valence-blue" />
+      <h3 className="mt-3 font-display text-lg font-semibold text-valence-text">Company files & brand books</h3>
+      <p className="mt-2 max-w-md mx-auto text-sm text-valence-muted leading-relaxed">
+        Firm-wide assets — brand book, internal templates, pitch decks, NDAs that aren't tied to a specific mandate — land here. Coming in the next folder-view rebuild.
+      </p>
+      <p className="mt-4 text-[11px] text-valence-subtle">
+        For now, anything firm-wide can go into Files; per-deal stuff stays under Mandates.
+      </p>
     </div>
   )
 }

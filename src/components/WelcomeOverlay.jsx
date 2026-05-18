@@ -5,6 +5,7 @@ import { Sparkles, Compass, ArrowRight, Loader2, Database, X, Check, Building2, 
 import { supabase, isSupabaseConfigured } from '../lib/supabase.js'
 import { seedSampleFirm } from '../lib/demoSeed.js'
 import { useToast } from './Toast.jsx'
+import { PITCH_MODE } from '../lib/featureFlags.js'
 
 // ------------------------------------------------------------------------------
 // First-run welcome.
@@ -44,6 +45,10 @@ export default function WelcomeOverlay() {
   useEffect(() => {
     if (!isSupabaseConfigured)   return
     if (dismissed())             return
+    // Never auto-open in pitch mode — partners shouldn't see "Try a
+    // sample firm" mid-walkthrough. They can still reach sample data
+    // from Settings on the production deploy.
+    if (PITCH_MODE)              return
     let cancelled = false
     ;(async () => {
       try {
