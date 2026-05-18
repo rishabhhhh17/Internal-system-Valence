@@ -65,20 +65,21 @@ export default function Knowledge() {
         {(isGeminiConfigured || !PITCH_MODE) && (
           <TabButton active={tab === 'ask'}                          onClick={() => setTab('ask')}      icon={Bot}>Ask</TabButton>
         )}
+        <TabButton active={tab === 'search'}                         onClick={() => setTab('search')}   icon={Search}>Search</TabButton>
         <TabButton active={tab === 'files' || tab === 'memos'}       onClick={() => setTab('files')}    icon={FileIcon}>Files</TabButton>
         <TabButton active={tab === 'mandates'}                       onClick={() => setTab('mandates')} icon={FolderTree}>Mandates</TabButton>
         <TabButton active={tab === 'company'}                        onClick={() => setTab('company')}  icon={Building2}>Company</TabButton>
       </div>
 
       {tab === 'ask' && (isGeminiConfigured || !PITCH_MODE)   && <AskChat />}
-      {tab === 'ask' && isGeminiConfigured === false && PITCH_MODE && <FilesSection />}
+      {tab === 'ask' && isGeminiConfigured === false && PITCH_MODE && <SearchSection />}
+      {tab === 'search'                                       && <SearchSection />}
       {/* Files absorbs the old Memos tab — memo uploads land in Files now. */}
       {(tab === 'files' || tab === 'memos')                   && <FilesSection />}
       {tab === 'mandates'                                     && <MandatesPanel />}
       {tab === 'company'                                      && <CompanyPanel />}
-      {/* Legacy ?tab=search / ?tab=comps fall back to Files (not Ask —
-          Ask hard-fails without a Gemini key, Files always works). */}
-      {(tab === 'search' || tab === 'comps')                  && <FilesSection />}
+      {/* Legacy ?tab=comps falls back to Files. */}
+      {tab === 'comps'                                        && <FilesSection />}
     </div>
   )
 }
@@ -98,6 +99,118 @@ function CompanyPanel() {
       <p className="mt-4 text-[11px] text-valence-subtle">
         For now, anything firm-wide can go into Files; per-deal stuff stays under Mandates.
       </p>
+    </div>
+  )
+}
+
+// ============ SEARCH SECTION ============
+// Hybrid full-text + semantic search across the firm's knowledge surfaces.
+// Falls back to lexical-only when embeddings aren't enabled (no Gemini
+// key needed for FTS). Reuses searchKnowledge + smartEntitySearch.
+function SearchSection() {
+  const navigate = useNavigate()
+  const [q, setQ]                 = useState('')
+  const [results, setResults]     = useState(null)  // null = idle
+  const [searching, setSearching] = useState(false)
+  const [mode, setMode]           = useState('lexical')
+  const [error, setError]         = useState(null)
+
+  useEffect(() => {
+    if (!q.trim()) { setResults(null); setError(null); return }
+    let cancelled = false
+    const t = setTimeout(async () => {
+      setSearching(true); setError(null)
+      try {
+        const [kb, entities] = await Promise.all([
+          searchKnowledge(q, { matchCount: 24 }),
+          smartEntitySearch(q)
+        ])
+        if (cancelled) return
+        setMode(kb.mode || 'lexical')
+        const merged = mergeAndRank(kb.results || [], entities || [])
+        setResults(groupResults(merged))
+      } catch (e) {
+        if (!cancelled) setError(e?.message || 'Search failed')
+      } finally {
+        if (!cancelled) setSearching(false)
+      }
+    }, 250)
+    return () => { cancelled = true; clearTimeout(t) }
+  }, [q])
+
+  function openResult(r) {
+    const top = r.top || r
+    if (top.source_type === 'person'      && top.source_id) navigate(`/people?open=${top.source_id}`)
+    else if (top.source_type === 'fund'   && top.source_id) navigate(`/funds?open=${top.source_id}`)
+    else if (top.source_type === 'deal'   && top.source_id) navigate(`/deals?open=${top.source_id}`)
+    else if (top.source_type === 'interaction') navigate('/interactions')
+    else if (top.source_type === 'file' || top.source_type === 'deal_file') {
+      const url = filePublicUrl(top.path || top.source_id)
+      if (url && url !== '#') window.open(url, '_blank', 'noopener')
+    }
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="vl-card p-3 space-y-3">
+        <div className="relative">
+          <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-valence-subtle" />
+          <input
+            autoFocus
+            value={q}
+            onChange={e => setQ(e.target.value)}
+            placeholder="Search everywhere — notes · memos · files · people · funds · interactions"
+            className="vl-input h-10 w-full pl-10 text-sm"
+          />
+          {searching && <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-valence-muted" />}
+        </div>
+        <p className="text-[11px] text-valence-subtle px-1">
+          {mode === 'hybrid' && q
+            ? 'Hybrid mode — keyword + semantic similarity (Gemini embeddings active).'
+            : q
+              ? 'Lexical mode — keyword-only. Add a Gemini key in Settings → Integrations for semantic search.'
+              : 'Combines keyword + (when Gemini is configured) semantic similarity across the whole firm.'}
+        </p>
+      </div>
+
+      {error && (
+        <div className="rounded-lg bg-red-50 border border-red-200 px-3 py-2 text-xs text-valence-danger">{error}</div>
+      )}
+
+      {!q.trim() ? (
+        <EmptyState icon={Search} title="Search the firm" description="Type a name, sector, mandate, or any phrase — results from notes, files, interactions, people, and funds." sampleEligible={false} />
+      ) : results && results.length === 0 && !searching ? (
+        <EmptyState icon={Search} title="No matches" description={`Nothing matches "${q}". Try a different phrase or broader keywords.`} sampleEligible={false} />
+      ) : results && results.length > 0 ? (
+        <ul className="vl-card divide-y divide-valence-border/60 overflow-hidden">
+          {results.slice(0, 30).map((r, i) => {
+            const top = r.top || r
+            const meta = SOURCE_LABELS[top.source_type] || { label: top.source_type, icon: FileIcon, color: 'text-valence-muted' }
+            const Icon = meta.icon
+            return (
+              <li key={`${top.source_type}-${top.source_id}-${i}`}>
+                <button onClick={() => openResult(r)} className="block w-full text-left px-4 py-3 hover:bg-valence-surface transition">
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <Icon className={`h-3.5 w-3.5 shrink-0 ${meta.color}`} />
+                      <span className="truncate text-sm font-semibold text-valence-text">{top.title || top.source_id}</span>
+                      <span className="vl-chip text-[9.5px] shrink-0">{meta.label}</span>
+                    </div>
+                    {typeof top.score === 'number' && (
+                      <span className="text-[10px] tabular-nums text-valence-subtle shrink-0">score {top.score.toFixed(2)}</span>
+                    )}
+                  </div>
+                  {(top.snippet || top.preview) && (
+                    <p className="mt-1 line-clamp-2 text-[12px] leading-relaxed text-valence-muted">
+                      {stripWikilinkTokens(String(top.snippet || top.preview))}
+                    </p>
+                  )}
+                </button>
+              </li>
+            )
+          })}
+        </ul>
+      ) : null}
     </div>
   )
 }
