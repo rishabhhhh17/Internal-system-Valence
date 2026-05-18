@@ -68,7 +68,6 @@ export default function Knowledge() {
         <TabButton active={tab === 'search'}                         onClick={() => setTab('search')}   icon={Search}>Search</TabButton>
         <TabButton active={tab === 'files' || tab === 'memos'}       onClick={() => setTab('files')}    icon={FileIcon}>Files</TabButton>
         <TabButton active={tab === 'mandates'}                       onClick={() => setTab('mandates')} icon={FolderTree}>Mandates</TabButton>
-        <TabButton active={tab === 'company'}                        onClick={() => setTab('company')}  icon={Building2}>Company</TabButton>
       </div>
 
       {tab === 'ask' && (isGeminiConfigured || !PITCH_MODE)   && <AskChat />}
@@ -77,31 +76,13 @@ export default function Knowledge() {
       {/* Files absorbs the old Memos tab — memo uploads land in Files now. */}
       {(tab === 'files' || tab === 'memos')                   && <FilesSection />}
       {tab === 'mandates'                                     && <MandatesPanel />}
-      {tab === 'company'                                      && <CompanyPanel />}
-      {/* Legacy ?tab=comps falls back to Files. */}
-      {tab === 'comps'                                        && <FilesSection />}
+      {/* Legacy ?tab=company and ?tab=comps fall back to Mandates — the
+          Firm library lives there as the first item in the Sources column. */}
+      {(tab === 'company' || tab === 'comps')                 && <MandatesPanel />}
     </div>
   )
 }
 
-// Company panel — placeholder shell for the firm-wide brand / templates
-// area called out in the partner conversation. Phase 3 (Finder column
-// rebuild) replaces this with a real folder tree split: Mandates on the
-// left, Company on the right.
-function CompanyPanel() {
-  return (
-    <div className="vl-card p-8 text-center">
-      <Building2 className="h-7 w-7 mx-auto text-valence-blue" />
-      <h3 className="mt-3 font-display text-lg font-semibold text-valence-text">Company files & brand books</h3>
-      <p className="mt-2 max-w-md mx-auto text-sm text-valence-muted leading-relaxed">
-        Firm-wide assets — brand book, internal templates, pitch decks, NDAs that aren't tied to a specific mandate — land here. Coming in the next folder-view rebuild.
-      </p>
-      <p className="mt-4 text-[11px] text-valence-subtle">
-        For now, anything firm-wide can go into Files; per-deal stuff stays under Mandates.
-      </p>
-    </div>
-  )
-}
 
 // ============ SEARCH SECTION ============
 // Hybrid full-text + semantic search across the firm's knowledge surfaces.
