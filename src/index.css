@@ -187,6 +187,18 @@
   }
 }
 
+/* ============ DENSITY ============
+   Compact density tightens the common chrome surfaces. Card / chip /
+   input get a hair smaller; main layout padding is unchanged because
+   pages already pack a lot of vertical content. Triggered by
+   `<html data-density='compact'>` from App.jsx. */
+html[data-density='compact'] .vl-card { padding: 1rem; }
+html[data-density='compact'] .vl-card-subtle { padding: 0.875rem; }
+html[data-density='compact'] .vl-input { padding-top: 0.4rem; padding-bottom: 0.4rem; }
+html[data-density='compact'] .vl-chip,
+html[data-density='compact'] .vl-chip-blue,
+html[data-density='compact'] .vl-chip-ink { padding-top: 0.125rem; padding-bottom: 0.125rem; }
+
 /* Arrow glide inside CTA buttons — mirrors the animateButton pattern on the
    Valence site. Opt-in: add a child with class="vl-arrow" to any button. */
 .vl-btn-primary .vl-arrow,

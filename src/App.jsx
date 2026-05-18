@@ -1,3 +1,4 @@
+import { useEffect } from 'react'
 import { Routes, Route, Navigate, useLocation, useSearchParams } from 'react-router-dom'
 import Layout from './components/Layout.jsx'
 import DailyNote from './pages/DailyNote.jsx'
@@ -25,10 +26,27 @@ import FitPreview from './pages/FitPreview.jsx'
 import Settings from './pages/Settings.jsx'
 import { useAuth } from './hooks/useAuth.js'
 import { isSupabaseConfigured } from './lib/supabase.js'
+import { useWorkspaceSetting } from './hooks/useWorkspaceSetting.js'
+import { WORKSPACE_KEYS, effectiveBrowserTitle } from './lib/workspace.js'
 
 export default function App() {
   const { pathname } = useLocation()
   const { session, loading, authUnavailable } = useAuth()
+  const firmName = useWorkspaceSetting(WORKSPACE_KEYS.firmName)
+  const browserTitleOverride = useWorkspaceSetting(WORKSPACE_KEYS.browserTitle)
+  const density = useWorkspaceSetting(WORKSPACE_KEYS.density)
+
+  // Apply firm-customizable chrome: browser title + density data attribute.
+  // Effect runs on every read so live edits in /settings reflect immediately.
+  useEffect(() => {
+    if (typeof document === 'undefined') return
+    document.title = effectiveBrowserTitle()
+  }, [firmName, browserTitleOverride])
+
+  useEffect(() => {
+    if (typeof document === 'undefined') return
+    document.documentElement.dataset.density = density || 'comfortable'
+  }, [density])
 
   // Public share pages render without chrome and without auth
   if (pathname.startsWith('/share/')) {

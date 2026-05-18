@@ -16,6 +16,7 @@ import GeminiKeyPanel from '../components/GeminiKeyPanel.jsx'
 import CsvContactImport from '../components/CsvContactImport.jsx'
 import ScoringCriteriaPanel from '../components/ScoringCriteriaPanel.jsx'
 import BulkAddPeoplePanel from '../components/BulkAddPeoplePanel.jsx'
+import WorkspacePreferencesPanel from '../components/WorkspacePreferencesPanel.jsx'
 
 function ComingSoon({ label }) {
   return (
@@ -147,8 +148,8 @@ function DataSection() {
 function WorkspaceSection() {
   return (
     <div className="space-y-4">
+      <WorkspacePreferencesPanel />
       <ScoringCriteriaPanel />
-      <ComingSoon label="Firm name · logo · brand color · default currency" />
     </div>
   )
 }
