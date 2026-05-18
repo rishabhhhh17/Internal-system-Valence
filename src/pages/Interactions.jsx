@@ -122,31 +122,23 @@ export default function Interactions() {
   }, [rows, purpose, q, needsFollowUp])
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <ConfigBanner />
 
-      <div className="flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <p className="vl-eyebrow-ink">Interactions</p>
-          <h1 className="mt-2 font-display text-feature font-bold text-valence-text">
-            The pre-mandate funnel.
-          </h1>
-        </div>
-        <div className="flex items-center gap-3">
-          <ViewModeToggle pageKey="interactions" />
-          <button
-            onClick={exportFilteredCSV}
-            disabled={loading || filtered.length === 0}
-            title="Export currently filtered rows as CSV"
-            className="vl-btn-secondary-sm"
-          >
-            <Download className="h-3.5 w-3.5" />
-            Export CSV
-          </button>
-          <button onClick={() => setDrawer('new')} className="vl-btn-primary">
-            <Plus className="h-4 w-4" /> Log interaction
-          </button>
-        </div>
+      <div className="flex flex-wrap items-center justify-end gap-2">
+        <ViewModeToggle pageKey="interactions" />
+        <button
+          onClick={exportFilteredCSV}
+          disabled={loading || filtered.length === 0}
+          title="Export currently filtered rows as CSV"
+          className="vl-btn-secondary-sm"
+        >
+          <Download className="h-3.5 w-3.5" />
+          Export CSV
+        </button>
+        <button onClick={() => setDrawer('new')} className="vl-btn-primary-sm">
+          <Plus className="h-4 w-4" /> Log interaction
+        </button>
       </div>
 
       {/* Filter strip — Context grouped by mandate lifecycle stage */}
