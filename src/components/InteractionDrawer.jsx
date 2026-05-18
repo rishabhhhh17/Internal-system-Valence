@@ -13,10 +13,10 @@ import { useToast } from './Toast.jsx'
 import WikilinkTextarea from './WikilinkTextarea.jsx'
 import Typeahead from './Typeahead.jsx'
 
-// Meeting-tool integration (Fathom / Read.ai / Otter / Fireflies) is
-// configured in Settings → Integrations on this branch and lights up
-// once a partner picks their tool. Until then, transcripts are paste /
-// upload / voice memo only.
+// Meeting-tool integration (Read.ai / Otter / Fireflies) is configured
+// in Settings → Integrations on this branch and lights up once a
+// partner picks their tool. Until then, transcripts are paste / upload
+// / voice memo only.
 const TRANSCRIPT_SOURCES = [
   { id: 'manual',     label: 'Paste / type',  icon: FileText, blurb: 'Type or paste a transcript directly' },
   { id: 'upload',     label: 'Upload file',   icon: Upload,   blurb: '.txt, .vtt, .srt, .docx, .pdf' },
@@ -385,7 +385,7 @@ export default function InteractionDrawer({ open, onClose, existing, onSubmit })
 }
 
 // ============================================================================
-// TranscriptSection — paste / upload / voice memo / Fathom pull. Stores into
+// TranscriptSection — paste / upload / voice memo. Stores into
 // form.transcript + form.transcript_source. Optional Gemini summary is
 // stored in form.transcript_summary. Audio (when voice-memo source) goes to
 // form.audio_url + form.audio_filename via Supabase Storage.

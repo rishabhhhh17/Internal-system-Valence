@@ -30,11 +30,10 @@ export function findSection(id) {
 // ============ MEETING RECORDER INTEGRATION ============
 // Lists the meeting-tool integrations a firm can wire into the Interactions
 // pipeline. `status: 'configurable'` means a real handler exists today;
-// `coming-soon` is intentionally inert and shown as disabled. Fathom is
-// `pitchHidden` because the customer-pitch branch strips its code path
-// — exposing it as selectable would be misleading.
+// `coming-soon` is intentionally inert and shown as disabled. The
+// `pitchHidden` flag stays on the schema as a hook for any future tool
+// whose code path is stripped on the customer-pitch build.
 export const MEETING_TOOLS = [
-  { id: 'fathom',    label: 'Fathom',    status: 'configurable', pitchHidden: true },
   { id: 'read-ai',   label: 'Read.ai',   status: 'coming-soon' },
   { id: 'otter',     label: 'Otter',     status: 'coming-soon' },
   { id: 'fireflies', label: 'Fireflies', status: 'coming-soon' }

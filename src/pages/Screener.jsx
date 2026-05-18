@@ -62,8 +62,8 @@ export default function Screener() {
   const [output, setOutput]   = useState(null)
   const [pingedFundIds, setPingedFundIds] = useState(new Set())
 
-  // Meeting-tool pull (Fathom / Read.ai / Otter / Fireflies) returns on the
-  // main branch once the customer picks their tool in Settings → Integrations.
+  // Meeting-tool pull (Read.ai / Otter / Fireflies) returns once the
+  // customer picks and wires their tool in Settings → Integrations.
 
   useEffect(() => {
     ;(async () => {
