@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { NavLink } from 'react-router-dom'
-import { LayoutDashboard, Briefcase, BookOpen, CalendarDays, CalendarRange, Users, BarChart3, MessageSquare, Handshake, GanttChartSquare, Building2, Sparkles, Inbox, UserCircle } from 'lucide-react'
+import { LayoutDashboard, Briefcase, BookOpen, CalendarDays, CalendarRange, Users, BarChart3, MessageSquare, Handshake, GanttChartSquare, Building2, Sparkles, Inbox, UserCircle, Settings as SettingsIcon } from 'lucide-react'
 import Logo from './Logo.jsx'
 import { supabase, isSupabaseConfigured, subscribeTable } from '../lib/supabase.js'
 
@@ -125,7 +125,24 @@ export default function Sidebar() {
       {/* Sidebar footer — minimal status pip + offices. Drops the marketing
           tagline so the sidebar reads as an operational tool, not a sales
           page. */}
-      <div className="px-3 pb-5 pt-2">
+      <div className="px-3 pb-5 pt-2 space-y-2">
+        <NavLink
+          to="/settings"
+          className={({ isActive }) =>
+            `group flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition ${
+              isActive
+                ? 'bg-valence-ink text-white'
+                : 'text-valence-muted hover:bg-valence-surface hover:text-valence-text'
+            }`
+          }
+        >
+          {({ isActive }) => (
+            <>
+              <SettingsIcon className={`h-4 w-4 ${isActive ? 'text-valence-blue' : 'text-valence-subtle group-hover:text-valence-text'}`} />
+              <span className="flex-1 tracking-tight">Settings</span>
+            </>
+          )}
+        </NavLink>
         <div className="flex items-center gap-2 px-2 text-[11px] text-valence-subtle">
           <span className="h-1.5 w-1.5 rounded-full bg-valence-blue shadow-[0_0_6px_#3399FF]" />
           <span className="font-medium text-valence-muted">Mumbai</span>

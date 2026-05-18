@@ -3,7 +3,7 @@ import { NavLink, useLocation } from 'react-router-dom'
 import {
   LayoutDashboard, Briefcase, BookOpen, CalendarDays, Users, Search,
   Menu, X, MessageSquare, Building2, FolderTree, Activity, Inbox,
-  Sparkles, Calendar as CalendarIcon, ListChecks, BarChart3
+  Sparkles, Calendar as CalendarIcon, ListChecks, BarChart3, Settings as SettingsIcon
 } from 'lucide-react'
 
 // Primary nav row — five entries that fit comfortably on a 375px iPhone.
@@ -29,7 +29,8 @@ const more = [
   { to: '/inbox/intake',label: 'Intake inbox',  icon: Inbox },
   { to: '/feed',        label: 'Firm pulse',    icon: Activity },
   { to: '/analytics',   label: 'Analytics',     icon: BarChart3 },
-  { to: '/team',        label: 'Team',          icon: FolderTree }
+  { to: '/team',        label: 'Team',          icon: FolderTree },
+  { to: '/settings',    label: 'Settings',      icon: SettingsIcon }
 ]
 
 function openPalette() {
