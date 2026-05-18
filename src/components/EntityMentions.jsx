@@ -153,14 +153,14 @@ export default function EntityMentions({ entityType, entityId, entityName }) {
             value={draftTitle}
             onChange={e => setDraftTitle(e.target.value)}
             placeholder="Title (optional — first line of body becomes the title if blank)"
-            className="vl-input bg-white"
+            className="vl-input bg-valence-elevated"
             autoFocus
           />
           <WikilinkTextarea
             value={draftBody}
             onChange={setDraftBody}
             placeholder={`Just start typing. The wikilink to ${entityName || 'this ' + entityType} is added automatically. Use [[ for other people / funds / mandates and #tag for folder-local concepts.`}
-            className="vl-input min-h-[160px] leading-relaxed bg-white font-mono text-[13px]"
+            className="vl-input min-h-[160px] leading-relaxed bg-valence-elevated font-mono text-[13px]"
           />
           <div className="flex items-center justify-between">
             <p className="text-[11px] text-valence-muted">Saves into the firm-wide <span className="font-semibold text-valence-text">Quick notes</span> folder. Cross-links to {entityName || `this ${entityType}`}.</p>
@@ -193,7 +193,7 @@ export default function EntityMentions({ entityType, entityId, entityName }) {
           on Today; that surfaces here whenever Sivaan / HoB's drawer
           opens. Newest first. */}
       {dailyNotes.length > 0 && (
-        <div className="rounded-xl border border-valence-border bg-white">
+        <div className="rounded-xl border border-valence-border bg-valence-elevated">
           <header className="flex items-center justify-between border-b border-valence-border px-4 py-2.5 bg-valence-surface">
             <p className="vl-eyebrow-ink inline-flex items-center gap-1.5">
               <Calendar className="h-3 w-3 text-valence-blue" /> Daily notes
@@ -223,7 +223,7 @@ export default function EntityMentions({ entityType, entityId, entityName }) {
 
       {/* Interaction mentions: meeting notes that wikilinked this entity. */}
       {interactions.length > 0 && (
-        <div className="rounded-xl border border-valence-border bg-white">
+        <div className="rounded-xl border border-valence-border bg-valence-elevated">
           <header className="flex items-center justify-between border-b border-valence-border px-4 py-2.5 bg-valence-surface">
             <p className="vl-eyebrow-ink inline-flex items-center gap-1.5">
               <MessageSquare className="h-3 w-3 text-valence-blue" /> Interactions
@@ -261,7 +261,7 @@ export default function EntityMentions({ entityType, entityId, entityName }) {
       )}
 
       {grouped.map(g => (
-        <div key={g.mandateId || 'firm'} className="rounded-xl border border-valence-border bg-white">
+        <div key={g.mandateId || 'firm'} className="rounded-xl border border-valence-border bg-valence-elevated">
           <header className="flex items-center justify-between border-b border-valence-border px-4 py-2.5 bg-valence-surface">
             <p className="vl-eyebrow-ink inline-flex items-center gap-1.5">
               <FolderTree className="h-3 w-3 text-valence-blue" /> {g.mandateName}

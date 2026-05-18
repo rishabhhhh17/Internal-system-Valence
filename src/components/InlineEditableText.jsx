@@ -81,7 +81,7 @@ export default function InlineEditableText({
           }}
           disabled={saving}
           placeholder={placeholder}
-          className={`${className} bg-white border border-valence-blue/40 rounded px-1.5 -mx-1.5 outline-none focus:ring-2 focus:ring-valence-blue-ring min-w-0 flex-1`}
+          className={`${className} bg-valence-elevated border border-valence-blue/40 rounded px-1.5 -mx-1.5 outline-none focus:ring-2 focus:ring-valence-blue-ring min-w-0 flex-1`}
         />
         {saving
           ? <Loader2 className="h-3.5 w-3.5 animate-spin text-valence-muted shrink-0" />

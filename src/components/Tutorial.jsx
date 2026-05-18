@@ -147,7 +147,7 @@ export default function TutorialButton() {
         onClick={() => { setMode('menu'); if (!engaged) { markFirstRun(); setEngaged(true) } }}
         className={`relative inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-semibold transition ${
           engaged
-            ? 'border-valence-border bg-white text-valence-muted hover:text-valence-text'
+            ? 'border-valence-border bg-valence-elevated text-valence-muted hover:text-valence-text'
             : 'border-valence-blue/50 bg-valence-blue-soft text-valence-blue hover:bg-valence-blue-soft/80 animate-attention-glow'
         }`}
         title="Tour the product"
@@ -186,7 +186,7 @@ function TourMenu({ onPick, onClose }) {
     <ToBody>
     <div className="fixed inset-0 z-[70]" role="dialog" aria-modal="true" aria-label="Tour ValenceOS">
       <div className="absolute inset-0 bg-valence-ink/45 backdrop-blur-sm animate-fade-in" onClick={onClose} />
-      <div className="relative mx-auto mt-[10vh] w-[min(680px,calc(100vw-32px))] animate-slide-up rounded-2xl border border-valence-border bg-white shadow-valence-lg">
+      <div className="relative mx-auto mt-[10vh] w-[min(680px,calc(100vw-32px))] animate-slide-up rounded-2xl border border-valence-border bg-valence-elevated shadow-valence-lg">
         <div className="flex items-start justify-between gap-3 border-b border-valence-border px-6 py-4">
           <div>
             <p className="vl-eyebrow-ink inline-flex items-center gap-1.5">
@@ -252,7 +252,7 @@ function TourCard({ icon: Icon, tone, title, sub, body, onClick, recommended }) 
   return (
     <button
       onClick={onClick}
-      className="group relative rounded-xl border border-valence-border bg-white p-4 text-left transition hover:border-valence-ink/30 hover:shadow-valence"
+      className="group relative rounded-xl border border-valence-border bg-valence-elevated p-4 text-left transition hover:border-valence-ink/30 hover:shadow-valence"
     >
       {recommended && (
         <span className="absolute -top-2 right-3 inline-flex items-center rounded-full bg-valence-ink px-2 py-0.5 text-[9px] font-semibold uppercase tracking-[0.14em] text-white">
@@ -428,7 +428,7 @@ function SpotlightRunner({ kind, pathname, onClose }) {
 
       <div
         ref={popRef}
-        className="absolute animate-slide-up rounded-2xl border border-valence-border bg-white shadow-valence-lg"
+        className="absolute animate-slide-up rounded-2xl border border-valence-border bg-valence-elevated shadow-valence-lg"
         style={
           pos
             ? { top: pos.top, left: pos.left, width: popW, maxHeight: 'calc(100vh - 32px)', overflow: 'hidden' }

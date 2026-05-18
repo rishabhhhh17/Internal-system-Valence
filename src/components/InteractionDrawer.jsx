@@ -197,7 +197,7 @@ export default function InteractionDrawer({ open, onClose, existing, onSubmit })
                         className={`rounded-lg border px-3 py-2 text-left text-xs transition ${
                           form.interaction_purpose === p.id
                             ? 'border-valence-blue/40 bg-valence-blue-soft text-valence-text'
-                            : 'border-valence-border bg-white text-valence-muted hover:text-valence-text'
+                            : 'border-valence-border bg-valence-elevated text-valence-muted hover:text-valence-text'
                         }`}
                       >
                         <p className="font-semibold">{p.label}</p>
@@ -225,7 +225,7 @@ export default function InteractionDrawer({ open, onClose, existing, onSubmit })
             )}
           </div>
           {form.person_id ? (
-            <div className="rounded-lg border border-valence-blue/30 bg-white px-3 py-2.5 text-sm">
+            <div className="rounded-lg border border-valence-blue/30 bg-valence-elevated px-3 py-2.5 text-sm">
               <p className="font-semibold text-valence-text">{form.counterparty_name}</p>
               <p className="mt-0.5 text-[11px] text-valence-muted">{[form.counterparty_role, form.counterparty_company].filter(Boolean).join(' · ') || '—'}</p>
               <p className="mt-1 text-[10px] uppercase tracking-[0.16em] text-valence-blue">Linked to People</p>
@@ -233,13 +233,13 @@ export default function InteractionDrawer({ open, onClose, existing, onSubmit })
           ) : (
             <div className="relative">
               <input
-                className="vl-input bg-white"
+                className="vl-input bg-valence-elevated"
                 value={personQuery}
                 onChange={e => { setPersonQuery(e.target.value); update({ counterparty_name: e.target.value }) }}
                 placeholder="Search People CRM, or type a new name to add"
               />
               {filteredPeople.length > 0 && (
-                <ul className="absolute z-10 mt-1 w-full max-h-56 overflow-y-auto rounded-lg border border-valence-border bg-white shadow-valence">
+                <ul className="absolute z-10 mt-1 w-full max-h-56 overflow-y-auto rounded-lg border border-valence-border bg-valence-elevated shadow-valence">
                   {filteredPeople.map(p => (
                     <li key={p.id}>
                       <button type="button" onClick={() => pickPerson(p)} className="block w-full px-3 py-2 text-left hover:bg-valence-blue-soft">
@@ -251,7 +251,7 @@ export default function InteractionDrawer({ open, onClose, existing, onSubmit })
                 </ul>
               )}
               {personQuery && filteredPeople.length === 0 && (
-                <div className="mt-2 flex items-center justify-between rounded-lg border border-dashed border-valence-border bg-white px-3 py-2 text-xs text-valence-muted">
+                <div className="mt-2 flex items-center justify-between rounded-lg border border-dashed border-valence-border bg-valence-elevated px-3 py-2 text-xs text-valence-muted">
                   <span>No match for "{personQuery}".</span>
                   <button type="button" disabled={creatingPerson} onClick={createPersonInline} className="vl-btn-ghost text-[11px]">
                     <Plus className="h-3 w-3" /> {creatingPerson ? 'Adding…' : 'Create Person'}
@@ -272,7 +272,7 @@ export default function InteractionDrawer({ open, onClose, existing, onSubmit })
                 value={form.counterparty_company}
                 onChange={v => update({ counterparty_company: v })}
                 placeholder="Nimbus Health"
-                className="vl-input mt-1.5 bg-white"
+                className="vl-input mt-1.5 bg-valence-elevated"
                 fetcher={async q => {
                   if (!isSupabaseConfigured) return []
                   const [{ data: fundsRes }, { data: peopleRes }] = await Promise.all([
@@ -298,7 +298,7 @@ export default function InteractionDrawer({ open, onClose, existing, onSubmit })
             </div>
             <div>
               <label className="vl-label">Role</label>
-              <input className="vl-input mt-1.5 bg-white" value={form.counterparty_role} onChange={e => update({ counterparty_role: e.target.value })} placeholder="CEO" />
+              <input className="vl-input mt-1.5 bg-valence-elevated" value={form.counterparty_role} onChange={e => update({ counterparty_role: e.target.value })} placeholder="CEO" />
             </div>
           </div>
           <div>
@@ -310,7 +310,7 @@ export default function InteractionDrawer({ open, onClose, existing, onSubmit })
               value={form.lead_owner}
               onChange={v => update({ lead_owner: v })}
               placeholder="Neha Jain"
-              className="vl-input mt-1.5 bg-white"
+              className="vl-input mt-1.5 bg-valence-elevated"
               minChars={1}
               fetcher={async q => {
                 if (!isSupabaseConfigured) return []
@@ -503,7 +503,7 @@ function TranscriptSection({ form, update }) {
                 type="button"
                 onClick={onClick}
                 disabled={busy}
-                className="rounded-lg border border-valence-border bg-white px-3 py-2.5 text-left text-xs hover:border-valence-blue/40 hover:bg-valence-blue-soft transition disabled:opacity-50 disabled:cursor-not-allowed"
+                className="rounded-lg border border-valence-border bg-valence-elevated px-3 py-2.5 text-left text-xs hover:border-valence-blue/40 hover:bg-valence-blue-soft transition disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <div className="flex items-center gap-1.5 font-semibold text-valence-text">
                   {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Icon className="h-3.5 w-3.5 text-valence-blue" />}

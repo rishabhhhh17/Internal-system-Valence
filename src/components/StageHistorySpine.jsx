@@ -19,8 +19,8 @@ import { STAGES } from '../lib/stages.js'
 const DEST_RE = /→\s*([\w\s-]+?)\s*$/
 
 const STAGE_TONE = {
-  Origination:  'border-valence-border bg-white text-valence-text',
-  Pitching:     'border-valence-border bg-white text-valence-text',
+  Origination:  'border-valence-border bg-valence-elevated text-valence-text',
+  Pitching:     'border-valence-border bg-valence-elevated text-valence-text',
   'Pre-Mandate':'border-valence-blue/30 bg-valence-blue-soft text-valence-text',
   Mandate:      'border-valence-blue/40 bg-valence-blue-soft text-valence-text',
   Closed:       'border-valence-success/40 bg-valence-success/10 text-valence-success',
@@ -115,7 +115,7 @@ export default function StageHistorySpine({ deal }) {
           <div key={n.stage} className="inline-flex items-stretch gap-1.5">
             <div
               className={`min-w-[7rem] rounded-lg border px-3 py-2 text-left transition ${
-                STAGE_TONE[n.stage] || 'border-valence-border bg-white text-valence-text'
+                STAGE_TONE[n.stage] || 'border-valence-border bg-valence-elevated text-valence-text'
               } ${n.isCurrent ? CURRENT_RING : ''}`}
             >
               <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-valence-muted">{n.stage}</p>

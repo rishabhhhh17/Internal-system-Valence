@@ -127,7 +127,7 @@ export default function KbFolderFiles({ folder }) {
       {loading ? (
         <p className="px-1 py-2 text-xs text-valence-muted">Loading files…</p>
       ) : files.length === 0 ? null : (
-        <ul className="divide-y divide-valence-border/60 rounded-lg border border-valence-border bg-white max-h-[50vh] overflow-y-auto">
+        <ul className="divide-y divide-valence-border/60 rounded-lg border border-valence-border bg-valence-elevated max-h-[50vh] overflow-y-auto">
           {files.map(f => {
             const openable = isSupabaseConfigured && f.path && !f.path.startsWith('local://')
             return (

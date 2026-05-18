@@ -149,13 +149,13 @@ function ActionRow({ icon: Icon, title, sub, onClick, busy, busyLabel, primary, 
         primary
           ? 'border-valence-blue/30 bg-valence-blue-soft/50 hover:bg-valence-blue-soft hover:border-valence-blue/50'
           : destructive
-            ? 'border-valence-border bg-white hover:border-valence-danger/30 hover:bg-red-50/40'
-            : 'border-valence-border bg-white hover:border-valence-ink/30 hover:bg-valence-surface'
+            ? 'border-valence-border bg-valence-elevated hover:border-valence-danger/30 hover:bg-red-50/40'
+            : 'border-valence-border bg-valence-elevated hover:border-valence-ink/30 hover:bg-valence-surface'
       }`}
     >
       <span className={`inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border ${
         primary
-          ? 'border-valence-blue/30 bg-white text-valence-blue'
+          ? 'border-valence-blue/30 bg-valence-elevated text-valence-blue'
           : destructive
             ? 'border-valence-border bg-valence-surface text-valence-danger'
             : 'border-valence-border bg-valence-surface text-valence-muted'

@@ -528,7 +528,7 @@ function DealDrawerBody({ deal, onEdit, onDelete, onComposeEmail }) {
               ref={el => (tabRefs.current[t.id] = el)}
               onClick={() => setTab(t.id)}
               className={`inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-semibold transition whitespace-nowrap shrink-0 ${
-                tab === t.id ? 'bg-white text-valence-text shadow-sm' : 'text-valence-muted hover:text-valence-text'
+                tab === t.id ? 'bg-valence-elevated text-valence-text shadow-sm' : 'text-valence-muted hover:text-valence-text'
               }`}
             >
               <t.icon className="h-3.5 w-3.5" /> {t.label}
@@ -899,7 +899,7 @@ function DealForm({ initial, onSubmit, onCancel }) {
                 className={`rounded-lg border px-3 py-2 text-left text-xs transition ${
                   active
                     ? 'border-valence-blue/40 bg-valence-blue-soft text-valence-text'
-                    : 'border-valence-border bg-white text-valence-muted hover:text-valence-text'
+                    : 'border-valence-border bg-valence-elevated text-valence-muted hover:text-valence-text'
                 }`}
               >
                 <p className="font-semibold">{t.label}</p>
@@ -927,7 +927,7 @@ function DealForm({ initial, onSubmit, onCancel }) {
                     aria-pressed={active}
                     className={`rounded-lg border px-3 py-2 text-left text-xs transition ${
                       active
-                        ? 'border-valence-blue/40 bg-white text-valence-text shadow-sm'
+                        ? 'border-valence-blue/40 bg-valence-elevated text-valence-text shadow-sm'
                         : 'border-valence-border bg-white/60 text-valence-muted hover:text-valence-text'
                     }`}
                   >
@@ -970,7 +970,7 @@ function DealForm({ initial, onSubmit, onCancel }) {
                         onClick={() => set('ma_side', s.id)}
                         aria-pressed={active}
                         className={`rounded-lg border px-3 py-2 text-xs font-semibold transition ${
-                          active ? 'border-valence-blue/40 bg-white text-valence-text shadow-sm' : 'border-valence-border bg-white/60 text-valence-muted hover:text-valence-text'
+                          active ? 'border-valence-blue/40 bg-valence-elevated text-valence-text shadow-sm' : 'border-valence-border bg-white/60 text-valence-muted hover:text-valence-text'
                         }`}
                       >
                         {s.label}
@@ -1026,7 +1026,7 @@ function DealForm({ initial, onSubmit, onCancel }) {
             </span>
           </label>
           <WikilinkTextarea
-            className="vl-input min-h-[120px] leading-relaxed bg-white"
+            className="vl-input min-h-[120px] leading-relaxed bg-valence-elevated"
             value={form.engagement_brief}
             onChange={v => set('engagement_brief', v)}
             placeholder='e.g. "Help break into Dubai market — distribution + first-customer outreach. Also exploring vending-machine product line for premium Q-commerce dark stores."'

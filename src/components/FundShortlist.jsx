@@ -70,7 +70,7 @@ export default function FundShortlist({ deal }) {
           No funds shortlisted yet. Click <span className="font-semibold text-valence-text">Find matching funds</span> for an AI-assisted starting point.
         </div>
       ) : (
-        <ul className="divide-y divide-valence-border/60 rounded-xl border border-valence-border bg-white">
+        <ul className="divide-y divide-valence-border/60 rounded-xl border border-valence-border bg-valence-elevated">
           {pings.map(p => (
             <li key={p.id} className="flex items-center justify-between px-4 py-2.5 text-sm">
               <div className="flex items-center gap-2 min-w-0">
@@ -95,7 +95,7 @@ export default function FundShortlist({ deal }) {
               {matches.map(m => {
                 const already = pingedFundIds.has(m.fund.id)
                 return (
-                  <li key={m.fund.id} className="flex items-start gap-3 rounded-lg border border-valence-border bg-white px-3 py-2.5">
+                  <li key={m.fund.id} className="flex items-start gap-3 rounded-lg border border-valence-border bg-valence-elevated px-3 py-2.5">
                     <div className="grid h-9 w-9 place-items-center rounded-lg bg-valence-surface border border-valence-border shrink-0 text-[11px] font-bold tabular-nums text-valence-blue">{m.score}</div>
                     <div className="min-w-0 flex-1">
                       <div className="flex flex-wrap items-baseline gap-x-2">

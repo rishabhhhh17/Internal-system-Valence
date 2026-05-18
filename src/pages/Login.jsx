@@ -13,7 +13,7 @@ export default function Login() {
   }
 
   return (
-    <div className="min-h-screen bg-white vl-circles">
+    <div className="min-h-screen bg-valence-elevated vl-circles">
       <div className="absolute inset-0 bg-valence-grid opacity-40 pointer-events-none" aria-hidden />
       <div className="relative mx-auto flex min-h-screen max-w-[1280px] flex-col">
         <header className="px-8 pt-8 lg:px-16">

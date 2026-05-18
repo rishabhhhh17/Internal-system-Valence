@@ -195,7 +195,7 @@ function Column({ title, icon: Icon, link, count, empty, children }) {
           <p className="text-sm text-valence-muted">{empty}</p>
         </div>
       ) : (
-        <ul className="divide-y divide-valence-border/60 rounded-xl border border-valence-border bg-white px-4">
+        <ul className="divide-y divide-valence-border/60 rounded-xl border border-valence-border bg-valence-elevated px-4">
           {children}
         </ul>
       )}

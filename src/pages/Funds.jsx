@@ -110,7 +110,7 @@ export default function Funds() {
         <div className="flex items-center gap-2">
           <ViewModeToggle pageKey="funds" />
           {!isSimple && (
-            <div className="inline-flex items-center rounded-full border border-valence-border bg-white p-0.5">
+            <div className="inline-flex items-center rounded-full border border-valence-border bg-valence-elevated p-0.5">
               <button onClick={() => setView('grid')}  className={`rounded-full px-2.5 py-1 transition ${view === 'grid'  ? 'bg-valence-ink text-white' : 'text-valence-muted hover:text-valence-text'}`} title="Card view"><LayoutGrid className="h-3.5 w-3.5" /></button>
               <button onClick={() => setView('table')} className={`rounded-full px-2.5 py-1 transition ${view === 'table' ? 'bg-valence-ink text-white' : 'text-valence-muted hover:text-valence-text'}`} title="Table view"><TableIcon className="h-3.5 w-3.5" /></button>
             </div>
@@ -178,7 +178,7 @@ function FilterRow({ label, value, onChange, options }) {
           className={`rounded-full border px-2.5 py-1 text-[11px] font-semibold capitalize transition ${
             value === o
               ? 'border-valence-blue/40 bg-valence-blue-soft text-valence-text'
-              : 'border-valence-border bg-white text-valence-muted hover:text-valence-text'
+              : 'border-valence-border bg-valence-elevated text-valence-muted hover:text-valence-text'
           }`}
         >{o}</button>
       ))}

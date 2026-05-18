@@ -84,7 +84,7 @@ function MeetingToolPicker() {
                   ? 'border-valence-blue bg-valence-blue-soft'
                   : disabled
                   ? 'border-valence-border bg-valence-surface/50 cursor-not-allowed opacity-60'
-                  : 'border-valence-border bg-white hover:border-valence-ink/30 hover:bg-valence-surface'
+                  : 'border-valence-border bg-valence-elevated hover:border-valence-ink/30 hover:bg-valence-surface'
               }`}
             >
               <span className="text-sm font-medium text-valence-text">{tool.label}</span>

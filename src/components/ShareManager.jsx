@@ -138,7 +138,7 @@ export default function ShareManager({ deal }) {
             ) : (
               <ul className="space-y-1.5">
                 {access.map(e => (
-                  <li key={e.id} className="rounded-lg border border-valence-border bg-white px-3 py-2 text-xs">
+                  <li key={e.id} className="rounded-lg border border-valence-border bg-valence-elevated px-3 py-2 text-xs">
                     <div className="flex items-center justify-between">
                       <span className="font-semibold text-valence-text capitalize">{e.event}</span>
                       <span className="text-valence-muted">{formatDistanceToNow(new Date(e.created_at), { addSuffix: true })}</span>
@@ -268,7 +268,7 @@ function ShareForm({ files, onSubmit, onCancel, dealName }) {
         {files.length === 0 ? (
           <p className="rounded-lg border border-valence-border bg-valence-surface px-4 py-3 text-xs text-valence-muted">No files uploaded to this deal yet. The share will show only deal metadata until you upload files.</p>
         ) : (
-          <div className="max-h-48 overflow-y-auto rounded-lg border border-valence-border bg-white divide-y divide-valence-border">
+          <div className="max-h-48 overflow-y-auto rounded-lg border border-valence-border bg-valence-elevated divide-y divide-valence-border">
             {files.map(f => (
               <label key={f.id} className="flex items-center gap-2 px-3 py-2 text-sm cursor-pointer hover:bg-valence-surface">
                 <input

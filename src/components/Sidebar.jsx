@@ -15,7 +15,9 @@ const nav = [
   { to: '/interactions', label: 'Interactions', icon: MessageSquare, badgeKey: 'pendingFollowUps', section: 'Relationships' },
   { to: '/people',       label: 'People',       icon: UserCircle,                                section: 'Relationships' },
   { to: '/funds',        label: 'Firm',         icon: Building2,                                 section: 'Relationships' },
-  { to: '/screen',       label: 'Quick Screener',icon: Sparkles,                                 section: 'AI' },
+  // Quick Screener (investor ranking) hidden from nav for now — route
+  // still resolves so any saved deeplink keeps working.
+  // { to: '/screen',       label: 'Quick Screener',icon: Sparkles,                                 section: 'AI' },
   { to: '/inbox/intake', label: 'Intake inbox', icon: Inbox,        badgeKey: 'newIntakes',     section: 'AI' },
   { to: '/knowledge',    label: 'Knowledge',    icon: BookOpen },
   { to: '/planner',      label: 'Day Planner',  icon: CalendarDays,  badgeKey: 'todayMeetings' },

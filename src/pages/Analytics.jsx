@@ -170,7 +170,7 @@ export default function Analytics() {
           </h1>
         </div>
         <div className="flex flex-wrap items-center gap-2 text-[11px] text-valence-muted print:hidden">
-          <div className="inline-flex items-center rounded-full border border-valence-border bg-white p-0.5">
+          <div className="inline-flex items-center rounded-full border border-valence-border bg-valence-elevated p-0.5">
             {PERIODS.map(p => (
               <button
                 key={p.id}
@@ -181,14 +181,14 @@ export default function Analytics() {
               >{p.label}</button>
             ))}
           </div>
-          <span className="inline-flex items-center gap-1.5 rounded-full border border-valence-border bg-white px-2.5 py-1">
+          <span className="inline-flex items-center gap-1.5 rounded-full border border-valence-border bg-valence-elevated px-2.5 py-1">
             <span className="h-1.5 w-1.5 rounded-full bg-valence-success shadow-[0_0_6px_#22c55e]" />
             Updated {updatedLabel}
           </span>
-          <span className="rounded-full border border-valence-border bg-white px-2.5 py-1">Currency · {currency}</span>
+          <span className="rounded-full border border-valence-border bg-valence-elevated px-2.5 py-1">Currency · {currency}</span>
           <button
             onClick={() => window.print()}
-            className="inline-flex items-center gap-1.5 rounded-full border border-valence-border bg-white px-2.5 py-1 text-valence-muted hover:text-valence-text"
+            className="inline-flex items-center gap-1.5 rounded-full border border-valence-border bg-valence-elevated px-2.5 py-1 text-valence-muted hover:text-valence-text"
           ><Printer className="h-3 w-3" /> Print</button>
         </div>
       </div>
@@ -203,7 +203,7 @@ export default function Analytics() {
             className={`rounded-full border px-2.5 py-1 text-[11px] font-semibold transition ${
               sectorFilter === s
                 ? 'border-valence-blue/40 bg-valence-blue-soft text-valence-text'
-                : 'border-valence-border bg-white text-valence-muted hover:text-valence-text'
+                : 'border-valence-border bg-valence-elevated text-valence-muted hover:text-valence-text'
             }`}
           >{s === 'all' ? 'All sectors' : s}</button>
         ))}
@@ -316,7 +316,7 @@ export default function Analytics() {
         <ExpertsWidget deals={filteredDeals} />
       </section>
 
-      <div className="rounded-xl border border-dashed border-valence-border bg-white px-5 py-4 text-xs text-valence-muted">
+      <div className="rounded-xl border border-dashed border-valence-border bg-valence-elevated px-5 py-4 text-xs text-valence-muted">
         <p className="inline-flex items-start gap-2">
           <Info className="h-3.5 w-3.5 mt-0.5 shrink-0 text-valence-blue" />
           <span>
@@ -364,7 +364,7 @@ function CardTitle({ icon: Icon, title, subtitle, right }) {
 
 function KPI({ label, value, sub, icon: Icon, accent = false, info }) {
   return (
-    <div className={`bg-white p-5 ${accent ? 'ring-1 ring-valence-blue/20' : ''}`}>
+    <div className={`bg-valence-elevated p-5 ${accent ? 'ring-1 ring-valence-blue/20' : ''}`}>
       <div className="flex items-center justify-between">
         <span className="vl-eyebrow-ink inline-flex items-center gap-1.5">
           {label}
@@ -484,7 +484,7 @@ function StageAgingTable({ aging }) {
   return (
     <ul className="space-y-1.5">
       {top.map(d => (
-        <li key={d.id} className="flex items-center gap-3 rounded-lg border border-valence-border bg-white px-3 py-2">
+        <li key={d.id} className="flex items-center gap-3 rounded-lg border border-valence-border bg-valence-elevated px-3 py-2">
           <span className={`inline-flex w-24 shrink-0 justify-center rounded-full border px-2 py-0.5 text-[10px] font-semibold ${stageToneClasses(d.stage)}`}>{d.stage}</span>
           <div className="min-w-0 flex-1">
             <p className="truncate text-sm font-semibold text-valence-text">{d.client_name}</p>
@@ -572,7 +572,7 @@ function SizeHistogramCard({ hist, money }) {
       <CardTitle icon={BarChart3} title="Deal size distribution" subtitle="Ticket sizes across the book — buckets in USD" />
       <div className="grid grid-cols-4 gap-3">
         {hist.map(b => (
-          <div key={b.label} className="rounded-xl border border-valence-border bg-white p-3 text-center">
+          <div key={b.label} className="rounded-xl border border-valence-border bg-valence-elevated p-3 text-center">
             <p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-valence-muted">{b.label}</p>
             <div className="relative mt-2 h-20 rounded bg-valence-surface overflow-hidden">
               <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-valence-blue/30 to-valence-blue/70" style={{ height: `${(b.count / maxCount) * 100}%` }} />
@@ -720,7 +720,7 @@ function QuarterBars({ quarters, amount }) {
         const hWeighted = (q.weightedFeeUsd / max) * 100
         const hCommitted = (q.committedFeeUsd / max) * 100
         return (
-          <div key={q.label} className="rounded-xl border border-valence-border bg-white p-4">
+          <div key={q.label} className="rounded-xl border border-valence-border bg-valence-elevated p-4">
             <div className="flex items-baseline justify-between">
               <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-valence-muted">{q.label}</p>
               <p className="text-[10px] text-valence-subtle">{q.dealCount} deal{q.dealCount === 1 ? '' : 's'}</p>
@@ -806,12 +806,12 @@ function GeographyCard({ geo, money }) {
         <div className="absolute inset-y-0 right-0 bg-valence-ink/80" style={{ width: `${100 - mumbaiPct}%` }} />
       </div>
       <div className="mt-5 grid grid-cols-2 gap-3">
-        <div className="rounded-lg border border-valence-border bg-white p-4">
+        <div className="rounded-lg border border-valence-border bg-valence-elevated p-4">
           <p className="vl-eyebrow-ink inline-flex items-center gap-1.5"><Building2 className="h-3 w-3 text-valence-blue" /> Mumbai</p>
           <p className="mt-2 font-display text-2xl font-bold tabular-nums text-valence-text">{geo.mumbai.count}</p>
           <p className="text-[11px] text-valence-muted mt-0.5">{money(geo.mumbai.valueUsdM)} aggregate</p>
         </div>
-        <div className="rounded-lg border border-valence-border bg-white p-4">
+        <div className="rounded-lg border border-valence-border bg-valence-elevated p-4">
           <p className="vl-eyebrow-ink inline-flex items-center gap-1.5"><Building2 className="h-3 w-3 text-valence-ink" /> London</p>
           <p className="mt-2 font-display text-2xl font-bold tabular-nums text-valence-text">{geo.london.count}</p>
           <p className="text-[11px] text-valence-muted mt-0.5">{money(geo.london.valueUsdM)} aggregate</p>

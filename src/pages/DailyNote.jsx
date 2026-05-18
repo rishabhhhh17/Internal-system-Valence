@@ -313,7 +313,7 @@ export default function DailyNote() {
           value={body}
           onChange={setBody}
           placeholder={"What happened? What's on your mind? Type [[ to link a person, fund, or mandate."}
-          className="vl-input min-h-[280px] leading-relaxed bg-white"
+          className="vl-input min-h-[280px] leading-relaxed bg-valence-elevated"
         />
         <p className="text-[11px] text-valence-subtle">
           Auto-saves as you type. The day's note is keyed to {dateIso}; opening tomorrow creates a new one.
@@ -397,7 +397,7 @@ function ActionLink({ to, icon: Icon, label }) {
   return (
     <Link
       to={to}
-      className="group flex items-center gap-2 rounded-lg border border-valence-border bg-white px-3 py-2 text-xs font-semibold text-valence-text hover:border-valence-blue/40 hover:bg-valence-blue-soft/40 transition"
+      className="group flex items-center gap-2 rounded-lg border border-valence-border bg-valence-elevated px-3 py-2 text-xs font-semibold text-valence-text hover:border-valence-blue/40 hover:bg-valence-blue-soft/40 transition"
     >
       <Icon className="h-3.5 w-3.5 text-valence-blue" /> {label}
       <ArrowUpRight className="h-3 w-3 ml-auto text-valence-subtle group-hover:text-valence-blue transition" />

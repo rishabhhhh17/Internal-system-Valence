@@ -170,7 +170,7 @@ export default function Interactions() {
           <button
             onClick={() => setNeedsFollowUp(v => !v)}
             className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-semibold transition ${
-              needsFollowUp ? 'border-valence-warning/40 bg-valence-warning/10 text-valence-warning' : 'border-valence-border bg-white text-valence-muted hover:text-valence-text'
+              needsFollowUp ? 'border-valence-warning/40 bg-valence-warning/10 text-valence-warning' : 'border-valence-border bg-valence-elevated text-valence-muted hover:text-valence-text'
             }`}
           >
             <AlertCircle className="h-3 w-3" /> Needs follow-up
@@ -227,7 +227,7 @@ function PurposeChip({ label, active, onClick }) {
       className={`rounded-full border px-2.5 py-1 text-[11px] font-semibold transition ${
         active
           ? 'border-valence-blue/40 bg-valence-blue-soft text-valence-text'
-          : 'border-valence-border bg-white text-valence-muted hover:text-valence-text'
+          : 'border-valence-border bg-valence-elevated text-valence-muted hover:text-valence-text'
       }`}
     >{label}</button>
   )
@@ -247,7 +247,7 @@ function InteractionRow({ row, onOpen, onConvert, isDetailed = true }) {
             {row.counterparty_role && <p className="text-xs text-valence-subtle">· {row.counterparty_role}</p>}
           </div>
           <div className="mt-1.5 flex flex-wrap items-center gap-2 text-[11px] text-valence-muted">
-            <span className="inline-flex items-center gap-1 rounded-full border border-valence-border bg-white px-2 py-0.5 font-semibold text-valence-text">
+            <span className="inline-flex items-center gap-1 rounded-full border border-valence-border bg-valence-elevated px-2 py-0.5 font-semibold text-valence-text">
               {purposeLabel(row.interaction_purpose)}
             </span>
             <span className="text-valence-subtle">·</span>
