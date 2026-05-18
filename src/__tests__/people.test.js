@@ -4,7 +4,9 @@ import {
   applyCompanyAssignment,
   wouldChangeCompany,
   locationLine,
-  fullDisplayName
+  fullDisplayName,
+  parseBulkPeople,
+  buildInsertableBulk
 } from '../lib/people.js'
 
 describe('extractCompanies', () => {
@@ -149,5 +151,149 @@ describe('locationLine / fullDisplayName regression', () => {
     expect(fullDisplayName({ full_name: 'Alice', role: 'CFO' })).toBe('Alice (CFO)')
     expect(fullDisplayName({ full_name: 'Alice' })).toBe('Alice')
     expect(fullDisplayName(null)).toBe('')
+  })
+})
+
+describe('parseBulkPeople', () => {
+  it('returns empty for blank input', () => {
+    expect(parseBulkPeople('').rows).toEqual([])
+    expect(parseBulkPeople(null).rows).toEqual([])
+    expect(parseBulkPeople(undefined).rows).toEqual([])
+  })
+
+  it('parses one-name-per-line', () => {
+    const r = parseBulkPeople('Alice\nBob\nCarol')
+    expect(r.rows.map(x => x.full_name)).toEqual(['Alice', 'Bob', 'Carol'])
+    expect(r.rows.every(x => x.errors.length === 0)).toBe(true)
+  })
+
+  it('counts blank + comment lines as skipped', () => {
+    const r = parseBulkPeople('Alice\n\n# header\n  \nBob')
+    expect(r.rows).toHaveLength(2)
+    expect(r.skipped).toBe(3)
+  })
+
+  it('extracts email from <angle brackets>', () => {
+    const r = parseBulkPeople('Alice Smith <alice@x.com>')
+    expect(r.rows[0]).toMatchObject({ full_name: 'Alice Smith', email: 'alice@x.com' })
+  })
+
+  it('extracts email from inline form', () => {
+    const r = parseBulkPeople('Alice Smith alice@x.com')
+    expect(r.rows[0]).toMatchObject({ full_name: 'Alice Smith', email: 'alice@x.com' })
+  })
+
+  it('parses pipe-separated lines', () => {
+    const r = parseBulkPeople('Alice | CEO | alice@x.com')
+    expect(r.rows[0]).toMatchObject({
+      full_name: 'Alice',
+      role: 'CEO',
+      email: 'alice@x.com'
+    })
+  })
+
+  it('parses comma-separated lines without email', () => {
+    const r = parseBulkPeople('Alice, CEO, Acme')
+    expect(r.rows[0]).toMatchObject({
+      full_name: 'Alice',
+      role: 'CEO',
+      company: 'Acme'
+    })
+  })
+
+  it('parses tab-separated lines', () => {
+    const r = parseBulkPeople('Alice\tCEO\talice@x.com')
+    expect(r.rows[0]).toMatchObject({
+      full_name: 'Alice',
+      role: 'CEO',
+      email: 'alice@x.com'
+    })
+  })
+
+  it('parses em-dash separator', () => {
+    const r = parseBulkPeople('Alice Smith — CEO at Acme')
+    expect(r.rows[0]).toMatchObject({
+      full_name: 'Alice Smith',
+      role: 'CEO',
+      company: 'Acme'
+    })
+  })
+
+  it('parses hyphen separator', () => {
+    const r = parseBulkPeople('Alice Smith - CEO')
+    expect(r.rows[0]).toMatchObject({
+      full_name: 'Alice Smith',
+      role: 'CEO'
+    })
+  })
+
+  it('parses "at <Company>" tail', () => {
+    const r = parseBulkPeople('Alice Smith - CEO at Acme Holdings')
+    expect(r.rows[0]).toMatchObject({
+      full_name: 'Alice Smith',
+      role: 'CEO',
+      company: 'Acme Holdings'
+    })
+  })
+
+  it('handles comma-separated with embedded email', () => {
+    const r = parseBulkPeople('Alice Smith, CEO, alice@x.com')
+    expect(r.rows[0]).toMatchObject({
+      full_name: 'Alice Smith',
+      role: 'CEO',
+      email: 'alice@x.com'
+    })
+  })
+
+  it('applies defaultCompany when row has no company', () => {
+    const r = parseBulkPeople('Alice\nBob', { defaultCompany: 'Acme' })
+    expect(r.rows.every(x => x.company === 'Acme')).toBe(true)
+  })
+
+  it('preserves per-row company even when defaultCompany is set', () => {
+    const r = parseBulkPeople('Alice at Beta\nBob', { defaultCompany: 'Acme' })
+    expect(r.rows[0].company).toBe('Beta')
+    expect(r.rows[1].company).toBe('Acme')
+  })
+
+  it('flags missing name', () => {
+    const r = parseBulkPeople('   <foo@x.com>')
+    expect(r.rows[0].errors).toContain('Missing name')
+  })
+})
+
+describe('buildInsertableBulk', () => {
+  it('filters out rows missing required name', () => {
+    const rows = [
+      { full_name: 'Alice', email: 'a@x.com', errors: [] },
+      { full_name: '', errors: ['Missing name'] },
+      { full_name: 'Bob', errors: [] }
+    ]
+    const out = buildInsertableBulk(rows)
+    expect(out.map(r => r.full_name)).toEqual(['Alice', 'Bob'])
+  })
+
+  it('omits empty optional fields from the payload', () => {
+    const out = buildInsertableBulk([{ full_name: 'Alice', errors: [], role: '', email: '' }])
+    expect(out[0]).toEqual({ full_name: 'Alice' })
+  })
+
+  it('keeps non-empty fields', () => {
+    const out = buildInsertableBulk([{ full_name: 'Alice', email: 'a@x.com', role: 'CFO', company: 'Acme', errors: [] }])
+    expect(out[0]).toEqual({ full_name: 'Alice', email: 'a@x.com', role: 'CFO', company: 'Acme' })
+  })
+
+  it('applies defaultCompany when row has none', () => {
+    const out = buildInsertableBulk(
+      [{ full_name: 'Alice', errors: [] }, { full_name: 'Bob', company: 'Beta', errors: [] }],
+      { defaultCompany: 'Acme' }
+    )
+    expect(out[0].company).toBe('Acme')
+    expect(out[1].company).toBe('Beta')
+  })
+
+  it('returns [] for non-array input', () => {
+    expect(buildInsertableBulk(null)).toEqual([])
+    expect(buildInsertableBulk(undefined)).toEqual([])
   })
 })

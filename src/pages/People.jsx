@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { Plus, Search, Filter, LayoutGrid, Table as TableIcon, UserCircle, ArrowUpRight, MapPin, Mail, Phone, Building2, GripVertical } from 'lucide-react'
+import { Plus, Search, Filter, LayoutGrid, Table as TableIcon, UserCircle, ArrowUpRight, MapPin, Mail, Phone, Building2, GripVertical, UserPlus, X } from 'lucide-react'
+import BulkAddPeoplePanel from '../components/BulkAddPeoplePanel.jsx'
 import { supabase, isSupabaseConfigured } from '../lib/supabase.js'
 import {
   TAG_SUGGESTIONS,
@@ -169,7 +170,7 @@ export default function People() {
         <EmptyState icon={UserCircle} title="No people match your filters" description="Clear a tag or broaden your search." sampleEligible={false} />
       ) : isSimple || view === 'grid' ? (
         <>
-          <CompaniesRail companies={companies} onDropPerson={assignCompany} />
+          <CompaniesRail companies={companies} onDropPerson={assignCompany} onAfterBulkAdd={load} />
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
             {filtered.map(p => <PersonCard key={p.id} person={p} onOpen={() => setDrawer({ row: p })} />)}
           </div>
@@ -260,26 +261,50 @@ function PersonCard({ person, onOpen }) {
   )
 }
 
-function CompaniesRail({ companies, onDropPerson }) {
+function CompaniesRail({ companies, onDropPerson, onAfterBulkAdd }) {
+  const [bulkCompany, setBulkCompany] = useState('')
   if (!companies || companies.length === 0) return null
   return (
-    <div className="vl-card-subtle p-4 space-y-2">
+    <div className="vl-card-subtle p-4 space-y-3">
       <div className="flex items-center justify-between gap-3">
         <div className="vl-eyebrow-ink inline-flex items-center gap-1.5">
           <Building2 className="h-3 w-3" /> Companies · {companies.length}
         </div>
-        <p className="text-[11px] text-valence-subtle">Drag a person onto a company to attach them.</p>
+        <p className="text-[11px] text-valence-subtle">Drag a card onto a company to attach · click + to bulk-add people there.</p>
       </div>
       <div className="flex flex-wrap gap-2">
         {companies.map(c => (
-          <CompanyDropChip key={c.name} company={c} onDropPerson={onDropPerson} />
+          <CompanyDropChip
+            key={c.name}
+            company={c}
+            onDropPerson={onDropPerson}
+            onQuickAdd={() => setBulkCompany(bulkCompany === c.name ? '' : c.name)}
+            expanded={bulkCompany === c.name}
+          />
         ))}
       </div>
+      {bulkCompany && (
+        <div className="space-y-2 pt-2 border-t border-valence-border/60">
+          <div className="flex items-center justify-between">
+            <p className="text-xs font-semibold text-valence-text">
+              Quick-add people under <span className="text-valence-blue">{bulkCompany}</span>
+            </p>
+            <button type="button" onClick={() => setBulkCompany('')} className="vl-btn-ghost" aria-label="Close quick-add">
+              <X className="h-3.5 w-3.5" />
+            </button>
+          </div>
+          <BulkAddPeoplePanel
+            initialCompany={bulkCompany}
+            compact
+            onAfterImport={() => { setBulkCompany(''); onAfterBulkAdd?.() }}
+          />
+        </div>
+      )}
     </div>
   )
 }
 
-function CompanyDropChip({ company, onDropPerson }) {
+function CompanyDropChip({ company, onDropPerson, onQuickAdd, expanded }) {
   const [hot, setHot] = useState(false)
 
   function onDragOver(e) {
@@ -302,21 +327,38 @@ function CompanyDropChip({ company, onDropPerson }) {
   }
 
   return (
-    <button
-      type="button"
+    <div
       onDragOver={onDragOver}
       onDragLeave={onDragLeave}
       onDrop={onDrop}
-      className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-[11px] font-semibold transition ${
+      className={`inline-flex items-center rounded-full border text-[11px] font-semibold transition overflow-hidden ${
         hot
           ? 'border-valence-blue bg-valence-blue text-white shadow-[0_0_0_3px_rgba(51,153,255,0.18)]'
-          : 'border-valence-border bg-white text-valence-text hover:border-valence-ink/30'
+          : expanded
+            ? 'border-valence-blue/60 bg-valence-blue-soft text-valence-text'
+            : 'border-valence-border bg-white text-valence-text hover:border-valence-ink/30'
       }`}
     >
-      <Building2 className="h-3 w-3" />
-      <span>{company.name}</span>
-      <span className={`tabular-nums ${hot ? 'text-white/80' : 'text-valence-subtle'}`}>{company.count}</span>
-    </button>
+      <span className="inline-flex items-center gap-1.5 px-3 py-1.5">
+        <Building2 className="h-3 w-3" />
+        <span>{company.name}</span>
+        <span className={`tabular-nums ${hot ? 'text-white/80' : 'text-valence-subtle'}`}>{company.count}</span>
+      </span>
+      <button
+        type="button"
+        onClick={onQuickAdd}
+        title={`Bulk add to ${company.name}`}
+        className={`inline-flex items-center justify-center h-full px-2 py-1.5 transition border-l ${
+          hot
+            ? 'border-white/20 hover:bg-white/10'
+            : expanded
+              ? 'border-valence-blue/40 bg-valence-blue text-white'
+              : 'border-valence-border bg-valence-surface text-valence-muted hover:text-valence-text'
+        }`}
+      >
+        {expanded ? <X className="h-3 w-3" /> : <UserPlus className="h-3 w-3" />}
+      </button>
+    </div>
   )
 }
 
