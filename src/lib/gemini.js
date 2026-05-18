@@ -1,7 +1,73 @@
 const GEMINI_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent'
 
-export const geminiKey = import.meta.env.VITE_GEMINI_API_KEY
-export const isGeminiConfigured = Boolean(geminiKey)
+// Key resolution order: user-provided (localStorage) wins over the
+// build-time env var. Lets a customer demo their own key without
+// rebuilding the app — the env key still works as a default.
+const STORAGE_KEY_GEMINI = 'valence.settings.geminiKey'
+
+function readUserGeminiKey() {
+  try {
+    if (typeof window === 'undefined' || !window.localStorage) return null
+    return window.localStorage.getItem(STORAGE_KEY_GEMINI) || null
+  } catch {
+    return null
+  }
+}
+
+const envGeminiKey = import.meta.env.VITE_GEMINI_API_KEY || null
+
+// Exported as `let` so setGeminiKey() can flip the live ESM binding —
+// importers reading `isGeminiConfigured` on the next render see the
+// updated value without needing a reload. The existing `geminiKey`
+// export stays a string consumers can interpolate into a URL.
+const _initialUserKey = readUserGeminiKey()
+export let geminiKey = _initialUserKey || envGeminiKey
+export let isGeminiConfigured = Boolean(geminiKey)
+export let geminiKeySource = _initialUserKey ? 'user' : (envGeminiKey ? 'env' : 'none')
+
+export function getGeminiKey() { return geminiKey }
+export function getGeminiKeySource() { return geminiKeySource }
+
+export function setGeminiKey(key) {
+  const trimmed = typeof key === 'string' ? key.trim() : ''
+  try {
+    if (typeof window !== 'undefined' && window.localStorage) {
+      if (trimmed) window.localStorage.setItem(STORAGE_KEY_GEMINI, trimmed)
+      else window.localStorage.removeItem(STORAGE_KEY_GEMINI)
+    }
+  } catch {
+    return false
+  }
+  geminiKey = trimmed || envGeminiKey
+  isGeminiConfigured = Boolean(geminiKey)
+  geminiKeySource = trimmed ? 'user' : (envGeminiKey ? 'env' : 'none')
+  return true
+}
+
+export function clearGeminiKey() { return setGeminiKey('') }
+
+// Lightweight liveness check — performs a tiny generateContent call.
+// Returns { ok, error } so callers can decorate UI without parsing
+// fetch failures themselves.
+export async function testGeminiKey(key) {
+  const target = typeof key === 'string' ? key.trim() : geminiKey
+  if (!target) return { ok: false, error: 'No key provided' }
+  try {
+    const res = await fetch(`${GEMINI_URL}?key=${target}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [{ parts: [{ text: 'ping' }] }],
+        generationConfig: { temperature: 0, maxOutputTokens: 1 }
+      })
+    })
+    if (res.ok) return { ok: true }
+    const body = await res.json().catch(() => null)
+    return { ok: false, error: body?.error?.message || `HTTP ${res.status}` }
+  } catch (e) {
+    return { ok: false, error: e?.message || 'Network error' }
+  }
+}
 
 async function gemini(prompt, { temperature = 0.55, maxOutputTokens = 320 } = {}) {
   if (!isGeminiConfigured) throw new Error('Gemini API key not configured')
