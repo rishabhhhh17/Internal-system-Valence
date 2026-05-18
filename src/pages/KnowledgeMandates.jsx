@@ -1,12 +1,11 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { format } from 'date-fns'
-import { FilePlus, Search, FolderTree, Trash2, Globe2, ArrowRight, Hash, X, Library } from 'lucide-react'
+import { FilePlus, Search, FolderTree, Trash2, Globe2, Hash, X, Library } from 'lucide-react'
 import { supabase, isSupabaseConfigured } from '../lib/supabase.js'
 import { stageMeta } from '../lib/stages.js'
 import { spawnMandateFolders, searchKbNotes, stripWikilinkTokens } from '../lib/kb.js'
 import ConfigBanner from '../components/ConfigBanner.jsx'
-import EmptyState from '../components/EmptyState.jsx'
 import KbFolderTree from '../components/KbFolderTree.jsx'
 import KbNoteEditor from '../components/KbNoteEditor.jsx'
 import KbFolderFiles from '../components/KbFolderFiles.jsx'
@@ -222,206 +221,226 @@ export function MandatesPanel() {
   }, [mandates, mandateSearch])
 
   return (
-    <div className="space-y-4">
-      {/* Hybrid search — keyword + vector + recency, optionally scoped to one mandate.
-          Action row on the right hosts the "Ensure default folders" affordance
-          since the panel renders without its own hero now. */}
-      <div className="vl-card p-3">
-        <div className="flex items-center gap-3">
-          <div className="relative flex-1">
-            <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-valence-subtle" />
-            <input
-              value={searchQuery}
-              onChange={e => setSearchQuery(e.target.value)}
-              placeholder="Search notes — combines keyword, semantic similarity, and recency"
-              className="vl-input h-9 w-full pl-9 text-sm"
-            />
-            {searching && <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[11px] text-valence-muted">Searching…</span>}
-          </div>
-          <div className="inline-flex items-center rounded-full border border-valence-border bg-white p-0.5 shrink-0">
-            <button onClick={() => setSearchScope('mandate')} className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-semibold transition ${searchScope === 'mandate' ? 'bg-valence-ink text-white' : 'text-valence-muted hover:text-valence-text'}`} title={selectedMandateId === FIRM_SCOPE ? 'Search the firm library' : 'Search this mandate'}>
-              {selectedMandateId === FIRM_SCOPE
-                ? <><Library className="h-3 w-3" /> Firm library</>
-                : <><FolderTree className="h-3 w-3" /> This mandate</>}
-            </button>
-            <button onClick={() => setSearchScope('global')}  className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-semibold transition ${searchScope === 'global'  ? 'bg-valence-ink text-white' : 'text-valence-muted hover:text-valence-text'}`}><Globe2 className="h-3 w-3" /> All notes</button>
-          </div>
-          {selectedMandateId && selectedMandateId !== FIRM_SCOPE && (
-            <button onClick={ensureFolders} className="vl-btn-secondary text-xs shrink-0" title="Spawn the default folder template for this mandate">
-              <FolderTree className="h-3.5 w-3.5" /> Ensure folders
-            </button>
-          )}
+    <div className="space-y-3">
+      {/* Finder-style toolbar — slim, no card background. Search left,
+          scope toggle middle, ensure-folders button right. */}
+      <div className="flex items-center gap-2 flex-wrap">
+        <div className="relative flex-1 min-w-[260px]">
+          <Search className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-valence-subtle" />
+          <input
+            value={searchQuery}
+            onChange={e => setSearchQuery(e.target.value)}
+            placeholder="Search notes"
+            className="w-full h-8 pl-8 pr-3 text-[13px] rounded-md bg-valence-surface border border-valence-border text-valence-text placeholder:text-valence-subtle outline-none focus:border-valence-blue focus:bg-valence-elevated"
+          />
+          {searching && <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[10px] text-valence-muted">…</span>}
         </div>
-        {searchResults && searchResults.length > 0 && (
-          <ul className="mt-3 space-y-1 max-h-72 overflow-y-auto">
+        <div className="inline-flex items-center rounded-md bg-valence-surface border border-valence-border p-0.5 shrink-0">
+          <button onClick={() => setSearchScope('mandate')} className={`inline-flex items-center gap-1 rounded px-2 py-1 text-[11px] font-medium transition ${searchScope === 'mandate' ? 'bg-valence-elevated text-valence-text shadow-sm' : 'text-valence-muted hover:text-valence-text'}`}>
+            {selectedMandateId === FIRM_SCOPE
+              ? <><Library className="h-3 w-3" /> Firm</>
+              : <><FolderTree className="h-3 w-3" /> Scope</>}
+          </button>
+          <button onClick={() => setSearchScope('global')} className={`inline-flex items-center gap-1 rounded px-2 py-1 text-[11px] font-medium transition ${searchScope === 'global' ? 'bg-valence-elevated text-valence-text shadow-sm' : 'text-valence-muted hover:text-valence-text'}`}>
+            <Globe2 className="h-3 w-3" /> All
+          </button>
+        </div>
+        {selectedMandateId && selectedMandateId !== FIRM_SCOPE && (
+          <button onClick={ensureFolders} className="inline-flex items-center gap-1.5 rounded-md bg-valence-surface border border-valence-border px-2.5 py-1 text-[11px] font-medium text-valence-muted hover:text-valence-text hover:border-valence-ink/30 transition shrink-0" title="Spawn the default folder template for this mandate">
+            <FolderTree className="h-3 w-3" /> Ensure folders
+          </button>
+        )}
+      </div>
+
+      {/* Inline search results — pop below the toolbar, not in a separate card. */}
+      {searchResults && searchResults.length > 0 && (
+        <div className="rounded-lg border border-valence-border bg-valence-elevated overflow-hidden">
+          <ul className="max-h-72 overflow-y-auto divide-y divide-valence-border/60">
             {searchResults.map(r => (
               <li key={r.id}>
-                <button onClick={() => openResult(r)} className="block w-full text-left rounded-lg border border-valence-border bg-white px-3 py-2 hover:border-valence-blue/40 transition">
+                <button onClick={() => openResult(r)} className="block w-full text-left px-3 py-2 hover:bg-valence-surface transition">
                   <div className="flex items-center justify-between gap-3">
-                    <p className="truncate text-sm font-semibold text-valence-text">{r.title || 'Untitled note'}</p>
-                    <span className="text-[10px] tabular-nums text-valence-subtle shrink-0">score {r.total_score?.toFixed(2)}</span>
+                    <p className="truncate text-[13px] font-semibold text-valence-text">{r.title || 'Untitled note'}</p>
+                    <span className="text-[10px] tabular-nums text-valence-subtle shrink-0">{r.total_score?.toFixed(2)}</span>
                   </div>
-                  <p className="mt-0.5 line-clamp-2 text-[12px] leading-relaxed text-valence-muted">{stripWikilinkTokens(r.body || '').slice(0, 240)}</p>
-                  <p className="mt-1 text-[10px] text-valence-subtle inline-flex items-center gap-1">Open <ArrowRight className="h-3 w-3" /></p>
+                  <p className="mt-0.5 line-clamp-1 text-[11px] text-valence-muted">{stripWikilinkTokens(r.body || '').slice(0, 200)}</p>
                 </button>
               </li>
             ))}
           </ul>
-        )}
-        {searchResults && searchResults.length === 0 && searchQuery && !searching && (
-          <p className="mt-3 px-1 text-xs text-valence-muted">No notes match "{searchQuery}".</p>
-        )}
-      </div>
+        </div>
+      )}
+      {searchResults && searchResults.length === 0 && searchQuery && !searching && (
+        <p className="px-1 text-xs text-valence-muted">No notes match "{searchQuery}".</p>
+      )}
 
-      <div className="grid gap-4 lg:grid-cols-[260px_280px_1fr] lg:min-h-[600px]">
-        {/* Mandate picker — Firm library pinned at the top */}
-        <aside className="vl-card p-3 space-y-2 max-h-[40vh] lg:max-h-[80vh] overflow-y-auto">
-          <button
-            onClick={() => setSelectedMandateId(FIRM_SCOPE)}
-            className={`block w-full text-left rounded-lg px-2.5 py-2 text-xs transition border ${
-              selectedMandateId === FIRM_SCOPE
-                ? 'border-valence-blue/40 bg-valence-blue-soft text-valence-text font-semibold'
-                : 'border-valence-border bg-white text-valence-muted hover:bg-valence-surface hover:text-valence-text'
-            }`}
-            title="Folders shared across the firm — not tied to any mandate"
-          >
-            <p className="inline-flex items-center gap-1.5"><Library className="h-3.5 w-3.5 text-valence-blue" /> Firm library</p>
-            <p className="mt-0.5 ml-5 text-[10px] text-valence-subtle">NDA templates · playbooks · cross-mandate docs</p>
-          </button>
+      {/* macOS Finder–style three-column frame.
+          One bordered rectangle, vertical dividers between columns, each column
+          has its own slim header bar and scrolls independently. No nested
+          card chrome — clean and dense. */}
+      <div className="rounded-lg border border-valence-border bg-valence-elevated overflow-hidden">
+        <div className="grid grid-cols-1 lg:grid-cols-[240px_260px_1fr] divide-y lg:divide-y-0 lg:divide-x divide-valence-border h-[70vh] min-h-[480px]">
 
-          <div className="pt-1 border-t border-valence-border" />
-
-          <div className="relative">
-            <Search className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-valence-subtle" />
-            <input value={mandateSearch} onChange={e => setMandateSearch(e.target.value)} placeholder="Search mandates" className="vl-input h-8 pl-8 text-xs" />
-          </div>
-          {loadingMandates ? (
-            <p className="px-2 py-2 text-xs text-valence-muted">Loading…</p>
-          ) : filteredMandates.length === 0 ? (
-            <p className="px-2 py-2 text-xs text-valence-muted">No mandates match.</p>
-          ) : (
-            <ul className="space-y-0.5">
-              {filteredMandates.map(m => {
-                const active = m.id === selectedMandateId
-                return (
-                  <li key={m.id}>
-                    <button onClick={() => setSelectedMandateId(m.id)} className={`block w-full text-left rounded px-2 py-1.5 text-xs transition ${active ? 'bg-valence-blue-soft text-valence-text font-semibold' : 'text-valence-muted hover:bg-valence-surface hover:text-valence-text'}`}>
-                      <p className="truncate">{m.client_name}</p>
-                      <p className="mt-0.5 text-[10px] text-valence-subtle">{m.stage}</p>
-                    </button>
-                  </li>
-                )
-              })}
-            </ul>
-          )}
-        </aside>
-
-        {/* Folder tree — switches between per-mandate and firm-wide scopes */}
-        <aside className="vl-card p-3 max-h-[40vh] lg:max-h-[80vh] overflow-y-auto">
-          {selectedMandateId === FIRM_SCOPE ? (
-            <KbFolderTree scope="firm" selectedFolderId={selectedFolder?.id} onSelect={setSelectedFolder} />
-          ) : selectedMandateId ? (
-            <KbFolderTree mandate={mandates.find(m => m.id === selectedMandateId)} mandateId={selectedMandateId} selectedFolderId={selectedFolder?.id} onSelect={setSelectedFolder} />
-          ) : (
-            <div className="px-3 py-6 text-xs text-valence-muted">Pick a mandate or open the Firm library.</div>
-          )}
-        </aside>
-
-        {/* Notes column */}
-        <section className="vl-card p-4 space-y-3 lg:max-h-[80vh] lg:overflow-y-auto min-w-0">
-          {!selectedFolder ? (
-            <EmptyState icon={FolderTree} title="Pick a folder" description="Choose a folder from the tree to see its notes." />
-          ) : (
-            <>
-              <div className="flex items-center justify-between gap-3 pb-2 border-b border-valence-border">
-                <p className="inline-flex items-center gap-1.5 text-sm font-semibold text-valence-text">
-                  <FolderTree className="h-3.5 w-3.5 text-valence-blue" />
-                  {selectedFolder.name}
-                  {notes.length > 0 && <span className="text-[11px] font-normal text-valence-subtle">· {notes.length}</span>}
-                </p>
-                <button onClick={newNote} className="inline-flex items-center gap-1 rounded-md border border-valence-blue/30 bg-valence-blue-soft px-2 py-0.5 text-[11px] font-semibold text-valence-blue hover:bg-valence-blue hover:text-white transition">
-                  <FilePlus className="h-3 w-3" /> New note
-                </button>
+          {/* Column 1 — Sources */}
+          <div className="flex flex-col min-h-0 bg-valence-surface/40">
+            <div className="px-3 h-8 flex items-center justify-between border-b border-valence-border bg-valence-surface/60">
+              <span className="text-[10px] font-semibold uppercase tracking-[0.12em] text-valence-subtle">Sources</span>
+              <span className="text-[10px] tabular-nums text-valence-subtle">{mandates.length + 1}</span>
+            </div>
+            <div className="px-2 pt-2">
+              <div className="relative">
+                <Search className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 h-3 w-3 text-valence-subtle" />
+                <input value={mandateSearch} onChange={e => setMandateSearch(e.target.value)} placeholder="Filter" className="w-full h-7 pl-7 pr-2 text-[12px] rounded bg-valence-elevated border border-valence-border text-valence-text placeholder:text-valence-subtle outline-none focus:border-valence-blue" />
               </div>
-
-              {/* Tag filter strip — folder-local chips with counts. AND-filter. */}
-              {tagCounts.length > 0 && (
-                <div className="flex flex-wrap items-center gap-1.5 -mt-1">
-                  <span className="vl-eyebrow-ink inline-flex items-center gap-1.5">
-                    <Hash className="h-3 w-3 text-valence-blue" /> Tags
-                  </span>
-                  {tagCounts.map(([tag, count]) => {
-                    const on = activeTags.includes(tag)
-                    return (
-                      <button
-                        key={tag}
-                        onClick={() => toggleTag(tag)}
-                        className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-semibold transition ${on ? 'border-valence-blue bg-valence-blue text-white' : 'border-valence-border bg-valence-surface text-valence-muted hover:border-valence-blue/40 hover:text-valence-text'}`}
-                        title={on ? 'Click to remove filter' : 'Click to filter notes by this tag'}
-                      >
-                        #{tag}
-                        <span className={`tabular-nums ${on ? 'text-white/80' : 'text-valence-subtle'}`}>{count}</span>
-                      </button>
-                    )
-                  })}
-                  {activeTags.length > 0 && (
-                    <button
-                      onClick={() => setActiveTags([])}
-                      className="inline-flex items-center gap-1 rounded-full border border-valence-border bg-white px-2 py-0.5 text-[10px] font-semibold text-valence-muted hover:text-valence-danger transition"
-                      title="Clear tag filter"
-                    >
-                      <X className="h-3 w-3" /> Clear
-                    </button>
-                  )}
-                </div>
-              )}
-
-              {/* Notes list — compact single-line rows with hover-only delete */}
-              {notes.length === 0 ? (
-                <div className="rounded-lg border border-dashed border-valence-border bg-valence-surface px-4 py-6 text-center text-xs text-valence-muted">
-                  No notes in this folder yet. Click "+ New note" to start.
-                </div>
-              ) : visibleNotes.length === 0 ? (
-                <div className="rounded-lg border border-dashed border-valence-border bg-valence-surface px-4 py-6 text-center text-xs text-valence-muted">
-                  No notes match the active tag filter. <button onClick={() => setActiveTags([])} className="font-semibold text-valence-blue hover:underline">Clear filter</button> to see all {notes.length}.
-                </div>
+            </div>
+            <div className="flex-1 overflow-y-auto px-1 py-1">
+              <FinderRow
+                selected={selectedMandateId === FIRM_SCOPE}
+                onClick={() => setSelectedMandateId(FIRM_SCOPE)}
+                icon={<Library className="h-3.5 w-3.5 text-valence-blue" />}
+                label="Firm library"
+                sub="NDA templates · playbooks"
+              />
+              <div className="my-1 mx-2 border-t border-valence-border/60" />
+              {loadingMandates ? (
+                <p className="px-3 py-2 text-[11px] text-valence-muted">Loading…</p>
+              ) : filteredMandates.length === 0 ? (
+                <p className="px-3 py-2 text-[11px] text-valence-muted">No mandates.</p>
               ) : (
-                <ul className="divide-y divide-valence-border/60 rounded-lg border border-valence-border bg-white max-h-[180px] overflow-y-auto">
-                  {visibleNotes.map(n => {
-                    const active = n.id === selectedNote?.id
-                    return (
-                      <li key={n.id}>
-                        <div className={`group flex items-center gap-2 px-3 py-1.5 transition ${active ? 'bg-valence-blue-soft' : 'hover:bg-valence-surface/60'}`}>
-                          <button onClick={() => setSelectedNote(n)} className="flex-1 min-w-0 text-left flex items-center gap-2">
-                            <span className={`truncate text-[13px] ${active ? 'font-semibold text-valence-text' : 'font-medium text-valence-text'}`}>{n.title || 'Untitled note'}</span>
-                            {(n.tags || []).length > 0 && (
-                              <span className="hidden sm:inline-flex items-center gap-1 text-[10px] text-valence-subtle shrink-0">
-                                {(n.tags || []).slice(0, 2).map(t => <span key={t}>#{t}</span>)}
-                                {(n.tags || []).length > 2 && <span>+{n.tags.length - 2}</span>}
-                              </span>
-                            )}
-                            <span className="ml-auto text-[10px] text-valence-subtle tabular-nums shrink-0">{n.updated_at ? format(new Date(n.updated_at), 'd MMM') : 'now'}</span>
-                          </button>
-                          <button onClick={() => deleteNote(n)} className="p-1 text-valence-subtle hover:text-valence-danger opacity-0 group-hover:opacity-100 transition" title="Delete"><Trash2 className="h-3 w-3" /></button>
-                        </div>
-                      </li>
-                    )
-                  })}
-                </ul>
+                filteredMandates.map(m => (
+                  <FinderRow
+                    key={m.id}
+                    selected={m.id === selectedMandateId}
+                    onClick={() => setSelectedMandateId(m.id)}
+                    icon={<FolderTree className="h-3.5 w-3.5 text-valence-muted" />}
+                    label={m.client_name}
+                    sub={m.stage}
+                  />
+                ))
               )}
+            </div>
+          </div>
 
-              <div className="pt-3 border-t border-valence-border">
-                <KbNoteEditor note={selectedNote} folder={selectedFolder} onSaved={onNoteSaved} />
-              </div>
+          {/* Column 2 — Folders */}
+          <div className="flex flex-col min-h-0">
+            <div className="px-3 h-8 flex items-center justify-between border-b border-valence-border bg-valence-surface/60">
+              <span className="text-[10px] font-semibold uppercase tracking-[0.12em] text-valence-subtle">Folders</span>
+            </div>
+            <div className="flex-1 overflow-y-auto px-2 py-1">
+              {selectedMandateId === FIRM_SCOPE ? (
+                <KbFolderTree scope="firm" selectedFolderId={selectedFolder?.id} onSelect={setSelectedFolder} />
+              ) : selectedMandateId ? (
+                <KbFolderTree mandate={mandates.find(m => m.id === selectedMandateId)} mandateId={selectedMandateId} selectedFolderId={selectedFolder?.id} onSelect={setSelectedFolder} />
+              ) : (
+                <div className="px-3 py-6 text-[11px] text-valence-muted">Pick a source on the left.</div>
+              )}
+            </div>
+          </div>
 
-              <div className="pt-3 border-t border-valence-border">
-                <KbFolderFiles folder={selectedFolder} />
+          {/* Column 3 — Notes (list + preview) */}
+          <div className="flex flex-col min-h-0">
+            <div className="px-3 h-8 flex items-center justify-between border-b border-valence-border bg-valence-surface/60">
+              <span className="text-[10px] font-semibold uppercase tracking-[0.12em] text-valence-subtle truncate">
+                {selectedFolder ? selectedFolder.name : 'Notes'}
+                {selectedFolder && notes.length > 0 && <span className="ml-1.5 text-valence-subtle/80 normal-case tracking-normal">· {notes.length}</span>}
+              </span>
+              {selectedFolder && (
+                <button onClick={newNote} className="inline-flex items-center gap-1 rounded text-[11px] font-medium text-valence-blue hover:text-valence-blue-hover transition">
+                  <FilePlus className="h-3 w-3" /> New
+                </button>
+              )}
+            </div>
+            {!selectedFolder ? (
+              <div className="flex-1 flex items-center justify-center px-4">
+                <p className="text-[12px] text-valence-muted">Pick a folder to see its notes.</p>
               </div>
-            </>
-          )}
-        </section>
+            ) : (
+              <div className="flex-1 overflow-y-auto min-h-0">
+                {/* Tag filter — slim row */}
+                {tagCounts.length > 0 && (
+                  <div className="flex flex-wrap items-center gap-1 px-3 py-1.5 border-b border-valence-border/60 bg-valence-surface/30">
+                    {tagCounts.map(([tag, count]) => {
+                      const on = activeTags.includes(tag)
+                      return (
+                        <button
+                          key={tag}
+                          onClick={() => toggleTag(tag)}
+                          className={`inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-medium transition ${on ? 'bg-valence-blue text-white' : 'text-valence-muted hover:bg-valence-surface hover:text-valence-text'}`}
+                        >
+                          #{tag}<span className={on ? 'text-white/70' : 'text-valence-subtle'}>{count}</span>
+                        </button>
+                      )
+                    })}
+                    {activeTags.length > 0 && (
+                      <button onClick={() => setActiveTags([])} className="inline-flex items-center text-[10px] text-valence-muted hover:text-valence-danger">
+                        <X className="h-2.5 w-2.5" />
+                      </button>
+                    )}
+                  </div>
+                )}
+
+                {/* Notes list */}
+                {notes.length === 0 ? (
+                  <p className="px-4 py-8 text-center text-[12px] text-valence-muted">No notes. Click <span className="font-semibold text-valence-blue">New</span> to start.</p>
+                ) : visibleNotes.length === 0 ? (
+                  <p className="px-4 py-8 text-center text-[12px] text-valence-muted">No notes match — <button onClick={() => setActiveTags([])} className="font-semibold text-valence-blue hover:underline">clear filter</button>.</p>
+                ) : (
+                  <ul className="divide-y divide-valence-border/60">
+                    {visibleNotes.map(n => {
+                      const active = n.id === selectedNote?.id
+                      return (
+                        <li key={n.id}>
+                          <div className={`group flex items-center gap-2 px-3 py-2 transition ${active ? 'bg-valence-blue-soft' : 'hover:bg-valence-surface/60'}`}>
+                            <button onClick={() => setSelectedNote(n)} className="flex-1 min-w-0 text-left flex items-center gap-2">
+                              <Hash className="h-3 w-3 text-valence-subtle/70 shrink-0" />
+                              <span className={`truncate text-[12px] ${active ? 'font-semibold text-valence-text' : 'text-valence-text'}`}>{n.title || 'Untitled note'}</span>
+                              <span className="ml-auto text-[10px] text-valence-subtle tabular-nums shrink-0">{n.updated_at ? format(new Date(n.updated_at), 'd MMM') : 'now'}</span>
+                            </button>
+                            <button onClick={() => deleteNote(n)} className="p-1 text-valence-subtle hover:text-valence-danger opacity-0 group-hover:opacity-100 transition" title="Delete"><Trash2 className="h-3 w-3" /></button>
+                          </div>
+                        </li>
+                      )
+                    })}
+                  </ul>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
       </div>
+
+      {/* Editor + files panel — full-width below the Finder frame so the
+          three columns stay clean and the editor gets the room it needs. */}
+      {selectedFolder && (
+        <div className="rounded-lg border border-valence-border bg-valence-elevated p-4 space-y-3">
+          <KbNoteEditor note={selectedNote} folder={selectedFolder} onSaved={onNoteSaved} />
+          <div className="pt-3 border-t border-valence-border">
+            <KbFolderFiles folder={selectedFolder} />
+          </div>
+        </div>
+      )}
     </div>
+  )
+}
+
+// Single-row item in a Finder column. Compact, selection-aware, icon + label
+// + optional sub-label. Tight padding so we hit Finder-density (≈28px tall).
+function FinderRow({ selected, onClick, icon, label, sub }) {
+  return (
+    <button
+      onClick={onClick}
+      className={`group w-full flex items-center gap-2 px-2 py-1.5 rounded text-left transition ${
+        selected
+          ? 'bg-valence-blue-soft'
+          : 'hover:bg-valence-surface'
+      }`}
+    >
+      <span className="shrink-0">{icon}</span>
+      <span className="min-w-0 flex-1">
+        <span className={`block truncate text-[12px] ${selected ? 'font-semibold text-valence-text' : 'text-valence-text'}`}>{label}</span>
+        {sub && <span className="block truncate text-[10px] text-valence-subtle">{sub}</span>}
+      </span>
+    </button>
   )
 }
 
