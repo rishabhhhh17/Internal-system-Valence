@@ -27,7 +27,7 @@ import Settings from './pages/Settings.jsx'
 import { useAuth } from './hooks/useAuth.js'
 import { isSupabaseConfigured } from './lib/supabase.js'
 import { useWorkspaceSetting } from './hooks/useWorkspaceSetting.js'
-import { WORKSPACE_KEYS, effectiveBrowserTitle } from './lib/workspace.js'
+import { WORKSPACE_KEYS, effectiveBrowserTitle, resolveTheme } from './lib/workspace.js'
 
 export default function App() {
   const { pathname } = useLocation()
@@ -35,6 +35,7 @@ export default function App() {
   const firmName = useWorkspaceSetting(WORKSPACE_KEYS.firmName)
   const browserTitleOverride = useWorkspaceSetting(WORKSPACE_KEYS.browserTitle)
   const density = useWorkspaceSetting(WORKSPACE_KEYS.density)
+  const theme = useWorkspaceSetting(WORKSPACE_KEYS.theme)
 
   // Apply firm-customizable chrome: browser title + density data attribute.
   // Effect runs on every read so live edits in /settings reflect immediately.
@@ -47,6 +48,29 @@ export default function App() {
     if (typeof document === 'undefined') return
     document.documentElement.dataset.density = density || 'comfortable'
   }, [density])
+
+  // Theme: write `.dark` on <html>. When pref is 'auto', resolve via OS
+  // preference + listen for changes (user switching macOS dark mode etc.).
+  useEffect(() => {
+    if (typeof document === 'undefined') return
+    const html = document.documentElement
+    function apply() {
+      const resolved = resolveTheme(theme)
+      html.classList.toggle('dark', resolved === 'dark')
+      html.dataset.theme = resolved
+    }
+    apply()
+    if (theme !== 'auto') return
+    if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return
+    const mql = window.matchMedia('(prefers-color-scheme: dark)')
+    const handler = () => apply()
+    if (mql.addEventListener) mql.addEventListener('change', handler)
+    else if (mql.addListener) mql.addListener(handler)
+    return () => {
+      if (mql.removeEventListener) mql.removeEventListener('change', handler)
+      else if (mql.removeListener) mql.removeListener(handler)
+    }
+  }, [theme])
 
   // Public share pages render without chrome and without auth
   if (pathname.startsWith('/share/')) {
