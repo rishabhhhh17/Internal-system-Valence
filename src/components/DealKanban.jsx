@@ -1,5 +1,5 @@
 import { useMemo, useRef, useState } from 'react'
-import { Briefcase, MoreHorizontal, Move } from 'lucide-react'
+import { Briefcase, MoreHorizontal } from 'lucide-react'
 import { STAGES, STAGE_IDS, stageToneClasses } from '../lib/stages.js'
 
 export default function DealKanban({ deals, onOpen, onStageChange }) {
@@ -20,8 +20,7 @@ export default function DealKanban({ deals, onOpen, onStageChange }) {
 
   return (
     <div className="vl-card p-4">
-      <Legend />
-      <div className="mt-4 flex gap-3 overflow-x-auto pb-2 -mx-1 px-1 snap-x">
+      <div className="flex gap-3 overflow-x-auto pb-2 -mx-1 px-1 snap-x">
         {STAGES.map(stage => {
           const items = byStage[stage.id] || []
           const isOver = overStage === stage.id
@@ -158,22 +157,6 @@ function Card({ deal: d, onOpen, onStageChange, setDraggingId, setOverStage, ope
         </div>
       )}
     </article>
-  )
-}
-
-function Legend() {
-  return (
-    <div className="flex items-start gap-3 rounded-xl bg-valence-blue-soft/40 border border-valence-blue/20 px-4 py-3">
-      <div className="grid h-8 w-8 place-items-center rounded-lg bg-valence-blue-soft ring-1 ring-valence-blue/30 shrink-0">
-        <Move className="h-3.5 w-3.5 text-valence-blue" />
-      </div>
-      <div className="flex-1">
-        <p className="text-sm font-semibold text-valence-text">How the funnel works</p>
-        <p className="mt-0.5 text-[11px] leading-relaxed text-valence-muted">
-          Preliminary conversations sit in <b className="text-valence-text">Origination</b> and <b className="text-valence-text">Pitch</b>. Once engaged (<b className="text-valence-text">Mandate</b>) we build materials (<b className="text-valence-text">Preparation</b>), run <b className="text-valence-text">Marketing</b>, <b className="text-valence-text">Diligence</b> and <b className="text-valence-text">Negotiation</b>, and ship at <b className="text-valence-text">Closing</b>. Drag a card between columns, or tap the menu on a card to move on mobile.
-        </p>
-      </div>
-    </div>
   )
 }
 
