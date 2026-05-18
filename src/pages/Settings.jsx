@@ -12,6 +12,7 @@ import {
 import { PITCH_MODE } from '../lib/featureFlags.js'
 import GoogleWorkspacePanel from '../components/GoogleWorkspacePanel.jsx'
 import SampleDataPanel from '../components/SampleDataPanel.jsx'
+import GeminiKeyPanel from '../components/GeminiKeyPanel.jsx'
 
 function ComingSoon({ label }) {
   return (
@@ -125,7 +126,7 @@ function IntegrationsSection() {
     <div className="space-y-4">
       <MeetingToolPicker />
       <GoogleWorkspacePanel />
-      <ComingSoon label="Gemini API key" />
+      <GeminiKeyPanel />
     </div>
   )
 }
