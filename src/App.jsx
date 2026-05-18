@@ -22,6 +22,7 @@ import Feed from './pages/Feed.jsx'
 import Share from './pages/Share.jsx'
 import Login from './pages/Login.jsx'
 import FitPreview from './pages/FitPreview.jsx'
+import Settings from './pages/Settings.jsx'
 import { useAuth } from './hooks/useAuth.js'
 import { isSupabaseConfigured } from './lib/supabase.js'
 
@@ -81,6 +82,7 @@ export default function App() {
         <Route path="/analytics" element={<Analytics />} />
         <Route path="/feed" element={<Feed />} />
         <Route path="/team" element={<Team />} />
+        <Route path="/settings" element={<Settings />} />
         <Route path="/_fit-preview" element={<FitPreview />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
