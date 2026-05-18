@@ -1,4 +1,9 @@
+import { useWorkspaceSetting } from '../hooks/useWorkspaceSetting.js'
+import { WORKSPACE_KEYS } from '../lib/workspace.js'
+
 export default function Logo({ compact = false, inverted = false, className = '' }) {
+  const firmName = useWorkspaceSetting(WORKSPACE_KEYS.firmName)
+  const firmKicker = useWorkspaceSetting(WORKSPACE_KEYS.firmKicker)
   const titleClass = inverted ? 'text-white' : 'text-valence-text'
   const kickerClass = inverted ? 'text-white/60' : 'text-valence-muted'
 
@@ -11,11 +16,13 @@ export default function Logo({ compact = false, inverted = false, className = ''
       {!compact && (
         <div className="flex flex-col leading-none">
           <span className={`text-[15px] font-semibold tracking-tight ${titleClass}`}>
-            Valence<span className="text-valence-blue">OS</span>
+            {firmName}<span className="text-valence-blue">OS</span>
           </span>
-          <span className={`mt-1 text-[10px] uppercase tracking-[0.2em] ${kickerClass}`}>
-            Growth Partners
-          </span>
+          {firmKicker && (
+            <span className={`mt-1 text-[10px] uppercase tracking-[0.2em] ${kickerClass}`}>
+              {firmKicker}
+            </span>
+          )}
         </div>
       )}
     </div>
