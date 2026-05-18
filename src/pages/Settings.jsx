@@ -14,6 +14,7 @@ import GoogleWorkspacePanel from '../components/GoogleWorkspacePanel.jsx'
 import SampleDataPanel from '../components/SampleDataPanel.jsx'
 import GeminiKeyPanel from '../components/GeminiKeyPanel.jsx'
 import CsvContactImport from '../components/CsvContactImport.jsx'
+import ScoringCriteriaPanel from '../components/ScoringCriteriaPanel.jsx'
 
 function ComingSoon({ label }) {
   return (
@@ -142,10 +143,19 @@ function DataSection() {
   )
 }
 
+function WorkspaceSection() {
+  return (
+    <div className="space-y-4">
+      <ScoringCriteriaPanel />
+      <ComingSoon label="Firm name · logo · brand color · default currency" />
+    </div>
+  )
+}
+
 function SectionBody({ id }) {
   switch (id) {
     case 'workspace':
-      return <ComingSoon label="Workspace settings" />
+      return <WorkspaceSection />
     case 'integrations':
       return <IntegrationsSection />
     case 'data':
