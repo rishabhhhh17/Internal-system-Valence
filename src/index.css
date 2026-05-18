@@ -50,38 +50,40 @@
 
   html.dark {
     color-scheme: dark;
-    --valence-bg:           10  15  30;
-    --valence-surface:      20  32  44;
-    --valence-elevated:     26  42  62;
-    --valence-ink:          13  30  58;  /* stays dark — used as button bg */
-    --valence-ink-soft:     23  49  90;
-    --valence-text:        232 239 248;
-    --valence-muted:       170 186 210;
-    --valence-subtle:      125 144 175;
-    --valence-faint:        85 110 150;
-    --valence-blue:         91 173 255;  /* slightly brighter on dark */
+    /* True-black-ish surfaces. Neutral grays, no navy tint. The brand
+       blue stays as the only chromatic accent. */
+    --valence-bg:            8   8  10;   /* near-black */
+    --valence-surface:      20  20  23;
+    --valence-elevated:     28  28  32;
+    --valence-ink:          18  18  22;   /* button bg — sits a notch above bg */
+    --valence-ink-soft:     34  34  38;
+    --valence-text:        236 236 240;
+    --valence-muted:       175 175 182;
+    --valence-subtle:      128 128 138;
+    --valence-faint:        80  80  88;
+    --valence-blue:         91 173 255;
     --valence-blue-hover:  125 192 255;
     --valence-blue-deep:    51 153 255;
-    --valence-blue-soft:    26  44  74;
+    --valence-blue-soft:    24  36  52;   /* dark slate with a hint of blue */
     --valence-success:     124 199 144;
-    --valence-success-soft: 29  58  42;
+    --valence-success-soft: 24  44  32;
     --valence-warning:     246 167  64;
-    --valence-warning-soft: 58  42  20;
+    --valence-warning-soft: 50  36  16;
     --valence-danger:      240 100 100;
-    --valence-danger-soft:  58  24  24;
-    --valence-border:        rgba(255, 255, 255, 0.10);
-    --valence-border-strong: rgba(255, 255, 255, 0.22);
-    --valence-border-ink:    rgba(255, 255, 255, 0.14);
+    --valence-danger-soft:  50  20  20;
+    --valence-border:        rgba(255, 255, 255, 0.08);
+    --valence-border-strong: rgba(255, 255, 255, 0.18);
+    --valence-border-ink:    rgba(255, 255, 255, 0.12);
     --valence-blue-ring:     rgba(91, 173, 255, 0.32);
     --vl-selection-bg:    rgba(91, 173, 255, 0.30);
     --vl-selection-text:  #ffffff;
-    --vl-scrollbar-thumb: rgba(255, 255, 255, 0.18);
-    --vl-scrollbar-hover: rgba(255, 255, 255, 0.30);
-    --vl-focus-offset:    #0a0f1e;
-    --vl-glass-base:    rgba(20, 32, 44, 0.62);
-    --vl-glass-bar:     rgba(20, 32, 44, 0.72);
-    --vl-glass-side:    rgba(20, 32, 44, 0.78);
-    --vl-glass-border:  rgba(255, 255, 255, 0.10);
+    --vl-scrollbar-thumb: rgba(255, 255, 255, 0.16);
+    --vl-scrollbar-hover: rgba(255, 255, 255, 0.28);
+    --vl-focus-offset:    #08080a;
+    --vl-glass-base:    rgba(18, 18, 22, 0.62);
+    --vl-glass-bar:     rgba(14, 14, 18, 0.72);
+    --vl-glass-side:    rgba(14, 14, 18, 0.78);
+    --vl-glass-border:  rgba(255, 255, 255, 0.08);
   }
 
   html, body, #root {
