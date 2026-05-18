@@ -11,7 +11,8 @@ import { googleCalendarUrl } from '../lib/calendar.js'
 import {
   listTodayEvents, computeFreeSlots, createCalendarEvent,
   GoogleAuthExpired, signInWithGoogle,
-  sendGmail, createGmailDraft
+  sendGmail, createGmailDraft,
+  listGoogleTasks, createGoogleTask, toggleGoogleTask, deleteGoogleTask
 } from '../lib/google.js'
 import { useAuth } from '../hooks/useAuth.js'
 import { logActivity } from '../lib/activity.js'
@@ -44,7 +45,8 @@ export default function Planner() {
   const [gEvents, setGEvents] = useState([])
   const [gLoading, setGLoading] = useState(false)
   const [gError, setGError] = useState('')
-  const [tasks, setTasks] = useState([])
+  const [tasks, setTasks] = useState([])      // local Supabase tasks
+  const [gTasks, setGTasks] = useState([])    // Google Tasks (merged into display)
   const [deals, setDeals] = useState([])
   const [loading, setLoading] = useState(true)
 
@@ -68,7 +70,7 @@ export default function Planner() {
     return () => { offM(); offT() }
   }, [])
 
-  useEffect(() => { loadGoogleEvents() }, [googleConnected])
+  useEffect(() => { loadGoogleEvents(); loadGoogleTasks() }, [googleConnected])
 
   async function loadGoogleEvents() {
     if (!googleConnected) { setGEvents([]); setGError(''); return }
@@ -81,6 +83,19 @@ export default function Planner() {
       else setGError(e.message || 'Could not load Google Calendar')
     } finally {
       setGLoading(false)
+    }
+  }
+
+  async function loadGoogleTasks() {
+    if (!googleConnected) { setGTasks([]); return }
+    try {
+      const items = await listGoogleTasks()
+      setGTasks(items)
+    } catch (e) {
+      // Silent — task scope might be missing (added in Phase X);
+      // surface in the Tasks panel header instead of a toast.
+      console.warn('Google Tasks load failed', e)
+      setGTasks([])
     }
   }
 
@@ -124,11 +139,18 @@ export default function Planner() {
     [googleConnected, gEvents]
   )
 
-  const dueToday  = useMemo(() => tasks.filter(t => !t.completed && t.due_date === today), [tasks, today])
-  const overdue   = useMemo(() => tasks.filter(t => !t.completed && t.due_date && t.due_date < today), [tasks, today])
-  const upcoming  = useMemo(() => tasks.filter(t => !t.completed && t.due_date && t.due_date > today), [tasks, today])
-  const completed = useMemo(() => tasks.filter(t => t.completed), [tasks])
-  const openTaskCount = overdue.length + dueToday.length + upcoming.length + tasks.filter(t => !t.completed && !t.due_date).length
+  // Merge local Supabase tasks + Google Tasks so the panel is one inbox.
+  // Google rows carry source='google'; local rows are untagged. Stable
+  // key per row uses the id (Supabase uuid or 'gtask:<google id>').
+  const allTasks = useMemo(() => {
+    return [...tasks, ...gTasks]
+  }, [tasks, gTasks])
+
+  const dueToday  = useMemo(() => allTasks.filter(t => !t.completed && t.due_date === today), [allTasks, today])
+  const overdue   = useMemo(() => allTasks.filter(t => !t.completed && t.due_date && t.due_date < today), [allTasks, today])
+  const upcoming  = useMemo(() => allTasks.filter(t => !t.completed && t.due_date && t.due_date > today), [allTasks, today])
+  const completed = useMemo(() => allTasks.filter(t => t.completed), [allTasks])
+  const openTaskCount = overdue.length + dueToday.length + upcoming.length + allTasks.filter(t => !t.completed && !t.due_date).length
 
   // AI summary — run once per day/count combination, never in a loop
   useEffect(() => {
@@ -226,6 +248,17 @@ export default function Planner() {
 
   async function toggleTask(task) {
     const next = !task.completed
+    // Google task → toggle remotely + update local mirror so the row
+    // flips immediately without waiting for a refetch.
+    if (task.source === 'google') {
+      setGTasks(prev => prev.map(t => t.id === task.id ? { ...t, completed: next } : t))
+      try { await toggleGoogleTask(task) }
+      catch (e) {
+        setGTasks(prev => prev.map(t => t.id === task.id ? { ...t, completed: !next } : t))
+        toast.error(e?.message || 'Could not update Google task')
+      }
+      return
+    }
     if (!isSupabaseConfigured) {
       setTasks(prev => prev.map(t => t.id === task.id ? { ...t, completed: next } : t)); return
     }
@@ -237,6 +270,21 @@ export default function Planner() {
     e.preventDefault()
     const title = newTask.trim()
     if (!title) return
+    // When Google is connected, write the task into Google Tasks so the
+    // partner's phone / Google Tasks app sees it immediately. Falls back
+    // to local Supabase / demo state otherwise.
+    if (googleConnected) {
+      try {
+        const created = await createGoogleTask({ title, due_date: newDue || null })
+        setGTasks(prev => [created, ...prev])
+        toast.success('Task added to Google Tasks.')
+      } catch (e) {
+        toast.error(e?.message || 'Could not add to Google Tasks')
+        return
+      }
+      setNewTask(''); setNewDue(todayISO())
+      return
+    }
     const payload = { title, due_date: newDue || null, completed: false }
     if (!isSupabaseConfigured) {
       setTasks(prev => [{ id: `local-${Date.now()}`, ...payload }, ...prev])
@@ -251,6 +299,15 @@ export default function Planner() {
   async function deleteTask(task) {
     const ok = await confirm({ title: 'Delete task?', body: `"${task.title}" will be removed.`, destructive: true, confirmLabel: 'Delete' })
     if (!ok) return
+    if (task.source === 'google') {
+      setGTasks(prev => prev.filter(t => t.id !== task.id))
+      try { await deleteGoogleTask(task) }
+      catch (e) {
+        loadGoogleTasks()  // refetch on failure so UI reconciles
+        toast.error(e?.message || 'Could not delete Google task')
+      }
+      return
+    }
     if (!isSupabaseConfigured) {
       setTasks(prev => prev.filter(t => t.id !== task.id)); return
     }
