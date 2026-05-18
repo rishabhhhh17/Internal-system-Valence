@@ -257,26 +257,32 @@ function PersonCard({ person, onOpen }) {
 
 function CompaniesRail({ companies, onDropPerson, onAfterBulkAdd }) {
   const [bulkCompany, setBulkCompany] = useState('')
+  const [open, setOpen] = useState(false)
   if (!companies || companies.length === 0) return null
   return (
-    <div className="vl-card-subtle p-4 space-y-3">
-      <div className="flex items-center justify-between gap-3">
-        <div className="vl-eyebrow-ink inline-flex items-center gap-1.5">
-          <Building2 className="h-3 w-3" /> Companies · {companies.length}
+    <div className="space-y-2">
+      <button
+        type="button"
+        onClick={() => setOpen(o => !o)}
+        className="inline-flex items-center gap-2 rounded-md border border-valence-border bg-valence-elevated px-2.5 h-8 text-[11px] font-semibold text-valence-muted hover:text-valence-text hover:border-valence-ink/30 transition"
+      >
+        <Building2 className="h-3 w-3" />
+        Companies <span className="tabular-nums text-valence-subtle">{companies.length}</span>
+        <span className="text-valence-subtle">{open ? '▾' : '▸'}</span>
+      </button>
+      {open && (
+        <div className="vl-card-subtle p-3 flex flex-wrap gap-2">
+          {companies.map(c => (
+            <CompanyDropChip
+              key={c.name}
+              company={c}
+              onDropPerson={onDropPerson}
+              onQuickAdd={() => setBulkCompany(bulkCompany === c.name ? '' : c.name)}
+              expanded={bulkCompany === c.name}
+            />
+          ))}
         </div>
-        <p className="text-[11px] text-valence-subtle">Drag a card onto a company to attach · click + to bulk-add people there.</p>
-      </div>
-      <div className="flex flex-wrap gap-2">
-        {companies.map(c => (
-          <CompanyDropChip
-            key={c.name}
-            company={c}
-            onDropPerson={onDropPerson}
-            onQuickAdd={() => setBulkCompany(bulkCompany === c.name ? '' : c.name)}
-            expanded={bulkCompany === c.name}
-          />
-        ))}
-      </div>
+      )}
       {bulkCompany && (
         <div className="space-y-2 pt-2 border-t border-valence-border/60">
           <div className="flex items-center justify-between">

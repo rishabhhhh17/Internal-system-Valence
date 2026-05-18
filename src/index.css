@@ -366,3 +366,14 @@ html[data-density='compact'] .vl-chip-ink { padding-top: 0.125rem; padding-botto
   filter: blur(32px);
   z-index: 0;
 }
+
+/* ============ DECLUTTER ============
+   Page heroes used a huge `text-feature` size (clamp 28-40px) which
+   competed with the topbar's page title. Shrink globally so the
+   topbar stays the source of truth — heroes still set context but
+   don't dominate vertical real estate. */
+.font-display.text-feature {
+  font-size: 1.25rem;
+  letter-spacing: -0.012em;
+  line-height: 1.3;
+}

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { format, formatDistanceToNowStrict, parseISO, differenceInCalendarDays } from 'date-fns'
-import { Plus, Search, Filter, Sparkles, ArrowRight, AlertCircle, MessageSquare, Download } from 'lucide-react'
+import { Plus, Search, Sparkles, ArrowRight, AlertCircle, MessageSquare, Download } from 'lucide-react'
 import { supabase, isSupabaseConfigured } from '../lib/supabase.js'
 import {
   PURPOSES, CONTEXT_GROUPS, DEMO_INTERACTIONS, purposeLabel, typeLabel, outcomeLabel, outcomeTone
@@ -141,40 +141,41 @@ export default function Interactions() {
         </button>
       </div>
 
-      {/* Filter strip — Context grouped by mandate lifecycle stage */}
-      <div className="space-y-2">
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="vl-eyebrow-ink inline-flex items-center gap-1.5"><Filter className="h-3 w-3" /> Context</span>
-          <PurposeChip label="All" active={purpose === 'All'} onClick={() => setPurpose('All')} />
-        </div>
-        {CONTEXT_GROUPS.map(g => {
-          const items = PURPOSES.filter(p => p.group === g.id)
-          return (
-            <div key={g.id} className="flex flex-wrap items-center gap-2 pl-1">
-              <span className="text-[10px] font-semibold uppercase tracking-[0.16em] text-valence-subtle min-w-[110px]">{g.label}</span>
-              {items.map(p => (
-                <PurposeChip key={p.id} label={p.label} active={purpose === p.id} onClick={() => setPurpose(p.id)} />
-              ))}
-            </div>
-          )
-        })}
-        <div className="ml-auto flex items-center gap-2">
-          <button
-            onClick={() => setNeedsFollowUp(v => !v)}
-            className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-semibold transition ${
-              needsFollowUp ? 'border-valence-warning/40 bg-valence-warning/10 text-valence-warning' : 'border-valence-border bg-valence-elevated text-valence-muted hover:text-valence-text'
-            }`}
-          >
-            <AlertCircle className="h-3 w-3" /> Needs follow-up
-          </button>
-          <div className="relative">
-            <Search className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-valence-subtle" />
-            <input
-              value={q} onChange={e => setQ(e.target.value)}
-              placeholder="Search counterparty, company, notes…"
-              className="vl-input h-8 w-72 pl-8 text-xs"
-            />
-          </div>
+      {/* Filter strip — single row: context dropdown + needs-follow-up
+          toggle + search. Was three rows of chips with eyebrow labels;
+          collapsed into a native select so the page reads at-a-glance. */}
+      <div className="flex flex-wrap items-center gap-2">
+        <select
+          value={purpose}
+          onChange={e => setPurpose(e.target.value)}
+          className="h-8 rounded-md border border-valence-border bg-valence-elevated px-2.5 text-xs font-medium text-valence-text focus:border-valence-blue outline-none"
+          aria-label="Context filter"
+        >
+          <option value="All">All contexts</option>
+          {CONTEXT_GROUPS.map(g => {
+            const items = PURPOSES.filter(p => p.group === g.id)
+            return (
+              <optgroup key={g.id} label={g.label}>
+                {items.map(p => <option key={p.id} value={p.id}>{p.label}</option>)}
+              </optgroup>
+            )
+          })}
+        </select>
+        <button
+          onClick={() => setNeedsFollowUp(v => !v)}
+          className={`inline-flex items-center gap-1.5 rounded-md border px-2.5 h-8 text-[11px] font-semibold transition ${
+            needsFollowUp ? 'border-valence-warning/40 bg-valence-warning/10 text-valence-warning' : 'border-valence-border bg-valence-elevated text-valence-muted hover:text-valence-text'
+          }`}
+        >
+          <AlertCircle className="h-3 w-3" /> Needs follow-up
+        </button>
+        <div className="relative ml-auto">
+          <Search className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-valence-subtle" />
+          <input
+            value={q} onChange={e => setQ(e.target.value)}
+            placeholder="Search counterparty, company, notes…"
+            className="vl-input h-8 w-72 pl-8 text-xs"
+          />
         </div>
       </div>
 
@@ -209,19 +210,6 @@ export default function Interactions() {
         onSubmit={(payload, id) => save(payload, id)}
       />
     </div>
-  )
-}
-
-function PurposeChip({ label, active, onClick }) {
-  return (
-    <button
-      onClick={onClick}
-      className={`rounded-full border px-2.5 py-1 text-[11px] font-semibold transition ${
-        active
-          ? 'border-valence-blue/40 bg-valence-blue-soft text-valence-text'
-          : 'border-valence-border bg-valence-elevated text-valence-muted hover:text-valence-text'
-      }`}
-    >{label}</button>
   )
 }
 
