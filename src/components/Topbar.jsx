@@ -6,7 +6,6 @@ import GoogleButton from './GoogleButton.jsx'
 import CurrencyToggle from './CurrencyToggle.jsx'
 import NotificationCenter, { useNotifications } from './NotificationCenter.jsx'
 import TutorialButton from './Tutorial.jsx'
-import SampleDataChip from './SampleDataChip.jsx'
 import { PITCH_MODE } from '../lib/featureFlags.js'
 
 // Title + subtitle per route. Keep titles in lockstep with the sidebar
@@ -104,11 +103,10 @@ export default function Topbar() {
         {/* Visibility tiers on the trailing chips so the topbar doesn't
             overflow on narrow viewports. Mobile (<sm) keeps only the
             pulse + bell + avatar — everything else lives one tap away
-            in the command palette / sample chip drawer.
-            PITCH_MODE hides the demo-ish chrome (Sample / Tour / Currency)
-            entirely so a partner doesn't see "Load sample firm" or a
-            walk-through wizard mid-conversation. */}
-        {!PITCH_MODE && <div className="hidden sm:flex"><SampleDataChip /></div>}
+            in the command palette / settings.
+            PITCH_MODE hides demo-ish chrome (Tour / Currency) entirely.
+            Sample-data + Google scope detail moved to /settings in
+            Phase 2.3 — keep the topbar lean. */}
         {!PITCH_MODE && <div className="hidden md:flex"><TutorialButton /></div>}
         {!PITCH_MODE && <div className="hidden lg:flex"><CurrencyToggle /></div>}
         <GoogleButton />
