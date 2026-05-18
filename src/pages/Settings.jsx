@@ -15,6 +15,7 @@ import SampleDataPanel from '../components/SampleDataPanel.jsx'
 import GeminiKeyPanel from '../components/GeminiKeyPanel.jsx'
 import CsvContactImport from '../components/CsvContactImport.jsx'
 import ScoringCriteriaPanel from '../components/ScoringCriteriaPanel.jsx'
+import BulkAddPeoplePanel from '../components/BulkAddPeoplePanel.jsx'
 
 function ComingSoon({ label }) {
   return (
@@ -136,9 +137,9 @@ function IntegrationsSection() {
 function DataSection() {
   return (
     <div className="space-y-4">
+      <BulkAddPeoplePanel />
       <CsvContactImport />
       <SampleDataPanel />
-      <ComingSoon label="Drag-to-attach contacts on People" />
     </div>
   )
 }

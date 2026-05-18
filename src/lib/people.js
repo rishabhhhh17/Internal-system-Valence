@@ -52,6 +52,123 @@ export function wouldChangeCompany(people, personId, newCompany) {
   return (target.company || '') !== next
 }
 
+// ============ BULK ADD PEOPLE ============
+// One-line-per-person parser. Supports several free-text shapes, all of
+// which a partner might paste in from email / a notebook / a deal team
+// roster. We tolerate inconsistent delimiters because the user's not going
+// to clean their input before pasting.
+//
+// Recognized line formats (first match wins):
+//   "Alice Smith"
+//   "Alice Smith <alice@x.com>"
+//   "Alice Smith — CEO"               (em / en dash + role)
+//   "Alice Smith - CEO at Acme"       (— accepts ' at <company>' tail)
+//   "Alice Smith | CEO | alice@x.com" (pipe-separated)
+//   "Alice Smith, CEO, alice@x.com"   (comma-separated)
+//   "Alice Smith\tCEO\talice@x.com"   (tab-separated)
+//
+// Blank lines and lines starting with `#` are skipped (comment convention).
+// Returns `{ rows, skipped }` where rows is `{ raw, full_name, email, role,
+// company, errors }`. Rows missing a full_name surface an error so the UI
+// can highlight them.
+
+const EMAIL_REGEX = /<?([\w.+-]+@[\w-]+\.[\w.-]+)>?/
+
+function splitOnDelimiter(line) {
+  if (line.includes('\t')) return line.split('\t').map(s => s.trim()).filter(Boolean)
+  if (line.includes('|'))  return line.split('|').map(s => s.trim()).filter(Boolean)
+  if (line.includes(',') && !EMAIL_REGEX.test(line)) {
+    return line.split(',').map(s => s.trim()).filter(Boolean)
+  }
+  // Pull an email out first so commas in roles don't confuse us; then
+  // split the remainder on commas.
+  const emailMatch = line.match(EMAIL_REGEX)
+  if (line.includes(',') && emailMatch) {
+    const without = line.replace(EMAIL_REGEX, '').replace(/<>|\s{2,}/g, ' ').trim()
+    const parts = without.split(',').map(s => s.trim()).filter(Boolean)
+    return [...parts, emailMatch[1]]
+  }
+  return [line.trim()]
+}
+
+function looksLikeEmail(s) {
+  return EMAIL_REGEX.test(s)
+}
+
+function parseLine(line) {
+  const raw = line
+  const out = { raw, full_name: '', email: '', role: '', company: '', errors: [] }
+
+  // First: pull an email out if present (regardless of position)
+  const emailMatch = line.match(EMAIL_REGEX)
+  if (emailMatch) {
+    out.email = emailMatch[1]
+    line = line.replace(EMAIL_REGEX, '').replace(/<\s*>/g, '').trim()
+  }
+
+  // Detect "X at Y" company tail BEFORE splitting (so " at " doesn't get
+  // chopped). Handles "CEO at Acme" or "- CEO at Acme".
+  const atMatch = line.match(/\s+at\s+(.+)$/i)
+  if (atMatch) {
+    out.company = atMatch[1].trim()
+    line = line.slice(0, atMatch.index).trim()
+  }
+
+  // Strip surrounding dashes / em-dashes that mean "name — role" so we can
+  // walk the remainder as positional segments.
+  line = line.replace(/\s+[-–—]\s+/g, ' | ')
+
+  const parts = splitOnDelimiter(line)
+
+  // Name is the first non-email segment. Remaining segments get classified
+  // as role / company by position. (User can paste in either order; the
+  // parser bias is: 1st extra = role, 2nd extra = company.)
+  const extras = []
+  for (const p of parts) {
+    if (!p) continue
+    if (looksLikeEmail(p) && !out.email) { out.email = p; continue }
+    if (!out.full_name) { out.full_name = p; continue }
+    extras.push(p)
+  }
+  if (extras[0] && !out.role)    out.role    = extras[0]
+  if (extras[1] && !out.company) out.company = extras[1]
+
+  if (!out.full_name) out.errors.push('Missing name')
+  return out
+}
+
+export function parseBulkPeople(text, { defaultCompany = '' } = {}) {
+  const lines = String(text || '').split(/\r?\n/)
+  const rows = []
+  let skipped = 0
+  for (const line of lines) {
+    const trimmed = line.trim()
+    if (!trimmed) { skipped += 1; continue }
+    if (trimmed.startsWith('#')) { skipped += 1; continue }
+    const parsed = parseLine(trimmed)
+    if (defaultCompany && !parsed.company) parsed.company = defaultCompany
+    rows.push(parsed)
+  }
+  return { rows, skipped }
+}
+
+// Returns the subset of parsed rows that are safe to insert (have a
+// full_name, no errors). Strips internal-only fields and produces a
+// payload ready for supabase.from('people').insert().
+export function buildInsertableBulk(rows, { defaultCompany = '' } = {}) {
+  if (!Array.isArray(rows)) return []
+  return rows
+    .filter(r => r && r.full_name && (!r.errors || r.errors.length === 0))
+    .map(r => {
+      const payload = { full_name: r.full_name }
+      if (r.email)   payload.email   = r.email
+      if (r.role)    payload.role    = r.role
+      const co = r.company || defaultCompany
+      if (co)        payload.company = co
+      return payload
+    })
+}
+
 // Demo data — used when Supabase is unconfigured. ~30 personas across
 // Indian + global funds, founders, and lawyers Valence actually deals with.
 export const DEMO_PEOPLE = [
