@@ -63,42 +63,42 @@ describe('MEETING_TOOLS', () => {
     }
   })
 
-  it('Fathom is marked pitchHidden', () => {
-    const fathom = MEETING_TOOLS.find(t => t.id === 'fathom')
-    expect(fathom).toBeDefined()
-    expect(fathom.pitchHidden).toBe(true)
+  it('every tool currently in the registry is in coming-soon state', () => {
+    // Fathom was the only configurable tool and is now removed from the
+    // frontend — the rest stay as placeholders until they're wired.
+    for (const t of MEETING_TOOLS) {
+      expect(t.status).toBe('coming-soon')
+    }
   })
 })
 
 describe('getAvailableMeetingTools', () => {
-  it('returns all tools in main mode', () => {
+  it('returns the full list when no flags are set', () => {
     expect(getAvailableMeetingTools()).toHaveLength(MEETING_TOOLS.length)
     expect(getAvailableMeetingTools({ pitchMode: false })).toHaveLength(MEETING_TOOLS.length)
   })
 
-  it('hides pitchHidden tools in pitch mode', () => {
+  it('filters out pitchHidden tools in pitch mode (no-op today, hook for future)', () => {
+    // No tool is currently pitchHidden but the filter must keep working
+    // so we can add one later without breaking the picker.
     const list = getAvailableMeetingTools({ pitchMode: true })
-    expect(list.find(t => t.id === 'fathom')).toBeUndefined()
     expect(list.length).toBe(MEETING_TOOLS.filter(t => !t.pitchHidden).length)
   })
 })
 
 describe('isValidMeetingTool', () => {
-  it('accepts known ids in main mode', () => {
-    expect(isValidMeetingTool('fathom')).toBe(true)
+  it('accepts known ids', () => {
     expect(isValidMeetingTool('otter')).toBe(true)
+    expect(isValidMeetingTool('read-ai')).toBe(true)
+    expect(isValidMeetingTool('fireflies')).toBe(true)
   })
 
   it('rejects unknown ids', () => {
+    expect(isValidMeetingTool('fathom')).toBe(false)  // explicit: Fathom is gone from the frontend
     expect(isValidMeetingTool('zoom')).toBe(false)
     expect(isValidMeetingTool('')).toBe(false)
     expect(isValidMeetingTool(null)).toBe(false)
     expect(isValidMeetingTool(undefined)).toBe(false)
-  })
-
-  it('rejects fathom in pitch mode', () => {
-    expect(isValidMeetingTool('fathom', { pitchMode: true })).toBe(false)
-    expect(isValidMeetingTool('otter', { pitchMode: true })).toBe(true)
   })
 })
 
@@ -128,47 +128,43 @@ describe('getMeetingTool / setMeetingTool', () => {
     expect(getMeetingTool()).toBeNull()
   })
 
-  it('round-trips a configurable tool', () => {
-    expect(setMeetingTool('fathom')).toBe(true)
-    expect(getMeetingTool()).toBe('fathom')
-  })
-
-  it('rejects a coming-soon tool', () => {
+  it('refuses to write any of the current coming-soon tools', () => {
+    // Every tool in the registry is presently coming-soon, so setMeetingTool
+    // refuses them — the picker is informational on the pitch branch.
     expect(setMeetingTool('otter')).toBe(false)
+    expect(setMeetingTool('read-ai')).toBe(false)
+    expect(setMeetingTool('fireflies')).toBe(false)
     expect(getMeetingTool()).toBeNull()
   })
 
   it('rejects unknown ids without writing', () => {
     expect(setMeetingTool('zoom')).toBe(false)
+    expect(setMeetingTool('fathom')).toBe(false)  // Fathom intentionally removed
     expect(getMeetingTool()).toBeNull()
   })
 
   it('clears with null', () => {
-    setMeetingTool('fathom')
-    expect(getMeetingTool()).toBe('fathom')
+    // Seed storage directly since no current tool is configurable.
+    storage.setItem('valence.settings.meetingTool', 'otter')
     expect(setMeetingTool(null)).toBe(true)
-    expect(getMeetingTool()).toBeNull()
+    expect(storage.getItem('valence.settings.meetingTool')).toBeNull()
   })
 
   it('clears with empty string', () => {
-    setMeetingTool('fathom')
+    storage.setItem('valence.settings.meetingTool', 'otter')
     expect(setMeetingTool('')).toBe(true)
-    expect(getMeetingTool()).toBeNull()
-  })
-
-  it('does not return fathom when reading in pitch mode (graceful filter)', () => {
-    setMeetingTool('fathom', { pitchMode: false })
-    expect(getMeetingTool({ pitchMode: false })).toBe('fathom')
-    expect(getMeetingTool({ pitchMode: true })).toBeNull()
-  })
-
-  it('refuses to write fathom in pitch mode', () => {
-    expect(setMeetingTool('fathom', { pitchMode: true })).toBe(false)
-    expect(getMeetingTool()).toBeNull()
+    expect(storage.getItem('valence.settings.meetingTool')).toBeNull()
   })
 
   it('returns null for a stored value that is no longer recognized', () => {
     storage.setItem('valence.settings.meetingTool', 'deprecated-tool')
+    expect(getMeetingTool()).toBeNull()
+  })
+
+  it('returns null for a previously-stored fathom (cross-version safety)', () => {
+    // A user who upgraded from the pre-strip build may have 'fathom' in
+    // localStorage. The reader filters it out cleanly.
+    storage.setItem('valence.settings.meetingTool', 'fathom')
     expect(getMeetingTool()).toBeNull()
   })
 })
@@ -182,8 +178,8 @@ describe('localStorage unavailable', () => {
 
   it('setMeetingTool returns false without throwing', () => {
     vi.stubGlobal('window', {})
-    expect(() => setMeetingTool('fathom')).not.toThrow()
-    expect(setMeetingTool('fathom')).toBe(false)
+    expect(() => setMeetingTool('otter')).not.toThrow()
+    expect(setMeetingTool('otter')).toBe(false)
   })
 
   it('survives a localStorage getter that throws', () => {
@@ -192,6 +188,6 @@ describe('localStorage unavailable', () => {
     })
     expect(() => getMeetingTool()).not.toThrow()
     expect(getMeetingTool()).toBeNull()
-    expect(setMeetingTool('fathom')).toBe(false)
+    expect(setMeetingTool('otter')).toBe(false)
   })
 })
