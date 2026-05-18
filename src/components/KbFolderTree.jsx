@@ -341,7 +341,6 @@ export default function KbFolderTree({ mandate, mandateId, scope = 'mandate', se
           )}
 
           <div className="flex items-center gap-0.5 opacity-40 group-hover:opacity-100 transition shrink-0">
-            <button onClick={() => { setCreatingUnder(folder.id); setCreateValue('') }} className="p-1 text-valence-subtle hover:text-valence-blue" title="Add sub-folder"><Plus className="h-3 w-3" /></button>
             <button onClick={() => { setRenaming(folder.id); setRenameValue(folder.name) }} className="p-1 text-valence-subtle hover:text-valence-blue" title="Rename"><Pencil className="h-3 w-3" /></button>
             {folder.folder_type !== 'mandate_root' && (
               <button onClick={() => deleteFolder(folder)} className="p-1 text-valence-subtle hover:text-valence-danger" title="Delete"><Trash2 className="h-3 w-3" /></button>

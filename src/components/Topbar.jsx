@@ -3,6 +3,7 @@ import { useLocation } from 'react-router-dom'
 import { Search, Bell, PanelLeftClose, PanelLeftOpen } from 'lucide-react'
 import Logo from './Logo.jsx'
 import GoogleButton from './GoogleButton.jsx'
+import CurrencyToggle from './CurrencyToggle.jsx'
 import NotificationCenter, { useNotifications } from './NotificationCenter.jsx'
 import { useWorkspaceSetting } from '../hooks/useWorkspaceSetting.js'
 import { WORKSPACE_KEYS, setWorkspaceSetting } from '../lib/workspace.js'
@@ -100,9 +101,9 @@ export default function Topbar() {
         </button>
 
         {/* Topbar kept lean: sidebar toggle, page title, search, bell,
-            Google avatar. Tour / Sample / Currency / Firm pulse moved
-            out — they were chrome, not action. Firm pulse still reachable
-            via ⌘K palette or its route. */}
+            currency cycle, Google avatar. Tour / Sample / Firm pulse
+            stay out — they were chrome, not action. */}
+        <div className="hidden lg:block"><CurrencyToggle /></div>
         <GoogleButton />
       </header>
 
