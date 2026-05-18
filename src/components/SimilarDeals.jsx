@@ -23,7 +23,7 @@ export default function SimilarDeals({ deal }) {
 
   return (
     <div className="space-y-3">
-      <div className="rounded-xl border border-valence-border bg-gradient-to-br from-valence-blue/5 via-white/[0.02] to-transparent p-4">
+      <div className="rounded-xl border border-valence-border bg-gradient-to-br from-valence-blue/5 via-valence-elevated/[0.02] to-transparent p-4">
         <div className="flex items-start gap-3">
           <div className="grid h-10 w-10 place-items-center rounded-xl bg-valence-blue-soft ring-1 ring-valence-blue/30 shrink-0">
             <Sparkles className="h-4 w-4 text-valence-blue" />

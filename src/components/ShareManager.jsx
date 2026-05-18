@@ -93,7 +93,7 @@ export default function ShareManager({ deal }) {
 
   return (
     <div className="space-y-4">
-      <div className="rounded-xl border border-valence-border bg-gradient-to-br from-valence-blue-soft via-white to-white p-5">
+      <div className="rounded-xl border border-valence-border bg-gradient-to-br from-valence-blue-soft via-valence-elevated to-valence-elevated p-5">
         <div className="flex items-start gap-3">
           <div className="grid h-10 w-10 place-items-center rounded-xl bg-valence-blue-soft ring-1 ring-valence-blue/30 shrink-0">
             <Globe className="h-4 w-4 text-valence-blue" />

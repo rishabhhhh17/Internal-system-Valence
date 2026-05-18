@@ -78,7 +78,7 @@ export default function MorningBriefing() {
   }
 
   return (
-    <section className="vl-card p-8 lg:p-10 bg-gradient-to-br from-white to-valence-surface">
+    <section className="vl-card p-8 lg:p-10 bg-gradient-to-br from-valence-elevated to-valence-surface">
       {/* Header: greeting + date */}
       <div className="flex items-start justify-between gap-4">
         <div className="flex items-start gap-3">

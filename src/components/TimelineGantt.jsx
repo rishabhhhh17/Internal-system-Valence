@@ -231,7 +231,7 @@ export default function TimelineGantt({ deals, activities, zoom = 'months', onOp
           </div>
 
           {/* Scrollable timeline area */}
-          <div ref={scrollerRef} className="overflow-x-auto bg-gradient-to-b from-white to-valence-surface/40">
+          <div ref={scrollerRef} className="overflow-x-auto bg-gradient-to-b from-valence-elevated to-valence-surface/40">
             <div className="relative" style={{ width: totalPx }}>
               {/* Month axis — sticky header. Uses gradient backdrop for a glassy feel. */}
               <div className="sticky top-0 z-10 h-12 border-b border-valence-border bg-white/85 backdrop-blur-md">
