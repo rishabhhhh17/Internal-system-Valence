@@ -288,7 +288,7 @@ export default function Calendar() {
               <Globe className="h-3.5 w-3.5" /> Connect Google
             </button>
           )}
-          <div className="inline-flex items-center rounded-full border border-valence-border bg-white p-0.5">
+          <div className="inline-flex items-center rounded-full border border-valence-border bg-valence-elevated p-0.5">
             {VIEWS.map(v => (
               <button key={v} onClick={() => setView(v)} className={`rounded-full px-3 py-1 text-[11px] font-semibold transition ${view === v ? 'bg-valence-ink text-white' : 'text-valence-muted hover:text-valence-text'}`}>{v}</button>
             ))}
@@ -307,9 +307,9 @@ export default function Calendar() {
         <section className="vl-card overflow-hidden">
           <div className="flex items-center justify-between border-b border-valence-border bg-valence-surface/50 px-4 py-3">
             <div className="flex items-center gap-2">
-              <button onClick={() => shiftAnchor(-1)} className="rounded-md border border-valence-border bg-white p-1.5 text-valence-muted hover:text-valence-text"><ChevronLeft className="h-4 w-4" /></button>
-              <button onClick={() => setAnchor(new Date())} className="rounded-md border border-valence-border bg-white px-3 py-1 text-[11px] font-semibold text-valence-text hover:bg-valence-surface">Today</button>
-              <button onClick={() => shiftAnchor(1)}  className="rounded-md border border-valence-border bg-white p-1.5 text-valence-muted hover:text-valence-text"><ChevronRight className="h-4 w-4" /></button>
+              <button onClick={() => shiftAnchor(-1)} className="rounded-md border border-valence-border bg-valence-elevated p-1.5 text-valence-muted hover:text-valence-text"><ChevronLeft className="h-4 w-4" /></button>
+              <button onClick={() => setAnchor(new Date())} className="rounded-md border border-valence-border bg-valence-elevated px-3 py-1 text-[11px] font-semibold text-valence-text hover:bg-valence-surface">Today</button>
+              <button onClick={() => shiftAnchor(1)}  className="rounded-md border border-valence-border bg-valence-elevated p-1.5 text-valence-muted hover:text-valence-text"><ChevronRight className="h-4 w-4" /></button>
               <p className="ml-2 text-sm font-semibold text-valence-text">{headerLabel}</p>
             </div>
             <p className="text-[11px] text-valence-muted">{visibleCalendars.length} of {calendars.length} calendars · {eventsInView.length} events</p>
@@ -411,7 +411,7 @@ export default function Calendar() {
                       key={c.id}
                       type="button"
                       onClick={() => setSlotAttendees(prev => active ? prev.filter(x => x !== c.id) : [...prev, c.id])}
-                      className={`flex items-center gap-1.5 rounded-md border px-2 py-1 text-[11px] transition ${active ? 'border-valence-blue/40 bg-valence-blue-soft text-valence-text' : 'border-valence-border bg-white text-valence-muted hover:text-valence-text'}`}
+                      className={`flex items-center gap-1.5 rounded-md border px-2 py-1 text-[11px] transition ${active ? 'border-valence-blue/40 bg-valence-blue-soft text-valence-text' : 'border-valence-border bg-valence-elevated text-valence-muted hover:text-valence-text'}`}
                     >
                       <span className={`h-2 w-2 rounded-full ${dot}`} />
                       <span className="truncate">{c.name}</span>
@@ -440,7 +440,7 @@ export default function Calendar() {
                         .map(cid => calendarsById.get(cid)?.owner_email)
                         .filter(Boolean)
                       return (
-                        <li key={i} className="flex items-center justify-between gap-2 rounded-md bg-white border border-valence-border px-2 py-1 text-[11px]">
+                        <li key={i} className="flex items-center justify-between gap-2 rounded-md bg-valence-elevated border border-valence-border px-2 py-1 text-[11px]">
                           <span className="text-valence-text font-medium">{format(s.start, 'EEE LLL d · HH:mm')}–{format(s.end, 'HH:mm')}</span>
                           <button onClick={() => setComposeAt({ date: s.start, calendar_id: slotAttendees[0], duration: slotDuration, attendee_emails: attendeeEmails })} className="vl-btn-ghost text-[10px]">
                             <Plus className="h-3 w-3" /> Book
@@ -864,7 +864,7 @@ function MonthView({ anchor, events, calendarsById, onEventClick }) {
           const isToday = isSameDay(d, new Date())
           const dayEvents = eventsByDay.get(format(d, 'yyyy-MM-dd')) || []
           return (
-            <div key={d.toISOString()} className={`min-h-[88px] border-b border-r border-valence-border p-1.5 ${inMonth ? 'bg-white' : 'bg-valence-surface/40'}`}>
+            <div key={d.toISOString()} className={`min-h-[88px] border-b border-r border-valence-border p-1.5 ${inMonth ? 'bg-valence-elevated' : 'bg-valence-surface/40'}`}>
               <div className={`text-[11px] ${isToday ? 'inline-flex h-5 w-5 items-center justify-center rounded-full bg-valence-blue text-white font-bold' : inMonth ? 'text-valence-text font-semibold' : 'text-valence-subtle'}`}>{format(d, 'd')}</div>
               <ul className="mt-1 space-y-0.5">
                 {dayEvents.slice(0, 3).map(ev => {
@@ -932,7 +932,7 @@ function EventPopover({ event, anchor, calendar, people, onClose }) {
     <>
       <ClickAwayOverlay onClose={onClose} />
       <div
-        className="fixed z-50 rounded-2xl border border-valence-border bg-white shadow-2xl"
+        className="fixed z-50 rounded-2xl border border-valence-border bg-valence-elevated shadow-2xl"
         style={{ left: pos.left, top: pos.top, width: 'min(' + POPOVER_WIDTH + 'px, calc(100vw - 24px))', maxHeight: '70vh', overflowY: 'auto' }}
         onMouseDown={e => e.stopPropagation()}
       >
@@ -957,7 +957,7 @@ function EventPopover({ event, anchor, calendar, people, onClose }) {
               <p className="vl-eyebrow-ink inline-flex items-center gap-1.5"><Users className="h-3 w-3" /> Attendees ({attendees.length})</p>
               <ul className="space-y-1">
                 {attendees.map((a, i) => (
-                  <li key={i} className="flex items-start gap-2 rounded-md border border-valence-border bg-white px-2 py-1.5">
+                  <li key={i} className="flex items-start gap-2 rounded-md border border-valence-border bg-valence-elevated px-2 py-1.5">
                     <div className="grid h-7 w-7 place-items-center rounded-full bg-valence-blue-soft text-[10px] font-bold text-valence-blue shrink-0">
                       {(a.name || a.email || '?').slice(0, 1).toUpperCase()}
                     </div>
@@ -995,7 +995,7 @@ function StackedEventsPopover({ events, calendarsById, people, onClose }) {
     <>
       <ClickAwayOverlay onClose={onClose} />
       <div
-        className="fixed left-1/2 top-1/2 z-50 -translate-x-1/2 -translate-y-1/2 rounded-2xl border border-valence-border bg-white shadow-2xl"
+        className="fixed left-1/2 top-1/2 z-50 -translate-x-1/2 -translate-y-1/2 rounded-2xl border border-valence-border bg-valence-elevated shadow-2xl"
         style={{ width: 'min(520px, calc(100vw - 32px))', maxHeight: '80vh', overflowY: 'auto' }}
         onMouseDown={e => e.stopPropagation()}
       >
@@ -1027,7 +1027,7 @@ function StackedEventsPopover({ events, calendarsById, people, onClose }) {
                     <p className="vl-eyebrow-ink inline-flex items-center gap-1.5"><Users className="h-3 w-3" /> Attendees ({attendees.length})</p>
                     <ul className="space-y-1">
                       {attendees.map((a, i) => (
-                        <li key={i} className="flex items-start gap-2 rounded-md border border-valence-border bg-white px-2 py-1.5">
+                        <li key={i} className="flex items-start gap-2 rounded-md border border-valence-border bg-valence-elevated px-2 py-1.5">
                           <div className="grid h-7 w-7 place-items-center rounded-full bg-valence-blue-soft text-[10px] font-bold text-valence-blue shrink-0">
                             {(a.name || a.email || '?').slice(0, 1).toUpperCase()}
                           </div>
@@ -1188,7 +1188,7 @@ function ImportCalendarsForm({ existingIds, onImport, onCancel }) {
 
   return (
     <form onSubmit={submit} className="space-y-3">
-      <ul className="max-h-[55vh] overflow-y-auto divide-y divide-valence-border/60 rounded-lg border border-valence-border bg-white">
+      <ul className="max-h-[55vh] overflow-y-auto divide-y divide-valence-border/60 rounded-lg border border-valence-border bg-valence-elevated">
         {items.map(c => {
           const already = (existingIds || []).map(s => s.toLowerCase()).includes(c.id.toLowerCase())
           const checked = picked.has(c.id)

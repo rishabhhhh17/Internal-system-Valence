@@ -242,7 +242,7 @@ export default function KbFolderTree({ mandate, mandateId, scope = 'mandate', se
             <Folder className="h-3.5 w-3.5 text-valence-blue shrink-0" />
             <input
               autoFocus
-              className="flex-1 bg-white border border-valence-blue/40 rounded px-1 py-0 text-sm outline-none focus:ring-2 focus:ring-valence-blue-ring"
+              className="flex-1 bg-valence-elevated border border-valence-blue/40 rounded px-1 py-0 text-sm outline-none focus:ring-2 focus:ring-valence-blue-ring"
               value={topValue}
               onChange={e => setTopValue(e.target.value)}
               placeholder="Folder name…"
@@ -325,7 +325,7 @@ export default function KbFolderTree({ mandate, mandateId, scope = 'mandate', se
           {renaming === folder.id ? (
             <input
               autoFocus
-              className="flex-1 bg-white border border-valence-blue/40 rounded px-1 py-0 text-sm outline-none focus:ring-2 focus:ring-valence-blue-ring"
+              className="flex-1 bg-valence-elevated border border-valence-blue/40 rounded px-1 py-0 text-sm outline-none focus:ring-2 focus:ring-valence-blue-ring"
               value={renameValue}
               onChange={e => setRenameValue(e.target.value)}
               onBlur={() => renameFolder(folder)}
@@ -354,7 +354,7 @@ export default function KbFolderTree({ mandate, mandateId, scope = 'mandate', se
             <FilePlus className="h-3 w-3 text-valence-blue shrink-0" />
             <input
               autoFocus
-              className="flex-1 bg-white border border-valence-blue/40 rounded px-1 py-0 text-sm outline-none focus:ring-2 focus:ring-valence-blue-ring"
+              className="flex-1 bg-valence-elevated border border-valence-blue/40 rounded px-1 py-0 text-sm outline-none focus:ring-2 focus:ring-valence-blue-ring"
               value={createValue}
               onChange={e => setCreateValue(e.target.value)}
               placeholder="Folder name…"

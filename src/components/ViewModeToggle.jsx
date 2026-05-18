@@ -8,7 +8,7 @@ import { useViewMode } from '../hooks/useViewMode.jsx'
 export default function ViewModeToggle({ pageKey, simpleLabel = 'Simple', detailedLabel = 'Detailed' }) {
   const { mode, setMode } = useViewMode(pageKey)
   return (
-    <div className="inline-flex items-center rounded-full border border-valence-border bg-white p-0.5" role="radiogroup" aria-label="View mode">
+    <div className="inline-flex items-center rounded-full border border-valence-border bg-valence-elevated p-0.5" role="radiogroup" aria-label="View mode">
       <button
         type="button"
         onClick={() => setMode('simple')}

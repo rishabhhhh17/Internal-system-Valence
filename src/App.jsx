@@ -141,7 +141,7 @@ function MandatesRedirect() {
 
 function BootSplash() {
   return (
-    <div className="min-h-screen grid place-items-center bg-white">
+    <div className="min-h-screen grid place-items-center bg-valence-elevated">
       <div className="flex items-center gap-3 text-sm text-valence-muted">
         <span className="h-2 w-2 animate-pulse rounded-full bg-valence-blue" />
         Loading ValenceOS…

@@ -207,7 +207,7 @@ export default function Screener() {
             One paste, one verdict.
           </h1>
         </div>
-        <div className="inline-flex items-center rounded-full border border-valence-border bg-white p-0.5">
+        <div className="inline-flex items-center rounded-full border border-valence-border bg-valence-elevated p-0.5">
           {MODES.map(m => (
             <button
               key={m.id}
@@ -264,7 +264,7 @@ export default function Screener() {
                         onClick={() => toggleType(t.id)}
                         aria-pressed={active}
                         className={`rounded-lg border px-3 py-2 text-xs font-semibold transition ${
-                          active ? 'border-valence-blue/40 bg-valence-blue-soft text-valence-text' : 'border-valence-border bg-white text-valence-muted hover:text-valence-text'
+                          active ? 'border-valence-blue/40 bg-valence-blue-soft text-valence-text' : 'border-valence-border bg-valence-elevated text-valence-muted hover:text-valence-text'
                         }`}
                       >{t.label}</button>
                     )
@@ -285,7 +285,7 @@ export default function Screener() {
                             key={s.id}
                             onClick={() => setManual(m => ({ ...m, deal_subtype: s.id }))}
                             className={`rounded-lg border px-3 py-1.5 text-[11px] font-semibold transition ${
-                              active ? 'border-valence-blue/40 bg-white text-valence-text shadow-sm' : 'border-valence-border bg-white/60 text-valence-muted hover:text-valence-text'
+                              active ? 'border-valence-blue/40 bg-valence-elevated text-valence-text shadow-sm' : 'border-valence-border bg-white/60 text-valence-muted hover:text-valence-text'
                             }`}
                           >{s.label}</button>
                         )
@@ -316,7 +316,7 @@ export default function Screener() {
                                 key={s.id}
                                 onClick={() => setManual(m => ({ ...m, ma_side: s.id }))}
                                 className={`rounded-lg border px-3 py-1.5 text-[11px] font-semibold transition ${
-                                  active ? 'border-valence-blue/40 bg-white text-valence-text shadow-sm' : 'border-valence-border bg-white/60 text-valence-muted hover:text-valence-text'
+                                  active ? 'border-valence-blue/40 bg-valence-elevated text-valence-text shadow-sm' : 'border-valence-border bg-white/60 text-valence-muted hover:text-valence-text'
                                 }`}
                               >{s.label}</button>
                             )

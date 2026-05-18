@@ -166,7 +166,7 @@ export default function FundDrawer({ open, onClose, existing, onSubmit, onRename
             No People CRM rows linked to this fund yet. Add a person and set their Fund to <b>{existing.name}</b> to see them here.
           </div>
         ) : (
-          <ul className="divide-y divide-valence-border/60 rounded-xl border border-valence-border bg-white">
+          <ul className="divide-y divide-valence-border/60 rounded-xl border border-valence-border bg-valence-elevated">
             {peopleAtFund.map(p => (
               <li key={p.id} className="px-4 py-3">
                 <div className="flex items-center justify-between gap-3">
@@ -190,7 +190,7 @@ export default function FundDrawer({ open, onClose, existing, onSubmit, onRename
           {pings.length === 0 ? (
             <div className="rounded-lg border border-dashed border-valence-border bg-valence-surface px-5 py-6 text-center text-sm text-valence-muted">No deals shortlisted to this fund yet.</div>
           ) : pings.map(p => (
-            <div key={p.id} className="flex items-center justify-between rounded-lg border border-valence-border bg-white px-3 py-2 text-sm">
+            <div key={p.id} className="flex items-center justify-between rounded-lg border border-valence-border bg-valence-elevated px-3 py-2 text-sm">
               <div>
                 <p className="font-semibold text-valence-text">{p.deals?.client_name || 'Untitled'}</p>
                 <p className="text-[11px] text-valence-muted">{p.deals?.stage || '—'} · {p.status}</p>
@@ -273,7 +273,7 @@ function ContactsTab({ fundId, contacts, setContacts }) {
       {contacts.length === 0 ? (
         <div className="rounded-lg border border-dashed border-valence-border bg-valence-surface px-5 py-6 text-center text-sm text-valence-muted">No contacts on file yet.</div>
       ) : (
-        <ul className="divide-y divide-valence-border/60 rounded-xl border border-valence-border bg-white">
+        <ul className="divide-y divide-valence-border/60 rounded-xl border border-valence-border bg-valence-elevated">
           {contacts.map(c => (
             <li key={c.id} className="px-4 py-3">
               <div className="flex items-center justify-between gap-3">

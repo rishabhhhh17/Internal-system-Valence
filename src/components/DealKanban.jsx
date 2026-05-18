@@ -47,7 +47,7 @@ export default function DealKanban({ deals, onOpen, onStageChange }) {
                   <span className={`h-1.5 w-1.5 rounded-full shrink-0 ${dotForTone(stage.tone)}`} />
                   <p className="text-[11px] font-semibold uppercase tracking-wider text-valence-text truncate" title={stage.desc}>{stage.id}</p>
                 </div>
-                <span className="rounded-md border border-valence-border bg-white px-1.5 py-0.5 text-[10px] font-semibold tabular-nums text-valence-muted">
+                <span className="rounded-md border border-valence-border bg-valence-elevated px-1.5 py-0.5 text-[10px] font-semibold tabular-nums text-valence-muted">
                   {items.length}
                 </span>
               </div>
@@ -95,7 +95,7 @@ function Card({ deal: d, onOpen, onStageChange, setDraggingId, setOverStage, ope
         if (e.target.closest('[data-menu-trigger]')) return
         onOpen?.(d)
       }}
-      className="group relative cursor-pointer rounded-lg border border-valence-border bg-white p-3 transition hover:border-valence-ink/20 hover:shadow-valence active:opacity-60"
+      className="group relative cursor-pointer rounded-lg border border-valence-border bg-valence-elevated p-3 transition hover:border-valence-ink/20 hover:shadow-valence active:opacity-60"
     >
       <div className="flex items-start gap-2">
         <div className="grid h-7 w-7 place-items-center rounded-md bg-valence-blue-soft ring-1 ring-valence-blue/20 shrink-0">
@@ -133,7 +133,7 @@ function Card({ deal: d, onOpen, onStageChange, setDraggingId, setOverStage, ope
         <div
           data-menu-trigger
           onClick={(e) => e.stopPropagation()}
-          className="absolute right-2 top-10 z-20 w-44 rounded-lg border border-valence-border-strong bg-white shadow-valence-lg overflow-hidden animate-slide-up"
+          className="absolute right-2 top-10 z-20 w-44 rounded-lg border border-valence-border-strong bg-valence-elevated shadow-valence-lg overflow-hidden animate-slide-up"
         >
           <p className="px-3 pt-2 pb-1 text-[10px] font-semibold uppercase tracking-wider text-valence-subtle">Move to</p>
           <ul className="pb-1 max-h-60 overflow-y-auto">

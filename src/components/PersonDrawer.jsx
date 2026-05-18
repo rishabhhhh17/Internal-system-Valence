@@ -253,7 +253,7 @@ function PersonaField({ label, value, onChange, placeholder }) {
     <div>
       <label className="vl-label">{label}</label>
       <WikilinkTextarea
-        className="vl-input min-h-[64px] mt-1.5 leading-relaxed bg-white"
+        className="vl-input min-h-[64px] mt-1.5 leading-relaxed bg-valence-elevated"
         value={value}
         onChange={onChange}
         placeholder={placeholder}
@@ -267,7 +267,7 @@ function RelatedList({ items, empty, render }) {
     return <div className="rounded-lg border border-dashed border-valence-border bg-valence-surface px-5 py-8 text-center text-sm text-valence-muted">{empty}</div>
   }
   return (
-    <ul className="divide-y divide-valence-border/60 rounded-xl border border-valence-border bg-white">
+    <ul className="divide-y divide-valence-border/60 rounded-xl border border-valence-border bg-valence-elevated">
       {items.map((it, i) => (
         <li key={it.id || i} className="px-4 py-3">{render(it)}</li>
       ))}

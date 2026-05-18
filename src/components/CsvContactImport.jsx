@@ -176,12 +176,12 @@ export default function CsvContactImport() {
         <div className="vl-eyebrow-ink">Column mapping</div>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
           {parsed.headers.map(h => (
-            <div key={h} className="flex items-center gap-2 rounded-lg border border-valence-border bg-white px-3 py-2">
+            <div key={h} className="flex items-center gap-2 rounded-lg border border-valence-border bg-valence-elevated px-3 py-2">
               <span className="text-xs font-mono text-valence-muted truncate flex-1" title={h}>{h || '(blank)'}</span>
               <select
                 value={mapping[h] || SKIP_COLUMN}
                 onChange={e => changeMapping(h, e.target.value)}
-                className="text-xs rounded-md border border-valence-border bg-white px-2 py-1 text-valence-text focus:outline-none focus:border-valence-blue"
+                className="text-xs rounded-md border border-valence-border bg-valence-elevated px-2 py-1 text-valence-text focus:outline-none focus:border-valence-blue"
               >
                 <option value={SKIP_COLUMN}>Skip</option>
                 {IMPORT_FIELDS.map(f => (

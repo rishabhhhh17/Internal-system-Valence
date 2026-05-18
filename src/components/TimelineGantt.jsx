@@ -205,7 +205,7 @@ export default function TimelineGantt({ deals, activities, zoom = 'months', onOp
       <div className="vl-card overflow-hidden shadow-sm">
         <div className="grid grid-cols-[260px_1fr]">
           {/* Sticky left column — mandate list */}
-          <div className="border-r border-valence-border bg-white">
+          <div className="border-r border-valence-border bg-valence-elevated">
             <div className="h-12 border-b border-valence-border px-4 flex items-end pb-2">
               <span className="vl-eyebrow-ink">Mandate</span>
             </div>
@@ -247,7 +247,7 @@ export default function TimelineGantt({ deals, activities, zoom = 'months', onOp
                 <div className="absolute top-0 h-full pointer-events-none" style={{ left: todayX }}>
                   <div className="h-full w-px bg-gradient-to-b from-valence-blue via-valence-blue to-valence-blue/40" />
                   <span className="absolute top-2 left-1.5 inline-flex items-center gap-1 rounded-full bg-valence-blue text-white px-2 py-0.5 text-[10px] font-bold tracking-wide shadow-[0_0_12px_rgba(51,153,255,0.55)] ring-1 ring-white/40">
-                    <span className="h-1.5 w-1.5 rounded-full bg-white animate-pulse" /> Today
+                    <span className="h-1.5 w-1.5 rounded-full bg-valence-elevated animate-pulse" /> Today
                   </span>
                 </div>
               </div>
@@ -337,7 +337,7 @@ function segmentClass(seg, palette) {
     return `bg-gradient-to-br ${p.from} ${p.to} ${p.text} ring-2 ${p.ring} shadow-md ${p.glow}`
   }
   // Future — outlined chip, dashed, low chroma. Reads as projection.
-  return `bg-white border border-dashed ${p.border} ${p.text} opacity-90`
+  return `bg-valence-elevated border border-dashed ${p.border} ${p.text} opacity-90`
 }
 
 function normalizeSide(side) {
@@ -376,7 +376,7 @@ function LegendBar({ rows }) {
           onClick={() => setOpen(o => !o)}
           onMouseEnter={() => setOpen(true)}
           onMouseLeave={() => setOpen(false)}
-          className="inline-flex items-center gap-1.5 rounded-full border border-valence-border bg-white px-2.5 py-1 text-[10px] font-semibold text-valence-muted hover:text-valence-text hover:border-valence-ink/30 transition"
+          className="inline-flex items-center gap-1.5 rounded-full border border-valence-border bg-valence-elevated px-2.5 py-1 text-[10px] font-semibold text-valence-muted hover:text-valence-text hover:border-valence-ink/30 transition"
           aria-expanded={open}
         >
           <Info className="h-3 w-3" /> Legend
@@ -385,7 +385,7 @@ function LegendBar({ rows }) {
           <div
             onMouseEnter={() => setOpen(true)}
             onMouseLeave={() => setOpen(false)}
-            className="absolute right-0 top-full mt-1 z-20 w-72 rounded-xl border border-valence-border bg-white shadow-valence-lg p-3 space-y-3"
+            className="absolute right-0 top-full mt-1 z-20 w-72 rounded-xl border border-valence-border bg-valence-elevated shadow-valence-lg p-3 space-y-3"
           >
             <div>
               <p className="vl-eyebrow-ink mb-1.5">States</p>

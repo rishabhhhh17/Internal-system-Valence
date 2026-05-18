@@ -39,7 +39,7 @@ function ChipEditor({ label, values, onChange, placeholder, tone = 'neutral' }) 
   return (
     <div className="space-y-1.5">
       <label className="vl-label">{label}</label>
-      <div className="rounded-lg border border-valence-border bg-white p-2 flex flex-wrap gap-1.5">
+      <div className="rounded-lg border border-valence-border bg-valence-elevated p-2 flex flex-wrap gap-1.5">
         {values.map(v => (
           <span key={v} className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-semibold ${toneClass}`}>
             {v}

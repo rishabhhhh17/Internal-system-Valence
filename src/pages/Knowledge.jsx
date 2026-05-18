@@ -183,7 +183,7 @@ function SearchPortal({ onSelectTab }) {
   return (
     <div className="space-y-5">
       {/* Hero search */}
-      <section className="relative overflow-hidden rounded-2xl border border-valence-border bg-white vl-circles py-8 px-5 sm:py-12 sm:px-8 lg:py-20 lg:px-14">
+      <section className="relative overflow-hidden rounded-2xl border border-valence-border bg-valence-elevated vl-circles py-8 px-5 sm:py-12 sm:px-8 lg:py-20 lg:px-14">
         <div className="absolute inset-0 bg-valence-grid opacity-50" aria-hidden />
         <div className="relative max-w-3xl z-10">
           <p className="vl-eyebrow">Firm-wide search</p>
@@ -196,7 +196,7 @@ function SearchPortal({ onSelectTab }) {
               : 'Add a Gemini key to unlock semantic search across meaning, not just text.'}
           </p>
 
-          <div className="mt-8 flex items-center gap-3 rounded-xl border border-valence-border bg-white px-4 py-3 focus-within:border-valence-blue focus-within:ring-2 focus-within:ring-valence-blue-ring transition shadow-valence">
+          <div className="mt-8 flex items-center gap-3 rounded-xl border border-valence-border bg-valence-elevated px-4 py-3 focus-within:border-valence-blue focus-within:ring-2 focus-within:ring-valence-blue-ring transition shadow-valence">
             <Search className="h-4 w-4 text-valence-blue" />
             <input
               value={q} onChange={e => setQ(e.target.value)} autoFocus
@@ -293,7 +293,7 @@ function ResultRow({ r, onOpen }) {
               </span>
             )}
             {r.metadata?.warmth && (
-              <span className="inline-flex items-center rounded-full border border-valence-border bg-white px-1.5 py-0 text-[9.5px] font-semibold uppercase tracking-[0.14em] text-valence-muted">
+              <span className="inline-flex items-center rounded-full border border-valence-border bg-valence-elevated px-1.5 py-0 text-[9.5px] font-semibold uppercase tracking-[0.14em] text-valence-muted">
                 {r.metadata.warmth}
               </span>
             )}

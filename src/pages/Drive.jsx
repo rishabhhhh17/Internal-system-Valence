@@ -48,7 +48,7 @@ export default function Drive() {
     return (
       <div className="space-y-6">
         <ConfigBanner />
-        <section className="relative overflow-hidden rounded-2xl border border-valence-border bg-white vl-circles py-16 px-8 lg:py-24 lg:px-14">
+        <section className="relative overflow-hidden rounded-2xl border border-valence-border bg-valence-elevated vl-circles py-16 px-8 lg:py-24 lg:px-14">
           <div className="absolute inset-0 bg-valence-grid opacity-50" aria-hidden />
           <div className="relative max-w-2xl z-10">
             <p className="vl-eyebrow">Your personal Drive</p>

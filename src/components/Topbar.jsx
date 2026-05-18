@@ -62,7 +62,7 @@ export default function Topbar() {
           <button
             onClick={openPalette}
             data-tour="topbar-search"
-            className="hidden md:flex items-center gap-2 rounded-lg border border-valence-border bg-white px-3 py-1.5 text-sm text-valence-muted w-72 hover:border-valence-ink/30 transition text-left"
+            className="hidden md:flex items-center gap-2 rounded-lg border border-valence-border bg-valence-elevated px-3 py-1.5 text-sm text-valence-muted w-72 hover:border-valence-ink/30 transition text-left"
           >
             <Search className="h-3.5 w-3.5" />
             <span className="flex-1 text-valence-subtle">Search deals, memos, people…</span>
@@ -79,7 +79,7 @@ export default function Topbar() {
           className={`relative grid h-9 w-9 place-items-center rounded-lg border transition ${
             pathname === '/feed'
               ? 'border-valence-blue/40 bg-valence-blue-soft text-valence-blue'
-              : 'border-valence-border bg-white text-valence-muted hover:text-valence-text hover:border-valence-ink/30'
+              : 'border-valence-border bg-valence-elevated text-valence-muted hover:text-valence-text hover:border-valence-ink/30'
           }`}
           aria-label="Firm pulse"
           title="Firm pulse — everything the team did"
@@ -89,7 +89,7 @@ export default function Topbar() {
 
         <button
           onClick={() => setNotifOpen(true)}
-          className="relative grid h-9 w-9 place-items-center rounded-lg border border-valence-border bg-white text-valence-muted hover:text-valence-text hover:border-valence-ink/30 transition"
+          className="relative grid h-9 w-9 place-items-center rounded-lg border border-valence-border bg-valence-elevated text-valence-muted hover:text-valence-text hover:border-valence-ink/30 transition"
           aria-label={notifs.unread > 0 ? `${notifs.unread} unread notifications` : 'Notifications'}
         >
           <Bell className="h-4 w-4" />

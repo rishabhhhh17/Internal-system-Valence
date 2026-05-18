@@ -129,7 +129,7 @@ export default function Typeahead({
       {open && enabled && (items.length > 0 || (value || '').trim().length >= minChars) && (
         <ul
           role="listbox"
-          className="absolute left-0 right-0 top-full z-30 mt-1 max-h-72 overflow-y-auto rounded-lg border border-valence-border bg-white shadow-valence-lg"
+          className="absolute left-0 right-0 top-full z-30 mt-1 max-h-72 overflow-y-auto rounded-lg border border-valence-border bg-valence-elevated shadow-valence-lg"
         >
           {items.length === 0 ? (
             <li className="px-3 py-2 text-[11px] text-valence-subtle">{emptyHint}</li>

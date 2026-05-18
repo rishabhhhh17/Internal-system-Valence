@@ -51,7 +51,7 @@ export function InlineText({ value, onCommit, placeholder = '—', className = '
         if (e.key === 'Enter') { e.preventDefault(); commit() }
         if (e.key === 'Escape') { setDraft(value || ''); setEditing(false) }
       }}
-      className={`rounded border border-valence-blue/40 bg-white px-1 py-0 text-sm outline-none focus:ring-2 focus:ring-valence-blue-ring ${className}`}
+      className={`rounded border border-valence-blue/40 bg-valence-elevated px-1 py-0 text-sm outline-none focus:ring-2 focus:ring-valence-blue-ring ${className}`}
     />
   )
 }

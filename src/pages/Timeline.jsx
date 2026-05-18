@@ -90,7 +90,7 @@ export default function Timeline() {
           {/* Gantt vs Table toggle. Table view shows per-stage date stamps
               (Origination / Pitching / Pre-Mandate / Mandate / Outcome) so
               the partner can audit when each transition happened. */}
-          <div className="inline-flex items-center rounded-full border border-valence-border bg-white p-0.5">
+          <div className="inline-flex items-center rounded-full border border-valence-border bg-valence-elevated p-0.5">
             <button onClick={() => setView('gantt')} className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-semibold transition ${view === 'gantt' ? 'bg-valence-ink text-white' : 'text-valence-muted hover:text-valence-text'}`}>
               <GanttChartSquare className="h-3 w-3" /> Gantt
             </button>
@@ -99,7 +99,7 @@ export default function Timeline() {
             </button>
           </div>
           {view === 'gantt' && (
-            <div className="inline-flex items-center rounded-full border border-valence-border bg-white p-0.5">
+            <div className="inline-flex items-center rounded-full border border-valence-border bg-valence-elevated p-0.5">
               {ZOOM_OPTIONS.map(z => (
                 <button
                   key={z}
@@ -155,7 +155,7 @@ function FilterRow({ label, value, onChange, options }) {
           className={`rounded-full border px-2.5 py-1 text-[11px] font-semibold transition ${
             value === o
               ? 'border-valence-blue/40 bg-valence-blue-soft text-valence-text'
-              : 'border-valence-border bg-white text-valence-muted hover:text-valence-text'
+              : 'border-valence-border bg-valence-elevated text-valence-muted hover:text-valence-text'
           }`}
         >{o}</button>
       ))}

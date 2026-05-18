@@ -106,7 +106,7 @@ export default function TargetList({ deal }) {
                       {t.warmth === 'Internal relationship'
                         ? <span className="vl-chip-blue">Internal relationship</span>
                         : <span className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-semibold ${
-                            t.warmth === 'Warm' ? 'border-valence-success/30 bg-valence-success-soft text-valence-success' : 'border-valence-border bg-white text-valence-muted'
+                            t.warmth === 'Warm' ? 'border-valence-success/30 bg-valence-success-soft text-valence-success' : 'border-valence-border bg-valence-elevated text-valence-muted'
                           }`}>{t.warmth || 'Cold'}</span>}
                     </div>
                     <p className="mt-2 text-[13px] leading-relaxed text-valence-text">{t.rationale}</p>

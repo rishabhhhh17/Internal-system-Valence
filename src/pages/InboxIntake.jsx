@@ -93,7 +93,7 @@ export default function InboxIntake() {
             className={`rounded-full border px-2.5 py-1 text-[11px] font-semibold capitalize transition ${
               statusFilter === s
                 ? 'border-valence-blue/40 bg-valence-blue-soft text-valence-text'
-                : 'border-valence-border bg-white text-valence-muted hover:text-valence-text'
+                : 'border-valence-border bg-valence-elevated text-valence-muted hover:text-valence-text'
             }`}
           >{s}</button>
         ))}
@@ -147,7 +147,7 @@ function SubmissionCard({ row, onStatus, onConvert }) {
         </div>
         <div className="flex items-center gap-2 text-[11px]">
           <span className="text-valence-subtle">Status</span>
-          <span className="rounded-full border border-valence-border bg-white px-2 py-0.5 font-semibold capitalize text-valence-muted">{row.status}</span>
+          <span className="rounded-full border border-valence-border bg-valence-elevated px-2 py-0.5 font-semibold capitalize text-valence-muted">{row.status}</span>
         </div>
       </div>
 

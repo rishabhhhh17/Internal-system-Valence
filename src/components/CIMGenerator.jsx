@@ -140,7 +140,7 @@ export default function CIMGenerator({ deal }) {
               className={`rounded-full border px-2.5 py-1 text-[11px] font-semibold transition ${
                 selected.includes(s.id)
                   ? 'border-valence-blue/40 bg-valence-blue-soft text-valence-blue-deep'
-                  : 'border-valence-border bg-white text-valence-muted hover:border-valence-ink/20'
+                  : 'border-valence-border bg-valence-elevated text-valence-muted hover:border-valence-ink/20'
               }`}
               title={s.hint}
             >

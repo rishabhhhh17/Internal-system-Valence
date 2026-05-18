@@ -88,7 +88,7 @@ export default function DealDocumentsUploader({ files, onChange }) {
         ) : (
           <ul className="space-y-1.5">
             {files.map((row, i) => (
-              <li key={i} className="flex items-center gap-2 rounded-lg border border-valence-border bg-white px-3 py-2">
+              <li key={i} className="flex items-center gap-2 rounded-lg border border-valence-border bg-valence-elevated px-3 py-2">
                 <FileText className="h-3.5 w-3.5 text-valence-blue shrink-0" />
                 <div className="flex-1 min-w-0">
                   <p className="truncate text-sm font-semibold text-valence-text">{row.file.name}</p>

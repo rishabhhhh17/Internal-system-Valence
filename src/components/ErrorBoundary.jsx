@@ -22,7 +22,7 @@ export default class ErrorBoundary extends Component {
   render() {
     if (!this.state.error) return this.props.children
     return (
-      <div className="min-h-screen grid place-items-center bg-white px-6">
+      <div className="min-h-screen grid place-items-center bg-valence-elevated px-6">
         <div className="vl-card max-w-lg p-8">
           <div className="flex items-center gap-3">
             <div className="grid h-10 w-10 place-items-center rounded-lg bg-valence-danger/10">
