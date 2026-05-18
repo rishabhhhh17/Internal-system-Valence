@@ -20,6 +20,7 @@ import {
 import { useCurrency } from '../hooks/useCurrency.jsx'
 import ConfigBanner from '../components/ConfigBanner.jsx'
 import VelocityChart from '../components/VelocityChart.jsx'
+import { SHOW_METRICS } from '../lib/featureFlags.js'
 import StaleDealsCard from '../components/StaleDealsCard.jsx'
 import ExpertsWidget from '../components/ExpertsWidget.jsx'
 import InfoDot from '../components/InfoDot.jsx'
@@ -252,7 +253,10 @@ export default function Analytics() {
       <SectionHeading kicker="III" title="Productivity" subtitle="How the team converts effort into fees" icon={Flame} />
 
       <section className="grid gap-6 lg:grid-cols-2">
-        <VelocityChart />
+        {/* VelocityChart carries gut-feel benchmark numbers — hidden on the
+            pitch deploy until we have enough real firm data to defend the
+            comparison line. Toggle via VITE_SHOW_METRICS=true. */}
+        {SHOW_METRICS ? <VelocityChart /> : null}
         <WinRateTrendCard trend={trend} />
       </section>
 

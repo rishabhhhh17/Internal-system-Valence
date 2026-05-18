@@ -9,16 +9,18 @@ import { DEMO_PEOPLE } from '../lib/people.js'
 import { extractText } from '../lib/fileParse.js'
 import { transcribeAndSummarise } from '../lib/voiceMemo.js'
 import { isGeminiConfigured } from '../lib/gemini.js'
-import { isFathomConfigured, pullLatestMeeting } from '../lib/fathom.js'
 import { useToast } from './Toast.jsx'
 import WikilinkTextarea from './WikilinkTextarea.jsx'
 import Typeahead from './Typeahead.jsx'
 
+// Meeting-tool integration (Fathom / Read.ai / Otter / Fireflies) is
+// configured in Settings → Integrations on this branch and lights up
+// once a partner picks their tool. Until then, transcripts are paste /
+// upload / voice memo only.
 const TRANSCRIPT_SOURCES = [
   { id: 'manual',     label: 'Paste / type',  icon: FileText, blurb: 'Type or paste a transcript directly' },
   { id: 'upload',     label: 'Upload file',   icon: Upload,   blurb: '.txt, .vtt, .srt, .docx, .pdf' },
-  { id: 'voice_memo', label: 'Voice memo',    icon: Mic,      blurb: 'Audio → transcript via Gemini' },
-  { id: 'fathom',     label: 'Pull from Fathom', icon: Sparkles, blurb: 'Latest meeting from your Fathom account' }
+  { id: 'voice_memo', label: 'Voice memo',    icon: Mic,      blurb: 'Audio → transcript via Gemini' }
 ]
 
 const BLANK = {
@@ -394,7 +396,6 @@ function TranscriptSection({ form, update }) {
   const [parsing, setParsing] = useState(false)
   const [transcribing, setTranscribing] = useState(false)
   const [summarising, setSummarising] = useState(false)
-  const [pullingFathom, setPullingFathom] = useState(false)
   const [showTranscript, setShowTranscript] = useState(false)
   const fileRef = useRef(null)
   const audioRef = useRef(null)
@@ -448,31 +449,6 @@ function TranscriptSection({ form, update }) {
     }
   }
 
-  async function pullFromFathom() {
-    if (!isFathomConfigured) {
-      toast.info('Fathom not connected. Add VITE_FATHOM_API_KEY (Fathom → Settings → Integrations → API).')
-      return
-    }
-    setPullingFathom(true)
-    try {
-      const m = await pullLatestMeeting()
-      // Stuff the pulled meeting into the form. The transcript +
-      // summary become the interaction body, and the title / attendee
-      // names autofill the counterparty fields when they're empty.
-      update({
-        transcript: m.transcript || '',
-        transcript_summary: m.summary || '',
-        ...(form.counterparty_name ? {} : { counterparty_name: m.attendees?.[0]?.name || form.counterparty_name }),
-        ...(form.notes ? {} : { notes: m.summary ? m.summary : (m.transcript || '').slice(0, 1200) })
-      })
-      toast.success(`Pulled "${m.title || 'meeting'}" from Fathom.`)
-    } catch (err) {
-      toast.error(err?.message || 'Fathom pull failed')
-    } finally {
-      setPullingFathom(false)
-    }
-  }
-
   async function summarise() {
     if (!form.transcript?.trim()) return
     if (!isGeminiConfigured) {
@@ -519,9 +495,8 @@ function TranscriptSection({ form, update }) {
               if (s.id === 'manual')     { setShowTranscript(true); update({ transcript_source: 'manual' }) }
               else if (s.id === 'upload')     fileRef.current?.click()
               else if (s.id === 'voice_memo') audioRef.current?.click()
-              else if (s.id === 'fathom')     pullFromFathom()
             }
-            const busy = (s.id === 'upload' && parsing) || (s.id === 'voice_memo' && transcribing) || (s.id === 'fathom' && pullingFathom)
+            const busy = (s.id === 'upload' && parsing) || (s.id === 'voice_memo' && transcribing)
             return (
               <button
                 key={s.id}
@@ -550,7 +525,6 @@ function TranscriptSection({ form, update }) {
               <span className="vl-chip-blue">
                 {form.transcript_source === 'voice_memo' ? <Mic className="h-3 w-3" /> :
                  form.transcript_source === 'upload'     ? <Upload className="h-3 w-3" /> :
-                 form.transcript_source === 'fathom'     ? <Sparkles className="h-3 w-3" /> :
                                                            <FileText className="h-3 w-3" />}
                 {form.transcript_source.replace('_', ' ')}
               </span>

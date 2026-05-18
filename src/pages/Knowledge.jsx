@@ -55,21 +55,23 @@ export default function Knowledge() {
         <h1 className="mt-2 font-display text-feature font-bold text-valence-text">Everything the firm knows.</h1>
       </div>
 
+      {/* Pitch branch — three tabs. Memos fold into Files. Comps deferred.
+          Search lives in ⌘K. Legacy URL params (tab=memos / search / comps)
+          fall back to the closest surviving tab below so old links don't
+          404. */}
       <div className="flex items-center gap-1 rounded-lg border border-valence-border bg-valence-surface p-1 w-fit overflow-x-auto">
-        <TabButton active={tab === 'ask'}      onClick={() => setTab('ask')}      icon={Bot}>Ask</TabButton>
-        <TabButton active={tab === 'search'}   onClick={() => setTab('search')}   icon={Sparkles}>Search</TabButton>
-        <TabButton active={tab === 'memos'}    onClick={() => setTab('memos')}    icon={BookOpen}>Memos</TabButton>
-        <TabButton active={tab === 'files'}    onClick={() => setTab('files')}    icon={FileIcon}>Files</TabButton>
-        <TabButton active={tab === 'comps'}    onClick={() => setTab('comps')}    icon={TableIcon}>Comps</TabButton>
-        <TabButton active={tab === 'mandates'} onClick={() => setTab('mandates')} icon={FolderTree}>Mandate notes</TabButton>
+        <TabButton active={tab === 'ask'}                              onClick={() => setTab('ask')}      icon={Bot}>Ask</TabButton>
+        <TabButton active={tab === 'files' || tab === 'memos'}         onClick={() => setTab('files')}    icon={FileIcon}>Files</TabButton>
+        <TabButton active={tab === 'mandates'}                         onClick={() => setTab('mandates')} icon={FolderTree}>Mandate notes</TabButton>
       </div>
 
-      {tab === 'ask'      && <AskChat />}
-      {tab === 'search'   && <SearchPortal onSelectTab={setTab} />}
-      {tab === 'memos'    && <Documents />}
-      {tab === 'files'    && <FilesSection />}
-      {tab === 'comps'    && <Comps />}
-      {tab === 'mandates' && <MandatesPanel />}
+      {tab === 'ask'                                        && <AskChat />}
+      {/* Files absorbs the old Memos tab — memo uploads land in Files now. */}
+      {(tab === 'files' || tab === 'memos')                 && <FilesSection />}
+      {tab === 'mandates'                                   && <MandatesPanel />}
+      {/* Search + Comps are temporarily hidden on the pitch branch.
+          Old URL with ?tab=search / ?tab=comps falls back to Ask. */}
+      {(tab === 'search' || tab === 'comps')                && <AskChat />}
     </div>
   )
 }
