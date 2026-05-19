@@ -24,6 +24,7 @@ import Share from './pages/Share.jsx'
 import Login from './pages/Login.jsx'
 import FitPreview from './pages/FitPreview.jsx'
 import Settings from './pages/Settings.jsx'
+import AdminBilling from './pages/AdminBilling.jsx'
 import { useAuth } from './hooks/useAuth.js'
 import { isSupabaseConfigured } from './lib/supabase.js'
 import { useWorkspaceSetting } from './hooks/useWorkspaceSetting.js'
@@ -125,6 +126,7 @@ export default function App() {
         <Route path="/feed" element={<Feed />} />
         <Route path="/team" element={<Team />} />
         <Route path="/settings" element={<Settings />} />
+        <Route path="/admin/billing" element={<AdminBilling />} />
         <Route path="/_fit-preview" element={<FitPreview />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

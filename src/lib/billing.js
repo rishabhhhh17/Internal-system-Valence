@@ -404,8 +404,13 @@ export async function checkAiAction(supabase, { orgId, seatId }) {
 // Write an ai_actions row reflecting a successful call. Caller must have
 // FIRST gone through checkAiAction and observed an "allowed_*" decision.
 // Records the classification ('included' | 'overage') so the cycle close
-// rolls up correctly.
-export async function recordAiAction(supabase, { orgId, seatId, cycleId, actionType, classification }) {
+// rolls up correctly. `tokensUsed` and `estimatedCostUsd` are optional —
+// pass them when the caller knows the underlying provider's token count
+// and prompt+completion cost so admin can see real consumption.
+export async function recordAiAction(supabase, {
+  orgId, seatId, cycleId, actionType, classification,
+  tokensUsed = null, estimatedCostUsd = null
+}) {
   if (classification !== 'included' && classification !== 'overage') {
     throw new Error('classification must be included|overage')
   }
@@ -416,12 +421,130 @@ export async function recordAiAction(supabase, { orgId, seatId, cycleId, actionT
       seat_id: seatId,
       cycle_id: cycleId,
       action_type: actionType || null,
-      classification
+      classification,
+      tokens_used: tokensUsed,
+      estimated_cost_usd: estimatedCostUsd
     })
     .select()
     .single()
   if (error) throw error
   return data
+}
+
+// ============ ADMIN CONSUMPTION ============
+// Internal view of what every org is burning. Returns one row per org
+// with: plan, seats, AI actions used (broken down by included / overage),
+// tokens consumed, estimated cost we incurred, current cycle invoice
+// total, storage usage + review flag.
+//
+// This is the "what do customers consume in tokens and money — on our
+// end" surface. NOT customer-facing. UI gates access separately.
+export async function getAdminConsumptionOverview(supabase) {
+  const [orgsRes, cyclesRes, actionsRes, linesRes, storageRes, seatsRes] = await Promise.all([
+    supabase.from('orgs').select('*'),
+    supabase.from('billing_cycles').select('*').eq('status', 'open'),
+    supabase.from('ai_actions').select('org_id, classification, tokens_used, estimated_cost_usd'),
+    supabase.from('invoice_line_items').select('*'),
+    supabase.from('storage_usage')
+      .select('org_id, total_bytes, review_flagged, review_resolved_at, measured_at')
+      .order('measured_at', { ascending: false }),
+    supabase.from('seats').select('org_id, active')
+  ])
+  if (orgsRes.error) throw orgsRes.error
+
+  const orgs = orgsRes.data || []
+  const cyclesByOrg = indexBy(cyclesRes.data || [], 'org_id')
+  const seatsByOrg  = countWhere(seatsRes.data || [], 'org_id', r => r.active)
+
+  // Roll up AI rows per org
+  const aiByOrg = new Map()
+  for (const a of (actionsRes.data || [])) {
+    const row = aiByOrg.get(a.org_id) || {
+      includedCount: 0,
+      overageCount:  0,
+      tokensTotal:   0,
+      costTotal:     0
+    }
+    if (a.classification === 'included') row.includedCount += 1
+    if (a.classification === 'overage')  row.overageCount  += 1
+    row.tokensTotal += Number(a.tokens_used)        || 0
+    row.costTotal   += Number(a.estimated_cost_usd) || 0
+    aiByOrg.set(a.org_id, row)
+  }
+
+  // Latest storage snapshot per org + open review flag
+  const storageByOrg = new Map()
+  for (const s of (storageRes.data || [])) {
+    if (!storageByOrg.has(s.org_id)) {
+      storageByOrg.set(s.org_id, {
+        bytes:        s.total_bytes || 0,
+        flagged:      Boolean(s.review_flagged && !s.review_resolved_at),
+        measured_at:  s.measured_at
+      })
+    }
+  }
+
+  // Cycle invoice total per cycle_id → roll up to org via the open cycle
+  const invoiceByCycle = new Map()
+  for (const l of (linesRes.data || [])) {
+    const cur = invoiceByCycle.get(l.cycle_id) || 0
+    invoiceByCycle.set(l.cycle_id, cur + (Number(l.amount_usd) || 0))
+  }
+
+  return orgs.map(org => {
+    const cycle = cyclesByOrg.get(org.id) || null
+    const ai    = aiByOrg.get(org.id) || { includedCount: 0, overageCount: 0, tokensTotal: 0, costTotal: 0 }
+    const storage = storageByOrg.get(org.id) || { bytes: 0, flagged: false, measured_at: null }
+    const cycleInvoice = cycle ? round2(invoiceByCycle.get(cycle.id) || 0) : 0
+    const seatCount = seatsByOrg.get(org.id) || 0
+    const allowanceLimit = cycle ? Number(cycle.ai_actions_allowance_per_seat) * seatCount : 0
+    return {
+      orgId:               org.id,
+      orgName:             org.name,
+      plan:                org.plan,
+      seatCount,
+      // AI
+      aiActionsIncluded:   ai.includedCount,
+      aiActionsOverage:    ai.overageCount,
+      aiActionsTotal:      ai.includedCount + ai.overageCount,
+      aiAllowanceTotal:    allowanceLimit,                          // sum across all seats
+      aiTokensUsed:        ai.tokensTotal,
+      aiEstimatedCostUsd:  round2(ai.costTotal),                    // what we paid the provider
+      // Money customer owes for THIS cycle (snapshot)
+      cycleInvoiceUsd:     cycleInvoice,
+      cycleId:             cycle?.id || null,
+      cyclePeriodStart:    cycle?.period_start || null,
+      cyclePeriodEnd:      cycle?.period_end || null,
+      cycleFloorApplied:   cycle?.floor_applied || false,
+      // Storage
+      storageBytes:        storage.bytes,
+      storageReviewFlagged:storage.flagged,
+      storageMeasuredAt:   storage.measured_at
+    }
+  })
+}
+
+// Detail view for one org — current cycle invoice lines + recent AI calls.
+export async function getOrgConsumptionDetail(supabase, orgId) {
+  const cycle = await getOpenCycle(supabase, orgId)
+  if (!cycle) return { cycle: null, lines: [], recentActions: [] }
+  const [linesRes, actionsRes] = await Promise.all([
+    supabase.from('invoice_line_items')
+      .select('*')
+      .eq('cycle_id', cycle.id)
+      .order('created_at', { ascending: true }),
+    supabase.from('ai_actions')
+      .select('*')
+      .eq('cycle_id', cycle.id)
+      .order('occurred_at', { ascending: false })
+      .limit(50)
+  ])
+  return {
+    cycle,
+    lines: linesRes.data || [],
+    recentActions: actionsRes.data || [],
+    invoiceTotalUsd: sumInvoice(linesRes.data || [])
+  }
 }
 
 // Persist the opt-in to the overage rate for the CURRENT cycle.
@@ -583,4 +706,19 @@ function toIsoDate(d) {
 function parseIsoDate(s) {
   const [y, m, d] = String(s).split('-').map(Number)
   return new Date(y, m - 1, d)
+}
+
+function indexBy(rows, key) {
+  const m = new Map()
+  for (const r of rows) m.set(r[key], r)
+  return m
+}
+
+function countWhere(rows, key, pred) {
+  const m = new Map()
+  for (const r of rows) {
+    if (!pred(r)) continue
+    m.set(r[key], (m.get(r[key]) || 0) + 1)
+  }
+  return m
 }
