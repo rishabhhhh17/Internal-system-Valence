@@ -30,7 +30,8 @@ const titles = {
   '/calendar':          { title: 'Team Calendar',   sub: 'Everyone\'s week, in one view. Find a free slot in seconds.' },
   '/feed':              { title: 'Firm pulse',      sub: 'Everything the team did, in order — interactions, mandates, inbound, daily notes.' },
   '/analytics':         { title: 'Analytics',       sub: 'Pipeline, conversion, fees, velocity — the firm in numbers.' },
-  '/team':              { title: 'Team',            sub: 'Coverage across sectors and geographies.' }
+  '/team':              { title: 'Team',            sub: 'Coverage across sectors and geographies.' },
+  '/admin/billing':     { title: 'Consumption · admin', sub: 'What every customer is burning.' }
 }
 
 

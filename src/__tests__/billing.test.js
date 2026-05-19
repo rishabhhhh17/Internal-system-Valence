@@ -21,7 +21,10 @@ import {
   addSeat,
   recordStorageUsage,
   closeCycle,
-  getInvoiceForCycle
+  getInvoiceForCycle,
+  // admin aggregation
+  getAdminConsumptionOverview,
+  getOrgConsumptionDetail
 } from '../lib/billing.js'
 
 const CFG = Object.freeze({
@@ -640,5 +643,141 @@ describe('wrapper: storage usage', () => {
     })
     const { verdict } = await recordStorageUsage(sb, { orgId: 'o1', totalBytes: 1024 })
     expect(verdict.requiresReview).toBe(false)
+  })
+})
+
+describe('admin: getAdminConsumptionOverview', () => {
+  it('rolls up actions, tokens, cost, invoice, storage per org', async () => {
+    const sb = makeMockSupabase({
+      orgs: [
+        { id: 'o1', name: 'Acme',    plan: 'we_run_ai', cycle_anchor_day: 1 },
+        { id: 'o2', name: 'Beta',    plan: 'byo_key',   cycle_anchor_day: 1 },
+        { id: 'o3', name: 'Charlie', plan: 'own_key',   cycle_anchor_day: 1 }
+      ],
+      billing_config: [{ id: 'g', org_id: null, ...CFG }],
+      seats: [
+        { id: 's1', org_id: 'o1', active: true,  billable_from: '2020-01-01' },
+        { id: 's2', org_id: 'o1', active: true,  billable_from: '2020-01-01' },
+        { id: 's3', org_id: 'o2', active: true,  billable_from: '2020-01-01' },
+        { id: 's4', org_id: 'o3', active: false, billable_from: '2020-01-01' }  // inactive — skip
+      ],
+      billing_cycles: [
+        { id: 'c1', org_id: 'o1', status: 'open', period_start: '2026-05-01', period_end: '2026-05-31',
+          ai_actions_allowance_per_seat: 500, ai_overage_rate_usd_per_action: 0.02,
+          base_seat_price_usd: 80, volume_seat_price_usd: 60, volume_threshold_seats: 10,
+          monthly_floor_usd: 200, storage_allowance_per_seat_mb: 5120,
+          billable_seats_count: 2, seat_subtotal_usd: 160, floor_applied: true,
+          plan_snapshot: 'we_run_ai' }
+      ],
+      ai_actions: [
+        { id: 'a1', org_id: 'o1', seat_id: 's1', cycle_id: 'c1', classification: 'included', tokens_used: 1200, estimated_cost_usd: 0.018 },
+        { id: 'a2', org_id: 'o1', seat_id: 's1', cycle_id: 'c1', classification: 'included', tokens_used: 800,  estimated_cost_usd: 0.012 },
+        { id: 'a3', org_id: 'o1', seat_id: 's2', cycle_id: 'c1', classification: 'overage',  tokens_used: 500,  estimated_cost_usd: 0.008 }
+      ],
+      invoice_line_items: [
+        { id: 'i1', org_id: 'o1', cycle_id: 'c1', kind: 'seat_fee', amount_usd: 160 },
+        { id: 'i2', org_id: 'o1', cycle_id: 'c1', kind: 'monthly_floor_adjustment', amount_usd: 40 },
+        { id: 'i3', org_id: 'o1', cycle_id: 'c1', kind: 'ai_overage', amount_usd: 0.02 }
+      ],
+      storage_usage: [
+        { id: 'st1', org_id: 'o1', total_bytes: 8 * 1024 * 1024 * 1024, review_flagged: false, measured_at: '2026-05-15T10:00:00Z' }
+      ]
+    })
+
+    const rows = await getAdminConsumptionOverview(sb)
+    const o1 = rows.find(r => r.orgId === 'o1')
+    const o2 = rows.find(r => r.orgId === 'o2')
+    const o3 = rows.find(r => r.orgId === 'o3')
+
+    expect(rows).toHaveLength(3)
+
+    // o1: we_run_ai, 2 seats, 3 actions (2 incl + 1 overage), tokens 2500, our $ 0.038
+    expect(o1.plan).toBe('we_run_ai')
+    expect(o1.seatCount).toBe(2)
+    expect(o1.aiActionsIncluded).toBe(2)
+    expect(o1.aiActionsOverage).toBe(1)
+    expect(o1.aiActionsTotal).toBe(3)
+    expect(o1.aiAllowanceTotal).toBe(1000)   // 2 seats × 500
+    expect(o1.aiTokensUsed).toBe(2500)
+    expect(o1.aiEstimatedCostUsd).toBe(0.04) // 0.018 + 0.012 + 0.008 → rounded to cent
+    expect(o1.cycleInvoiceUsd).toBe(200.02)
+    expect(o1.cycleFloorApplied).toBe(true)
+    expect(o1.storageReviewFlagged).toBe(false)
+
+    // o2: byo_key, 1 active seat, no AI rows
+    expect(o2.plan).toBe('byo_key')
+    expect(o2.seatCount).toBe(1)
+    expect(o2.aiActionsTotal).toBe(0)
+    expect(o2.cycleInvoiceUsd).toBe(0)
+
+    // o3: own_key, 1 inactive seat → seatCount 0
+    expect(o3.plan).toBe('own_key')
+    expect(o3.seatCount).toBe(0)
+  })
+
+  it('returns zeros gracefully when nothing has flowed yet', async () => {
+    const sb = makeMockSupabase({
+      orgs: [{ id: 'o1', name: 'Empty', plan: 'we_run_ai', cycle_anchor_day: 1 }],
+      billing_config: [{ id: 'g', org_id: null, ...CFG }],
+      seats: [], billing_cycles: [], ai_actions: [],
+      invoice_line_items: [], storage_usage: []
+    })
+    const rows = await getAdminConsumptionOverview(sb)
+    expect(rows).toHaveLength(1)
+    expect(rows[0]).toMatchObject({
+      orgId: 'o1',
+      seatCount: 0,
+      aiActionsTotal: 0,
+      aiTokensUsed: 0,
+      aiEstimatedCostUsd: 0,
+      cycleInvoiceUsd: 0,
+      storageReviewFlagged: false
+    })
+  })
+
+  it('flags storage review when latest snapshot is over allowance + unresolved', async () => {
+    const sb = makeMockSupabase({
+      orgs: [{ id: 'o1', name: 'Heavy', plan: 'we_run_ai', cycle_anchor_day: 1 }],
+      billing_config: [{ id: 'g', org_id: null, ...CFG }],
+      seats: [],
+      storage_usage: [
+        { id: 's1', org_id: 'o1', total_bytes: 99999, review_flagged: true, review_resolved_at: null, measured_at: '2026-05-15T10:00:00Z' }
+      ]
+    })
+    const rows = await getAdminConsumptionOverview(sb)
+    expect(rows[0].storageReviewFlagged).toBe(true)
+  })
+})
+
+describe('recordAiAction: token + cost capture', () => {
+  it('persists tokens_used and estimated_cost_usd', async () => {
+    const sb = makeMockSupabase({
+      orgs: [{ id: 'o1', plan: 'we_run_ai', cycle_anchor_day: 1, name: 'A' }],
+      billing_config: [{ id: 'g', org_id: null, ...CFG }],
+      seats: [{ id: 's1', org_id: 'o1', active: true, billable_from: '2020-01-01' }]
+    })
+    const cycle = await openCycle(sb, 'o1', new Date(2026, 4, 15))
+    const row = await recordAiAction(sb, {
+      orgId: 'o1', seatId: 's1', cycleId: cycle.id,
+      classification: 'included', actionType: 'ask',
+      tokensUsed: 1234, estimatedCostUsd: 0.0185
+    })
+    expect(row.tokens_used).toBe(1234)
+    expect(row.estimated_cost_usd).toBe(0.0185)
+  })
+
+  it('defaults tokens + cost to null when not provided', async () => {
+    const sb = makeMockSupabase({
+      orgs: [{ id: 'o1', plan: 'we_run_ai', cycle_anchor_day: 1, name: 'A' }],
+      billing_config: [{ id: 'g', org_id: null, ...CFG }],
+      seats: [{ id: 's1', org_id: 'o1', active: true, billable_from: '2020-01-01' }]
+    })
+    const cycle = await openCycle(sb, 'o1', new Date(2026, 4, 15))
+    const row = await recordAiAction(sb, {
+      orgId: 'o1', seatId: 's1', cycleId: cycle.id,
+      classification: 'included'
+    })
+    expect(row.tokens_used).toBeNull()
+    expect(row.estimated_cost_usd).toBeNull()
   })
 })
