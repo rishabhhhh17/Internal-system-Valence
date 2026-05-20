@@ -1,4 +1,14 @@
-const GEMINI_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent'
+// All Gemini calls now flow through the /api/gemini Vercel function. The
+// server holds GEMINI_API_KEY; the browser never sees the managed key.
+// "Bring your own key" still works — the user's key (if any) goes in the
+// `x-user-gemini-key` request header so the proxy can honour it without
+// the rest of the codebase changing.
+const GEMINI_PROXY_URL = '/api/gemini'
+
+// Legacy direct URL — kept ONLY for testGeminiKey() which tests a user-
+// provided key against Google directly (not through our proxy, since the
+// point is to verify the user's own key works before saving it).
+const GEMINI_DIRECT_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent'
 
 // Key resolution order: user-provided (localStorage) wins over the
 // build-time env var. Lets a customer demo their own key without
@@ -48,12 +58,13 @@ export function clearGeminiKey() { return setGeminiKey('') }
 
 // Lightweight liveness check — performs a tiny generateContent call.
 // Returns { ok, error } so callers can decorate UI without parsing
-// fetch failures themselves.
+// fetch failures themselves. Tests against Google DIRECTLY (not our
+// proxy) because the point is to verify the user's key works.
 export async function testGeminiKey(key) {
   const target = typeof key === 'string' ? key.trim() : geminiKey
   if (!target) return { ok: false, error: 'No key provided' }
   try {
-    const res = await fetch(`${GEMINI_URL}?key=${target}`, {
+    const res = await fetch(`${GEMINI_DIRECT_URL}?key=${target}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -69,19 +80,45 @@ export async function testGeminiKey(key) {
   }
 }
 
-async function gemini(prompt, { temperature = 0.55, maxOutputTokens = 320 } = {}) {
+// Pub/sub for usage data. The billing wire-up subscribes once and gets
+// notified after every successful Gemini call with the token counts +
+// estimated cost extracted from Google's response. Decouples the AI lib
+// from the billing lib — no circular import.
+const _usageListeners = new Set()
+let _lastUsage = null
+export function onGeminiUsage(fn) {
+  if (typeof fn !== 'function') return () => {}
+  _usageListeners.add(fn)
+  return () => _usageListeners.delete(fn)
+}
+export function getLastGeminiUsage() { return _lastUsage }
+
+async function gemini(prompt, { temperature = 0.55, maxOutputTokens = 320, actionType = null } = {}) {
   if (!isGeminiConfigured) throw new Error('Gemini API key not configured')
-  const res = await fetch(`${GEMINI_URL}?key=${geminiKey}`, {
+
+  // Forward a user-provided key when present so the proxy honours BYO key.
+  // We never forward the env-only key from the browser — that's a no-op:
+  // the server has its own copy of the env key.
+  const userKey = geminiKeySource === 'user' ? geminiKey : null
+  const headers = { 'Content-Type': 'application/json' }
+  if (userKey) headers['x-user-gemini-key'] = userKey
+
+  const res = await fetch(GEMINI_PROXY_URL, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      contents: [{ parts: [{ text: prompt }] }],
-      generationConfig: { temperature, maxOutputTokens }
-    })
+    headers,
+    body: JSON.stringify({ prompt, temperature, maxOutputTokens })
   })
-  if (!res.ok) throw new Error(`Gemini error ${res.status}`)
-  const json = await res.json()
-  return json?.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || ''
+  const json = await res.json().catch(() => null)
+  if (!res.ok) throw new Error(json?.error || `Gemini proxy error ${res.status}`)
+
+  // Notify usage subscribers (billing meter wires here later).
+  if (json?.usage) {
+    _lastUsage = { ...json.usage, actionType: actionType || null, at: new Date().toISOString() }
+    for (const fn of _usageListeners) {
+      try { fn(_lastUsage) } catch (e) { console.warn('gemini usage listener threw', e) }
+    }
+  }
+  return json?.data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || ''
 }
 
 export async function generateDaySummary({ meetings, tasks, dateLabel }) {
