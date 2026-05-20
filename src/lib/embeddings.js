@@ -1,34 +1,30 @@
 // Gemini text-embedding-004 — 768-dimensional vectors.
-// Called from the browser with the public VITE_GEMINI_API_KEY.
+// Routes through the /api/llm proxy so the embedding key never ships in
+// the client bundle. Embeddings are Gemini-specific in our stack today
+// (Anthropic + OpenAI use different API shapes and we'd need a separate
+// vector store for each); when the user switches their chat provider,
+// embeddings still flow through Gemini server-side.
 
-import { geminiKey, isGeminiConfigured } from './gemini.js'
+import { isGeminiConfigured, llmCallRaw } from './gemini.js'
 
 const MODEL = 'text-embedding-004'
 const DIM = 768
-const URL = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:embedContent`
 
 export const embeddingsEnabled = () => isGeminiConfigured
 
 export async function embedText(text, { taskType = 'RETRIEVAL_DOCUMENT', title } = {}) {
-  if (!isGeminiConfigured) throw new Error('Gemini API key not configured')
   if (!text || !text.trim()) return null
 
-  const body = {
-    model: `models/${MODEL}`,
-    content: { parts: [{ text: text.slice(0, 20000) }] },
-    taskType,
-    ...(title ? { title } : {})
-  }
-  const res = await fetch(`${URL}?key=${geminiKey}`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body)
+  const json = await llmCallRaw({
+    url: `/models/${MODEL}:embedContent`,
+    body: {
+      model: `models/${MODEL}`,
+      content: { parts: [{ text: text.slice(0, 20000) }] },
+      taskType,
+      ...(title ? { title } : {})
+    },
+    actionType: 'embed'
   })
-  if (!res.ok) {
-    const t = await res.text().catch(() => '')
-    throw new Error(`Embedding error ${res.status}: ${t}`)
-  }
-  const json = await res.json()
   const values = json?.embedding?.values
   if (!Array.isArray(values) || values.length !== DIM) {
     throw new Error('Unexpected embedding response')

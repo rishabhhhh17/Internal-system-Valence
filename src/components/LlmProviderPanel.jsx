@@ -144,7 +144,17 @@ export default function LlmProviderPanel() {
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2">
         {providers.map(p => {
           const isActive = p.id === activeProviderId
-          const isConfigured = isProviderConfigured(p.id)
+          const hasUserKeyHere = Boolean(getApiKey(p.id))
+          // Three states per provider tile:
+          //   "Managed" — we supply the key, customer pays our rate.
+          //   "BYO"     — customer pasted their key, they pay upstream.
+          //   "Setup needed" — provider supports neither managed nor
+          //      user-supplied key (only relevant for custom_openai).
+          const badge = hasUserKeyHere
+            ? { label: 'Your key', cls: 'text-valence-muted bg-valence-surface' }
+            : p.managed
+            ? { label: 'Managed', cls: 'text-valence-blue-deep bg-valence-blue-soft' }
+            : { label: 'Needs setup', cls: 'text-valence-warning bg-valence-warning/10' }
           return (
             <button
               key={p.id}
@@ -158,7 +168,9 @@ export default function LlmProviderPanel() {
             >
               <div className="flex items-center justify-between gap-2">
                 <span className="text-xs font-semibold text-valence-text truncate">{p.label}</span>
-                {isConfigured && <Check className="h-3 w-3 shrink-0 text-valence-blue" />}
+                <span className={`text-[9px] font-semibold uppercase tracking-[0.1em] rounded px-1 py-px ${badge.cls}`}>
+                  {badge.label}
+                </span>
               </div>
               <div className="text-[10px] text-valence-subtle mt-0.5 line-clamp-2">{p.description}</div>
             </button>
@@ -185,30 +197,61 @@ export default function LlmProviderPanel() {
         {(() => {
           const m = activeProvider.models.find(x => x.id === activeModelId)
           if (!m) return null
+          const usingOurKey = !hasKey && activeProvider.managed
           return (
-            <p className="text-[11px] text-valence-subtle">
-              {m.description}
-              {m.inputUsdPer1K > 0 && (
-                <>
-                  {' '}· ${m.inputUsdPer1K.toFixed(4)} in / ${m.outputUsdPer1K.toFixed(4)} out per 1k tokens.
-                </>
+            <div className="space-y-1.5">
+              <p className="text-[11px] text-valence-subtle">{m.description}</p>
+              {m.customerInputUsdPer1K > 0 && (
+                <div className="text-[11px] flex flex-wrap gap-x-3 gap-y-0.5">
+                  {usingOurKey ? (
+                    <span className="text-valence-text">
+                      <span className="font-semibold text-valence-blue-deep">Managed</span>
+                      <span className="text-valence-muted">
+                        {' '}— ${m.customerInputUsdPer1K.toFixed(4)} in / ${m.customerOutputUsdPer1K.toFixed(4)} out per 1k tokens.
+                      </span>
+                    </span>
+                  ) : (
+                    <span className="text-valence-text">
+                      <span className="font-semibold text-valence-text">Your key</span>
+                      <span className="text-valence-muted">
+                        {' '}— you pay {activeProvider.label} directly (~${m.inputUsdPer1K.toFixed(4)} in / ${m.outputUsdPer1K.toFixed(4)} out per 1k). We don't bill for tokens.
+                      </span>
+                    </span>
+                  )}
+                </div>
               )}
-            </p>
+            </div>
           )
         })()}
       </div>
 
-      {/* Stored key block */}
+      {/* Managed mode explainer — visible when no BYO key is set AND the
+          provider supports managed (all five except custom). */}
+      {!hasKey && activeProvider.managed && (
+        <div className="rounded-lg border border-valence-blue/30 bg-valence-blue-soft px-3.5 py-2.5">
+          <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-valence-blue-deep mb-0.5">
+            Managed by Valence
+          </div>
+          <p className="text-[11px] text-valence-blue-deep">
+            We supply the {activeProvider.label} key and charge you at the per-token rate above. No setup on your side.
+          </p>
+        </div>
+      )}
+
+      {/* Stored key block — shown when the customer brought their own. */}
       {hasKey && (
         <div className="rounded-lg bg-valence-surface px-3.5 py-2.5 flex items-center justify-between gap-3">
           <div className="min-w-0">
             <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-valence-subtle mb-0.5">
-              Saved {activeProvider.label} key
+              Your {activeProvider.label} key · BYO
             </div>
             <code className="text-xs font-mono text-valence-text">{mask(storedKey)}</code>
+            <div className="text-[10px] text-valence-muted mt-0.5">
+              We won't bill you for tokens on this provider while your key is set.
+            </div>
           </div>
           <button type="button" onClick={clearKey} className="vl-btn-ghost text-xs">
-            Clear key
+            Use ours instead
           </button>
         </div>
       )}
@@ -216,7 +259,7 @@ export default function LlmProviderPanel() {
       {/* New key input */}
       <div className="space-y-2">
         <label className="vl-label" htmlFor="llm-key-input">
-          {hasKey ? 'Replace key' : 'Paste API key'}
+          {hasKey ? 'Replace key' : 'Or bring your own key'}
         </label>
         <div className="relative">
           <input

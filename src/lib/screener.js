@@ -4,24 +4,20 @@
 // Mode B · Mandate-Fit: an inbound teaser arrives. Verdict against Valence's
 //   mandate criteria — is this worth pursuing?
 
-import { geminiKey, isGeminiConfigured } from './gemini.js'
+import { isGeminiConfigured, llmCall } from './gemini.js'
 import { matchFundsForDeal, screenerModeForDeal, audienceLabelFor } from './funds.js'
 
-const GEMINI_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent'
-
-async function gemini(prompt, { temperature = 0.4, maxOutputTokens = 700 } = {}) {
-  if (!isGeminiConfigured) throw new Error('Gemini API key not configured')
-  const res = await fetch(`${GEMINI_URL}?key=${geminiKey}`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      contents: [{ parts: [{ text: prompt }] }],
-      generationConfig: { temperature, maxOutputTokens, responseMimeType: 'application/json' }
-    })
+// Goes through /api/llm so the active provider serves the call (Gemini
+// by default, or whatever the customer picked in Settings). JSON-mode
+// flag is honoured on Gemini; other providers ignore it and we fall
+// back to parsing whatever text the model returns.
+async function gemini(prompt, { temperature = 0.4, maxOutputTokens = 700, actionType = 'screener' } = {}) {
+  const txt = await llmCall(prompt, {
+    temperature,
+    maxOutputTokens,
+    responseMimeType: 'application/json',
+    actionType
   })
-  if (!res.ok) throw new Error(`Gemini error ${res.status}`)
-  const json = await res.json()
-  const txt = json?.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || ''
   try { return JSON.parse(txt) } catch { return { raw: txt } }
 }
 

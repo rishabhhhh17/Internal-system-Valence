@@ -8,29 +8,29 @@ Last updated: 2026-05-20.
 
 ---
 
-## 1. Move Gemini key off the client bundle — **partially shipped** 🟡
+## 1. Move Gemini key off the client bundle — **shipped** ✅
 
-PR: `feat/launch-prep-1`.
-- `api/gemini.js` Vercel serverless function holds the key server-side.
-- `src/lib/gemini.js` posts to `/api/gemini` instead of Google directly —
-  covers Day Summary, Meeting Message, Deal Brief, Meeting Summary,
-  Teaser Extract, Email Draft.
-- `vercel.json` SPA rewrite updated to exclude `/api/*`.
-- BYO-key flow preserved: caller sends `x-user-gemini-key` header; proxy honours it.
-
-**Still calling Google directly (security gap):**
-- `src/lib/rag.js` — Ask chat (streaming)
-- `src/lib/cim.js` — CIM generator (streaming)
-- `src/lib/embeddings.js` — vector embeddings
-- `src/lib/screener.js` — Quick Screener
-- `src/lib/financials.js` — extract financials
-- `src/lib/targets.js` — target lists
-- `src/lib/voiceMemo.js` — voice memo transcription
-- `src/lib/meetingPrep.js`, `src/lib/meetingIntel.js`
-
-These need the proxy extended to handle streaming (SSE passthrough) and
-embedContent. Until then, those code paths still leak the key into the
-bundle on browsers that use them.
+PRs: `feat/launch-prep-1`, `feat/multi-llm` (#117), `feat/multi-llm-managed`
+(#118), `feat/proxy-remaining-ai`.
+- `api/llm.js` multi-provider proxy holds the keys server-side
+  (Gemini + OpenAI + Anthropic + Vercel AI Gateway + custom OpenAI-
+  compatible). Legacy `api/gemini.js` still forwards into the same
+  router for back-compat.
+- `api/llm-stream.js` SSE-streaming variant of the same proxy. Same
+  shape (`data: TEXT\n\n` / `data: [DONE]\n\n`) across all providers
+  so clients have one parser.
+- `src/lib/gemini.js` exposes `llmCall`, `llmCallRaw`, `llmStream` —
+  every other `src/lib/*.js` file uses these instead of opening its
+  own fetch to Google. Every one of the previously-leaking paths is
+  migrated:
+  - `rag.js` (Ask chat — streaming)
+  - `cim.js` (CIM draft — streaming)
+  - `embeddings.js` (vector embeddings — raw passthrough)
+  - `screener.js`, `financials.js`, `targets.js`,
+    `meetingPrep.js`, `meetingIntel.js` (convenience shape)
+  - `voiceMemo.js` (audio transcription — raw passthrough)
+- BYO-key flow preserved: caller sends `x-llm-api-key` header (or the
+  legacy `x-user-gemini-key`); proxy honours it.
 
 - **Action you need to take after deploy:**
   - Set `GEMINI_API_KEY` in the Vercel project's env (Production + Preview).
@@ -135,15 +135,15 @@ Once multi-tenant is in place:
   redirects to `/onboarding` if they don't have one yet.
 - Replace localStorage-backed `setActiveOrgSeat` with a real DB lookup.
 
-## 8. Stripe — **blocked on you** 🟠
+## 8. Razorpay — **blocked on you** 🟠
 
 I'd need:
-- Stripe secret key (env: `STRIPE_SECRET_KEY`)
-- Stripe webhook signing secret (env: `STRIPE_WEBHOOK_SECRET`)
+- Razorpay secret key (env: `RAZORPAY_KEY_SECRET`)
+- Razorpay webhook signing secret (env: `RAZORPAY_WEBHOOK_SECRET`)
 - A product + price for the seat fee (one product, two prices: base + volume)
 - A product + price for the overage rate
 
-Then a Vercel function `api/stripe-webhook.js` reflects subscription
+Then a Vercel function `api/razorpay-webhook.js` reflects subscription
 state into our `orgs` table. Roughly 200 lines.
 
 ## 9. Transactional email — **blocked on you** 🟠
@@ -187,7 +187,7 @@ hook in `App.jsx`. ~30 lines.
 3. **Me, after you confirm:** ship phase-10 (multi-tenant), tighten RLS,
    flip auth on, redirect-to-onboarding flow.
 4. **You: lawyer the legal pages.** Cheap, quick, blocks public launch.
-5. **You: get Stripe credentials.** Then I wire payments + invoice link
+5. **You: get Razorpay credentials.** Then I wire payments + invoice link
    email.
 6. **You: pick + provide an email provider key.** Then I wire transactional.
 7. **You: point a real domain.** Then I update OAuth redirect URIs.

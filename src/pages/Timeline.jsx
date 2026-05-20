@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Filter, GanttChartSquare, Table as TableIcon } from 'lucide-react'
+import { Filter, GanttChartSquare, Table as TableIcon, Activity, Clock, AlertTriangle, CheckCircle2 } from 'lucide-react'
 import { supabase, isSupabaseConfigured } from '../lib/supabase.js'
 import { useViewMode } from '../hooks/useViewMode.jsx'
 import ConfigBanner from '../components/ConfigBanner.jsx'
@@ -15,6 +15,11 @@ const ZOOM_OPTIONS = ['weeks', 'months', 'quarters']
 // drawn as bars on the timeline.
 const NON_TERMINAL_STAGES = new Set(['Origination','Pitching','Pre-Mandate','Mandate'])
 
+// Threshold below which we auto-default to Table — a Gantt with 3 rows
+// and lots of empty cells looks like a broken product. Table is denser.
+const GANTT_MIN_USEFUL_ROWS = 5
+const STALE_DAYS_THRESHOLD  = 21
+
 export default function Timeline() {
   const { isDetailed } = useViewMode('timeline')
   const [deals, setDeals]           = useState([])
@@ -22,7 +27,9 @@ export default function Timeline() {
   const [loading, setLoading]       = useState(true)
   const [loadError, setLoadError]   = useState(null)
   const [zoom, setZoom]             = useState('months')
-  const [view, setView]             = useState('gantt')   // 'gantt' | 'table'
+  // View defaults to null so the auto-select can kick in after data loads.
+  // Once the user explicitly picks Gantt or Table, that choice sticks.
+  const [view, setView]             = useState(null)
   const [ownerFilter, setOwnerFilter]   = useState('All')
   const [sectorFilter, setSectorFilter] = useState('All')
   const [sideFilter, setSideFilter]     = useState('All')
@@ -70,35 +77,51 @@ export default function Timeline() {
     (sideFilter   === 'All' || normalizeSide(d.side) === sideFilter)
   ), [deals, ownerFilter, sectorFilter, sideFilter])
 
+  // Stats for the header strip. Computed off the FULL deal set, not the
+  // filtered set, so the partner always sees the firm's actual position
+  // even after narrowing the view.
+  const stats = useMemo(() => computeStats(deals, activities), [deals, activities])
+
+  // Auto-select the better view for the data shape: Gantt is great when
+  // there are enough live mandates with dates to draw a meaningful chart,
+  // Table is better when the data is sparse (which is most of the time
+  // for a fresh customer with 1-4 mandates).
+  const activeView = useMemo(() => {
+    if (view) return view
+    const liveCount = filtered.filter(d => NON_TERMINAL_STAGES.has(d.stage)).length
+    return liveCount >= GANTT_MIN_USEFUL_ROWS ? 'gantt' : 'table'
+  }, [view, filtered])
+
   function openDeal(deal) {
     if (deal?.id) window.location.href = `/deals?open=${deal.id}`
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
       <ConfigBanner />
 
+      {/* Compact header — page label, primary stat, view controls. No
+          fluffy h1; partners want to know the firm's state in two
+          seconds. */}
       <div className="flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <p className="vl-eyebrow-ink">Timeline</p>
-          <h1 className="mt-2 font-display text-feature font-bold text-valence-text">
-            Where every mandate sits in time.
-          </h1>
+        <div className="flex items-baseline gap-3">
+          <h1 className="text-2xl font-bold tracking-[-0.02em] text-valence-text">Timeline</h1>
+          <span className="text-sm text-valence-muted">
+            {stats.live} live mandate{stats.live === 1 ? '' : 's'}
+            {stats.live > 0 && ` · ${stats.inMandate} in execution`}
+          </span>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2">
           <ViewModeToggle pageKey="timeline" />
-          {/* Gantt vs Table toggle. Table view shows per-stage date stamps
-              (Origination / Pitching / Pre-Mandate / Mandate / Outcome) so
-              the partner can audit when each transition happened. */}
           <div className="inline-flex items-center rounded-full border border-valence-border bg-valence-elevated p-0.5">
-            <button onClick={() => setView('gantt')} className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-semibold transition ${view === 'gantt' ? 'bg-valence-ink text-white' : 'text-valence-muted hover:text-valence-text'}`}>
+            <button onClick={() => setView('gantt')} className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-semibold transition ${activeView === 'gantt' ? 'bg-valence-ink text-white' : 'text-valence-muted hover:text-valence-text'}`}>
               <GanttChartSquare className="h-3 w-3" /> Gantt
             </button>
-            <button onClick={() => setView('table')} className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-semibold transition ${view === 'table' ? 'bg-valence-ink text-white' : 'text-valence-muted hover:text-valence-text'}`}>
+            <button onClick={() => setView('table')} className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-semibold transition ${activeView === 'table' ? 'bg-valence-ink text-white' : 'text-valence-muted hover:text-valence-text'}`}>
               <TableIcon className="h-3 w-3" /> Table
             </button>
           </div>
-          {view === 'gantt' && (
+          {activeView === 'gantt' && (
             <div className="inline-flex items-center rounded-full border border-valence-border bg-valence-elevated p-0.5">
               {ZOOM_OPTIONS.map(z => (
                 <button
@@ -113,6 +136,22 @@ export default function Timeline() {
           )}
         </div>
       </div>
+
+      {/* Stats strip — partner glance metrics. Each card is a tight
+          number + label, not a marketing graphic. */}
+      {!loading && deals.length > 0 && (
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+          <StatCard icon={<Activity className="h-3.5 w-3.5" />}
+            label="Live mandates" value={stats.live} tone="ink" />
+          <StatCard icon={<Clock className="h-3.5 w-3.5" />}
+            label="Closing in 90 days" value={stats.closingSoon} tone="blue" />
+          <StatCard icon={<AlertTriangle className="h-3.5 w-3.5" />}
+            label="Stale (>21d no touch)" value={stats.stale}
+            tone={stats.stale > 0 ? 'warning' : 'muted'} />
+          <StatCard icon={<CheckCircle2 className="h-3.5 w-3.5" />}
+            label="Closed this quarter" value={stats.closedQuarter} tone="success" />
+        </div>
+      )}
 
       {/* Filter strip — Detailed view only. Simple keeps the chrome quiet. */}
       {isDetailed && (
@@ -134,12 +173,79 @@ export default function Timeline() {
           description={deals.length === 0 ? 'Log a mandate in Deal Logger and it\'ll appear here automatically.' : 'Try widening the owner / sector / side filters.'}
           action={deals.length === 0 ? <Link to="/deals" className="vl-btn-primary">Open Deal Logger</Link> : null}
         />
-      ) : view === 'table' ? (
+      ) : activeView === 'table' ? (
         <TimelineTable deals={filtered} activities={activities} onOpenDeal={openDeal} />
       ) : (
         // Gantt keeps to in-flight stages; terminal ones live in the table view.
         <TimelineGantt deals={filtered.filter(d => NON_TERMINAL_STAGES.has(d.stage))} activities={activities} zoom={zoom} onOpenDeal={openDeal} />
       )}
+    </div>
+  )
+}
+
+// ============ STATS ============
+// Computed off the raw deals + activities, not the filtered ones, so the
+// partner always sees the firm's actual position.
+function computeStats(deals, activities) {
+  const now = Date.now()
+  const ms21d   = 21  * 86_400_000
+  const ms90d   = 90  * 86_400_000
+  const quarter = quarterBounds(new Date())
+  const lastTouchByDeal = new Map()
+  for (const a of activities || []) {
+    if (!a.deal_id || !a.created_at) continue
+    const t = new Date(a.created_at).getTime()
+    const cur = lastTouchByDeal.get(a.deal_id) || 0
+    if (t > cur) lastTouchByDeal.set(a.deal_id, t)
+  }
+  let live = 0, inMandate = 0, closingSoon = 0, stale = 0, closedQuarter = 0
+  for (const d of deals) {
+    const isLive = NON_TERMINAL_STAGES.has(d.stage)
+    if (isLive) {
+      live += 1
+      if (d.stage === 'Mandate') inMandate += 1
+      const closeDate = d.expected_close_date || d.target_close
+      if (closeDate) {
+        const t = new Date(closeDate).getTime() - now
+        if (t >= 0 && t <= ms90d) closingSoon += 1
+      }
+      const lastTouch = lastTouchByDeal.get(d.id) || (d.updated_at ? new Date(d.updated_at).getTime() : 0)
+      if (lastTouch && (now - lastTouch) > ms21d) stale += 1
+    }
+    if (d.stage === 'Closed' && d.updated_at) {
+      const t = new Date(d.updated_at).getTime()
+      if (t >= quarter.start && t <= quarter.end) closedQuarter += 1
+    }
+  }
+  return { live, inMandate, closingSoon, stale, closedQuarter }
+}
+
+function quarterBounds(d) {
+  const q = Math.floor(d.getMonth() / 3)
+  const start = new Date(d.getFullYear(), q * 3, 1).getTime()
+  const end   = new Date(d.getFullYear(), q * 3 + 3, 0, 23, 59, 59, 999).getTime()
+  return { start, end }
+}
+
+function StatCard({ icon, label, value, tone = 'ink' }) {
+  // Tone maps to a colour ring on the icon — keeps the cards visually
+  // identical in size, lets the eye scan colour for severity.
+  const ring = ({
+    ink:     'bg-valence-ink/5 text-valence-ink-soft border-valence-ink/15',
+    blue:    'bg-valence-blue-soft text-valence-blue-deep border-valence-blue/20',
+    success: 'bg-valence-success/10 text-valence-success border-valence-success/30',
+    warning: 'bg-valence-warning/10 text-valence-warning border-valence-warning/30',
+    muted:   'bg-valence-surface text-valence-muted border-valence-border'
+  })[tone] || 'bg-valence-surface text-valence-muted border-valence-border'
+  return (
+    <div className="vl-card px-4 py-3 flex items-center gap-3">
+      <span className={`grid h-8 w-8 place-items-center rounded-lg border ${ring}`}>
+        {icon}
+      </span>
+      <div className="min-w-0">
+        <p className="text-[10px] uppercase tracking-[0.12em] text-valence-subtle">{label}</p>
+        <p className="text-lg font-semibold tabular-nums text-valence-text leading-none mt-1">{value}</p>
+      </div>
     </div>
   )
 }

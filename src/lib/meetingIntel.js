@@ -2,9 +2,7 @@
 // associate writes after every founder meeting: highlights, red flags,
 // claims to verify, and action items. Plus a tight 3-sentence summary.
 
-import { geminiKey, isGeminiConfigured } from './gemini.js'
-
-const GEMINI_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent'
+import { isGeminiConfigured, llmCall } from './gemini.js'
 
 export const TRANSCRIPT_SOURCES = [
   { id: 'otter',     label: 'Otter.ai' },
@@ -15,18 +13,12 @@ export const TRANSCRIPT_SOURCES = [
 ]
 
 async function gemini(prompt) {
-  if (!isGeminiConfigured) throw new Error('Gemini API key not configured')
-  const res = await fetch(`${GEMINI_URL}?key=${geminiKey}`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      contents: [{ parts: [{ text: prompt }] }],
-      generationConfig: { temperature: 0.35, maxOutputTokens: 1600, responseMimeType: 'application/json' }
-    })
+  const txt = await llmCall(prompt, {
+    temperature: 0.35,
+    maxOutputTokens: 1600,
+    responseMimeType: 'application/json',
+    actionType: 'meeting_intel'
   })
-  if (!res.ok) throw new Error(`Gemini error ${res.status}`)
-  const json = await res.json()
-  const txt = json?.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || ''
   try { return JSON.parse(txt) } catch { return null }
 }
 

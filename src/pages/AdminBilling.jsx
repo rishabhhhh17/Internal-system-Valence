@@ -136,13 +136,19 @@ export default function AdminBilling() {
 
   // Org-level totals across the visible table
   const totals = rows.reduce((acc, r) => ({
-    customers:   acc.customers + 1,
-    seats:       acc.seats + (r.seatCount || 0),
-    actions:     acc.actions + (r.aiActionsTotal || 0),
-    tokens:      acc.tokens + (r.aiTokensUsed || 0),
+    customers:    acc.customers + 1,
+    seats:        acc.seats + (r.seatCount || 0),
+    actions:      acc.actions + (r.aiActionsTotal || 0),
+    tokens:       acc.tokens + (r.aiTokensUsed || 0),
     providerCost: acc.providerCost + (r.aiEstimatedCostUsd || 0),
-    invoice:     acc.invoice + (r.cycleInvoiceUsd || 0)
-  }), { customers: 0, seats: 0, actions: 0, tokens: 0, providerCost: 0, invoice: 0 })
+    customerAi:   acc.customerAi + (r.aiCustomerCostUsd || 0),
+    invoice:      acc.invoice + (r.cycleInvoiceUsd || 0)
+  }), { customers: 0, seats: 0, actions: 0, tokens: 0, providerCost: 0, customerAi: 0, invoice: 0 })
+
+  // Margin across all visible customers — what we'll bill them for AI
+  // tokens (managed only) minus what we paid upstream. Useful "is our
+  // markup sane" gut-check.
+  const aiMargin = totals.customerAi - totals.providerCost
 
   return (
     <div className="space-y-4">
@@ -200,13 +206,14 @@ export default function AdminBilling() {
       </div>
 
       {/* Top-line totals — sum across every org */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
+      <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2">
         <Stat label="Customers"        value={fmtInt(totals.customers)} />
         <Stat label="Total seats"      value={fmtInt(totals.seats)} />
         <Stat label="AI actions"       value={fmtInt(totals.actions)} />
         <Stat label="Tokens"           value={fmtInt(totals.tokens)} />
         <Stat label="Our provider $"   value={fmtUsd(totals.providerCost)} tone="danger" hint="What WE pay AI providers" />
-        <Stat label="Cycle billed $"   value={fmtUsd(totals.invoice)} tone="primary" hint="What customers owe this cycle" />
+        <Stat label="Billed for AI $"  value={fmtUsd(totals.customerAi)} tone="primary" hint="What customers owe us for managed AI tokens" />
+        <Stat label="AI margin"        value={fmtUsd(aiMargin)} tone={aiMargin >= 0 ? 'primary' : 'danger'} hint="Customer billed − our cost (managed only)" />
       </div>
 
       {loading ? (
@@ -229,6 +236,7 @@ export default function AdminBilling() {
                 <th className="px-3 py-2 text-right">AI actions</th>
                 <th className="px-3 py-2 text-right">Tokens</th>
                 <th className="px-3 py-2 text-right">Our $ cost</th>
+                <th className="px-3 py-2 text-right">Customer AI $</th>
                 <th className="px-3 py-2 text-right">Cycle billed</th>
                 <th className="px-3 py-2 text-right">Storage</th>
                 <th className="px-3 py-2"></th>
@@ -273,6 +281,14 @@ export default function AdminBilling() {
                     </td>
                     <td className="px-3 py-2.5 text-right tabular-nums text-valence-danger">
                       {r.aiEstimatedCostUsd ? fmtUsd(r.aiEstimatedCostUsd) : '—'}
+                    </td>
+                    <td className="px-3 py-2.5 text-right tabular-nums text-valence-blue-deep">
+                      {r.aiCustomerCostUsd ? fmtUsd(r.aiCustomerCostUsd) : '—'}
+                      {r.aiByoCount > 0 && (
+                        <span className="block text-[9px] text-valence-subtle">
+                          {fmtInt(r.aiByoCount)} BYO call{r.aiByoCount === 1 ? '' : 's'}
+                        </span>
+                      )}
                     </td>
                     <td className="px-3 py-2.5 text-right tabular-nums font-semibold text-valence-text">
                       {fmtUsd(r.cycleInvoiceUsd)}
@@ -386,6 +402,10 @@ function OrgDetailDrawer({ org, detail, loading, onClose }) {
             <Stat label="Seats"       value={fmtInt(org.seatCount)} />
             <Stat label="Cycle billed" value={fmtUsd(org.cycleInvoiceUsd)} tone="primary" />
             <Stat label="Our provider $" value={fmtUsd(org.aiEstimatedCostUsd)} tone="danger" />
+            <Stat label="Customer AI $" value={fmtUsd(org.aiCustomerCostUsd || 0)} tone="primary"
+                  hint={`Managed ${fmtInt(org.aiManagedCount || 0)} · BYO ${fmtInt(org.aiByoCount || 0)}`} />
+            <Stat label="AI margin"     value={fmtUsd((org.aiCustomerCostUsd || 0) - (org.aiEstimatedCostUsd || 0))}
+                  tone={((org.aiCustomerCostUsd || 0) - (org.aiEstimatedCostUsd || 0)) >= 0 ? 'primary' : 'danger'} />
           </div>
 
           {Array.isArray(org.aiProviderMix) && org.aiProviderMix.length > 0 && (
@@ -401,7 +421,8 @@ function OrgDetailDrawer({ org, detail, loading, onClose }) {
                     <span className="tabular-nums text-valence-muted">
                       {fmtInt(b.count)} call{b.count === 1 ? '' : 's'}
                       {b.tokens ? ` · ${fmtInt(b.tokens)} tok` : ''}
-                      {b.cost ? ` · ${fmtUsd(b.cost)}` : ''}
+                      {b.cost ? ` · ours ${fmtUsd(b.cost)}` : ''}
+                      {b.customerCost ? ` · billed ${fmtUsd(b.customerCost)}` : ''}
                     </span>
                   </li>
                 ))}
@@ -462,7 +483,11 @@ function OrgDetailDrawer({ org, detail, loading, onClose }) {
                         </span>
                         <span className="text-valence-muted tabular-nums shrink-0">
                           {a.tokens_used ? `${fmtInt(a.tokens_used)} tok` : ''}
-                          {a.estimated_cost_usd ? ` · ${fmtUsd(a.estimated_cost_usd)}` : ''}
+                          {a.estimated_cost_usd ? ` · ours ${fmtUsd(a.estimated_cost_usd)}` : ''}
+                          {a.customer_cost_usd ? ` · billed ${fmtUsd(a.customer_cost_usd)}` : ''}
+                          {a.key_source === 'byo' && (
+                            <span className="ml-1 inline-flex items-center rounded bg-valence-surface px-1 text-[9px] uppercase tracking-wider text-valence-subtle">BYO</span>
+                          )}
                         </span>
                       </li>
                     ))}

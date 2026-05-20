@@ -28,7 +28,12 @@ import AdminBilling from './pages/AdminBilling.jsx'
 import Terms from './pages/Terms.jsx'
 import Privacy from './pages/Privacy.jsx'
 import Onboarding from './pages/Onboarding.jsx'
+import Welcome from './pages/Welcome.jsx'
+import JoinTeam from './pages/JoinTeam.jsx'
+import Import from './pages/Import.jsx'
+import CompleteProfile from './pages/CompleteProfile.jsx'
 import { useAuth } from './hooks/useAuth.js'
+import { useSeat } from './hooks/useSeat.js'
 import { isSupabaseConfigured } from './lib/supabase.js'
 import { useWorkspaceSetting } from './hooks/useWorkspaceSetting.js'
 import { WORKSPACE_KEYS, effectiveBrowserTitle, resolveTheme } from './lib/workspace.js'
@@ -37,6 +42,8 @@ import { startAiMeter } from './lib/aiMeter.js'
 export default function App() {
   const { pathname } = useLocation()
   const { session, loading, authUnavailable } = useAuth()
+  const { seat, hasSeat, loading: seatLoading } = useSeat()
+  const profileComplete = Boolean(seat?.profile_completed_at)
   const firmName = useWorkspaceSetting(WORKSPACE_KEYS.firmName)
   const browserTitleOverride = useWorkspaceSetting(WORKSPACE_KEYS.browserTitle)
   const density = useWorkspaceSetting(WORKSPACE_KEYS.density)
@@ -104,25 +111,71 @@ export default function App() {
     )
   }
 
-  // Legal + onboarding render without sidebar/topbar chrome. Onboarding
-  // pre-dates the workspace; Terms/Privacy are public-facing.
-  if (pathname === '/terms' || pathname === '/privacy' || pathname === '/onboarding') {
+  // Legal pages — public, no auth, no chrome.
+  if (pathname === '/terms' || pathname === '/privacy') {
     return (
       <Routes>
-        <Route path="/terms"      element={<Terms />} />
-        <Route path="/privacy"    element={<Privacy />} />
-        <Route path="/onboarding" element={<Onboarding />} />
+        <Route path="/terms"   element={<Terms />} />
+        <Route path="/privacy" element={<Privacy />} />
       </Routes>
     )
   }
 
-  // Demo mode: auth gate is OFF for now. The workspace renders without a
-  // session — pages fall back to demo data when Supabase RLS blocks anon
-  // reads. To re-enable Google sign-in, restore the gate below and wire
-  // OAuth in Supabase + Google Cloud Console.
-  if (false && isSupabaseConfigured && !authUnavailable) {
+  // ============ AUTH + ONBOARDING GATE ============
+  // The order of checks here matters:
+  //   1. While auth is loading, show a splash (avoids flash of Login).
+  //   2. If Supabase is unreachable (authUnavailable), fall through to the
+  //      app — better to render demo state than to lock the user out of
+  //      every page because of a transient network blip.
+  //   3. No session → Login.
+  //   4. Session but no seat → render Welcome / Onboarding / JoinTeam
+  //      route group (chromeless). Any other URL bounces to /welcome.
+  //   5. Session + seat → normal app.
+  if (isSupabaseConfigured && !authUnavailable) {
     if (loading) return <BootSplash />
     if (!session) return <Login />
+
+    // Have a session but no seat yet — gate every URL through the
+    // onboarding route group. seatLoading shows a splash to avoid a
+    // flash of "Welcome" right after a successful start_team RPC.
+    if (!hasSeat) {
+      if (seatLoading) return <BootSplash />
+      const onboardingPaths = ['/welcome', '/onboarding', '/join']
+      if (!onboardingPaths.includes(pathname)) {
+        return <Navigate to="/welcome" replace />
+      }
+      return (
+        <Routes>
+          <Route path="/welcome"    element={<Welcome />} />
+          <Route path="/onboarding" element={<Onboarding />} />
+          <Route path="/join"       element={<JoinTeam />} />
+        </Routes>
+      )
+    }
+
+    // Have a seat but profile_completed_at is null — auto-claim path
+    // landed them with a name (from Google) but no title/phone. Show
+    // the one-shot completion screen, then never again. Once the user
+    // saves or skips, the RPC stamps profile_completed_at = now() and
+    // the gate falls through to the main app.
+    if (hasSeat && !profileComplete) {
+      if (pathname !== '/complete-profile') {
+        return <Navigate to="/complete-profile" replace />
+      }
+      return (
+        <Routes>
+          <Route path="/complete-profile" element={<CompleteProfile />} />
+        </Routes>
+      )
+    }
+  }
+
+  // Session + seat + completed profile (or auth unavailable) — render
+  // the main app. If a signed-in seated user lands on any onboarding
+  // route, send them home — they're past those steps.
+  if (session && hasSeat && profileComplete &&
+      ['/welcome', '/onboarding', '/join', '/complete-profile'].includes(pathname)) {
+    return <Navigate to="/" replace />
   }
 
   return (
@@ -149,6 +202,7 @@ export default function App() {
         <Route path="/analytics" element={<Analytics />} />
         <Route path="/feed" element={<Feed />} />
         <Route path="/team" element={<Team />} />
+        <Route path="/import" element={<Import />} />
         <Route path="/settings" element={<Settings />} />
         <Route path="/admin/billing" element={<AdminBilling />} />
         <Route path="/_fit-preview" element={<FitPreview />} />

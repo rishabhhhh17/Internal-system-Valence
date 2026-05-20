@@ -12,9 +12,10 @@ import {
 // ------------ section registry ------------
 
 describe('SETTINGS_SECTIONS', () => {
-  it('contains the four canonical sections in order', () => {
+  it('contains the canonical sections in order', () => {
     expect(SETTINGS_SECTIONS.map(s => s.id)).toEqual([
       'workspace',
+      'team',
       'integrations',
       'data',
       'appearance'

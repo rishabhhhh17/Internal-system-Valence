@@ -1784,3 +1784,950 @@ alter table public.ai_actions
 
 create index if not exists ai_actions_org_provider_idx
   on public.ai_actions (org_id, provider);
+
+-- =========================================================================
+-- Phase 11 — customer-billed cost + key source on each AI action.
+-- Mirrors supabase/phase-11-customer-cost-and-key-source.sql.
+-- =========================================================================
+alter table public.ai_actions
+  add column if not exists customer_cost_usd numeric,
+  add column if not exists key_source        text;
+
+create index if not exists ai_actions_org_key_source_idx
+  on public.ai_actions (org_id, key_source);
+-- Phase 8 — Multi-tenant billing model.
+-- =========================================================================
+-- Implements the seat + AI overage logic described in the partner brief:
+--
+--   - Plan per org: byo_key | we_run_ai | own_key
+--   - Seat billing: per-seat, upfront, monthly, no mid-cycle proration.
+--     Tiered (base price below a threshold, volume price at/above), with
+--     a per-client monthly floor.
+--   - AI overage (we_run_ai only): per-seat allowance, hard pause at the
+--     allowance until the user opts in to the overage rate. Opt-in is
+--     consent; overage flows as an itemised invoice line.
+--   - Storage: tracked + flagged for admin review when over the per-seat
+--     allowance. Never auto-billed.
+--
+-- No payment processing here. This file defines the state — what is owed,
+-- what is paused, what flag is raised — and exposes it via plain tables
+-- that the JS lib in src/lib/billing.js drives.
+-- =========================================================================
+
+-- ============ ORGANISATIONS ============
+-- The multi-tenant root. Every billing row hangs off org_id. Existing
+-- domain tables (deals, people, funds, …) stay single-tenant for now;
+-- they can be back-filled with org_id in a later migration. The billing
+-- model is fully org-aware and doesn't depend on that back-fill.
+create table if not exists public.orgs (
+  id           uuid primary key default gen_random_uuid(),
+  name         text not null,
+  -- Plans: byo_key + own_key are seat-only (we never bill them for AI).
+  -- we_run_ai unlocks the AI-overage state machine below.
+  plan         text not null check (plan in ('byo_key', 'we_run_ai', 'own_key')),
+  -- The day-of-month the monthly cycle anchors to. Default = today so a
+  -- new org's first cycle starts immediately.
+  cycle_anchor_day int not null default 1 check (cycle_anchor_day between 1 and 28),
+  created_at   timestamptz not null default now(),
+  updated_at   timestamptz not null default now()
+);
+create index if not exists orgs_plan_idx on public.orgs (plan);
+
+-- ============ BILLING CONFIG ============
+-- Single source of truth for the pricing knobs. One row with org_id IS NULL
+-- is the GLOBAL DEFAULT — every org inherits from it unless an org-scoped
+-- override row exists. Resolver picks the override when present.
+--
+-- The AI allowance + overage rate are intentionally placeholders. They
+-- MUST be calibrated against real measured usage before going live.
+create table if not exists public.billing_config (
+  id                                  uuid primary key default gen_random_uuid(),
+  org_id                              uuid references public.orgs(id) on delete cascade,
+  -- Tiered seat pricing (flat tiers — see resolver).
+  base_seat_price_usd                 numeric not null default 80,
+  volume_seat_price_usd               numeric not null default 60,
+  volume_threshold_seats              int     not null default 10,
+  -- Floor: if (seats × seat price) < floor → bill floor instead.
+  monthly_floor_usd                   numeric not null default 200,
+  -- Storage allowance per seat, in MB. Tracked + displayed; never auto-billed.
+  storage_allowance_per_seat_mb       int     not null default 5120,   -- 5 GB / seat
+  -- AI allowance per seat per cycle, in "AI actions".
+  -- ▼ PLACEHOLDER — calibrate from real measured usage before launch.
+  ai_actions_allowance_per_seat       int     not null default 500,
+  -- Overage rate when a seat opts in past the allowance.
+  -- ▼ PLACEHOLDER — calibrate from real measured usage + cost basis.
+  ai_overage_rate_usd_per_action      numeric not null default 0.02,
+  notes      text,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  -- A given org has at most one override row.
+  unique (org_id)
+);
+
+-- Seed the global default row (org_id IS NULL). Idempotent.
+insert into public.billing_config (org_id) values (null)
+  on conflict do nothing;
+
+-- ============ SEATS ============
+-- One row per user-in-an-org. Seats added mid-cycle don't bill until the
+-- NEXT cycle (billable_from is set to the next cycle's start at creation
+-- time by the JS lib).
+create table if not exists public.seats (
+  id              uuid primary key default gen_random_uuid(),
+  org_id          uuid not null references public.orgs(id) on delete cascade,
+  user_id         uuid,                       -- optional FK to auth.users
+  email           text,
+  active          boolean not null default true,
+  added_at        timestamptz not null default now(),
+  -- Date the seat first counts toward the seat-fee snapshot. The lib sets
+  -- this to the NEXT cycle's period_start when a seat is added mid-cycle.
+  billable_from   date not null default current_date,
+  deactivated_at  timestamptz
+);
+create index if not exists seats_org_active_idx on public.seats (org_id) where active = true;
+create index if not exists seats_billable_from_idx on public.seats (billable_from);
+
+-- ============ BILLING CYCLES ============
+-- One row per (org, monthly period). Snapshots the plan + every pricing
+-- knob at cycle-open so config changes mid-cycle don't retroactively
+-- re-price the open cycle.
+create table if not exists public.billing_cycles (
+  id                                uuid primary key default gen_random_uuid(),
+  org_id                            uuid not null references public.orgs(id) on delete cascade,
+  period_start                      date not null,
+  period_end                        date not null,
+  -- Frozen snapshot at cycle open
+  plan_snapshot                     text    not null check (plan_snapshot in ('byo_key', 'we_run_ai', 'own_key')),
+  base_seat_price_usd               numeric not null,
+  volume_seat_price_usd             numeric not null,
+  volume_threshold_seats            int     not null,
+  monthly_floor_usd                 numeric not null,
+  storage_allowance_per_seat_mb     int     not null,
+  ai_actions_allowance_per_seat     int     not null,
+  ai_overage_rate_usd_per_action    numeric not null,
+  -- Computed at cycle open from seats with billable_from <= period_start
+  billable_seats_count              int     not null default 0,
+  seat_subtotal_usd                 numeric not null default 0,
+  floor_applied                     boolean not null default false,
+  -- Lifecycle
+  status                            text    not null default 'open' check (status in ('open', 'closed')),
+  opened_at                         timestamptz not null default now(),
+  closed_at                         timestamptz,
+  unique (org_id, period_start)
+);
+create index if not exists billing_cycles_open_idx on public.billing_cycles (org_id, status) where status = 'open';
+
+-- ============ AI ACTIONS LEDGER ============
+-- One row per billable AI action. The lib writes here in real time as
+-- features (Ask / Screener / Deal Brief / Email Draft / etc.) fire.
+-- Classification = 'included' until the seat's allowance is exhausted;
+-- 'overage' only after explicit opt-in (see ai_overage_opt_ins).
+create table if not exists public.ai_actions (
+  id              uuid primary key default gen_random_uuid(),
+  org_id          uuid not null references public.orgs(id) on delete cascade,
+  seat_id         uuid not null references public.seats(id) on delete cascade,
+  cycle_id        uuid not null references public.billing_cycles(id) on delete cascade,
+  action_type     text,                           -- 'ask' | 'screener' | 'deal_brief' | …
+  classification  text not null check (classification in ('included', 'overage')),
+  occurred_at     timestamptz not null default now()
+);
+create index if not exists ai_actions_seat_cycle_idx on public.ai_actions (seat_id, cycle_id);
+create index if not exists ai_actions_org_cycle_idx  on public.ai_actions (org_id, cycle_id);
+
+-- ============ AI OVERAGE OPT-INS ============
+-- Per-seat consent for the CURRENT cycle. Opt-in is the contract that the
+-- partner accepts overage charges; resets every cycle so consent is
+-- always fresh.
+create table if not exists public.ai_overage_opt_ins (
+  id            uuid primary key default gen_random_uuid(),
+  org_id        uuid not null references public.orgs(id) on delete cascade,
+  seat_id       uuid not null references public.seats(id) on delete cascade,
+  cycle_id      uuid not null references public.billing_cycles(id) on delete cascade,
+  opted_in_at   timestamptz not null default now(),
+  opted_in_by   uuid,
+  unique (seat_id, cycle_id)
+);
+
+-- ============ STORAGE USAGE SNAPSHOTS ============
+-- Periodic reading of an org's total storage. The JS lib flags a row for
+-- 'review needed' when the total exceeds (seats × allowance_per_seat).
+-- Admin clears review via review_resolved_at.
+create table if not exists public.storage_usage (
+  id                  uuid primary key default gen_random_uuid(),
+  org_id              uuid not null references public.orgs(id) on delete cascade,
+  cycle_id            uuid references public.billing_cycles(id) on delete cascade,
+  total_bytes         bigint not null default 0,
+  measured_at         timestamptz not null default now(),
+  review_flagged      boolean not null default false,
+  review_resolved_at  timestamptz,
+  review_note         text
+);
+create index if not exists storage_usage_org_measured_idx on public.storage_usage (org_id, measured_at desc);
+create index if not exists storage_usage_open_flags_idx
+  on public.storage_usage (org_id) where review_flagged = true and review_resolved_at is null;
+
+-- ============ INVOICE LINE ITEMS ============
+-- The resolution of a cycle. Multiple rows per cycle: a base seat fee
+-- (or floor adjustment), and zero-or-more AI overage tallies. No PDF
+-- generation, no payment processing — this is the source data that any
+-- future biller (Stripe / manual invoice / etc.) would consume.
+create table if not exists public.invoice_line_items (
+  id              uuid primary key default gen_random_uuid(),
+  org_id          uuid not null references public.orgs(id) on delete cascade,
+  cycle_id        uuid not null references public.billing_cycles(id) on delete cascade,
+  kind            text not null check (kind in (
+    'seat_fee',                  -- base × (seats below threshold)
+    'seat_volume',               -- volume × (seats at/above threshold)
+    'monthly_floor_adjustment',  -- top-up so total = floor
+    'ai_overage',                -- one tally per cycle
+    'storage_review'             -- only when admin closes the review with a charge — manual entry
+  )),
+  description     text not null,
+  quantity        numeric,
+  unit_price_usd  numeric,
+  amount_usd      numeric not null,
+  metadata        jsonb,
+  created_at      timestamptz not null default now()
+);
+create index if not exists invoice_lines_cycle_idx on public.invoice_line_items (cycle_id);
+create index if not exists invoice_lines_org_idx   on public.invoice_line_items (org_id);
+
+-- ============ ROW LEVEL SECURITY ============
+-- Every billing table: an org member can only see their own org's rows.
+-- Membership is encoded via seats.user_id matching auth.uid(). Service
+-- role bypasses RLS (for admin tooling).
+--
+-- Demo policies stay in effect so the existing anon-RLS-open setup keeps
+-- working for the unauthenticated demo build. Real auth simply tightens
+-- the read paths via the authenticated policy.
+
+alter table public.orgs                enable row level security;
+alter table public.billing_config      enable row level security;
+alter table public.seats               enable row level security;
+alter table public.billing_cycles      enable row level security;
+alter table public.ai_actions          enable row level security;
+alter table public.ai_overage_opt_ins  enable row level security;
+alter table public.storage_usage       enable row level security;
+alter table public.invoice_line_items  enable row level security;
+
+-- Helper: is the calling user a seat in this org?
+create or replace function public.is_org_member(target_org uuid)
+returns boolean
+language sql stable security definer
+as $$
+  select exists (
+    select 1 from public.seats s
+     where s.org_id = target_org
+       and s.active = true
+       and s.user_id = auth.uid()
+  );
+$$;
+
+-- Org-member read policies on every billing table.
+do $$
+begin
+  -- orgs
+  drop policy if exists orgs_member_read on public.orgs;
+  create policy orgs_member_read on public.orgs
+    for select to authenticated
+    using (is_org_member(id));
+
+  -- billing_config (org-specific override OR global default both visible)
+  drop policy if exists billing_config_member_read on public.billing_config;
+  create policy billing_config_member_read on public.billing_config
+    for select to authenticated
+    using (org_id is null or is_org_member(org_id));
+
+  drop policy if exists seats_member_read on public.seats;
+  create policy seats_member_read on public.seats
+    for select to authenticated
+    using (is_org_member(org_id));
+
+  drop policy if exists cycles_member_read on public.billing_cycles;
+  create policy cycles_member_read on public.billing_cycles
+    for select to authenticated
+    using (is_org_member(org_id));
+
+  drop policy if exists ai_actions_member_read on public.ai_actions;
+  create policy ai_actions_member_read on public.ai_actions
+    for select to authenticated
+    using (is_org_member(org_id));
+
+  drop policy if exists opt_ins_member_read on public.ai_overage_opt_ins;
+  create policy opt_ins_member_read on public.ai_overage_opt_ins
+    for select to authenticated
+    using (is_org_member(org_id));
+
+  drop policy if exists storage_member_read on public.storage_usage;
+  create policy storage_member_read on public.storage_usage
+    for select to authenticated
+    using (is_org_member(org_id));
+
+  drop policy if exists invoice_member_read on public.invoice_line_items;
+  create policy invoice_member_read on public.invoice_line_items
+    for select to authenticated
+    using (is_org_member(org_id));
+end $$;
+
+-- Demo / anon policies — open read+write so the demo build keeps working.
+-- Tighten these in production. (Service role always bypasses RLS.)
+do $$
+begin
+  drop policy if exists demo_anon_all on public.orgs;
+  create policy demo_anon_all on public.orgs for all to anon using (true) with check (true);
+
+  drop policy if exists demo_anon_all on public.billing_config;
+  create policy demo_anon_all on public.billing_config for all to anon using (true) with check (true);
+
+  drop policy if exists demo_anon_all on public.seats;
+  create policy demo_anon_all on public.seats for all to anon using (true) with check (true);
+
+  drop policy if exists demo_anon_all on public.billing_cycles;
+  create policy demo_anon_all on public.billing_cycles for all to anon using (true) with check (true);
+
+  drop policy if exists demo_anon_all on public.ai_actions;
+  create policy demo_anon_all on public.ai_actions for all to anon using (true) with check (true);
+
+  drop policy if exists demo_anon_all on public.ai_overage_opt_ins;
+  create policy demo_anon_all on public.ai_overage_opt_ins for all to anon using (true) with check (true);
+
+  drop policy if exists demo_anon_all on public.storage_usage;
+  create policy demo_anon_all on public.storage_usage for all to anon using (true) with check (true);
+
+  drop policy if exists demo_anon_all on public.invoice_line_items;
+  create policy demo_anon_all on public.invoice_line_items for all to anon using (true) with check (true);
+end $$;
+-- Phase 12 — Multi-tenant data isolation.
+-- =========================================================================
+-- Every customer-data table grows an org_id column scoped to public.orgs.
+-- Existing demo rows are back-filled to the bootstrap "Valence Growth
+-- Partners" org. Demo-open RLS policies are dropped and replaced with
+-- per-org tenant isolation keyed off the requesting user's seat row.
+--
+-- Identity model:
+--   auth.users  (Supabase auth)
+--     └── seats.user_id        — maps an auth user to a seat in an org
+--           └── seats.org_id   — the org they belong to
+--   We use seats as the membership AND identity table (avoid a separate
+--   profiles + members split). New identity columns added to seats:
+--     full_name, title, phone, role  (role: 'partner' | 'analyst' | 'admin')
+--
+-- Helper function:
+--   current_user_org_id()  — returns the org_id of the requesting user's
+--   active seat. Used in every RLS policy as `org_id = current_user_org_id()`.
+--   Returns NULL when called by anon or by a user with no seat — which
+--   means anon/unsigned-up users see no rows (correct).
+--
+-- This migration is idempotent. Re-running it is a no-op once applied.
+-- =========================================================================
+
+-- ============ BOOTSTRAP ORG ============
+-- One canonical org for back-fill. Idempotent on name.
+insert into public.orgs (name, plan, cycle_anchor_day)
+select 'Valence Growth Partners', 'we_run_ai', 1
+where not exists (
+  select 1 from public.orgs where name = 'Valence Growth Partners'
+);
+
+-- ============ SEATS GROWS IDENTITY COLUMNS ============
+-- seats is now also the user profile. One row per (org_id, user_id).
+alter table public.seats
+  add column if not exists full_name   text,
+  add column if not exists title       text,
+  add column if not exists phone       text,
+  add column if not exists role        text;
+-- Role is open-text so the senior team can adjust without a migration.
+-- App-side enum: 'partner' | 'analyst' | 'admin' | 'observer'.
+do $$ begin
+  alter table public.seats
+    add constraint seats_role_check check (role is null or role in ('partner', 'analyst', 'admin', 'observer'));
+exception
+  when duplicate_object then null;
+end $$;
+
+create unique index if not exists seats_user_org_unique
+  on public.seats (org_id, user_id)
+  where user_id is not null;
+
+-- ============ INVITES ============
+-- An org admin issues an invite code; a new user signs in with Google and
+-- enters the code on the welcome screen to claim a seat in that org. Codes
+-- are single-use, 8-char uppercase, no I/O/0/1 to avoid confusion. Email
+-- is optional — when set, the code is bound to that email.
+create table if not exists public.org_invites (
+  id            uuid primary key default gen_random_uuid(),
+  org_id        uuid not null references public.orgs(id) on delete cascade,
+  code          text not null unique,
+  email         text,
+  role          text default 'analyst',
+  created_by    uuid,
+  created_at    timestamptz not null default now(),
+  expires_at    timestamptz not null default (now() + interval '14 days'),
+  claimed_at    timestamptz,
+  claimed_by    uuid
+);
+create index if not exists org_invites_org_idx     on public.org_invites (org_id);
+create index if not exists org_invites_unclaimed_idx on public.org_invites (code) where claimed_at is null;
+
+-- ============ HELPER: current_user_org_id() ============
+-- Returns the org_id of the requesting user's seat. NULL for anon, for a
+-- user without a seat, or for a seat marked inactive. SECURITY DEFINER so
+-- it can read seats even when the caller can't (no RLS recursion).
+create or replace function public.current_user_org_id()
+returns uuid
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select s.org_id
+  from public.seats s
+  where s.user_id = auth.uid() and s.active = true
+  order by s.added_at asc
+  limit 1
+$$;
+
+revoke all on function public.current_user_org_id() from public;
+grant execute on function public.current_user_org_id() to anon, authenticated;
+
+-- ============ ADD org_id TO EVERY CUSTOMER-DATA TABLE ============
+-- One block per table: add column, backfill to the bootstrap org, then
+-- index. NOT NULL is enforced via app + RLS rather than at the column
+-- level so that pre-existing rows in random envs don't break the migration.
+
+do $$
+declare
+  default_org_id uuid;
+  t text;
+  tables text[] := array[
+    'activities','calendar_events','comps','contacts','daily_notes',
+    'deal_checklist','deal_comments','deal_files','deal_fund_pings',
+    'deal_share_access','deal_shares','deal_team','deals','documents',
+    'fit_assessments','fit_criteria','fund_contacts','funds',
+    'intake_submissions','interactions','kb_files','kb_folders',
+    'kb_mentions','kb_notes','knowledge_chunks','knowledge_files',
+    'meeting_intelligence','meetings','people','screener_criteria',
+    'screener_runs','share_access_logs','tasks','team_calendars'
+  ];
+begin
+  select id into default_org_id
+  from public.orgs
+  where name = 'Valence Growth Partners'
+  limit 1;
+
+  foreach t in array tables loop
+    execute format(
+      'alter table public.%I add column if not exists org_id uuid references public.orgs(id)',
+      t
+    );
+    execute format(
+      'update public.%I set org_id = %L where org_id is null',
+      t, default_org_id
+    );
+    execute format(
+      'create index if not exists %I on public.%I (org_id)',
+      t || '_org_idx', t
+    );
+  end loop;
+end $$;
+
+-- ============ RLS REWRITE ============
+-- Drop the demo-open policies and replace with tenant isolation. Every
+-- customer-data table follows the same pattern:
+--
+--   select : org_id = current_user_org_id()
+--   insert : with check (org_id = current_user_org_id())
+--   update : using (org_id = current_user_org_id()) with check (org_id = current_user_org_id())
+--   delete : using (org_id = current_user_org_id())
+--
+-- Anon (no auth.uid()) gets no rows because current_user_org_id() returns
+-- NULL and `NULL = NULL` is false in SQL.
+
+do $$
+declare
+  t text;
+  p record;
+  tables text[] := array[
+    'activities','calendar_events','comps','contacts','daily_notes',
+    'deal_checklist','deal_comments','deal_files','deal_fund_pings',
+    'deal_share_access','deal_shares','deal_team','deals','documents',
+    'fit_assessments','fit_criteria','fund_contacts','funds',
+    'intake_submissions','interactions','kb_files','kb_folders',
+    'kb_mentions','kb_notes','knowledge_chunks','knowledge_files',
+    'meeting_intelligence','meetings','people','screener_criteria',
+    'screener_runs','share_access_logs','tasks','team_calendars',
+    -- billing-side too: these already carry org_id from phase 8
+    'ai_actions','ai_overage_opt_ins','billing_cycles',
+    'invoice_line_items','storage_usage'
+  ];
+begin
+  foreach t in array tables loop
+    -- ensure RLS is enabled
+    execute format('alter table public.%I enable row level security', t);
+
+    -- drop ALL existing policies on the table (clean slate)
+    for p in
+      select polname
+      from pg_policy
+      where polrelid = format('public.%I', t)::regclass
+    loop
+      execute format('drop policy if exists %I on public.%I', p.polname, t);
+    end loop;
+
+    -- tenant isolation policies
+    execute format(
+      'create policy tenant_select on public.%I for select to authenticated using (org_id = public.current_user_org_id())',
+      t
+    );
+    execute format(
+      'create policy tenant_insert on public.%I for insert to authenticated with check (org_id = public.current_user_org_id())',
+      t
+    );
+    execute format(
+      'create policy tenant_update on public.%I for update to authenticated using (org_id = public.current_user_org_id()) with check (org_id = public.current_user_org_id())',
+      t
+    );
+    execute format(
+      'create policy tenant_delete on public.%I for delete to authenticated using (org_id = public.current_user_org_id())',
+      t
+    );
+  end loop;
+end $$;
+
+-- ============ ORGS + SEATS POLICIES ============
+-- These are the join-fabric tables, not customer-data. Members of an org
+-- can read their own org row + every seat in their org. New-user
+-- onboarding inserts into both BEFORE the user has a seat — so insert is
+-- gated separately via a SECURITY DEFINER bootstrap function.
+
+alter table public.orgs   enable row level security;
+alter table public.seats  enable row level security;
+alter table public.org_invites enable row level security;
+alter table public.billing_config enable row level security;
+
+do $$
+declare
+  pol record;
+  tname text;
+begin
+  for tname in select unnest(array['orgs','seats','org_invites','billing_config']) loop
+    for pol in
+      select polname from pg_policy
+      where polrelid = format('public.%I', tname)::regclass
+    loop
+      execute format('drop policy if exists %I on public.%I', pol.polname, tname);
+    end loop;
+  end loop;
+end $$;
+
+-- A signed-in user can read their own org.
+create policy orgs_self_read on public.orgs
+  for select to authenticated
+  using (id = public.current_user_org_id());
+
+-- A signed-in user can read seats in their own org.
+create policy seats_self_read on public.seats
+  for select to authenticated
+  using (org_id = public.current_user_org_id() or user_id = auth.uid());
+
+-- A signed-in user can update their OWN seat (name, title, phone, etc).
+create policy seats_self_update on public.seats
+  for update to authenticated
+  using (user_id = auth.uid())
+  with check (user_id = auth.uid());
+
+-- A signed-in user can read invites for their own org (admin-ish view).
+create policy invites_org_read on public.org_invites
+  for select to authenticated
+  using (org_id = public.current_user_org_id());
+
+-- A signed-in user can read the global billing_config row OR their org's
+-- override. App-side mutation only happens via service role or admin tools.
+create policy billing_config_read on public.billing_config
+  for select to authenticated
+  using (org_id is null or org_id = public.current_user_org_id());
+
+-- ============ BOOTSTRAP RPC: start_team(name, currency) ============
+-- A signed-in user with no seat calls this once to create their team.
+-- SECURITY DEFINER so it can insert into orgs + seats before the user has
+-- a seat. Returns the new org_id.
+create or replace function public.start_team(
+  p_org_name text,
+  p_full_name text,
+  p_title text default null,
+  p_phone text default null
+) returns uuid
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  new_org_id uuid;
+  uid uuid := auth.uid();
+begin
+  if uid is null then
+    raise exception 'must be signed in to start a team';
+  end if;
+
+  -- Reject if the caller already has a seat — they should use join_team or
+  -- be added by an admin instead.
+  if exists (select 1 from public.seats where user_id = uid and active = true) then
+    raise exception 'user already belongs to a team';
+  end if;
+
+  if p_org_name is null or length(trim(p_org_name)) = 0 then
+    raise exception 'team name required';
+  end if;
+
+  insert into public.orgs (name, plan, cycle_anchor_day)
+  values (trim(p_org_name), 'we_run_ai', 1)
+  returning id into new_org_id;
+
+  insert into public.seats (org_id, user_id, full_name, title, phone, role, active, billable_from)
+  values (new_org_id, uid, p_full_name, p_title, p_phone, 'admin', true, current_date);
+
+  return new_org_id;
+end $$;
+revoke all on function public.start_team(text, text, text, text) from public;
+grant execute on function public.start_team(text, text, text, text) to authenticated;
+
+-- ============ BOOTSTRAP RPC: join_team(invite_code, ...) ============
+-- A signed-in user uses an invite code to claim a seat in an existing org.
+create or replace function public.join_team(
+  p_invite_code text,
+  p_full_name text,
+  p_title text default null,
+  p_phone text default null
+) returns uuid
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  target_org_id uuid;
+  invite_role text;
+  invite_id uuid;
+  uid uuid := auth.uid();
+begin
+  if uid is null then
+    raise exception 'must be signed in to join a team';
+  end if;
+  if exists (select 1 from public.seats where user_id = uid and active = true) then
+    raise exception 'user already belongs to a team';
+  end if;
+
+  select id, org_id, role into invite_id, target_org_id, invite_role
+  from public.org_invites
+  where code = upper(trim(p_invite_code))
+    and claimed_at is null
+    and (expires_at is null or expires_at > now());
+
+  if target_org_id is null then
+    raise exception 'invite not found or expired';
+  end if;
+
+  insert into public.seats (org_id, user_id, full_name, title, phone, role, active, billable_from)
+  values (target_org_id, uid, p_full_name, p_title, p_phone, coalesce(invite_role, 'analyst'), true, current_date);
+
+  update public.org_invites
+    set claimed_at = now(), claimed_by = uid
+    where id = invite_id;
+
+  return target_org_id;
+end $$;
+revoke all on function public.join_team(text, text, text, text) from public;
+grant execute on function public.join_team(text, text, text, text) to authenticated;
+
+-- ============ BOOTSTRAP RPC: create_invite(role) ============
+-- An org admin generates an invite code. Returns the new code.
+create or replace function public.create_invite(
+  p_role text default 'analyst',
+  p_email text default null
+) returns text
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  caller_org uuid := public.current_user_org_id();
+  caller_role text;
+  new_code text;
+begin
+  if caller_org is null then
+    raise exception 'no active seat';
+  end if;
+  select role into caller_role from public.seats where user_id = auth.uid() and org_id = caller_org;
+  if caller_role not in ('admin') then
+    raise exception 'only admins can issue invites';
+  end if;
+
+  -- 8-character code without I/O/0/1. Loop until we find one that
+  -- isn't already in the table (collision is astronomically unlikely
+  -- but free to defend against).
+  loop
+    select string_agg(
+      substr('ABCDEFGHJKLMNPQRSTUVWXYZ23456789', (floor(random()*32) + 1)::int, 1),
+      ''
+    ) into new_code
+    from generate_series(1, 8);
+    exit when not exists (select 1 from public.org_invites where code = new_code);
+  end loop;
+
+  insert into public.org_invites (org_id, code, role, email, created_by)
+  values (caller_org, new_code, coalesce(p_role, 'analyst'), p_email, auth.uid());
+
+  return new_code;
+end $$;
+revoke all on function public.create_invite(text, text) from public;
+grant execute on function public.create_invite(text, text) to authenticated;
+-- Phase 12b — Auto-claim Valence seat for @valencegrowth.com sign-ins.
+-- =========================================================================
+-- Multi-tenancy is the right default, but the Valence team itself doesn't
+-- need to go through Welcome → Start a team → fill profile every time a
+-- new partner signs in. This RPC short-circuits that for anyone whose
+-- auth.users.email ends in @valencegrowth.com: it creates a seat in the
+-- bootstrap "Valence Growth Partners" org and returns the org_id.
+--
+-- Everyone else still sees the Welcome screen and the normal start/join
+-- flow — the multi-tenant capability is preserved for any future firm.
+--
+-- Called from the client on first sign-in when useSeat() returns no seat
+-- AND the user's email matches the allowed-domain list. Safe to call
+-- repeatedly — it bails out if the user already has a seat.
+
+create or replace function public.auto_claim_seat_for_domain()
+returns uuid
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  uid uuid := auth.uid();
+  user_email text;
+  user_name text;
+  target_org_id uuid;
+begin
+  if uid is null then
+    raise exception 'must be signed in';
+  end if;
+
+  -- Bail if the user already has an active seat.
+  if exists (select 1 from public.seats where user_id = uid and active = true) then
+    return (select org_id from public.seats where user_id = uid and active = true limit 1);
+  end if;
+
+  -- Read the user's email + display name from auth.users. We're in a
+  -- SECURITY DEFINER context so we can touch auth.users.
+  select email,
+         coalesce(raw_user_meta_data->>'full_name',
+                  raw_user_meta_data->>'name',
+                  split_part(email, '@', 1))
+    into user_email, user_name
+  from auth.users
+  where id = uid;
+
+  if user_email is null then
+    return null;
+  end if;
+
+  -- Allowed-domain list — extend here when we add more "trusted" firms
+  -- we want to skip Welcome for. For now: Valence Growth Partners only.
+  if lower(user_email) not like '%@valencegrowth.com' then
+    return null;  -- caller falls back to Welcome screen
+  end if;
+
+  -- Resolve the bootstrap Valence Growth Partners org.
+  select id into target_org_id
+  from public.orgs
+  where name = 'Valence Growth Partners'
+  limit 1;
+
+  if target_org_id is null then
+    raise exception 'bootstrap org not found — run phase 12 migration first';
+  end if;
+
+  insert into public.seats (org_id, user_id, email, full_name, role, active, billable_from)
+  values (target_org_id, uid, user_email, user_name, 'partner', true, current_date)
+  on conflict (org_id, user_id) where user_id is not null do nothing;
+
+  return target_org_id;
+end $$;
+
+revoke all on function public.auto_claim_seat_for_domain() from public;
+grant execute on function public.auto_claim_seat_for_domain() to authenticated;
+-- Phase 12c — One-shot profile completion flag on seats.
+-- =========================================================================
+-- Seats created via start_team()/join_team() capture full_name + title +
+-- phone in the same step. Seats created via auto_claim_seat_for_domain()
+-- (the @valencegrowth.com fast path) only have full_name from Google —
+-- title and phone are empty until the user fills them.
+--
+-- We use an explicit `profile_completed_at` flag rather than "is title
+-- null" because (a) title is genuinely optional — some partners don't
+-- have one, and (b) we want a way to mark "user has seen the welcome
+-- once" so the app never nags them again.
+--
+-- The frontend gate: after sign-in, if seat exists and
+-- profile_completed_at is NULL → redirect to /complete-profile.
+-- Once they save or skip, set it to now() and they're in for good.
+-- =========================================================================
+
+alter table public.seats
+  add column if not exists profile_completed_at timestamptz;
+
+-- Back-fill: every seat that already has full_name AND was created via
+-- start_team/join_team probably has a complete profile. We don't know
+-- which RPC was used, so the safe heuristic is: if full_name + title
+-- are both set, mark it complete. Pure auto-claim seats (title null)
+-- will hit the completion screen next sign-in.
+update public.seats
+  set profile_completed_at = added_at
+  where profile_completed_at is null
+    and full_name is not null
+    and title is not null;
+
+-- Update the three identity RPCs so they explicitly stamp completion
+-- when they captured the data.
+
+create or replace function public.start_team(
+  p_org_name text,
+  p_full_name text,
+  p_title text default null,
+  p_phone text default null
+) returns uuid
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  new_org_id uuid;
+  uid uuid := auth.uid();
+begin
+  if uid is null then raise exception 'must be signed in to start a team'; end if;
+  if exists (select 1 from public.seats where user_id = uid and active = true) then
+    raise exception 'user already belongs to a team';
+  end if;
+  if p_org_name is null or length(trim(p_org_name)) = 0 then
+    raise exception 'team name required';
+  end if;
+
+  insert into public.orgs (name, plan, cycle_anchor_day)
+  values (trim(p_org_name), 'we_run_ai', 1)
+  returning id into new_org_id;
+
+  insert into public.seats (
+    org_id, user_id, full_name, title, phone, role,
+    active, billable_from, profile_completed_at
+  ) values (
+    new_org_id, uid, p_full_name, p_title, p_phone, 'admin',
+    true, current_date, now()
+  );
+
+  return new_org_id;
+end $$;
+
+create or replace function public.join_team(
+  p_invite_code text,
+  p_full_name text,
+  p_title text default null,
+  p_phone text default null
+) returns uuid
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  target_org_id uuid;
+  invite_role text;
+  invite_id uuid;
+  uid uuid := auth.uid();
+begin
+  if uid is null then raise exception 'must be signed in to join a team'; end if;
+  if exists (select 1 from public.seats where user_id = uid and active = true) then
+    raise exception 'user already belongs to a team';
+  end if;
+
+  select id, org_id, role into invite_id, target_org_id, invite_role
+  from public.org_invites
+  where code = upper(trim(p_invite_code))
+    and claimed_at is null
+    and (expires_at is null or expires_at > now());
+  if target_org_id is null then raise exception 'invite not found or expired'; end if;
+
+  insert into public.seats (
+    org_id, user_id, full_name, title, phone, role,
+    active, billable_from, profile_completed_at
+  ) values (
+    target_org_id, uid, p_full_name, p_title, p_phone, coalesce(invite_role, 'analyst'),
+    true, current_date, now()
+  );
+
+  update public.org_invites set claimed_at = now(), claimed_by = uid where id = invite_id;
+  return target_org_id;
+end $$;
+
+-- auto_claim leaves profile_completed_at as NULL so the frontend prompts
+-- once for title/phone before the app loads.
+create or replace function public.auto_claim_seat_for_domain()
+returns uuid
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  uid uuid := auth.uid();
+  user_email text;
+  user_name text;
+  target_org_id uuid;
+begin
+  if uid is null then raise exception 'must be signed in'; end if;
+  if exists (select 1 from public.seats where user_id = uid and active = true) then
+    return (select org_id from public.seats where user_id = uid and active = true limit 1);
+  end if;
+  select email,
+         coalesce(raw_user_meta_data->>'full_name',
+                  raw_user_meta_data->>'name',
+                  split_part(email, '@', 1))
+    into user_email, user_name
+  from auth.users where id = uid;
+  if user_email is null then return null; end if;
+  if lower(user_email) not like '%@valencegrowth.com' then return null; end if;
+  select id into target_org_id from public.orgs where name = 'Valence Growth Partners' limit 1;
+  if target_org_id is null then raise exception 'bootstrap org not found — run phase 12 migration first'; end if;
+  insert into public.seats (
+    org_id, user_id, email, full_name, role, active, billable_from
+    -- profile_completed_at intentionally null — frontend will prompt.
+  ) values (
+    target_org_id, uid, user_email, user_name, 'partner', true, current_date
+  )
+  on conflict (org_id, user_id) where user_id is not null do nothing;
+  return target_org_id;
+end $$;
+
+-- New RPC the /complete-profile page calls when the user saves or
+-- explicitly skips. Either way we stamp the flag so the screen never
+-- shows again. The seats_self_update RLS policy lets the user UPDATE
+-- their own row, but we wrap this in an RPC so the "skip" path doesn't
+-- need a full update payload from the client.
+create or replace function public.complete_profile(
+  p_full_name text default null,
+  p_title text default null,
+  p_phone text default null
+) returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  uid uuid := auth.uid();
+begin
+  if uid is null then raise exception 'must be signed in'; end if;
+  update public.seats
+    set full_name = coalesce(nullif(trim(p_full_name), ''), full_name),
+        title     = coalesce(nullif(trim(p_title), ''),     title),
+        phone     = coalesce(nullif(trim(p_phone), ''),     phone),
+        profile_completed_at = now()
+    where user_id = uid and active = true;
+end $$;
+revoke all on function public.complete_profile(text, text, text) from public;
+grant execute on function public.complete_profile(text, text, text) to authenticated;

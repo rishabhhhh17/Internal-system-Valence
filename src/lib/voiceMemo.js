@@ -3,10 +3,9 @@
 // when the user clicks the button.
 
 import { supabase, isSupabaseConfigured } from './supabase.js'
-import { geminiKey, isGeminiConfigured } from './gemini.js'
+import { llmCallRaw } from './gemini.js'
 
 const BUCKET = 'kb-voice-memos'
-const GEMINI_AUDIO_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent'
 
 // Read a Blob/File as base64 (for inline_data in Gemini requests).
 function blobToBase64(blob) {
@@ -42,9 +41,6 @@ export async function uploadVoiceMemo(noteId, file) {
 // Run Gemini transcription on an audio Blob/File. Returns { transcript, summary }.
 // 3-sentence summary is requested in the same call to avoid a second round-trip.
 export async function transcribeAndSummarise(file, { context = '' } = {}) {
-  if (!isGeminiConfigured) {
-    throw new Error('Gemini key not set — transcription is unavailable in demo mode.')
-  }
   const base64 = await blobToBase64(file)
   const mimeType = file.type || 'audio/webm'
 
@@ -54,30 +50,28 @@ export async function transcribeAndSummarise(file, { context = '' } = {}) {
     'Return JSON only, with this exact shape: {"transcript": "...", "summary": "..."}'
   ].filter(Boolean).join('\n\n')
 
-  const body = {
-    contents: [{
-      parts: [
-        { text: prompt },
-        { inline_data: { mime_type: mimeType, data: base64 } }
-      ]
-    }],
-    generationConfig: {
-      temperature: 0.2,
-      maxOutputTokens: 4000,
-      responseMimeType: 'application/json'
-    }
-  }
-
-  const res = await fetch(`${GEMINI_AUDIO_URL}?key=${geminiKey}`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body)
+  // Audio transcription is a Gemini-specific feature today (other
+  // providers in the proxy don't accept inline_data audio parts in the
+  // same shape). Use the raw-passthrough escape hatch so the proxy
+  // forwards our exact body verbatim — and so the server key is what
+  // actually authenticates the call, not anything baked into client JS.
+  const json = await llmCallRaw({
+    url: '/models/gemini-2.0-flash:generateContent',
+    body: {
+      contents: [{
+        parts: [
+          { text: prompt },
+          { inline_data: { mime_type: mimeType, data: base64 } }
+        ]
+      }],
+      generationConfig: {
+        temperature: 0.2,
+        maxOutputTokens: 4000,
+        responseMimeType: 'application/json'
+      }
+    },
+    actionType: 'voice_memo_transcribe'
   })
-  if (!res.ok) {
-    const t = await res.text().catch(() => '')
-    throw new Error(`Gemini transcription error ${res.status}: ${t.slice(0, 200)}`)
-  }
-  const json = await res.json()
   const text = json?.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || ''
   let parsed = null
   try { parsed = JSON.parse(text) } catch { /* fall through */ }

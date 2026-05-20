@@ -7,14 +7,19 @@ export const SETTINGS_SECTIONS = [
     description: 'Firm name, logo, brand color, currency, default scoring criteria.'
   },
   {
+    id: 'team',
+    label: 'Team',
+    description: 'Members of your firm + invite codes for new partners.'
+  },
+  {
     id: 'integrations',
     label: 'Integrations',
-    description: 'Meeting recorder, Google Workspace, Gemini API key.'
+    description: 'AI provider, meeting recorder, Google Workspace.'
   },
   {
     id: 'data',
     label: 'Data',
-    description: 'Contact import, drag-to-attach on People, sample data.'
+    description: 'AI-assisted import, CSV upload, drag-to-attach on People, sample data.'
   },
   {
     id: 'appearance',
