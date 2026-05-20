@@ -1,0 +1,51 @@
+{
+  "manifest_version": 3,
+  "name": "ValenceOS Capture",
+  "version": "0.1.0",
+  "description": "Auto-capture contacts and meetings from Gmail + Calendar into your ValenceOS workspace. No more typing 'had a call with Rohan' — it just lands.",
+  "permissions": ["storage", "activeTab", "scripting"],
+  "host_permissions": [
+    "https://mail.google.com/*",
+    "https://calendar.google.com/*",
+    "https://valenceos.vercel.app/*"
+  ],
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+  "content_scripts": [
+    {
+      "matches": ["https://mail.google.com/*"],
+      "js": ["content/gmail.js"],
+      "css": ["content/inline.css"],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": ["https://calendar.google.com/*"],
+      "js": ["content/calendar.js"],
+      "css": ["content/inline.css"],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": ["https://valenceos.vercel.app/*"],
+      "js": ["content/bridge.js"],
+      "run_at": "document_idle"
+    }
+  ],
+  "action": {
+    "default_popup": "popup/popup.html",
+    "default_title": "ValenceOS Capture",
+    "default_icon": {
+      "16": "icons/icon-16.png",
+      "32": "icons/icon-32.png",
+      "48": "icons/icon-48.png",
+      "128": "icons/icon-128.png"
+    }
+  },
+  "icons": {
+    "16": "icons/icon-16.png",
+    "32": "icons/icon-32.png",
+    "48": "icons/icon-48.png",
+    "128": "icons/icon-128.png"
+  }
+}
