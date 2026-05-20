@@ -8,6 +8,7 @@ import EntityMentions from './EntityMentions.jsx'
 import WikilinkTextarea from './WikilinkTextarea.jsx'
 import WikilinkText from './WikilinkText.jsx'
 import InlineEditableText from './InlineEditableText.jsx'
+import ValenceConnectionsPanel from './ValenceConnectionsPanel.jsx'
 
 const TABS = [
   { id: 'overview',    label: 'Overview' },
@@ -141,6 +142,12 @@ export default function PersonDrawer({ open, onClose, existing, onSubmit, onRena
 
       {tab === 'overview' && (
         <form id="person-form" onSubmit={submit} className="space-y-5">
+          {/* Valence Connections panel — only for existing external
+              people. Suppressed for the create form (no id yet) and
+              for Valence team members themselves. */}
+          {existing?.id && !existing?.is_valence_team && (
+            <ValenceConnectionsPanel externalPersonId={existing.id} />
+          )}
           <div className="grid gap-4 sm:grid-cols-2">
             <Field label="Full name *">
               <input className="vl-input" required value={form.full_name} onChange={e => update({ full_name: e.target.value })} placeholder="Anand Iyer" />

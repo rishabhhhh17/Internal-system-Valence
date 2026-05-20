@@ -32,6 +32,7 @@ import Welcome from './pages/Welcome.jsx'
 import JoinTeam from './pages/JoinTeam.jsx'
 import Import from './pages/Import.jsx'
 import CompleteProfile from './pages/CompleteProfile.jsx'
+import RelationshipTimeline from './pages/RelationshipTimeline.jsx'
 import { useAuth } from './hooks/useAuth.js'
 import { useSeat } from './hooks/useSeat.js'
 import { isSupabaseConfigured } from './lib/supabase.js'
@@ -203,6 +204,7 @@ export default function App() {
         <Route path="/feed" element={<Feed />} />
         <Route path="/team" element={<Team />} />
         <Route path="/import" element={<Import />} />
+        <Route path="/timeline/:valenceId/:externalId" element={<RelationshipTimeline />} />
         <Route path="/settings" element={<Settings />} />
         <Route path="/admin/billing" element={<AdminBilling />} />
         <Route path="/_fit-preview" element={<FitPreview />} />
