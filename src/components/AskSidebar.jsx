@@ -1,9 +1,15 @@
-// AskSidebar — chat panel for natural-language CRM queries.
+// AskSidebar — floating chat window for natural-language CRM queries.
 //
-// Lives on every page (mounted in Layout). Collapsible:
-//   - Default open on desktop (>= lg breakpoint), closed on mobile.
-//   - Toggle button persists state in localStorage so a partner who
-//     prefers it closed keeps it closed.
+// Layout:
+//   - When closed: a compact pill in the bottom-right corner.
+//   - When open: a floating window (~440×620) anchored bottom-right,
+//     overlaid on top of page content. NO layout reflow — the rest of
+//     the app stays untouched.
+//   - On mobile (< sm), the open state takes the full width minus
+//     small margins so the input stays usable.
+//
+// State persists in localStorage so a partner who prefers it closed
+// keeps it closed across navigations.
 //
 // Streaming: hits POST /api/ask with the user's Supabase JWT, reads
 // the SSE response and renders chunks as they land. While the model
@@ -20,21 +26,18 @@
 // a fresh thread. Matches the spec.
 
 import { useEffect, useRef, useState } from 'react'
-import { Sparkles, Send, ChevronRight, ChevronLeft, Loader2, AlertTriangle } from 'lucide-react'
+import { Sparkles, Send, X, Loader2, AlertTriangle } from 'lucide-react'
 import { supabase, isSupabaseConfigured } from '../lib/supabase.js'
 
 const STORAGE_KEY = 'valence.askSidebar.open'
 
 export default function AskSidebar() {
   const [open, setOpen] = useState(() => {
-    if (typeof window === 'undefined') return true
+    if (typeof window === 'undefined') return false
+    // Floating window default: closed. Users explicitly open it; we
+    // don't steal screen real estate by default. State persists so
+    // anyone who likes it open keeps it open across page navigations.
     const v = window.localStorage?.getItem(STORAGE_KEY)
-    if (v === null || v === undefined) {
-      // Default: open on lg+, closed on smaller screens.
-      return typeof window.matchMedia === 'function'
-        ? window.matchMedia('(min-width: 1024px)').matches
-        : true
-    }
     return v === '1'
   })
   const [messages, setMessages] = useState([])  // [{role, text, toolCalls:[{name,status,matchCount}]}]
@@ -119,23 +122,35 @@ export default function AskSidebar() {
     }
   }
 
+  // Collapsed: a small ink-coloured pill in the bottom-right corner.
+  // Always visible (above MobileNav on mobile via z-40 + bottom-offset
+  // logic baked into the class set).
   if (!open) {
     return (
       <button
         onClick={() => setOpen(true)}
-        className="fixed bottom-6 right-4 z-30 inline-flex items-center gap-2 rounded-full bg-valence-ink text-white px-3 py-2 text-xs font-semibold shadow-valence hover:bg-valence-ink-soft transition"
-        title="Open Ask"
+        className="fixed z-40 inline-flex items-center gap-2 rounded-full bg-valence-ink text-white px-4 py-2.5 text-xs font-semibold tracking-[0.04em] shadow-valence hover:bg-valence-ink-soft transition
+                   bottom-24 right-4 sm:bottom-6 sm:right-6"
+        title="Ask anything about the Valence network"
       >
         <Sparkles className="h-3.5 w-3.5" />
         Ask
-        <ChevronLeft className="h-3 w-3" />
       </button>
     )
   }
 
+  // Floating window: anchored bottom-right, full-width on small
+  // screens (with margin), fixed width on sm+. No layout reflow.
   return (
-    <aside className="fixed top-0 right-0 z-30 flex h-screen w-full max-w-[380px] flex-col border-l border-valence-border bg-valence-elevated">
-      <header className="flex items-center justify-between gap-2 border-b border-valence-border px-4 py-3">
+    <aside
+      role="dialog"
+      aria-label="Ask"
+      className="fixed z-40 flex flex-col rounded-2xl border border-valence-border bg-valence-elevated shadow-valence-lg overflow-hidden
+                 bottom-4 right-3 left-3 max-h-[78vh]
+                 sm:left-auto sm:bottom-6 sm:right-6 sm:w-[420px] sm:max-h-[620px]"
+      style={{ height: 'min(620px, 78vh)' }}
+    >
+      <header className="flex items-center justify-between gap-2 border-b border-valence-border px-4 py-3 bg-valence-elevated">
         <div className="flex items-center gap-2">
           <div className="rounded-lg bg-valence-blue-soft p-1.5 text-valence-blue">
             <Sparkles className="h-3.5 w-3.5" />
@@ -145,8 +160,8 @@ export default function AskSidebar() {
             <p className="text-sm font-semibold text-valence-text">Ask</p>
           </div>
         </div>
-        <button onClick={() => setOpen(false)} className="vl-btn-ghost text-xs">
-          <ChevronRight className="h-4 w-4" />
+        <button onClick={() => setOpen(false)} className="vl-btn-ghost text-xs" aria-label="Close">
+          <X className="h-4 w-4" />
         </button>
       </header>
 
