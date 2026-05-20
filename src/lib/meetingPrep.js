@@ -12,9 +12,7 @@
 // when a key is set we layer a 2-sentence AI synthesis at the top.
 
 import { supabase, isSupabaseConfigured } from './supabase.js'
-import { isGeminiConfigured } from './gemini.js'
-
-const GEMINI_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent'
+import { isGeminiConfigured, llmCall } from './gemini.js'
 
 /**
  * Build a prep brief for a meeting. Inputs:
@@ -146,8 +144,6 @@ function heuristicSummary({ meeting, people, deals, interactions }) {
 }
 
 async function aiSummary({ meeting, people, deals, interactions }) {
-  const key = import.meta.env.VITE_GEMINI_API_KEY
-  if (!key) throw new Error('no key')
   const prompt = `You are a senior associate at Valence Growth Partners briefing a partner who walks into a meeting in 60 seconds. Write a tight 2-sentence read on the counterparty: who they are, where the relationship stands, the single thing to lead with. No emojis, no bullets, no headers. Crisp IB tone.
 
 Meeting: "${meeting?.title || ''}" at ${meeting?.time || ''} on ${meeting?.date || ''}.
@@ -168,14 +164,7 @@ Active mandates (${deals.length}):
 ${deals.map(d => `- ${d.client_name} · ${d.stage} · ${d.sector || ''}`).join('\n') || '- none'}
 
 Write the 2-sentence brief now.`
-  const res = await fetch(`${GEMINI_URL}?key=${key}`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }], generationConfig: { temperature: 0.55, maxOutputTokens: 220 } })
-  })
-  if (!res.ok) throw new Error('gemini error')
-  const json = await res.json()
-  return (json?.candidates?.[0]?.content?.parts?.[0]?.text || '').trim()
+  return llmCall(prompt, { temperature: 0.55, maxOutputTokens: 220, actionType: 'meeting_prep' })
 }
 
 function trim(s, n) {

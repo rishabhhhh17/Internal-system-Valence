@@ -9,12 +9,9 @@
 //     source_summary: "one-line summary of what document this came from"
 //   }
 
-import { geminiKey, isGeminiConfigured } from './gemini.js'
-
-const URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent'
+import { llmCall } from './gemini.js'
 
 export async function extractFinancials(text) {
-  if (!isGeminiConfigured) throw new Error('Gemini API key required.')
   if (!text || !text.trim()) throw new Error('Empty document.')
 
   const prompt = `You are extracting structured financial data from an investment banking source document. Return STRICT JSON only. No preamble, no trailing commentary.
@@ -45,17 +42,11 @@ ${text.slice(0, 14000)}
 
 Return JSON only.`
 
-  const res = await fetch(`${URL}?key=${geminiKey}`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      contents: [{ parts: [{ text: prompt }] }],
-      generationConfig: { temperature: 0.1, maxOutputTokens: 1000 }
-    })
+  const raw = await llmCall(prompt, {
+    temperature: 0.1,
+    maxOutputTokens: 1000,
+    actionType: 'financials_extract'
   })
-  if (!res.ok) throw new Error(`Gemini error ${res.status}`)
-  const j = await res.json()
-  const raw = j?.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || ''
   const cleaned = raw.replace(/^```json\s*|\s*```$/g, '').trim()
   try { return JSON.parse(cleaned) }
   catch {

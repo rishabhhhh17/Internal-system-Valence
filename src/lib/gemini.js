@@ -19,7 +19,8 @@ import {
   clearApiKey as clearProviderApiKey
 } from './llmProviders.js'
 
-const LLM_PROXY_URL = '/api/llm'
+const LLM_PROXY_URL        = '/api/llm'
+const LLM_PROXY_STREAM_URL = '/api/llm-stream'
 
 // Legacy direct URL — kept ONLY for testGeminiKey() which tests a user-
 // provided key against Google directly (not through our proxy, since the
@@ -140,7 +141,26 @@ export const onLlmUsage = onGeminiUsage
 export function getLastGeminiUsage() { return _lastUsage }
 export const getLastLlmUsage = getLastGeminiUsage
 
-async function gemini(prompt, { temperature = 0.55, maxOutputTokens = 320, actionType = null } = {}) {
+// Shared helper — every caller in src/lib/ that wants a text-completion
+// from the active LLM flows through this. Resolves provider + key once,
+// posts to /api/llm, fires the usage pub/sub, and returns trimmed text.
+//
+// Options:
+//   temperature      — sampler temperature (default 0.55)
+//   maxOutputTokens  — output cap (default 320)
+//   actionType       — billing meter tag (e.g. 'deal_brief')
+//   responseMimeType — pass 'application/json' to ask the model for raw
+//                      JSON. Today only Gemini honours this server-side;
+//                      other providers ignore it and the caller has to
+//                      parse whatever text comes back. Most callers that
+//                      need JSON wrap with `try { JSON.parse(text) }
+//                      catch { … }` regardless.
+async function gemini(prompt, {
+  temperature = 0.55,
+  maxOutputTokens = 320,
+  actionType = null,
+  responseMimeType = null
+} = {}) {
   // Resolve the active provider. When the customer hasn't picked one,
   // getActiveConfig() falls back to Gemini, which is `managed` — the server
   // owns the key. So a fresh install with no user setup still works.
@@ -164,8 +184,22 @@ async function gemini(prompt, { temperature = 0.55, maxOutputTokens = 320, actio
   if (userApiKey) headers['x-llm-api-key'] = userApiKey
   if (baseUrl)    headers['x-llm-base-url'] = baseUrl
 
-  const body = { prompt, temperature, maxOutputTokens }
-  if (modelId) body.model = modelId
+  // For Gemini-specific knobs (responseMimeType) we use raw-passthrough so
+  // we can keep generationConfig untouched. Non-Gemini providers fall back
+  // to the convenience shape.
+  let body
+  if (responseMimeType && providerId === 'gemini') {
+    body = {
+      url: `/models/${modelId || 'gemini-2.0-flash'}:generateContent`,
+      body: {
+        contents: [{ parts: [{ text: prompt }] }],
+        generationConfig: { temperature, maxOutputTokens, responseMimeType }
+      }
+    }
+  } else {
+    body = { prompt, temperature, maxOutputTokens }
+    if (modelId) body.model = modelId
+  }
 
   const res = await fetch(LLM_PROXY_URL, {
     method: 'POST',
@@ -189,13 +223,158 @@ async function gemini(prompt, { temperature = 0.55, maxOutputTokens = 320, actio
     }
   }
 
-  // The unified proxy returns { data: { text } } regardless of provider.
-  // Also support the legacy { data: { candidates: [...] } } shape for the
-  // brief window before the proxy migration completes.
+  // The unified proxy returns { data: { text } } for the convenience
+  // shape, OR { data: <raw Gemini JSON> } for the raw-passthrough shape.
   const text = json?.data?.text
     ?? json?.data?.candidates?.[0]?.content?.parts?.[0]?.text
     ?? ''
   return String(text).trim()
+}
+
+// Public alias. New code in src/lib/ should call this instead of opening
+// its own fetch to Google. Identical signature to the internal `gemini`
+// function — just renamed for clarity now that the call goes through
+// our multi-provider proxy.
+export const llmCall = gemini
+
+// Streaming variant — text-only, multi-provider. Posts to /api/llm-stream
+// and reads back normalized SSE chunks of the form `data: TEXT\n\n`.
+// Calls `onChunk(text, full)` as each delta arrives and resolves with
+// the full concatenated answer when the stream closes.
+//
+// The proxy emits `data: [DONE]\n\n` as the close sentinel and may emit
+// `data: [ERROR] message\n\n` if the upstream fails mid-stream — those
+// surface as a thrown error to the caller.
+export async function llmStream(prompt, {
+  temperature = 0.25,
+  maxOutputTokens = 700,
+  actionType = null,
+  signal = null,
+  onChunk = null
+} = {}) {
+  let cfg
+  try { cfg = getActiveConfig() } catch { cfg = null }
+  const providerId = cfg?.providerId || 'gemini'
+  const modelId    = cfg?.modelId || null
+  const userApiKey = cfg?.apiKey || (providerId === 'gemini' && geminiKeySource === 'user' ? geminiKey : null)
+  const baseUrl    = cfg?.baseUrl || null
+
+  const okToCall = providerId === 'gemini'
+    ? Boolean(userApiKey || geminiKey || envGeminiKey)
+    : Boolean(userApiKey)
+  if (!okToCall) {
+    throw new Error(`${cfg?.provider?.label || providerId} API key not configured`)
+  }
+
+  const headers = { 'Content-Type': 'application/json', 'x-llm-provider': providerId }
+  if (userApiKey) headers['x-llm-api-key'] = userApiKey
+  if (baseUrl)    headers['x-llm-base-url'] = baseUrl
+
+  const body = { prompt, temperature, maxOutputTokens }
+  if (modelId) body.model = modelId
+
+  const res = await fetch(LLM_PROXY_STREAM_URL, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify(body),
+    signal: signal || undefined
+  })
+  if (!res.ok || !res.body) {
+    const t = await res.text().catch(() => '')
+    throw new Error(t.slice(0, 200) || `LLM stream error ${res.status}`)
+  }
+  const reader = res.body.getReader()
+  const decoder = new TextDecoder()
+  let buffer = ''
+  let full = ''
+  while (true) {
+    const { value, done } = await reader.read()
+    if (done) break
+    buffer += decoder.decode(value, { stream: true })
+    const lines = buffer.split('\n')
+    buffer = lines.pop() || ''
+    for (const line of lines) {
+      const trimmed = line.trim()
+      if (!trimmed.startsWith('data:')) continue
+      const payload = trimmed.slice(5).trim()
+      if (!payload) continue
+      if (payload === '[DONE]') {
+        return { text: full, provider: providerId, model: modelId }
+      }
+      if (payload.startsWith('[ERROR]')) {
+        throw new Error(payload.slice(7).trim())
+      }
+      full += payload
+      onChunk?.(payload, full)
+    }
+  }
+  // Fire the usage pub/sub even though the streaming proxy doesn't return
+  // token counts — keeps the meter visible to subscribers that only care
+  // about action types. Token counts will land in a follow-up phase when
+  // we wire the streaming proxy to capture upstream usage events.
+  _lastUsage = {
+    promptTokens: 0,
+    completionTokens: 0,
+    totalTokens: 0,
+    estimatedCostUsd: 0,
+    customerCostUsd: 0,
+    actionType: actionType || null,
+    provider: providerId,
+    model: modelId || null,
+    keySource: userApiKey ? 'byo' : 'managed',
+    at: new Date().toISOString()
+  }
+  for (const fn of _usageListeners) {
+    try { fn(_lastUsage) } catch (e) { console.warn('llm usage listener threw', e) }
+  }
+  return { text: full, provider: providerId, model: modelId }
+}
+
+// Raw-passthrough escape hatch — for callers that need a Gemini-specific
+// endpoint shape (embeddings :embedContent, audio :generateContent with
+// inline_data parts). Forces the active provider to Gemini for the call;
+// Gemini is the only provider whose raw API shape we mirror upstream.
+//
+//   url   — Gemini API path, e.g. '/models/text-embedding-004:embedContent'
+//   body  — exact JSON body to forward verbatim
+// Returns the raw upstream JSON (NOT the proxy's `{ data, usage }`
+// wrapper — raw responses don't have a normalized text field).
+export async function llmCallRaw({ url, body, actionType = null } = {}) {
+  // Force Gemini for raw passthrough — non-Gemini providers don't share
+  // the URL shape, so we just key off our own server env regardless of
+  // what provider the customer picked.
+  const userKey = geminiKeySource === 'user' ? geminiKey : null
+  const okToCall = Boolean(userKey || geminiKey || envGeminiKey)
+  if (!okToCall) throw new Error('Gemini API key not configured (raw passthrough requires Gemini)')
+
+  const headers = { 'Content-Type': 'application/json', 'x-llm-provider': 'gemini' }
+  if (userKey) headers['x-llm-api-key'] = userKey
+
+  const res = await fetch(LLM_PROXY_URL, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({ url, body })
+  })
+  const json = await res.json().catch(() => null)
+  if (!res.ok) throw new Error(json?.error || `LLM proxy error ${res.status}`)
+
+  if (json?.usage) {
+    _lastUsage = {
+      ...json.usage,
+      actionType: actionType || null,
+      provider: json.provider || 'gemini',
+      model:    json.model    || null,
+      keySource: json.keySource || (userKey ? 'byo' : 'managed'),
+      at: new Date().toISOString()
+    }
+    for (const fn of _usageListeners) {
+      try { fn(_lastUsage) } catch (e) { console.warn('llm usage listener threw', e) }
+    }
+  }
+
+  // Return the raw upstream JSON so callers can read provider-specific
+  // fields like embedding.values.
+  return json?.data?.raw ?? json?.data ?? null
 }
 
 export async function generateDaySummary({ meetings, tasks, dateLabel }) {
