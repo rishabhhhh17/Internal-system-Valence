@@ -31,29 +31,34 @@
 // both the provider's pricing table AND the upstream's reported token
 // counts. Pricing tables are pinned per provider; see PRICING below.
 
+// Per-1k-token pricing.
+//   `ours` — our marginal cost (what we pay upstream).
+//   `customer` — what we bill the customer when they're on the
+//     MANAGED plan for this provider (i.e. we supply the key). When the
+//     customer brings their own key, we bill them nothing for tokens; the
+//     provider invoices them directly.
+//   PLACEHOLDERS — the customer-facing markup is roughly 2× our cost
+//   today; senior team to lock in real numbers before launch.
 const PRICING = {
-  // USD per 1k tokens. Inputs roughly tracked from each provider's docs as
-  // of 2026-Q2 — these are PLACEHOLDERS subject to launch-day recalibration.
   gemini: {
-    'gemini-2.0-flash': { in: 0.000075, out: 0.00030 },
-    'gemini-2.5-flash': { in: 0.000150, out: 0.00060 },
-    'gemini-2.5-pro':   { in: 0.00125,  out: 0.00500 }
+    'gemini-2.0-flash': { ours: { in: 0.000075, out: 0.00030 },  customer: { in: 0.00015, out: 0.00060 } },
+    'gemini-2.5-flash': { ours: { in: 0.000150, out: 0.00060 },  customer: { in: 0.00030, out: 0.00120 } },
+    'gemini-2.5-pro':   { ours: { in: 0.00125,  out: 0.00500 },  customer: { in: 0.00250, out: 0.01000 } }
   },
   openai: {
-    'gpt-4o-mini':   { in: 0.00015, out: 0.00060 },
-    'gpt-4o':        { in: 0.00250, out: 0.01000 },
-    'gpt-4.1-mini':  { in: 0.00040, out: 0.00160 }
+    'gpt-4o-mini':   { ours: { in: 0.00015, out: 0.00060 }, customer: { in: 0.00030, out: 0.00120 } },
+    'gpt-4o':        { ours: { in: 0.00250, out: 0.01000 }, customer: { in: 0.00500, out: 0.02000 } },
+    'gpt-4.1-mini':  { ours: { in: 0.00040, out: 0.00160 }, customer: { in: 0.00080, out: 0.00320 } }
   },
   anthropic: {
-    'claude-3-5-haiku-latest':  { in: 0.00080, out: 0.00400 },
-    'claude-3-5-sonnet-latest': { in: 0.00300, out: 0.01500 },
-    'claude-opus-4-5':          { in: 0.01500, out: 0.07500 }
+    'claude-3-5-haiku-latest':  { ours: { in: 0.00080, out: 0.00400 }, customer: { in: 0.00160, out: 0.00800 } },
+    'claude-3-5-sonnet-latest': { ours: { in: 0.00300, out: 0.01500 }, customer: { in: 0.00600, out: 0.03000 } },
+    'claude-opus-4-5':          { ours: { in: 0.01500, out: 0.07500 }, customer: { in: 0.03000, out: 0.15000 } }
   },
   vercel_ai_gateway: {
-    // Gateway exposes provider/model pairs as the model id.
-    'anthropic/claude-3-5-haiku': { in: 0.00080, out: 0.00400 },
-    'openai/gpt-4o-mini':         { in: 0.00015, out: 0.00060 },
-    'google/gemini-2.0-flash':    { in: 0.000075, out: 0.00030 }
+    'anthropic/claude-3-5-haiku': { ours: { in: 0.00080,  out: 0.00400 }, customer: { in: 0.00160, out: 0.00800 } },
+    'openai/gpt-4o-mini':         { ours: { in: 0.00015,  out: 0.00060 }, customer: { in: 0.00030, out: 0.00120 } },
+    'google/gemini-2.0-flash':    { ours: { in: 0.000075, out: 0.00030 }, customer: { in: 0.00015, out: 0.00060 } }
   },
   custom_openai: { /* customer's deployment — we don't know their cost */ }
 }
@@ -123,7 +128,12 @@ export default async function handler(req, res) {
     if (!dispatched.ok) {
       return res.status(dispatched.status || 502).json({ error: dispatched.error || 'Upstream call failed' })
     }
-    const usage = computeUsage(providerId, model, dispatched.usage)
+    // keySource records whether the customer is paying the upstream
+    // provider directly (BYO) or paying us (managed). When BYO,
+    // customerCostUsd is zero — we don't double-bill. When managed,
+    // customerCostUsd is what their invoice line will be for this call.
+    const keySource = userKey ? 'byo' : 'managed'
+    const usage = computeUsage(providerId, model, dispatched.usage, keySource)
     return res.status(200).json({
       data: {
         text: dispatched.text,
@@ -131,6 +141,7 @@ export default async function handler(req, res) {
       },
       provider: providerId,
       model,
+      keySource,
       usage
     })
   } catch (err) {
@@ -290,16 +301,25 @@ async function callVercelGateway({ apiKey, model, prompt, temperature, maxTokens
 }
 
 // ============ COST ============
-function computeUsage(providerId, model, raw) {
+// Returns two cost numbers:
+//   - estimatedCostUsd : OUR marginal cost (we pay this upstream). Always
+//     present so admin can see real burn.
+//   - customerCostUsd  : what we BILL the customer for this call. Zero
+//     when keySource === 'byo' (customer paid the upstream directly).
+function computeUsage(providerId, model, raw, keySource) {
   const prompt     = Number(raw?.promptTokens)     || 0
   const completion = Number(raw?.completionTokens) || 0
   const total      = Number(raw?.totalTokens)      || (prompt + completion)
   const rates = (PRICING[providerId] && PRICING[providerId][model]) || null
   let estimatedCostUsd = 0
+  let customerCostUsd  = 0
   if (rates) {
-    estimatedCostUsd = round6((prompt / 1000) * rates.in + (completion / 1000) * rates.out)
+    estimatedCostUsd = round6((prompt / 1000) * rates.ours.in + (completion / 1000) * rates.ours.out)
+    if (keySource !== 'byo' && rates.customer) {
+      customerCostUsd = round6((prompt / 1000) * rates.customer.in + (completion / 1000) * rates.customer.out)
+    }
   }
-  return { promptTokens: prompt, completionTokens: completion, totalTokens: total, estimatedCostUsd }
+  return { promptTokens: prompt, completionTokens: completion, totalTokens: total, estimatedCostUsd, customerCostUsd }
 }
 
 function round6(n) { return Math.round((Number(n) || 0) * 1e6) / 1e6 }

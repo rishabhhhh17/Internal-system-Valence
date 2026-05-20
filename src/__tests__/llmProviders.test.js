@@ -42,10 +42,27 @@ describe('provider catalogue', () => {
     }
   })
 
-  it('only Gemini is marked managed', async () => {
+  it('every provider except custom_openai supports managed mode (we supply the key)', async () => {
     const m = await load()
-    const managed = m.PROVIDERS.filter(p => p.managed).map(p => p.id)
-    expect(managed).toEqual(['gemini'])
+    const managed   = m.PROVIDERS.filter(p =>  p.managed).map(p => p.id).sort()
+    const unmanaged = m.PROVIDERS.filter(p => !p.managed).map(p => p.id).sort()
+    expect(managed).toEqual(['anthropic', 'gemini', 'openai', 'vercel_ai_gateway'])
+    expect(unmanaged).toEqual(['custom_openai'])
+  })
+
+  it('every managed model exposes customer-billed input/output rates', async () => {
+    const m = await load()
+    for (const p of m.PROVIDERS) {
+      if (!p.managed) continue
+      for (const mod of p.models) {
+        expect(typeof mod.customerInputUsdPer1K).toBe('number')
+        expect(typeof mod.customerOutputUsdPer1K).toBe('number')
+        // Customer rate is at least equal to our cost — we don't sell at a
+        // loss. (Custom_openai is excluded because we don't know its cost.)
+        expect(mod.customerInputUsdPer1K).toBeGreaterThanOrEqual(mod.inputUsdPer1K)
+        expect(mod.customerOutputUsdPer1K).toBeGreaterThanOrEqual(mod.outputUsdPer1K)
+      }
+    }
   })
 })
 
@@ -132,16 +149,19 @@ describe('per-provider API keys', () => {
 })
 
 describe('isProviderConfigured', () => {
-  it('Gemini is always configured even without a user key (managed by server)', async () => {
+  it('every managed provider is configured by default — we supply the key', async () => {
     const m = await load()
     expect(m.isProviderConfigured('gemini')).toBe(true)
+    expect(m.isProviderConfigured('openai')).toBe(true)
+    expect(m.isProviderConfigured('anthropic')).toBe(true)
+    expect(m.isProviderConfigured('vercel_ai_gateway')).toBe(true)
   })
 
-  it('non-managed providers require a user key', async () => {
+  it('non-managed (custom_openai) requires a user-supplied key', async () => {
     const m = await load()
-    expect(m.isProviderConfigured('openai')).toBe(false)
-    m.setApiKey('openai', 'sk-test')
-    expect(m.isProviderConfigured('openai')).toBe(true)
+    expect(m.isProviderConfigured('custom_openai')).toBe(false)
+    m.setApiKey('custom_openai', 'sk-test')
+    expect(m.isProviderConfigured('custom_openai')).toBe(true)
   })
 })
 

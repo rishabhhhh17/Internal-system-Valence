@@ -181,6 +181,7 @@ async function gemini(prompt, { temperature = 0.55, maxOutputTokens = 320, actio
       actionType: actionType || null,
       provider: json.provider || providerId,
       model:    json.model    || modelId || null,
+      keySource: json.keySource || (userApiKey ? 'byo' : 'managed'),
       at: new Date().toISOString()
     }
     for (const fn of _usageListeners) {

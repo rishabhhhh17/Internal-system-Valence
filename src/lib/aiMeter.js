@@ -84,6 +84,8 @@ export function startAiMeter() {
         classification: gate.classification,
         tokensUsed: usage.totalTokens || null,
         estimatedCostUsd: usage.estimatedCostUsd || null,
+        customerCostUsd: usage.customerCostUsd || null,
+        keySource: usage.keySource || null,
         provider: usage.provider || null,
         model:    usage.model || null
       })

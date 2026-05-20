@@ -780,4 +780,42 @@ describe('recordAiAction: token + cost capture', () => {
     expect(row.tokens_used).toBeNull()
     expect(row.estimated_cost_usd).toBeNull()
   })
+
+  it('persists customer_cost_usd + key_source for managed calls', async () => {
+    const sb = makeMockSupabase({
+      orgs: [{ id: 'o1', plan: 'we_run_ai', cycle_anchor_day: 1, name: 'A' }],
+      billing_config: [{ id: 'g', org_id: null, ...CFG }],
+      seats: [{ id: 's1', org_id: 'o1', active: true, billable_from: '2020-01-01' }]
+    })
+    const cycle = await openCycle(sb, 'o1', new Date(2026, 4, 15))
+    const row = await recordAiAction(sb, {
+      orgId: 'o1', seatId: 's1', cycleId: cycle.id,
+      classification: 'included', actionType: 'deal_brief',
+      tokensUsed: 2400, estimatedCostUsd: 0.0072,
+      customerCostUsd: 0.0144, keySource: 'managed',
+      provider: 'anthropic', model: 'claude-3-5-haiku-latest'
+    })
+    expect(row.customer_cost_usd).toBe(0.0144)
+    expect(row.key_source).toBe('managed')
+    expect(row.provider).toBe('anthropic')
+    expect(row.model).toBe('claude-3-5-haiku-latest')
+  })
+
+  it('records key_source=byo with zero customer_cost — we do not double-bill', async () => {
+    const sb = makeMockSupabase({
+      orgs: [{ id: 'o1', plan: 'we_run_ai', cycle_anchor_day: 1, name: 'A' }],
+      billing_config: [{ id: 'g', org_id: null, ...CFG }],
+      seats: [{ id: 's1', org_id: 'o1', active: true, billable_from: '2020-01-01' }]
+    })
+    const cycle = await openCycle(sb, 'o1', new Date(2026, 4, 15))
+    const row = await recordAiAction(sb, {
+      orgId: 'o1', seatId: 's1', cycleId: cycle.id,
+      classification: 'included', actionType: 'ask',
+      tokensUsed: 1000, estimatedCostUsd: 0.0,
+      customerCostUsd: 0, keySource: 'byo',
+      provider: 'openai', model: 'gpt-4o-mini'
+    })
+    expect(row.customer_cost_usd).toBe(0)
+    expect(row.key_source).toBe('byo')
+  })
 })

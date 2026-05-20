@@ -1784,3 +1784,14 @@ alter table public.ai_actions
 
 create index if not exists ai_actions_org_provider_idx
   on public.ai_actions (org_id, provider);
+
+-- =========================================================================
+-- Phase 11 — customer-billed cost + key source on each AI action.
+-- Mirrors supabase/phase-11-customer-cost-and-key-source.sql.
+-- =========================================================================
+alter table public.ai_actions
+  add column if not exists customer_cost_usd numeric,
+  add column if not exists key_source        text;
+
+create index if not exists ai_actions_org_key_source_idx
+  on public.ai_actions (org_id, key_source);

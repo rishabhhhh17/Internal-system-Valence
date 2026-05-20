@@ -36,14 +36,26 @@
 //                     enforced because customers will paste whatever and
 //                     we don't want to false-reject a renamed format
 //   defaultModel    — the model used when none is picked
-//   models          — array of { id, label, description, inputUsdPer1K,
-//                     outputUsdPer1K }. inputUsdPer1K and outputUsdPer1K
-//                     drive estimated-cost calculations in the proxy.
+//   models          — array of { id, label, description,
+//                     inputUsdPer1K, outputUsdPer1K,
+//                     customerInputUsdPer1K, customerOutputUsdPer1K }.
+//                     - inputUsdPer1K / outputUsdPer1K are OUR marginal
+//                       cost (what we pay the upstream).
+//                     - customerInputUsdPer1K / customerOutputUsdPer1K
+//                       are what we BILL the customer when they're on
+//                       the managed plan for this provider — i.e. our
+//                       cost + markup.  Placeholders today; senior team
+//                       to lock in real numbers.
 //   supportsStreaming — informational only (we don't use streaming yet)
 //   supportsEmbeddings — whether this provider can serve text-embedding-* —
 //                     today only Gemini is wired for embeddings.
-//   managed         — true when the server has a default key on file (env
-//                     var). When false, the customer MUST supply a key.
+//   managed         — true when WE can supply the key (server has the env
+//                     var on file). All five providers default to true so
+//                     a customer can pick any LLM and have us handle the
+//                     key — they can ALSO bring their own to bypass our
+//                     pricing.  The proxy verifies the server env var
+//                     actually exists at request time and falls back to
+//                     "BYO required" if it's missing.
 
 export const PROVIDERS = Object.freeze([
   {
@@ -60,21 +72,27 @@ export const PROVIDERS = Object.freeze([
         label: 'Gemini 2.0 Flash',
         description: 'Default. Best price-to-quality for everyday calls.',
         inputUsdPer1K: 0.000075,
-        outputUsdPer1K: 0.00030
+        outputUsdPer1K: 0.00030,
+        customerInputUsdPer1K: 0.00015,
+        customerOutputUsdPer1K: 0.00060
       },
       {
         id: 'gemini-2.5-flash',
         label: 'Gemini 2.5 Flash',
         description: 'Newer flash — slightly higher quality, similar cost.',
         inputUsdPer1K: 0.000150,
-        outputUsdPer1K: 0.00060
+        outputUsdPer1K: 0.00060,
+        customerInputUsdPer1K: 0.00030,
+        customerOutputUsdPer1K: 0.00120
       },
       {
         id: 'gemini-2.5-pro',
         label: 'Gemini 2.5 Pro',
         description: 'Higher reasoning quality; use for deal briefs / long context.',
         inputUsdPer1K: 0.00125,
-        outputUsdPer1K: 0.00500
+        outputUsdPer1K: 0.00500,
+        customerInputUsdPer1K: 0.00250,
+        customerOutputUsdPer1K: 0.01000
       }
     ],
     supportsStreaming: true,
@@ -84,7 +102,7 @@ export const PROVIDERS = Object.freeze([
   {
     id: 'openai',
     label: 'OpenAI',
-    description: 'Bring your own OpenAI key. Best for GPT-4o / o-series workflows.',
+    description: 'Pick OpenAI. We can supply the key or you can bring your own.',
     keyHelpUrl: 'https://platform.openai.com/api-keys',
     keyPlaceholder: 'sk-…',
     keyPrefix: 'sk-',
@@ -95,31 +113,37 @@ export const PROVIDERS = Object.freeze([
         label: 'GPT-4o mini',
         description: 'Cheap + capable. Closest analogue to Gemini Flash.',
         inputUsdPer1K: 0.00015,
-        outputUsdPer1K: 0.00060
+        outputUsdPer1K: 0.00060,
+        customerInputUsdPer1K: 0.00030,
+        customerOutputUsdPer1K: 0.00120
       },
       {
         id: 'gpt-4o',
         label: 'GPT-4o',
         description: 'Flagship. Use for high-stakes prose.',
         inputUsdPer1K: 0.0025,
-        outputUsdPer1K: 0.0100
+        outputUsdPer1K: 0.0100,
+        customerInputUsdPer1K: 0.00500,
+        customerOutputUsdPer1K: 0.02000
       },
       {
         id: 'gpt-4.1-mini',
         label: 'GPT-4.1 mini',
         description: 'Newer mini — favours instruction following.',
         inputUsdPer1K: 0.00040,
-        outputUsdPer1K: 0.00160
+        outputUsdPer1K: 0.00160,
+        customerInputUsdPer1K: 0.00080,
+        customerOutputUsdPer1K: 0.00320
       }
     ],
     supportsStreaming: true,
     supportsEmbeddings: false,
-    managed: false
+    managed: true
   },
   {
     id: 'anthropic',
     label: 'Anthropic Claude',
-    description: 'Bring your own Anthropic key. Strong reasoning + long context.',
+    description: 'Pick Claude. We can supply the key or you can bring your own.',
     keyHelpUrl: 'https://console.anthropic.com/settings/keys',
     keyPlaceholder: 'sk-ant-…',
     keyPrefix: 'sk-ant',
@@ -130,26 +154,32 @@ export const PROVIDERS = Object.freeze([
         label: 'Claude 3.5 Haiku',
         description: 'Fast + cheap. Comparable footprint to Gemini Flash.',
         inputUsdPer1K: 0.00080,
-        outputUsdPer1K: 0.00400
+        outputUsdPer1K: 0.00400,
+        customerInputUsdPer1K: 0.00160,
+        customerOutputUsdPer1K: 0.00800
       },
       {
         id: 'claude-3-5-sonnet-latest',
         label: 'Claude 3.5 Sonnet',
         description: 'Balanced. Strong on structured briefs + JSON.',
         inputUsdPer1K: 0.00300,
-        outputUsdPer1K: 0.01500
+        outputUsdPer1K: 0.01500,
+        customerInputUsdPer1K: 0.00600,
+        customerOutputUsdPer1K: 0.03000
       },
       {
         id: 'claude-opus-4-5',
         label: 'Claude Opus 4.5',
         description: 'Frontier model. Use sparingly — most expensive option.',
         inputUsdPer1K: 0.01500,
-        outputUsdPer1K: 0.07500
+        outputUsdPer1K: 0.07500,
+        customerInputUsdPer1K: 0.03000,
+        customerOutputUsdPer1K: 0.15000
       }
     ],
     supportsStreaming: true,
     supportsEmbeddings: false,
-    managed: false
+    managed: true
   },
   {
     id: 'vercel_ai_gateway',
@@ -165,26 +195,32 @@ export const PROVIDERS = Object.freeze([
         label: 'Anthropic · Claude 3.5 Haiku',
         description: 'Cheap Claude through the Gateway.',
         inputUsdPer1K: 0.00080,
-        outputUsdPer1K: 0.00400
+        outputUsdPer1K: 0.00400,
+        customerInputUsdPer1K: 0.00160,
+        customerOutputUsdPer1K: 0.00800
       },
       {
         id: 'openai/gpt-4o-mini',
         label: 'OpenAI · GPT-4o mini',
         description: 'Cheap GPT through the Gateway.',
         inputUsdPer1K: 0.00015,
-        outputUsdPer1K: 0.00060
+        outputUsdPer1K: 0.00060,
+        customerInputUsdPer1K: 0.00030,
+        customerOutputUsdPer1K: 0.00120
       },
       {
         id: 'google/gemini-2.0-flash',
         label: 'Google · Gemini 2.0 Flash',
         description: 'Gemini through the Gateway.',
         inputUsdPer1K: 0.000075,
-        outputUsdPer1K: 0.00030
+        outputUsdPer1K: 0.00030,
+        customerInputUsdPer1K: 0.00015,
+        customerOutputUsdPer1K: 0.00060
       }
     ],
     supportsStreaming: true,
     supportsEmbeddings: false,
-    managed: false
+    managed: true
   },
   {
     id: 'custom_openai',

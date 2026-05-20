@@ -411,6 +411,7 @@ export async function checkAiAction(supabase, { orgId, seatId }) {
 export async function recordAiAction(supabase, {
   orgId, seatId, cycleId, actionType, classification,
   tokensUsed = null, estimatedCostUsd = null,
+  customerCostUsd = null, keySource = null,
   provider = null, model = null
 }) {
   if (classification !== 'included' && classification !== 'overage') {
@@ -426,6 +427,8 @@ export async function recordAiAction(supabase, {
       classification,
       tokens_used: tokensUsed,
       estimated_cost_usd: estimatedCostUsd,
+      customer_cost_usd: customerCostUsd,
+      key_source: keySource,
       provider,
       model
     })
@@ -447,7 +450,7 @@ export async function getAdminConsumptionOverview(supabase) {
   const [orgsRes, cyclesRes, actionsRes, linesRes, storageRes, seatsRes] = await Promise.all([
     supabase.from('orgs').select('*'),
     supabase.from('billing_cycles').select('*').eq('status', 'open'),
-    supabase.from('ai_actions').select('org_id, classification, tokens_used, estimated_cost_usd, provider, model'),
+    supabase.from('ai_actions').select('org_id, classification, tokens_used, estimated_cost_usd, customer_cost_usd, key_source, provider, model'),
     supabase.from('invoice_line_items').select('*'),
     supabase.from('storage_usage')
       .select('org_id, total_bytes, review_flagged, review_resolved_at, measured_at')
@@ -466,21 +469,32 @@ export async function getAdminConsumptionOverview(supabase) {
   const aiByOrg = new Map()
   for (const a of (actionsRes.data || [])) {
     const row = aiByOrg.get(a.org_id) || {
-      includedCount: 0,
-      overageCount:  0,
-      tokensTotal:   0,
-      costTotal:     0,
-      providers:     new Map()    // key "<provider>|<model>" → { count, tokens, cost }
+      includedCount:    0,
+      overageCount:     0,
+      tokensTotal:      0,
+      costTotal:        0,    // OUR marginal cost (what we paid upstream)
+      customerCostTotal: 0,   // what we BILL the customer for AI tokens
+      managedCount:     0,    // calls we served (our key)
+      byoCount:         0,    // calls customer's BYO key served
+      providers:        new Map()
     }
     if (a.classification === 'included') row.includedCount += 1
     if (a.classification === 'overage')  row.overageCount  += 1
-    row.tokensTotal += Number(a.tokens_used)        || 0
-    row.costTotal   += Number(a.estimated_cost_usd) || 0
+    if (a.key_source === 'byo')      row.byoCount     += 1
+    if (a.key_source === 'managed')  row.managedCount += 1
+    row.tokensTotal       += Number(a.tokens_used)         || 0
+    row.costTotal         += Number(a.estimated_cost_usd)  || 0
+    row.customerCostTotal += Number(a.customer_cost_usd)   || 0
     const providerKey = `${a.provider || 'unknown'}|${a.model || 'unknown'}`
-    const bucket = row.providers.get(providerKey) || { provider: a.provider || null, model: a.model || null, count: 0, tokens: 0, cost: 0 }
-    bucket.count  += 1
-    bucket.tokens += Number(a.tokens_used)        || 0
-    bucket.cost   += Number(a.estimated_cost_usd) || 0
+    const bucket = row.providers.get(providerKey) || {
+      provider: a.provider || null, model: a.model || null,
+      count: 0, tokens: 0, cost: 0, customerCost: 0,
+      keySource: a.key_source || null
+    }
+    bucket.count        += 1
+    bucket.tokens       += Number(a.tokens_used)        || 0
+    bucket.cost         += Number(a.estimated_cost_usd) || 0
+    bucket.customerCost += Number(a.customer_cost_usd)  || 0
     row.providers.set(providerKey, bucket)
     aiByOrg.set(a.org_id, row)
   }
@@ -506,7 +520,7 @@ export async function getAdminConsumptionOverview(supabase) {
 
   return orgs.map(org => {
     const cycle = cyclesByOrg.get(org.id) || null
-    const ai    = aiByOrg.get(org.id) || { includedCount: 0, overageCount: 0, tokensTotal: 0, costTotal: 0, providers: new Map() }
+    const ai    = aiByOrg.get(org.id) || { includedCount: 0, overageCount: 0, tokensTotal: 0, costTotal: 0, customerCostTotal: 0, managedCount: 0, byoCount: 0, providers: new Map() }
     const storage = storageByOrg.get(org.id) || { bytes: 0, flagged: false, measured_at: null }
     const cycleInvoice = cycle ? round2(invoiceByCycle.get(cycle.id) || 0) : 0
     const seatCount = seatsByOrg.get(org.id) || 0
@@ -522,11 +536,14 @@ export async function getAdminConsumptionOverview(supabase) {
       aiActionsTotal:      ai.includedCount + ai.overageCount,
       aiAllowanceTotal:    allowanceLimit,                          // sum across all seats
       aiTokensUsed:        ai.tokensTotal,
-      aiEstimatedCostUsd:  round2(ai.costTotal),                    // what we paid the provider
+      aiEstimatedCostUsd:  round2(ai.costTotal),                    // what we paid the provider upstream
+      aiCustomerCostUsd:   round2(ai.customerCostTotal),            // what we'll bill the customer for AI tokens (managed plan only)
+      aiManagedCount:      ai.managedCount,                         // calls we keyed
+      aiByoCount:          ai.byoCount,                             // calls customer's own key keyed
       // Per-(provider,model) breakdown so admin can see which LLM bill
-      // this customer is generating. Sorted by cost desc; biggest hit first.
+      // this customer is generating. Sorted by our cost desc; biggest hit first.
       aiProviderMix:       Array.from(ai.providers.values())
-                             .map(b => ({ ...b, cost: round2(b.cost) }))
+                             .map(b => ({ ...b, cost: round2(b.cost), customerCost: round2(b.customerCost) }))
                              .sort((a, b) => b.cost - a.cost || b.count - a.count),
       // Money customer owes for THIS cycle (snapshot)
       cycleInvoiceUsd:     cycleInvoice,
