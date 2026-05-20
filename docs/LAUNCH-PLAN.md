@@ -8,17 +8,34 @@ Last updated: 2026-05-20.
 
 ---
 
-## 1. Move Gemini key off the client bundle — **shipped** ✅
+## 1. Move Gemini key off the client bundle — **partially shipped** 🟡
 
 PR: `feat/launch-prep-1`.
 - `api/gemini.js` Vercel serverless function holds the key server-side.
-- `src/lib/gemini.js` posts to `/api/gemini` instead of Google directly.
+- `src/lib/gemini.js` posts to `/api/gemini` instead of Google directly —
+  covers Day Summary, Meeting Message, Deal Brief, Meeting Summary,
+  Teaser Extract, Email Draft.
 - `vercel.json` SPA rewrite updated to exclude `/api/*`.
 - BYO-key flow preserved: caller sends `x-user-gemini-key` header; proxy honours it.
+
+**Still calling Google directly (security gap):**
+- `src/lib/rag.js` — Ask chat (streaming)
+- `src/lib/cim.js` — CIM generator (streaming)
+- `src/lib/embeddings.js` — vector embeddings
+- `src/lib/screener.js` — Quick Screener
+- `src/lib/financials.js` — extract financials
+- `src/lib/targets.js` — target lists
+- `src/lib/voiceMemo.js` — voice memo transcription
+- `src/lib/meetingPrep.js`, `src/lib/meetingIntel.js`
+
+These need the proxy extended to handle streaming (SSE passthrough) and
+embedContent. Until then, those code paths still leak the key into the
+bundle on browsers that use them.
+
 - **Action you need to take after deploy:**
   - Set `GEMINI_API_KEY` in the Vercel project's env (Production + Preview).
-  - Remove `VITE_GEMINI_API_KEY` from Vercel env — it's no longer needed and
-    leaks via the build.
+  - Remove `VITE_GEMINI_API_KEY` from Vercel env — it's no longer needed
+    by the migrated paths and was leaking via the build.
 
 ```bash
 vercel env add GEMINI_API_KEY production

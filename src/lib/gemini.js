@@ -133,7 +133,7 @@ Open tasks (${tasks.filter(t => !t.completed).length}):
 ${tasks.filter(t => !t.completed).map(t => `- ${t.title}`).join('\n') || '- none'}
 
 Write the summary now.`
-  return gemini(prompt, { temperature: 0.55, maxOutputTokens: 260 })
+  return gemini(prompt, { temperature: 0.55, maxOutputTokens: 260, actionType: 'day_summary' })
 }
 
 export async function draftMeetingMessage({ title, date, time, attendeeName }) {
@@ -145,7 +145,7 @@ Proposed time: ${time}
 Attendee: ${attendeeName}
 
 Write the message now.`
-  return gemini(prompt, { temperature: 0.6, maxOutputTokens: 320 })
+  return gemini(prompt, { temperature: 0.6, maxOutputTokens: 320, actionType: 'meeting_message' })
 }
 
 // ============ DEAL BRIEFER ============
@@ -200,7 +200,7 @@ ${activities.slice(0, 8).map(a => `- ${a.kind}: ${a.body || ''}`).join('\n') || 
 
 Write the brief now.`
 
-  return gemini(prompt, { temperature: 0.45, maxOutputTokens: 620 })
+  return gemini(prompt, { temperature: 0.45, maxOutputTokens: 620, actionType: 'deal_brief' })
 }
 
 // ============ EMAIL SCENARIOS ============
@@ -254,7 +254,7 @@ Attendees: ${attendees.join(', ') || ''}
 Notes:
 ${notes}`
 
-  const text = await gemini(prompt, { temperature: 0.2, maxOutputTokens: 900 })
+  const text = await gemini(prompt, { temperature: 0.2, maxOutputTokens: 900, actionType: 'meeting_summary' })
   const cleaned = text.replace(/^```json\s*|\s*```$/g, '').trim()
   try {
     return JSON.parse(cleaned)
@@ -283,7 +283,7 @@ Schema (null where unknown):
 Teaser text (truncated):
 ${text.slice(0, 9000)}`
 
-  const raw = await gemini(prompt, { temperature: 0.15, maxOutputTokens: 600 })
+  const raw = await gemini(prompt, { temperature: 0.15, maxOutputTokens: 600, actionType: 'teaser_extract' })
   const cleaned = raw.replace(/^```json\s*|\s*```$/g, '').trim()
   try { return JSON.parse(cleaned) }
   catch {
@@ -309,7 +309,7 @@ Context:
 - Internal notes: ${deal.notes || '—'}
 
 Write the email now.`
-  return gemini(prompt, { temperature: 0.65, maxOutputTokens: 420 })
+  return gemini(prompt, { temperature: 0.65, maxOutputTokens: 420, actionType: 'email_draft' })
 }
 
 // ============ HEURISTIC FALLBACKS ============
