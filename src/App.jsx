@@ -25,10 +25,14 @@ import Login from './pages/Login.jsx'
 import FitPreview from './pages/FitPreview.jsx'
 import Settings from './pages/Settings.jsx'
 import AdminBilling from './pages/AdminBilling.jsx'
+import Terms from './pages/Terms.jsx'
+import Privacy from './pages/Privacy.jsx'
+import Onboarding from './pages/Onboarding.jsx'
 import { useAuth } from './hooks/useAuth.js'
 import { isSupabaseConfigured } from './lib/supabase.js'
 import { useWorkspaceSetting } from './hooks/useWorkspaceSetting.js'
 import { WORKSPACE_KEYS, effectiveBrowserTitle, resolveTheme } from './lib/workspace.js'
+import { startAiMeter } from './lib/aiMeter.js'
 
 export default function App() {
   const { pathname } = useLocation()
@@ -44,6 +48,14 @@ export default function App() {
     if (typeof document === 'undefined') return
     document.title = effectiveBrowserTitle()
   }, [firmName, browserTitleOverride])
+
+  // Start the AI meter once per app lifetime. It listens for Gemini
+  // usage events and records billable ai_actions rows when there's an
+  // active org/seat (set during onboarding). Safe no-op otherwise.
+  useEffect(() => {
+    const off = startAiMeter()
+    return off
+  }, [])
 
   useEffect(() => {
     if (typeof document === 'undefined') return
@@ -88,6 +100,18 @@ export default function App() {
       <Routes>
         <Route path="/intake" element={<Intake />} />
         <Route path="/intake/thanks" element={<IntakeThanks />} />
+      </Routes>
+    )
+  }
+
+  // Legal + onboarding render without sidebar/topbar chrome. Onboarding
+  // pre-dates the workspace; Terms/Privacy are public-facing.
+  if (pathname === '/terms' || pathname === '/privacy' || pathname === '/onboarding') {
+    return (
+      <Routes>
+        <Route path="/terms"      element={<Terms />} />
+        <Route path="/privacy"    element={<Privacy />} />
+        <Route path="/onboarding" element={<Onboarding />} />
       </Routes>
     )
   }
