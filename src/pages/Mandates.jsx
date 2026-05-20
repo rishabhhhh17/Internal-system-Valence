@@ -134,11 +134,11 @@ export default function Mandates() {
             className={`rounded-full border px-2.5 py-1 text-[11px] font-semibold transition ${
               ownerFilter === o
                 ? 'border-valence-blue/40 bg-valence-blue-soft text-valence-text'
-                : 'border-valence-border bg-white text-valence-muted hover:text-valence-text'
+                : 'border-valence-border bg-valence-elevated text-valence-muted hover:text-valence-text'
             }`}
           >{o}</button>
         ))}
-        <span className="ml-auto inline-flex items-center gap-1.5 rounded-full border border-valence-border bg-white px-2.5 py-1 text-[11px] text-valence-muted">
+        <span className="ml-auto inline-flex items-center gap-1.5 rounded-full border border-valence-border bg-valence-elevated px-2.5 py-1 text-[11px] text-valence-muted">
           <Users className="h-3 w-3" /> {totalLive} live mandate{totalLive === 1 ? '' : 's'}
         </span>
       </div>

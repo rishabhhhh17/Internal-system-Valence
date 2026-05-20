@@ -93,7 +93,7 @@ export default function TimelineTable({ deals, activities, onOpenDeal }) {
                 onClick={() => onOpenDeal?.(deal)}
                 className="border-b border-valence-border/60 hover:bg-valence-blue-soft/30 transition cursor-pointer"
               >
-                <td className="sticky left-0 z-10 bg-white px-4 py-3 align-top">
+                <td className="sticky left-0 z-10 bg-valence-elevated px-4 py-3 align-top">
                   <p className="font-semibold text-valence-text">{deal.client_name}</p>
                   <div className="mt-1 flex flex-wrap items-center gap-1.5 text-[10px] text-valence-muted">
                     {deal.sector && <span className="rounded bg-valence-surface px-1.5 py-0">{deal.sector}</span>}

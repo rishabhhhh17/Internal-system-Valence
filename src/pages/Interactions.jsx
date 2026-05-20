@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { format, formatDistanceToNowStrict, parseISO, differenceInCalendarDays } from 'date-fns'
-import { Plus, Search, Filter, Sparkles, ArrowRight, AlertCircle, MessageSquare } from 'lucide-react'
+import { Plus, Search, Sparkles, ArrowRight, AlertCircle, MessageSquare, Download } from 'lucide-react'
 import { supabase, isSupabaseConfigured } from '../lib/supabase.js'
 import {
   PURPOSES, CONTEXT_GROUPS, DEMO_INTERACTIONS, purposeLabel, typeLabel, outcomeLabel, outcomeTone
 } from '../lib/interactions.js'
+import { toCSV, downloadCSV, timestampedFilename } from '../lib/csvExport.js'
 import { useViewMode } from '../hooks/useViewMode.jsx'
 import ConfigBanner from '../components/ConfigBanner.jsx'
 import EmptyState from '../components/EmptyState.jsx'
@@ -72,6 +73,31 @@ export default function Interactions() {
     load()
   }
 
+  function exportFilteredCSV() {
+    if (filtered.length === 0) {
+      toast.error('No rows to export — clear a filter first.')
+      return
+    }
+    const columns = [
+      { key: 'created_at',          label: 'Logged at' },
+      { key: 'date',                label: 'Date' },
+      { key: 'counterparty_name',   label: 'Counterparty' },
+      { key: 'counterparty_company',label: 'Company' },
+      { key: 'counterparty_role',   label: 'Role' },
+      { key: 'interaction_type',    label: 'Type' },
+      { key: 'interaction_purpose', label: 'Purpose' },
+      { key: 'outcome',             label: 'Outcome' },
+      { key: 'follow_up_date',      label: 'Follow-up date' },
+      { key: 'lead_owner',          label: 'Owner' },
+      { key: 'notes',               label: 'Notes' }
+    ]
+    const csv = toCSV(filtered, columns)
+    const stem = purpose === 'All' ? 'interactions' : `interactions-${purpose}`
+    const ok = downloadCSV(timestampedFilename(stem), csv)
+    if (ok) toast.success(`Exported ${filtered.length} interactions.`)
+    else toast.error('Download failed.')
+  }
+
   async function convertToOrigination(row) {
     // Stub: opens Deal Logger pre-filled. Until the deal modal accepts a deeplinked draft,
     // we just hand off to /deals?new with the counterparty as the prospective client name.
@@ -96,58 +122,60 @@ export default function Interactions() {
   }, [rows, purpose, q, needsFollowUp])
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <ConfigBanner />
 
-      <div className="flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <p className="vl-eyebrow-ink">Interactions</p>
-          <h1 className="mt-2 font-display text-feature font-bold text-valence-text">
-            The pre-mandate funnel.
-          </h1>
-        </div>
-        <div className="flex items-center gap-3">
-          <ViewModeToggle pageKey="interactions" />
-          <button onClick={() => setDrawer('new')} className="vl-btn-primary">
-            <Plus className="h-4 w-4" /> Log interaction
-          </button>
-        </div>
+      <div className="flex flex-wrap items-center justify-end gap-2">
+        <ViewModeToggle pageKey="interactions" />
+        <button
+          onClick={exportFilteredCSV}
+          disabled={loading || filtered.length === 0}
+          title="Export currently filtered rows as CSV"
+          className="vl-btn-secondary-sm"
+        >
+          <Download className="h-3.5 w-3.5" />
+          Export CSV
+        </button>
+        <button onClick={() => setDrawer('new')} className="vl-btn-primary-sm">
+          <Plus className="h-4 w-4" /> Log interaction
+        </button>
       </div>
 
-      {/* Filter strip — Context grouped by mandate lifecycle stage */}
-      <div className="space-y-2">
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="vl-eyebrow-ink inline-flex items-center gap-1.5"><Filter className="h-3 w-3" /> Context</span>
-          <PurposeChip label="All" active={purpose === 'All'} onClick={() => setPurpose('All')} />
-        </div>
-        {CONTEXT_GROUPS.map(g => {
-          const items = PURPOSES.filter(p => p.group === g.id)
-          return (
-            <div key={g.id} className="flex flex-wrap items-center gap-2 pl-1">
-              <span className="text-[10px] font-semibold uppercase tracking-[0.16em] text-valence-subtle min-w-[110px]">{g.label}</span>
-              {items.map(p => (
-                <PurposeChip key={p.id} label={p.label} active={purpose === p.id} onClick={() => setPurpose(p.id)} />
-              ))}
-            </div>
-          )
-        })}
-        <div className="ml-auto flex items-center gap-2">
-          <button
-            onClick={() => setNeedsFollowUp(v => !v)}
-            className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-semibold transition ${
-              needsFollowUp ? 'border-valence-warning/40 bg-valence-warning/10 text-valence-warning' : 'border-valence-border bg-white text-valence-muted hover:text-valence-text'
-            }`}
-          >
-            <AlertCircle className="h-3 w-3" /> Needs follow-up
-          </button>
-          <div className="relative">
-            <Search className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-valence-subtle" />
-            <input
-              value={q} onChange={e => setQ(e.target.value)}
-              placeholder="Search counterparty, company, notes…"
-              className="vl-input h-8 w-72 pl-8 text-xs"
-            />
-          </div>
+      {/* Filter strip — single row: context dropdown + needs-follow-up
+          toggle + search. Was three rows of chips with eyebrow labels;
+          collapsed into a native select so the page reads at-a-glance. */}
+      <div className="flex flex-wrap items-center gap-2">
+        <select
+          value={purpose}
+          onChange={e => setPurpose(e.target.value)}
+          className="h-8 rounded-md border border-valence-border bg-valence-elevated px-2.5 text-xs font-medium text-valence-text focus:border-valence-blue outline-none"
+          aria-label="Context filter"
+        >
+          <option value="All">All contexts</option>
+          {CONTEXT_GROUPS.map(g => {
+            const items = PURPOSES.filter(p => p.group === g.id)
+            return (
+              <optgroup key={g.id} label={g.label}>
+                {items.map(p => <option key={p.id} value={p.id}>{p.label}</option>)}
+              </optgroup>
+            )
+          })}
+        </select>
+        <button
+          onClick={() => setNeedsFollowUp(v => !v)}
+          className={`inline-flex items-center gap-1.5 rounded-md border px-2.5 h-8 text-[11px] font-semibold transition ${
+            needsFollowUp ? 'border-valence-warning/40 bg-valence-warning/10 text-valence-warning' : 'border-valence-border bg-valence-elevated text-valence-muted hover:text-valence-text'
+          }`}
+        >
+          <AlertCircle className="h-3 w-3" /> Needs follow-up
+        </button>
+        <div className="relative ml-auto">
+          <Search className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-valence-subtle" />
+          <input
+            value={q} onChange={e => setQ(e.target.value)}
+            placeholder="Search counterparty, company, notes…"
+            className="vl-input h-8 w-72 pl-8 text-xs"
+          />
         </div>
       </div>
 
@@ -185,19 +213,6 @@ export default function Interactions() {
   )
 }
 
-function PurposeChip({ label, active, onClick }) {
-  return (
-    <button
-      onClick={onClick}
-      className={`rounded-full border px-2.5 py-1 text-[11px] font-semibold transition ${
-        active
-          ? 'border-valence-blue/40 bg-valence-blue-soft text-valence-text'
-          : 'border-valence-border bg-white text-valence-muted hover:text-valence-text'
-      }`}
-    >{label}</button>
-  )
-}
-
 function InteractionRow({ row, onOpen, onConvert, isDetailed = true }) {
   const ago = row.created_at ? formatDistanceToNowStrict(new Date(row.created_at), { addSuffix: true }) : ''
   const due = row.follow_up_date ? format(parseISO(row.follow_up_date), 'd MMM') : null
@@ -212,7 +227,7 @@ function InteractionRow({ row, onOpen, onConvert, isDetailed = true }) {
             {row.counterparty_role && <p className="text-xs text-valence-subtle">· {row.counterparty_role}</p>}
           </div>
           <div className="mt-1.5 flex flex-wrap items-center gap-2 text-[11px] text-valence-muted">
-            <span className="inline-flex items-center gap-1 rounded-full border border-valence-border bg-white px-2 py-0.5 font-semibold text-valence-text">
+            <span className="inline-flex items-center gap-1 rounded-full border border-valence-border bg-valence-elevated px-2 py-0.5 font-semibold text-valence-text">
               {purposeLabel(row.interaction_purpose)}
             </span>
             <span className="text-valence-subtle">·</span>

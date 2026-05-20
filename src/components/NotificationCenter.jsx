@@ -209,7 +209,7 @@ export default function NotificationCenter({ open, onClose, items, unread, refre
               key={t.id}
               onClick={() => setTab(t.id)}
               className={`inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-semibold transition ${
-                tab === t.id ? 'bg-white text-valence-text shadow-sm' : 'text-valence-muted hover:text-valence-text'
+                tab === t.id ? 'bg-valence-elevated text-valence-text shadow-sm' : 'text-valence-muted hover:text-valence-text'
               }`}
             >
               {t.label}
@@ -243,7 +243,7 @@ export default function NotificationCenter({ open, onClose, items, unread, refre
                   className={`group flex w-full items-start gap-3 rounded-lg border px-3 py-3 text-left transition ${
                     isUnread
                       ? 'border-valence-blue/30 bg-valence-blue-soft/40 hover:bg-valence-blue-soft/60'
-                      : 'border-valence-border bg-white hover:bg-valence-surface'
+                      : 'border-valence-border bg-valence-elevated hover:bg-valence-surface'
                   }`}
                 >
                   <div className={`grid h-8 w-8 place-items-center rounded-lg shrink-0 ${item.iconTone || 'bg-valence-blue-soft text-valence-blue'}`}>

@@ -1,3 +1,4 @@
+import { useEffect } from 'react'
 import { Routes, Route, Navigate, useLocation, useSearchParams } from 'react-router-dom'
 import Layout from './components/Layout.jsx'
 import DailyNote from './pages/DailyNote.jsx'
@@ -22,12 +23,67 @@ import Feed from './pages/Feed.jsx'
 import Share from './pages/Share.jsx'
 import Login from './pages/Login.jsx'
 import FitPreview from './pages/FitPreview.jsx'
+import Settings from './pages/Settings.jsx'
+import AdminBilling from './pages/AdminBilling.jsx'
+import Terms from './pages/Terms.jsx'
+import Privacy from './pages/Privacy.jsx'
+import Onboarding from './pages/Onboarding.jsx'
 import { useAuth } from './hooks/useAuth.js'
 import { isSupabaseConfigured } from './lib/supabase.js'
+import { useWorkspaceSetting } from './hooks/useWorkspaceSetting.js'
+import { WORKSPACE_KEYS, effectiveBrowserTitle, resolveTheme } from './lib/workspace.js'
+import { startAiMeter } from './lib/aiMeter.js'
 
 export default function App() {
   const { pathname } = useLocation()
   const { session, loading, authUnavailable } = useAuth()
+  const firmName = useWorkspaceSetting(WORKSPACE_KEYS.firmName)
+  const browserTitleOverride = useWorkspaceSetting(WORKSPACE_KEYS.browserTitle)
+  const density = useWorkspaceSetting(WORKSPACE_KEYS.density)
+  const theme = useWorkspaceSetting(WORKSPACE_KEYS.theme)
+
+  // Apply firm-customizable chrome: browser title + density data attribute.
+  // Effect runs on every read so live edits in /settings reflect immediately.
+  useEffect(() => {
+    if (typeof document === 'undefined') return
+    document.title = effectiveBrowserTitle()
+  }, [firmName, browserTitleOverride])
+
+  // Start the AI meter once per app lifetime. It listens for Gemini
+  // usage events and records billable ai_actions rows when there's an
+  // active org/seat (set during onboarding). Safe no-op otherwise.
+  useEffect(() => {
+    const off = startAiMeter()
+    return off
+  }, [])
+
+  useEffect(() => {
+    if (typeof document === 'undefined') return
+    document.documentElement.dataset.density = density || 'comfortable'
+  }, [density])
+
+  // Theme: write `.dark` on <html>. When pref is 'auto', resolve via OS
+  // preference + listen for changes (user switching macOS dark mode etc.).
+  useEffect(() => {
+    if (typeof document === 'undefined') return
+    const html = document.documentElement
+    function apply() {
+      const resolved = resolveTheme(theme)
+      html.classList.toggle('dark', resolved === 'dark')
+      html.dataset.theme = resolved
+    }
+    apply()
+    if (theme !== 'auto') return
+    if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return
+    const mql = window.matchMedia('(prefers-color-scheme: dark)')
+    const handler = () => apply()
+    if (mql.addEventListener) mql.addEventListener('change', handler)
+    else if (mql.addListener) mql.addListener(handler)
+    return () => {
+      if (mql.removeEventListener) mql.removeEventListener('change', handler)
+      else if (mql.removeListener) mql.removeListener(handler)
+    }
+  }, [theme])
 
   // Public share pages render without chrome and without auth
   if (pathname.startsWith('/share/')) {
@@ -44,6 +100,18 @@ export default function App() {
       <Routes>
         <Route path="/intake" element={<Intake />} />
         <Route path="/intake/thanks" element={<IntakeThanks />} />
+      </Routes>
+    )
+  }
+
+  // Legal + onboarding render without sidebar/topbar chrome. Onboarding
+  // pre-dates the workspace; Terms/Privacy are public-facing.
+  if (pathname === '/terms' || pathname === '/privacy' || pathname === '/onboarding') {
+    return (
+      <Routes>
+        <Route path="/terms"      element={<Terms />} />
+        <Route path="/privacy"    element={<Privacy />} />
+        <Route path="/onboarding" element={<Onboarding />} />
       </Routes>
     )
   }
@@ -81,6 +149,8 @@ export default function App() {
         <Route path="/analytics" element={<Analytics />} />
         <Route path="/feed" element={<Feed />} />
         <Route path="/team" element={<Team />} />
+        <Route path="/settings" element={<Settings />} />
+        <Route path="/admin/billing" element={<AdminBilling />} />
         <Route path="/_fit-preview" element={<FitPreview />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
@@ -97,7 +167,7 @@ function MandatesRedirect() {
 
 function BootSplash() {
   return (
-    <div className="min-h-screen grid place-items-center bg-white">
+    <div className="min-h-screen grid place-items-center bg-valence-elevated">
       <div className="flex items-center gap-3 text-sm text-valence-muted">
         <span className="h-2 w-2 animate-pulse rounded-full bg-valence-blue" />
         Loading ValenceOS…

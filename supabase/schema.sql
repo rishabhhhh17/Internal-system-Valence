@@ -1772,3 +1772,15 @@ drop policy if exists kb_files_storage_insert on storage.objects;
 create policy kb_files_storage_insert on storage.objects for insert with check (bucket_id = 'kb-files');
 drop policy if exists kb_files_storage_delete on storage.objects;
 create policy kb_files_storage_delete on storage.objects for delete using (bucket_id = 'kb-files');
+
+-- =========================================================================
+-- Phase 10 — LLM provider + model on each AI action.
+-- Mirrors supabase/phase-10-llm-provider-model.sql. Nullable so legacy
+-- rows survive untouched; admin views read NULL as "unknown".
+-- =========================================================================
+alter table public.ai_actions
+  add column if not exists provider text,
+  add column if not exists model    text;
+
+create index if not exists ai_actions_org_provider_idx
+  on public.ai_actions (org_id, provider);

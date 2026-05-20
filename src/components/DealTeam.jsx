@@ -97,7 +97,7 @@ export default function DealTeam({ deal }) {
         <>
           <ul className="space-y-2">
             {rows.map(r => (
-              <li key={r.id} className="group rounded-lg border border-valence-border bg-white px-4 py-3">
+              <li key={r.id} className="group rounded-lg border border-valence-border bg-valence-elevated px-4 py-3">
                 <div className="flex items-center gap-3">
                   <div className="grid h-9 w-9 place-items-center rounded-full bg-gradient-to-br from-valence-blue to-[#1a66cc] text-[11px] font-semibold text-white ring-1 ring-valence-border-strong shrink-0">
                     {initials(r.name)}
@@ -170,7 +170,7 @@ function AddForm({ onSubmit, onCancel, suggestedLead }) {
       <div className="grid grid-cols-2 gap-2">
         <input value={form.name} onChange={e => set('name', e.target.value)} placeholder="Name" className="vl-input" required autoFocus />
         <select value={form.role} onChange={e => set('role', e.target.value)} className="vl-input">
-          {ROLES.map(r => <option key={r} className="bg-white" value={r}>{r}</option>)}
+          {ROLES.map(r => <option key={r} className="bg-valence-elevated" value={r}>{r}</option>)}
         </select>
         <input value={form.email} onChange={e => set('email', e.target.value)} placeholder="Email (optional)" type="email" className="vl-input" />
         <input value={form.share_pct} onChange={e => set('share_pct', e.target.value)} placeholder="Credit %" type="number" min="0" max="100" step="5" className="vl-input" />

@@ -242,7 +242,7 @@ export default function KbFolderTree({ mandate, mandateId, scope = 'mandate', se
             <Folder className="h-3.5 w-3.5 text-valence-blue shrink-0" />
             <input
               autoFocus
-              className="flex-1 bg-white border border-valence-blue/40 rounded px-1 py-0 text-sm outline-none focus:ring-2 focus:ring-valence-blue-ring"
+              className="flex-1 bg-valence-elevated border border-valence-blue/40 rounded px-1 py-0 text-sm outline-none focus:ring-2 focus:ring-valence-blue-ring"
               value={topValue}
               onChange={e => setTopValue(e.target.value)}
               placeholder="Folder name…"
@@ -283,6 +283,12 @@ export default function KbFolderTree({ mandate, mandateId, scope = 'mandate', se
     </div>
   )
 
+  // Mandate-scope: render the root's children directly — skip the
+  // mandate_root wrapper. The user already picked the mandate in the
+  // Sources column, so showing the mandate name again as a folder
+  // wrapper is redundant clutter. New-folder input attaches under root
+  // and appears at the top of the list at depth 0.
+  const rootKids = childrenByParent.get(root.id) || []
   return (
     <div className="space-y-1">
       <div className="flex items-center justify-between px-1 pb-1 mb-1 border-b border-valence-border">
@@ -296,7 +302,31 @@ export default function KbFolderTree({ mandate, mandateId, scope = 'mandate', se
         </button>
       </div>
       <ul className="text-sm">
-        {renderNode(root)}
+        {creatingUnder === root.id && (
+          <li>
+            <div className="flex items-center gap-1 py-1 pl-2">
+              <FilePlus className="h-3 w-3 text-valence-blue shrink-0" />
+              <input
+                autoFocus
+                className="flex-1 bg-valence-elevated border border-valence-blue/40 rounded px-1 py-0 text-sm outline-none focus:ring-2 focus:ring-valence-blue-ring"
+                value={createValue}
+                onChange={e => setCreateValue(e.target.value)}
+                placeholder="Folder name…"
+                onBlur={() => createUnder(root)}
+                onKeyDown={e => {
+                  if (e.key === 'Enter') createUnder(root)
+                  if (e.key === 'Escape') { setCreateValue(''); setCreatingUnder(null) }
+                }}
+              />
+            </div>
+          </li>
+        )}
+        {rootKids.length === 0 && creatingUnder !== root.id && (
+          <li className="px-2 py-3 text-[12px] text-valence-muted">
+            No folders yet. Click <span className="font-semibold text-valence-blue">+ New folder</span> to add one.
+          </li>
+        )}
+        {rootKids.map(k => renderNode(k, 0))}
       </ul>
     </div>
   )
@@ -325,7 +355,7 @@ export default function KbFolderTree({ mandate, mandateId, scope = 'mandate', se
           {renaming === folder.id ? (
             <input
               autoFocus
-              className="flex-1 bg-white border border-valence-blue/40 rounded px-1 py-0 text-sm outline-none focus:ring-2 focus:ring-valence-blue-ring"
+              className="flex-1 bg-valence-elevated border border-valence-blue/40 rounded px-1 py-0 text-sm outline-none focus:ring-2 focus:ring-valence-blue-ring"
               value={renameValue}
               onChange={e => setRenameValue(e.target.value)}
               onBlur={() => renameFolder(folder)}
@@ -341,7 +371,6 @@ export default function KbFolderTree({ mandate, mandateId, scope = 'mandate', se
           )}
 
           <div className="flex items-center gap-0.5 opacity-40 group-hover:opacity-100 transition shrink-0">
-            <button onClick={() => { setCreatingUnder(folder.id); setCreateValue('') }} className="p-1 text-valence-subtle hover:text-valence-blue" title="Add sub-folder"><Plus className="h-3 w-3" /></button>
             <button onClick={() => { setRenaming(folder.id); setRenameValue(folder.name) }} className="p-1 text-valence-subtle hover:text-valence-blue" title="Rename"><Pencil className="h-3 w-3" /></button>
             {folder.folder_type !== 'mandate_root' && (
               <button onClick={() => deleteFolder(folder)} className="p-1 text-valence-subtle hover:text-valence-danger" title="Delete"><Trash2 className="h-3 w-3" /></button>
@@ -354,7 +383,7 @@ export default function KbFolderTree({ mandate, mandateId, scope = 'mandate', se
             <FilePlus className="h-3 w-3 text-valence-blue shrink-0" />
             <input
               autoFocus
-              className="flex-1 bg-white border border-valence-blue/40 rounded px-1 py-0 text-sm outline-none focus:ring-2 focus:ring-valence-blue-ring"
+              className="flex-1 bg-valence-elevated border border-valence-blue/40 rounded px-1 py-0 text-sm outline-none focus:ring-2 focus:ring-valence-blue-ring"
               value={createValue}
               onChange={e => setCreateValue(e.target.value)}
               placeholder="Folder name…"

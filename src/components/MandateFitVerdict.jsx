@@ -1,5 +1,6 @@
 import { Sparkles, CheckCircle2, AlertTriangle, XCircle, ArrowRight, Check, AlertCircle } from 'lucide-react'
 import { isGeminiConfigured } from '../lib/gemini.js'
+import { SHOW_METRICS } from '../lib/featureFlags.js'
 
 // Polished verdict block shared between the Quick Screener (live result)
 // and the Intake inbox (cached AI output on the submission row).
@@ -112,21 +113,27 @@ export default function MandateFitVerdict({ output, onConvert, dense = false, ey
           </span>
         </div>
 
-        {/* Score line — big tabular number with the score-out-of-100 bar
-            beneath it. Reads like a diligence rating. */}
-        <div className="mt-3 flex items-baseline gap-3">
-          <span className={`font-display text-[40px] font-semibold leading-none tabular-nums ${tone.accent}`}>
-            {score}
-          </span>
-          <span className="text-[12px] text-valence-muted">/ 100</span>
-        </div>
-        <div className={`mt-2 h-1.5 w-full rounded-full overflow-hidden ${tone.track}`}>
-          <div
-            className={`h-full ${tone.bar} transition-[width] duration-700 ease-out`}
-            style={{ width: `${score}%` }}
-            aria-hidden
-          />
-        </div>
+        {/* Score line — only shown when SHOW_METRICS is on. The pitch
+            branch leans on the verdict (Pursue / Review / Pass) + the
+            reasoning chips; the numeric score returns once we have
+            enough real data to defend it. */}
+        {SHOW_METRICS && (
+          <>
+            <div className="mt-3 flex items-baseline gap-3">
+              <span className={`font-display text-[40px] font-semibold leading-none tabular-nums ${tone.accent}`}>
+                {score}
+              </span>
+              <span className="text-[12px] text-valence-muted">/ 100</span>
+            </div>
+            <div className={`mt-2 h-1.5 w-full rounded-full overflow-hidden ${tone.track}`}>
+              <div
+                className={`h-full ${tone.bar} transition-[width] duration-700 ease-out`}
+                style={{ width: `${score}%` }}
+                aria-hidden
+              />
+            </div>
+          </>
+        )}
 
         {/* Lead one-liner */}
         {output.one_line && (

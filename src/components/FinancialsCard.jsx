@@ -151,7 +151,7 @@ export default function FinancialsCard({ deal, onUpdated }) {
 
 function TTMCell({ label, value }) {
   return (
-    <div className="bg-white p-4">
+    <div className="bg-valence-elevated p-4">
       <p className="text-[10px] font-semibold uppercase tracking-wider text-valence-muted">{label}</p>
       <p className="mt-1 font-display text-2xl font-semibold tabular-nums text-valence-text">{value}</p>
     </div>

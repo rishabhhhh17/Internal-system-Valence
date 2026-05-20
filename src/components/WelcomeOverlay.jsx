@@ -5,6 +5,7 @@ import { Sparkles, Compass, ArrowRight, Loader2, Database, X, Check, Building2, 
 import { supabase, isSupabaseConfigured } from '../lib/supabase.js'
 import { seedSampleFirm } from '../lib/demoSeed.js'
 import { useToast } from './Toast.jsx'
+import { PITCH_MODE } from '../lib/featureFlags.js'
 
 // ------------------------------------------------------------------------------
 // First-run welcome.
@@ -44,6 +45,10 @@ export default function WelcomeOverlay() {
   useEffect(() => {
     if (!isSupabaseConfigured)   return
     if (dismissed())             return
+    // Never auto-open in pitch mode — partners shouldn't see "Try a
+    // sample firm" mid-walkthrough. They can still reach sample data
+    // from Settings on the production deploy.
+    if (PITCH_MODE)              return
     let cancelled = false
     ;(async () => {
       try {
@@ -101,7 +106,7 @@ export default function WelcomeOverlay() {
     <ToBody>
       <div className="fixed inset-0 z-[80] flex items-center justify-center px-4" role="dialog" aria-modal="true" aria-label="Welcome">
         <div className="absolute inset-0 bg-valence-ink/55 backdrop-blur-sm animate-fade-in" />
-        <div className="relative w-full max-w-[640px] animate-slide-up rounded-2xl border border-valence-border bg-white shadow-valence-lg overflow-hidden">
+        <div className="relative w-full max-w-[640px] animate-slide-up rounded-2xl border border-valence-border bg-valence-elevated shadow-valence-lg overflow-hidden">
           <button
             onClick={onSkip}
             className="absolute right-3 top-3 grid h-7 w-7 place-items-center rounded text-valence-subtle hover:text-valence-text hover:bg-valence-surface transition"
@@ -144,7 +149,7 @@ export default function WelcomeOverlay() {
               <span className="absolute -top-2 right-3 inline-flex items-center rounded-full bg-valence-ink px-2 py-0.5 text-[9px] font-semibold uppercase tracking-[0.14em] text-white">
                 Recommended
               </span>
-              <span className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-valence-blue/30 bg-white text-valence-blue">
+              <span className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-valence-blue/30 bg-valence-elevated text-valence-blue">
                 {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : done ? <Check className="h-4 w-4 text-valence-success" /> : <Database className="h-4 w-4" />}
               </span>
               <p className="mt-3 font-display font-semibold tracking-tight text-valence-text">
@@ -160,7 +165,7 @@ export default function WelcomeOverlay() {
 
             <button
               onClick={onStartTour}
-              className="group rounded-xl border border-valence-border bg-white p-4 text-left transition hover:border-valence-ink/30 hover:shadow-valence"
+              className="group rounded-xl border border-valence-border bg-valence-elevated p-4 text-left transition hover:border-valence-ink/30 hover:shadow-valence"
             >
               <span className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-emerald-300/40 bg-emerald-50 text-emerald-600">
                 <Compass className="h-4 w-4" />
@@ -178,7 +183,7 @@ export default function WelcomeOverlay() {
 
             <button
               onClick={onSkip}
-              className="group rounded-xl border border-valence-border bg-white p-4 text-left transition hover:border-valence-ink/30 hover:shadow-valence"
+              className="group rounded-xl border border-valence-border bg-valence-elevated p-4 text-left transition hover:border-valence-ink/30 hover:shadow-valence"
             >
               <span className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-valence-border bg-valence-surface text-valence-muted">
                 <Sparkles className="h-4 w-4" />

@@ -4,7 +4,6 @@ import { supabase, isSupabaseConfigured } from '../lib/supabase.js'
 import { extractText } from '../lib/fileParse.js'
 import { isGeminiConfigured } from '../lib/gemini.js'
 import { screenForFundsAI, screenMandateFit } from '../lib/screener.js'
-import { pullLatestMeeting, isFathomConfigured } from '../lib/fathom.js'
 import { DEMO_FUNDS, screenerModeForDeal, audienceLabelFor } from '../lib/funds.js'
 import ConfigBanner from '../components/ConfigBanner.jsx'
 import EmptyState from '../components/EmptyState.jsx'
@@ -63,34 +62,8 @@ export default function Screener() {
   const [output, setOutput]   = useState(null)
   const [pingedFundIds, setPingedFundIds] = useState(new Set())
 
-  // Fathom pull state — local to the Screener input section.
-  const [pullingFathom, setPullingFathom] = useState(false)
-
-  async function pullFromFathom() {
-    if (pullingFathom) return
-    setPullingFathom(true)
-    try {
-      const m = await pullLatestMeeting()
-      // Compose a teaser-shaped paste from the meeting summary + transcript
-      // so the Mandate-Fit screener has the same substance it'd get from a
-      // pasted email teaser. Summary first, then transcript — keeps the
-      // most useful signal at the top of the input.
-      const header = `Pulled from Fathom · ${m.title || 'Meeting'}\n`
-      const body = [
-        m.summary    ? `SUMMARY\n${m.summary}` : '',
-        m.transcript ? `TRANSCRIPT\n${m.transcript}` : '',
-        Array.isArray(m.actionItems) && m.actionItems.length > 0
-          ? `ACTION ITEMS\n${m.actionItems.map((a, i) => `${i + 1}. ${typeof a === 'string' ? a : (a.text || JSON.stringify(a))}`).join('\n')}`
-          : ''
-      ].filter(Boolean).join('\n\n')
-      setManual(prev => ({ ...prev, notes: `${header}\n${body}` }))
-      toast.success(`Pulled "${m.title || 'meeting'}" — ready to screen`)
-    } catch (err) {
-      toast.error(err?.message || 'Fathom pull failed')
-    } finally {
-      setPullingFathom(false)
-    }
-  }
+  // Meeting-tool pull (Read.ai / Otter / Fireflies) returns once the
+  // customer picks and wires their tool in Settings → Integrations.
 
   useEffect(() => {
     ;(async () => {
@@ -234,7 +207,7 @@ export default function Screener() {
             One paste, one verdict.
           </h1>
         </div>
-        <div className="inline-flex items-center rounded-full border border-valence-border bg-white p-0.5">
+        <div className="inline-flex items-center rounded-full border border-valence-border bg-valence-elevated p-0.5">
           {MODES.map(m => (
             <button
               key={m.id}
@@ -291,7 +264,7 @@ export default function Screener() {
                         onClick={() => toggleType(t.id)}
                         aria-pressed={active}
                         className={`rounded-lg border px-3 py-2 text-xs font-semibold transition ${
-                          active ? 'border-valence-blue/40 bg-valence-blue-soft text-valence-text' : 'border-valence-border bg-white text-valence-muted hover:text-valence-text'
+                          active ? 'border-valence-blue/40 bg-valence-blue-soft text-valence-text' : 'border-valence-border bg-valence-elevated text-valence-muted hover:text-valence-text'
                         }`}
                       >{t.label}</button>
                     )
@@ -312,7 +285,7 @@ export default function Screener() {
                             key={s.id}
                             onClick={() => setManual(m => ({ ...m, deal_subtype: s.id }))}
                             className={`rounded-lg border px-3 py-1.5 text-[11px] font-semibold transition ${
-                              active ? 'border-valence-blue/40 bg-white text-valence-text shadow-sm' : 'border-valence-border bg-white/60 text-valence-muted hover:text-valence-text'
+                              active ? 'border-valence-blue/40 bg-valence-elevated text-valence-text shadow-sm' : 'border-valence-border bg-white/60 text-valence-muted hover:text-valence-text'
                             }`}
                           >{s.label}</button>
                         )
@@ -343,7 +316,7 @@ export default function Screener() {
                                 key={s.id}
                                 onClick={() => setManual(m => ({ ...m, ma_side: s.id }))}
                                 className={`rounded-lg border px-3 py-1.5 text-[11px] font-semibold transition ${
-                                  active ? 'border-valence-blue/40 bg-white text-valence-text shadow-sm' : 'border-valence-border bg-white/60 text-valence-muted hover:text-valence-text'
+                                  active ? 'border-valence-blue/40 bg-valence-elevated text-valence-text shadow-sm' : 'border-valence-border bg-white/60 text-valence-muted hover:text-valence-text'
                                 }`}
                               >{s.label}</button>
                             )
@@ -389,20 +362,6 @@ export default function Screener() {
             <button onClick={() => inputRef.current?.click()} disabled={parsing} className="vl-btn-secondary text-xs">
               <Upload className="h-3.5 w-3.5" /> {parsing ? 'Parsing…' : 'Upload PDF / DOCX'}
             </button>
-            {/* Fathom pull — Mandate-Fit only. Drops the latest meeting
-                transcript + summary into the teaser input so a partner
-                can screen a call within ~30 seconds of hanging up. */}
-            {mode === 'mandate_fit' && (
-              <button
-                onClick={pullFromFathom}
-                disabled={pullingFathom}
-                className="vl-btn-secondary text-xs"
-                title="Pull latest Fathom meeting as the teaser"
-              >
-                {pullingFathom ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Mic className="h-3.5 w-3.5" />}
-                {pullingFathom ? 'Pulling…' : 'Pull from Fathom'}
-              </button>
-            )}
             {pdfName && <span className="text-[11px] text-valence-muted truncate">{pdfName} · {Math.round(pdfText.length / 100) / 10}k chars</span>}
           </div>
 

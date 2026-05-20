@@ -77,7 +77,7 @@ export default function DealComments({ deal }) {
                 {initials(c.author)}
               </div>
               <div className="flex-1 min-w-0">
-                <div className="rounded-xl rounded-tl-sm border border-valence-border bg-white px-4 py-2.5">
+                <div className="rounded-xl rounded-tl-sm border border-valence-border bg-valence-elevated px-4 py-2.5">
                   <div className="flex items-center gap-2 text-[11px]">
                     <span className="font-semibold text-valence-text">{c.author}</span>
                     <span className="text-valence-subtle">· {formatDistanceToNow(new Date(c.created_at), { addSuffix: true })}</span>

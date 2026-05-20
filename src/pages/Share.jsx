@@ -77,7 +77,7 @@ export default function Share() {
   return (
     <Shell watermark={watermarkOn ? watermarkLabel : null}>
       <div className="mx-auto w-full max-w-3xl space-y-8 py-10 px-5">
-        <section className="rounded-2xl border border-valence-border bg-white vl-circles px-8 py-10 relative overflow-hidden">
+        <section className="rounded-2xl border border-valence-border bg-valence-elevated vl-circles px-8 py-10 relative overflow-hidden">
           <div className="relative">
             <p className="vl-eyebrow">Shared data room</p>
             <h1 className="mt-4 font-display text-3xl font-semibold text-valence-text lg:text-4xl">
@@ -129,7 +129,7 @@ export default function Share() {
                     href={publicUrlFor(f.path)}
                     target="_blank" rel="noreferrer"
                     onClick={() => logAccess({ shareId: share.id, event: 'download', fileId: f.id })}
-                    className="group flex items-center gap-3 rounded-lg border border-valence-border bg-white px-4 py-3 transition hover:border-valence-ink/20 hover:shadow-valence"
+                    className="group flex items-center gap-3 rounded-lg border border-valence-border bg-valence-elevated px-4 py-3 transition hover:border-valence-ink/20 hover:shadow-valence"
                   >
                     <div className="grid h-10 w-10 place-items-center rounded-lg bg-valence-blue-soft ring-1 ring-valence-blue/20 shrink-0">
                       <FileText className="h-4 w-4 text-valence-blue" />
@@ -162,14 +162,14 @@ export default function Share() {
 function Shell({ children, watermark }) {
   return (
     <div className="relative min-h-screen bg-valence-bg text-valence-text">
-      <header className="border-b border-valence-border bg-white">
+      <header className="border-b border-valence-border bg-valence-elevated">
         <div className="mx-auto flex h-16 max-w-3xl items-center px-5">
           <Logo />
           <span className="ml-auto text-[11px] text-valence-muted">Delivered via ValenceOS</span>
         </div>
       </header>
       {children}
-      <footer className="border-t border-valence-border bg-white">
+      <footer className="border-t border-valence-border bg-valence-elevated">
         <div className="mx-auto max-w-3xl px-5 py-8 text-[11px] text-valence-muted">
           Confidential · for the intended recipient only. Forwarding or downloading is audited.
         </div>

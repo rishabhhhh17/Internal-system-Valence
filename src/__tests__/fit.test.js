@@ -4,7 +4,8 @@ import {
   normalizeEntity,
   verdictFor,
   DEFAULT_CRITERIA,
-  ACTION_ORDER
+  ACTION_ORDER,
+  validateCriteria
 } from '../lib/fit.js'
 
 describe('verdictFor', () => {
@@ -146,5 +147,124 @@ describe('normalizeEntity', () => {
 describe('ACTION_ORDER', () => {
   it('renders the exact button sequence the user signed off on', () => {
     expect(ACTION_ORDER).toEqual(['mark_fit', 'pass', 'ask_more_info', 'override'])
+  })
+})
+
+describe('validateCriteria', () => {
+  it('rejects missing/non-object input', () => {
+    expect(validateCriteria(null).ok).toBe(false)
+    expect(validateCriteria(undefined).ok).toBe(false)
+    expect(validateCriteria('text').ok).toBe(false)
+  })
+
+  it('accepts a clean payload and normalizes lists', () => {
+    const r = validateCriteria({
+      name: 'Test',
+      sectors: ['Healthcare', 'Fintech'],
+      excluded_sectors: ['Crypto'],
+      geographies: ['India'],
+      ev_min_usd_m: 50,
+      ev_max_usd_m: 500
+    })
+    expect(r.ok).toBe(true)
+    expect(r.errors).toEqual([])
+    expect(r.normalized.sectors).toEqual(['Healthcare', 'Fintech'])
+    expect(r.normalized.is_default).toBe(true)
+  })
+
+  it('dedupes and trims sectors / excluded / geographies', () => {
+    const r = validateCriteria({
+      sectors: ['Healthcare', '  Healthcare  ', '', 'Fintech'],
+      excluded_sectors: ['Crypto', 'Crypto'],
+      geographies: ['India', ' India ']
+    })
+    expect(r.normalized.sectors).toEqual(['Healthcare', 'Fintech'])
+    expect(r.normalized.excluded_sectors).toEqual(['Crypto'])
+    expect(r.normalized.geographies).toEqual(['India'])
+  })
+
+  it('flags overlap between allowed and excluded sectors', () => {
+    const r = validateCriteria({
+      sectors: ['Healthcare', 'Crypto'],
+      excluded_sectors: ['Crypto']
+    })
+    expect(r.ok).toBe(false)
+    expect(r.errors[0]).toMatch(/Crypto/)
+  })
+
+  it('coerces EV fields to numbers, accepts strings', () => {
+    const r = validateCriteria({
+      ev_min_usd_m: '100',
+      ev_max_usd_m: '500'
+    })
+    expect(r.ok).toBe(true)
+    expect(r.normalized.ev_min_usd_m).toBe(100)
+    expect(r.normalized.ev_max_usd_m).toBe(500)
+  })
+
+  it('allows null/empty EV fields', () => {
+    const r = validateCriteria({
+      ev_min_usd_m: '',
+      ev_max_usd_m: null
+    })
+    expect(r.ok).toBe(true)
+    expect(r.normalized.ev_min_usd_m).toBeNull()
+    expect(r.normalized.ev_max_usd_m).toBeNull()
+  })
+
+  it('rejects non-numeric EV', () => {
+    const r = validateCriteria({ ev_min_usd_m: 'abc' })
+    expect(r.ok).toBe(false)
+    expect(r.errors.join(' ')).toMatch(/EV min/)
+  })
+
+  it('rejects negative EV', () => {
+    expect(validateCriteria({ ev_min_usd_m: -1 }).ok).toBe(false)
+    expect(validateCriteria({ ev_max_usd_m: -100 }).ok).toBe(false)
+  })
+
+  it('rejects min > max', () => {
+    const r = validateCriteria({ ev_min_usd_m: 500, ev_max_usd_m: 100 })
+    expect(r.ok).toBe(false)
+    expect(r.errors.join(' ')).toMatch(/EV min must be/)
+  })
+
+  it('accepts min == max as a single-point band', () => {
+    const r = validateCriteria({ ev_min_usd_m: 100, ev_max_usd_m: 100 })
+    expect(r.ok).toBe(true)
+  })
+
+  it('falls back to a default name when blank', () => {
+    const r = validateCriteria({ name: '   ' })
+    expect(r.normalized.name).toBe('Default firm criteria')
+  })
+
+  it('treats non-array list inputs as empty', () => {
+    const r = validateCriteria({
+      sectors: 'Healthcare',
+      excluded_sectors: null,
+      geographies: undefined
+    })
+    expect(r.normalized.sectors).toEqual([])
+    expect(r.normalized.excluded_sectors).toEqual([])
+    expect(r.normalized.geographies).toEqual([])
+  })
+
+  it('always sets is_default: true on the normalized payload', () => {
+    const r = validateCriteria({ is_default: false, name: 'X' })
+    expect(r.normalized.is_default).toBe(true)
+  })
+
+  it('does not regress assessFit against the existing DEFAULT_CRITERIA shape', () => {
+    // Sanity — the validator output must be a structural match for what
+    // assessFit consumes via DEFAULT_CRITERIA.
+    const { normalized } = validateCriteria({
+      sectors: ['Healthcare'],
+      geographies: ['India'],
+      ev_min_usd_m: 50,
+      ev_max_usd_m: 750
+    })
+    const scored = assessFit({ sector: 'Healthcare', ev_usd_m: 250, geography: 'India' }, normalized)
+    expect(scored.score).toBe(100)
   })
 })

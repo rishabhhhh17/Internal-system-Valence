@@ -4,13 +4,16 @@ import MobileNav from './MobileNav.jsx'
 import CommandPalette from './CommandPalette.jsx'
 import ShortcutsOverlay from './ShortcutsOverlay.jsx'
 import WelcomeOverlay from './WelcomeOverlay.jsx'
+import { useWorkspaceSetting } from '../hooks/useWorkspaceSetting.js'
+import { WORKSPACE_KEYS } from '../lib/workspace.js'
 
 export default function Layout({ children }) {
+  const sidebarCollapsed = useWorkspaceSetting(WORKSPACE_KEYS.sidebarCollapsed) === 'true'
   return (
     <div className="relative flex min-h-screen bg-valence-bg text-valence-text">
       <div className="pointer-events-none fixed inset-0 bg-valence-radial" aria-hidden />
       <div className="pointer-events-none fixed inset-0 bg-valence-aurora opacity-90" aria-hidden />
-      <Sidebar />
+      {!sidebarCollapsed && <Sidebar />}
       <div className="relative z-10 flex min-w-0 min-h-screen flex-1 flex-col">
         <Topbar />
         {/* Padding tightened on narrow viewports — pt-6 / pb-20 on mobile so

@@ -187,7 +187,7 @@ function FeedRow({ item }) {
     <li>
       <Link
         to={item.to || '#'}
-        className="group flex items-start gap-3 rounded-xl border border-valence-border bg-white px-4 py-3 transition hover:border-valence-border-strong hover:shadow-valence"
+        className="group flex items-start gap-3 rounded-xl border border-valence-border bg-valence-elevated px-4 py-3 transition hover:border-valence-border-strong hover:shadow-valence"
       >
         <span className={`grid h-9 w-9 shrink-0 place-items-center rounded-lg ${meta.bg} ${meta.color} ring-1 ring-valence-border`}>
           <Icon className="h-4 w-4" />

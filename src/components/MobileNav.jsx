@@ -3,7 +3,7 @@ import { NavLink, useLocation } from 'react-router-dom'
 import {
   LayoutDashboard, Briefcase, BookOpen, CalendarDays, Users, Search,
   Menu, X, MessageSquare, Building2, FolderTree, Activity, Inbox,
-  Sparkles, Calendar as CalendarIcon, ListChecks, BarChart3
+  Sparkles, Calendar as CalendarIcon, ListChecks, BarChart3, Settings as SettingsIcon
 } from 'lucide-react'
 
 // Primary nav row — five entries that fit comfortably on a 375px iPhone.
@@ -25,11 +25,13 @@ const more = [
   { to: '/interactions',label: 'Interactions',  icon: MessageSquare },
   { to: '/people',      label: 'People',        icon: Users },
   { to: '/funds',       label: 'Firm',          icon: Building2 },
-  { to: '/screen',      label: 'Quick Screener',icon: Sparkles },
+  // Quick Screener hidden from nav for now — route still resolves.
+  // { to: '/screen',      label: 'Quick Screener',icon: Sparkles },
   { to: '/inbox/intake',label: 'Intake inbox',  icon: Inbox },
   { to: '/feed',        label: 'Firm pulse',    icon: Activity },
   { to: '/analytics',   label: 'Analytics',     icon: BarChart3 },
-  { to: '/team',        label: 'Team',          icon: FolderTree }
+  { to: '/team',        label: 'Team',          icon: FolderTree },
+  { to: '/settings',    label: 'Settings',      icon: SettingsIcon }
 ]
 
 function openPalette() {
@@ -99,7 +101,7 @@ export default function MobileNav() {
             className="absolute inset-0 bg-black/40 backdrop-blur-sm"
             onClick={() => setSheetOpen(false)}
           />
-          <div className="absolute inset-x-0 bottom-0 max-h-[80vh] overflow-y-auto rounded-t-2xl border-t border-valence-border bg-white shadow-2xl">
+          <div className="absolute inset-x-0 bottom-0 max-h-[80vh] overflow-y-auto rounded-t-2xl border-t border-valence-border bg-valence-elevated shadow-2xl">
             <div className="flex items-center justify-between px-5 pt-4 pb-3 border-b border-valence-border">
               <p className="text-sm font-semibold text-valence-text">All sections</p>
               <button onClick={() => setSheetOpen(false)} className="rounded-md p-1 text-valence-muted hover:bg-valence-surface"><X className="h-4 w-4" /></button>
@@ -114,7 +116,7 @@ export default function MobileNav() {
                     `flex items-center gap-2 rounded-lg border px-3 py-2.5 text-sm font-medium transition ${
                       isActive
                         ? 'border-valence-blue/30 bg-valence-blue-soft text-valence-text'
-                        : 'border-valence-border bg-white text-valence-text active:bg-valence-surface'
+                        : 'border-valence-border bg-valence-elevated text-valence-text active:bg-valence-surface'
                     }`
                   }
                 >

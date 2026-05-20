@@ -424,7 +424,7 @@ export default function WikilinkTextarea({
       {pickerOpen && suggestions.length > 0 && (
         <ul
           style={{ top: pickerPos.top, left: pickerPos.left, transform: pickerPos.flipUp ? 'translateY(-100%)' : 'none' }}
-          className="absolute z-30 w-72 max-h-64 overflow-y-auto rounded-lg border border-valence-border bg-white shadow-valence"
+          className="absolute z-30 w-72 max-h-64 overflow-y-auto rounded-lg border border-valence-border bg-valence-elevated shadow-valence"
         >
           {suggestions.map((s, i) => (
             <li key={`${s.type}-${s.id}`}>
@@ -445,7 +445,7 @@ export default function WikilinkTextarea({
       {pickerOpen && suggestions.length === 0 && (
         <div
           style={{ top: pickerPos.top, left: pickerPos.left, transform: pickerPos.flipUp ? 'translateY(-100%)' : 'none' }}
-          className="absolute z-30 w-72 rounded-lg border border-valence-border bg-white shadow-valence px-3 py-2 text-xs text-valence-muted"
+          className="absolute z-30 w-72 rounded-lg border border-valence-border bg-valence-elevated shadow-valence px-3 py-2 text-xs text-valence-muted"
         >
           No people, funds, mandates, or notes match “{pickerQuery}”.
         </div>

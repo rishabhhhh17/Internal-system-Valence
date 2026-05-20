@@ -52,10 +52,24 @@ export default function FundDrawer({ open, onClose, existing, onSubmit, onRename
       return
     }
     ;(async () => {
+      // People CRM linkage to a fund happens via EITHER:
+      //   - people.fund_id (explicit FK, set on funds the user picked from
+      //     the dropdown in PersonDrawer), or
+      //   - people.company (free-text name typed into the Company
+      //     autocomplete — what most users actually do today).
+      // Match on both so a person typed as "Lightspeed India" in the
+      // Company field shows up under the Lightspeed India fund.
+      const fundName = String(existing.name || '').replace(/,/g, '')  // PostgREST or() splits on commas
+      const peopleFilter = supabase
+        .from('people')
+        .select('*')
+        .or(`fund_id.eq.${existing.id},company.ilike.${fundName}`)
+        .order('full_name')
+
       const [c, p, pp] = await Promise.all([
         supabase.from('fund_contacts').select('*').eq('fund_id', existing.id).order('created_at', { ascending: false }),
         supabase.from('deal_fund_pings').select('*, deals(client_name, stage)').eq('fund_id', existing.id).order('pinged_at', { ascending: false }),
-        supabase.from('people').select('*').eq('fund_id', existing.id).order('full_name')
+        peopleFilter
       ])
       setContacts(c.data || [])
       setPings(p.data || [])
@@ -166,7 +180,7 @@ export default function FundDrawer({ open, onClose, existing, onSubmit, onRename
             No People CRM rows linked to this fund yet. Add a person and set their Fund to <b>{existing.name}</b> to see them here.
           </div>
         ) : (
-          <ul className="divide-y divide-valence-border/60 rounded-xl border border-valence-border bg-white">
+          <ul className="divide-y divide-valence-border/60 rounded-xl border border-valence-border bg-valence-elevated">
             {peopleAtFund.map(p => (
               <li key={p.id} className="px-4 py-3">
                 <div className="flex items-center justify-between gap-3">
@@ -190,7 +204,7 @@ export default function FundDrawer({ open, onClose, existing, onSubmit, onRename
           {pings.length === 0 ? (
             <div className="rounded-lg border border-dashed border-valence-border bg-valence-surface px-5 py-6 text-center text-sm text-valence-muted">No deals shortlisted to this fund yet.</div>
           ) : pings.map(p => (
-            <div key={p.id} className="flex items-center justify-between rounded-lg border border-valence-border bg-white px-3 py-2 text-sm">
+            <div key={p.id} className="flex items-center justify-between rounded-lg border border-valence-border bg-valence-elevated px-3 py-2 text-sm">
               <div>
                 <p className="font-semibold text-valence-text">{p.deals?.client_name || 'Untitled'}</p>
                 <p className="text-[11px] text-valence-muted">{p.deals?.stage || '—'} · {p.status}</p>
@@ -273,7 +287,7 @@ function ContactsTab({ fundId, contacts, setContacts }) {
       {contacts.length === 0 ? (
         <div className="rounded-lg border border-dashed border-valence-border bg-valence-surface px-5 py-6 text-center text-sm text-valence-muted">No contacts on file yet.</div>
       ) : (
-        <ul className="divide-y divide-valence-border/60 rounded-xl border border-valence-border bg-white">
+        <ul className="divide-y divide-valence-border/60 rounded-xl border border-valence-border bg-valence-elevated">
           {contacts.map(c => (
             <li key={c.id} className="px-4 py-3">
               <div className="flex items-center justify-between gap-3">

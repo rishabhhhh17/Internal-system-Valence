@@ -245,7 +245,7 @@ export default function KbNoteEditor({ note, folder, onSaved }) {
         value={body}
         onChange={setBody}
         placeholder="Write the note. Type [[ to link a person / fund / mandate. Use #tag for folder-local tags."
-        className="vl-input min-h-[280px] leading-relaxed text-[13px] bg-white"
+        className="vl-input min-h-[280px] leading-relaxed text-[13px] bg-valence-elevated"
       />
 
       {/* Voice memo block */}
@@ -257,7 +257,7 @@ export default function KbNoteEditor({ note, folder, onSaved }) {
 
         {audioUrl ? (
           <div className="space-y-2">
-            <div className="flex items-center justify-between gap-3 rounded-lg border border-valence-border bg-white px-3 py-2">
+            <div className="flex items-center justify-between gap-3 rounded-lg border border-valence-border bg-valence-elevated px-3 py-2">
               <div className="flex items-center gap-2 min-w-0 flex-1">
                 <FileAudio className="h-3.5 w-3.5 text-valence-blue shrink-0" />
                 <span className="truncate text-xs font-semibold text-valence-text">{audioFilename || 'Voice memo'}</span>
@@ -284,7 +284,7 @@ export default function KbNoteEditor({ note, folder, onSaved }) {
               </div>
             )}
             {transcript && (
-              <details className="rounded-lg border border-valence-border bg-white">
+              <details className="rounded-lg border border-valence-border bg-valence-elevated">
                 <summary className="cursor-pointer px-3 py-2 text-xs font-semibold text-valence-muted hover:text-valence-text">View transcript ({Math.round(transcript.length / 100) / 10}k chars)</summary>
                 <div className="px-3 pb-3 text-[12px] leading-relaxed text-valence-muted whitespace-pre-wrap font-mono">{transcript}</div>
               </details>

@@ -50,7 +50,7 @@ export default function EventComposer({ range, onClose, onSave }) {
       {/* Click-outside overlay — closes when clicking elsewhere on the page */}
       <div className="fixed inset-0 z-40" onMouseDown={onClose} />
 
-      <div className="fixed right-6 top-24 z-50 w-[440px] max-w-[calc(100vw-3rem)] rounded-2xl border border-valence-border bg-white shadow-2xl">
+      <div className="fixed right-6 top-24 z-50 w-[440px] max-w-[calc(100vw-3rem)] rounded-2xl border border-valence-border bg-valence-elevated shadow-2xl">
         <div className="flex items-start justify-between gap-2 border-b border-valence-border px-5 pt-4 pb-3">
           <input
             ref={inputRef}
@@ -91,7 +91,7 @@ export default function EventComposer({ range, onClose, onSave }) {
             className={`w-full flex items-center gap-3 rounded-md border px-3 py-2 text-left text-sm transition ${
               withMeet
                 ? 'border-valence-blue/40 bg-valence-blue-soft text-valence-text'
-                : 'border-valence-border bg-white text-valence-muted hover:text-valence-text'
+                : 'border-valence-border bg-valence-elevated text-valence-muted hover:text-valence-text'
             }`}
           >
             <Video className="h-4 w-4 shrink-0" />
@@ -99,19 +99,6 @@ export default function EventComposer({ range, onClose, onSave }) {
             <span className={`text-[10px] font-semibold uppercase tracking-wider ${withMeet ? 'text-valence-blue' : 'text-valence-subtle'}`}>{withMeet ? 'On' : 'Off'}</span>
           </button>
 
-          {/* Fathom auto-record hint — Fathom doesn't have a programmatic
-              "schedule this URL" endpoint; it auto-joins meetings on a
-              connected Google Calendar. So the right thing here isn't
-              another API call, it's making the auto-record behaviour
-              discoverable so partners don't worry about whether the bot
-              will show up. */}
-          {withMeet && (
-            <p className="-mt-1 pl-7 text-[10.5px] leading-snug text-valence-blue/80">
-              Fathom will auto-record this meeting and the transcript will
-              auto-log as an interaction in ValenceOS — provided Fathom is
-              connected to your Google Calendar.
-            </p>
-          )}
 
           {/* Location */}
           <div className="flex items-start gap-3">

@@ -163,22 +163,22 @@ export default function Intake() {
           {/* Universal contact + company */}
           <div className="grid gap-4 sm:grid-cols-2">
             <Field label="Company name *">
-              <input className="vl-input bg-white text-valence-text" required value={form.company_name} onChange={e => update({ company_name: e.target.value })} />
+              <input className="vl-input bg-valence-elevated text-valence-text" required value={form.company_name} onChange={e => update({ company_name: e.target.value })} />
             </Field>
             <Field label="Sector">
-              <input className="vl-input bg-white text-valence-text" value={form.sector} onChange={e => update({ sector: e.target.value })} placeholder="e.g. Healthcare, Fintech" />
+              <input className="vl-input bg-valence-elevated text-valence-text" value={form.sector} onChange={e => update({ sector: e.target.value })} placeholder="e.g. Healthcare, Fintech" />
             </Field>
             <Field label="Your name *">
-              <input className="vl-input bg-white text-valence-text" required value={form.contact_name} onChange={e => update({ contact_name: e.target.value })} />
+              <input className="vl-input bg-valence-elevated text-valence-text" required value={form.contact_name} onChange={e => update({ contact_name: e.target.value })} />
             </Field>
             <Field label="Your email *">
-              <input type="email" className="vl-input bg-white text-valence-text" required value={form.contact_email} onChange={e => update({ contact_email: e.target.value })} />
+              <input type="email" className="vl-input bg-valence-elevated text-valence-text" required value={form.contact_email} onChange={e => update({ contact_email: e.target.value })} />
             </Field>
             <Field label="Phone">
-              <input className="vl-input bg-white text-valence-text" value={form.contact_phone} onChange={e => update({ contact_phone: e.target.value })} />
+              <input className="vl-input bg-valence-elevated text-valence-text" value={form.contact_phone} onChange={e => update({ contact_phone: e.target.value })} />
             </Field>
             <Field label="How did you hear about us">
-              <select className="vl-input bg-white text-valence-text" value={form.source} onChange={e => update({ source: e.target.value })}>
+              <select className="vl-input bg-valence-elevated text-valence-text" value={form.source} onChange={e => update({ source: e.target.value })}>
                 {SOURCES.map(s => <option key={s}>{s}</option>)}
               </select>
             </Field>
@@ -227,7 +227,7 @@ export default function Intake() {
                         aria-pressed={active}
                         className={`rounded-lg border px-3 py-2 text-left text-xs transition ${
                           active
-                            ? 'border-white/40 bg-white text-valence-text shadow-sm'
+                            ? 'border-white/40 bg-valence-elevated text-valence-text shadow-sm'
                             : 'border-white/15 bg-white/10 text-white/70 hover:bg-white/15'
                         }`}
                       >
@@ -242,14 +242,14 @@ export default function Intake() {
               {form.deal_subtype === 'fundraise' && (
                 <div className="grid gap-4 sm:grid-cols-2">
                   <Field label="Target raise (USD M)">
-                    <input type="number" className="vl-input bg-white text-valence-text" value={form.target_raise_usd_m} onChange={e => update({ target_raise_usd_m: e.target.value })} placeholder="e.g. 80" />
+                    <input type="number" className="vl-input bg-valence-elevated text-valence-text" value={form.target_raise_usd_m} onChange={e => update({ target_raise_usd_m: e.target.value })} placeholder="e.g. 80" />
                   </Field>
                   <Field label="Target valuation (USD M)">
-                    <input type="number" className="vl-input bg-white text-valence-text" value={form.target_valuation_usd_m} onChange={e => update({ target_valuation_usd_m: e.target.value })} placeholder="e.g. 250" />
+                    <input type="number" className="vl-input bg-valence-elevated text-valence-text" value={form.target_valuation_usd_m} onChange={e => update({ target_valuation_usd_m: e.target.value })} placeholder="e.g. 250" />
                   </Field>
                   <div className="sm:col-span-2">
                     <Field label="Company stage">
-                      <input className="vl-input bg-white text-valence-text" value={form.company_stage} onChange={e => update({ company_stage: e.target.value })} placeholder="Seed · Series A · Growth · Project finance · …" />
+                      <input className="vl-input bg-valence-elevated text-valence-text" value={form.company_stage} onChange={e => update({ company_stage: e.target.value })} placeholder="Seed · Series A · Growth · Project finance · …" />
                     </Field>
                   </div>
                 </div>
@@ -270,7 +270,7 @@ export default function Intake() {
                             aria-pressed={active}
                             className={`rounded-lg border px-3 py-2 text-xs font-semibold transition ${
                               active
-                                ? 'border-white/40 bg-white text-valence-text shadow-sm'
+                                ? 'border-white/40 bg-valence-elevated text-valence-text shadow-sm'
                                 : 'border-white/15 bg-white/10 text-white/70 hover:bg-white/15'
                             }`}
                           >
@@ -282,7 +282,7 @@ export default function Intake() {
                   </div>
                   <Field label="Acquisition brief">
                     <textarea
-                      className="vl-input bg-white text-valence-text min-h-[120px] leading-relaxed"
+                      className="vl-input bg-valence-elevated text-valence-text min-h-[120px] leading-relaxed"
                       value={form.acquisition_brief}
                       onChange={e => update({ acquisition_brief: e.target.value })}
                       placeholder='e.g. "$100M topline IT services company, $5–10M EBITDA, financial services clients, NOT Web3, cybersecurity acceptable."'
@@ -297,14 +297,14 @@ export default function Intake() {
               {form.deal_subtype === 'exit' && (
                 <div className="grid gap-4 sm:grid-cols-2">
                   <Field label="Target exit (USD M)">
-                    <input type="number" className="vl-input bg-white text-valence-text" value={form.target_exit_usd_m} onChange={e => update({ target_exit_usd_m: e.target.value })} placeholder="e.g. 320" />
+                    <input type="number" className="vl-input bg-valence-elevated text-valence-text" value={form.target_exit_usd_m} onChange={e => update({ target_exit_usd_m: e.target.value })} placeholder="e.g. 320" />
                   </Field>
                   <Field label="Target exit valuation (USD M)">
-                    <input type="number" className="vl-input bg-white text-valence-text" value={form.target_exit_valuation_usd_m} onChange={e => update({ target_exit_valuation_usd_m: e.target.value })} placeholder="optional" />
+                    <input type="number" className="vl-input bg-valence-elevated text-valence-text" value={form.target_exit_valuation_usd_m} onChange={e => update({ target_exit_valuation_usd_m: e.target.value })} placeholder="optional" />
                   </Field>
                   <div className="sm:col-span-2">
                     <Field label="Investor being exited">
-                      <input className="vl-input bg-white text-valence-text" value={form.exit_investor_name} onChange={e => update({ exit_investor_name: e.target.value })} placeholder="e.g. Brookfield" />
+                      <input className="vl-input bg-valence-elevated text-valence-text" value={form.exit_investor_name} onChange={e => update({ exit_investor_name: e.target.value })} placeholder="e.g. Brookfield" />
                     </Field>
                   </div>
                 </div>
@@ -317,7 +317,7 @@ export default function Intake() {
             <div className="space-y-3 rounded-xl border border-valence-warning/30 bg-valence-warning/5 p-4">
               <Field label="Engagement brief">
                 <textarea
-                  className="vl-input bg-white text-valence-text min-h-[120px] leading-relaxed"
+                  className="vl-input bg-valence-elevated text-valence-text min-h-[120px] leading-relaxed"
                   value={form.engagement_brief}
                   onChange={e => update({ engagement_brief: e.target.value })}
                   placeholder='e.g. "Help break into Dubai market — distribution + first-customer outreach. Also exploring vending-machine product line for premium Q-commerce dark stores."'
@@ -331,7 +331,7 @@ export default function Intake() {
 
           {/* Situation + deck */}
           <Field label="The situation, in your own words">
-            <textarea className="vl-input bg-white text-valence-text min-h-[160px] leading-relaxed" value={form.situation} onChange={e => update({ situation: e.target.value })} placeholder="What's the mandate, what triggered the need, what does success look like?" />
+            <textarea className="vl-input bg-valence-elevated text-valence-text min-h-[160px] leading-relaxed" value={form.situation} onChange={e => update({ situation: e.target.value })} placeholder="What's the mandate, what triggered the need, what does success look like?" />
           </Field>
 
           <div>

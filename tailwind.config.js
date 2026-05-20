@@ -1,39 +1,47 @@
 /** @type {import('tailwindcss').Config} */
 export default {
   content: ['./index.html', './src/**/*.{js,jsx}'],
+  darkMode: 'class',
   theme: {
     extend: {
       colors: {
+        // Palette is CSS-variable-backed so the same `bg-valence-bg` class
+        // flips between light + dark themes automatically when the `.dark`
+        // class is toggled on <html>. Light values live in :root, dark
+        // values in :root.dark — both in src/index.css. RGB-triplet form
+        // (`51 153 255` not `#3399ff`) is what unlocks Tailwind's `/N`
+        // opacity modifier (`bg-valence-blue/20` etc.) — heavily used.
         valence: {
-          // Palette pulled from the actual valencegrowth.com stylesheet.
-          // Ink navy #0D1E3A, accent blue #3399FF, surface grey #f6f7f7.
-          bg:            '#ffffff',
-          surface:       '#f6f7f7',
-          elevated:      '#ffffff',
-          'ink':         '#0D1E3A',
-          'ink-soft':    '#17315a',
+          bg:             'rgb(var(--valence-bg) / <alpha-value>)',
+          surface:        'rgb(var(--valence-surface) / <alpha-value>)',
+          elevated:       'rgb(var(--valence-elevated) / <alpha-value>)',
+          ink:            'rgb(var(--valence-ink) / <alpha-value>)',
+          'ink-soft':     'rgb(var(--valence-ink-soft) / <alpha-value>)',
 
-          border:        'rgba(0, 0, 0, 0.06)',
-          'border-strong':'rgba(0, 0, 0, 0.16)',
-          'border-ink':  'rgba(255, 255, 255, 0.10)',
+          // Borders + rings stay as full rgba — they're meant as low-alpha
+          // overlays rather than semantic palette colors. Variables let
+          // them swap on theme change without per-component patches.
+          border:         'var(--valence-border)',
+          'border-strong':'var(--valence-border-strong)',
+          'border-ink':   'var(--valence-border-ink)',
 
-          blue:          '#3399FF',
-          'blue-hover':  '#1a85ff',
-          'blue-deep':   '#1a66cc',
-          'blue-soft':   '#e6f2ff',
-          'blue-ring':   'rgba(51, 153, 255, 0.22)',
+          blue:           'rgb(var(--valence-blue) / <alpha-value>)',
+          'blue-hover':   'rgb(var(--valence-blue-hover) / <alpha-value>)',
+          'blue-deep':    'rgb(var(--valence-blue-deep) / <alpha-value>)',
+          'blue-soft':    'rgb(var(--valence-blue-soft) / <alpha-value>)',
+          'blue-ring':    'var(--valence-blue-ring)',
 
-          text:          '#0D1E3A',
-          muted:         '#4b5872',
-          subtle:        '#94a3b8',
-          faint:         '#cbd5e1',
+          text:           'rgb(var(--valence-text) / <alpha-value>)',
+          muted:          'rgb(var(--valence-muted) / <alpha-value>)',
+          subtle:         'rgb(var(--valence-subtle) / <alpha-value>)',
+          faint:          'rgb(var(--valence-faint) / <alpha-value>)',
 
-          success:       '#357b49',
-          'success-soft':'#dceadf',
-          warning:       '#b45309',
-          'warning-soft':'#fef3c7',
-          danger:        '#dc2626',
-          'danger-soft': '#fee2e2'
+          success:        'rgb(var(--valence-success) / <alpha-value>)',
+          'success-soft': 'rgb(var(--valence-success-soft) / <alpha-value>)',
+          warning:        'rgb(var(--valence-warning) / <alpha-value>)',
+          'warning-soft': 'rgb(var(--valence-warning-soft) / <alpha-value>)',
+          danger:         'rgb(var(--valence-danger) / <alpha-value>)',
+          'danger-soft':  'rgb(var(--valence-danger-soft) / <alpha-value>)'
         }
       },
       fontFamily: {

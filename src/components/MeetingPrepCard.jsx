@@ -58,7 +58,7 @@ export default function MeetingPrepCard({ meeting, onClose }) {
   return (
     <div className="fixed inset-0 z-[70] flex items-start justify-center pt-[8vh] px-4" role="dialog" aria-modal="true" aria-label="Meeting prep">
       <div className="absolute inset-0 bg-valence-ink/45 backdrop-blur-sm animate-fade-in" onClick={onClose} />
-      <div className="relative w-full max-w-[640px] max-h-[84vh] animate-slide-up rounded-2xl border border-valence-border bg-white shadow-valence-lg overflow-hidden flex flex-col">
+      <div className="relative w-full max-w-[640px] max-h-[84vh] animate-slide-up rounded-2xl border border-valence-border bg-valence-elevated shadow-valence-lg overflow-hidden flex flex-col">
         <div className="flex items-start justify-between gap-3 border-b border-valence-border px-6 py-4 shrink-0">
           <div className="min-w-0">
             <p className="vl-eyebrow-ink inline-flex items-center gap-1.5">
@@ -147,7 +147,7 @@ export default function MeetingPrepCard({ meeting, onClose }) {
                 <Section icon={MessageSquare} title="Recent interactions" tone="blue">
                   <ul className="space-y-2">
                     {prep.interactions.map(i => (
-                      <li key={i.id} className="rounded-lg border border-valence-border bg-white px-3 py-2">
+                      <li key={i.id} className="rounded-lg border border-valence-border bg-valence-elevated px-3 py-2">
                         <div className="flex items-center justify-between gap-2 text-[11px] text-valence-muted">
                           <span className="font-semibold text-valence-text">{labelType(i.type)} · {labelOutcome(i.outcome)}</span>
                           <span>{i.created_at?.slice(0, 10)}</span>
@@ -164,7 +164,7 @@ export default function MeetingPrepCard({ meeting, onClose }) {
                 <Section icon={Briefcase} title="Open mandates" tone="amber">
                   <ul className="space-y-1.5">
                     {prep.deals.map(d => (
-                      <li key={d.id} className="flex items-center justify-between gap-3 rounded-lg border border-valence-border bg-white px-3 py-2 text-sm">
+                      <li key={d.id} className="flex items-center justify-between gap-3 rounded-lg border border-valence-border bg-valence-elevated px-3 py-2 text-sm">
                         <div className="min-w-0">
                           <p className="font-semibold text-valence-text truncate">{d.client_name}</p>
                           <p className="text-[10.5px] text-valence-muted">{[d.stage, d.sector, d.deal_type].filter(Boolean).join(' · ')}</p>
@@ -201,7 +201,7 @@ const TONES = {
 function Section({ icon: Icon, title, tone = 'blue', children }) {
   const t = TONES[tone] || TONES.blue
   return (
-    <div className={`rounded-xl border border-valence-border bg-white p-4 ring-1 ${t.ring}`}>
+    <div className={`rounded-xl border border-valence-border bg-valence-elevated p-4 ring-1 ${t.ring}`}>
       <div className="flex items-center gap-2 mb-2">
         <span className={`inline-flex h-6 w-6 items-center justify-center rounded-md ${t.iconBg}`}><Icon className="h-3.5 w-3.5" /></span>
         <p className={`text-[10px] font-semibold uppercase tracking-[0.18em] ${t.eyebrow}`}>{title}</p>

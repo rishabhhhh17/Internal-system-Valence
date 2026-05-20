@@ -9,16 +9,18 @@ import { DEMO_PEOPLE } from '../lib/people.js'
 import { extractText } from '../lib/fileParse.js'
 import { transcribeAndSummarise } from '../lib/voiceMemo.js'
 import { isGeminiConfigured } from '../lib/gemini.js'
-import { isFathomConfigured, pullLatestMeeting } from '../lib/fathom.js'
 import { useToast } from './Toast.jsx'
 import WikilinkTextarea from './WikilinkTextarea.jsx'
 import Typeahead from './Typeahead.jsx'
 
+// Meeting-tool integration (Read.ai / Otter / Fireflies) is configured
+// in Settings → Integrations on this branch and lights up once a
+// partner picks their tool. Until then, transcripts are paste / upload
+// / voice memo only.
 const TRANSCRIPT_SOURCES = [
   { id: 'manual',     label: 'Paste / type',  icon: FileText, blurb: 'Type or paste a transcript directly' },
   { id: 'upload',     label: 'Upload file',   icon: Upload,   blurb: '.txt, .vtt, .srt, .docx, .pdf' },
-  { id: 'voice_memo', label: 'Voice memo',    icon: Mic,      blurb: 'Audio → transcript via Gemini' },
-  { id: 'fathom',     label: 'Pull from Fathom', icon: Sparkles, blurb: 'Latest meeting from your Fathom account' }
+  { id: 'voice_memo', label: 'Voice memo',    icon: Mic,      blurb: 'Audio → transcript via Gemini' }
 ]
 
 const BLANK = {
@@ -195,7 +197,7 @@ export default function InteractionDrawer({ open, onClose, existing, onSubmit })
                         className={`rounded-lg border px-3 py-2 text-left text-xs transition ${
                           form.interaction_purpose === p.id
                             ? 'border-valence-blue/40 bg-valence-blue-soft text-valence-text'
-                            : 'border-valence-border bg-white text-valence-muted hover:text-valence-text'
+                            : 'border-valence-border bg-valence-elevated text-valence-muted hover:text-valence-text'
                         }`}
                       >
                         <p className="font-semibold">{p.label}</p>
@@ -223,7 +225,7 @@ export default function InteractionDrawer({ open, onClose, existing, onSubmit })
             )}
           </div>
           {form.person_id ? (
-            <div className="rounded-lg border border-valence-blue/30 bg-white px-3 py-2.5 text-sm">
+            <div className="rounded-lg border border-valence-blue/30 bg-valence-elevated px-3 py-2.5 text-sm">
               <p className="font-semibold text-valence-text">{form.counterparty_name}</p>
               <p className="mt-0.5 text-[11px] text-valence-muted">{[form.counterparty_role, form.counterparty_company].filter(Boolean).join(' · ') || '—'}</p>
               <p className="mt-1 text-[10px] uppercase tracking-[0.16em] text-valence-blue">Linked to People</p>
@@ -231,13 +233,13 @@ export default function InteractionDrawer({ open, onClose, existing, onSubmit })
           ) : (
             <div className="relative">
               <input
-                className="vl-input bg-white"
+                className="vl-input bg-valence-elevated"
                 value={personQuery}
                 onChange={e => { setPersonQuery(e.target.value); update({ counterparty_name: e.target.value }) }}
                 placeholder="Search People CRM, or type a new name to add"
               />
               {filteredPeople.length > 0 && (
-                <ul className="absolute z-10 mt-1 w-full max-h-56 overflow-y-auto rounded-lg border border-valence-border bg-white shadow-valence">
+                <ul className="absolute z-10 mt-1 w-full max-h-56 overflow-y-auto rounded-lg border border-valence-border bg-valence-elevated shadow-valence">
                   {filteredPeople.map(p => (
                     <li key={p.id}>
                       <button type="button" onClick={() => pickPerson(p)} className="block w-full px-3 py-2 text-left hover:bg-valence-blue-soft">
@@ -249,7 +251,7 @@ export default function InteractionDrawer({ open, onClose, existing, onSubmit })
                 </ul>
               )}
               {personQuery && filteredPeople.length === 0 && (
-                <div className="mt-2 flex items-center justify-between rounded-lg border border-dashed border-valence-border bg-white px-3 py-2 text-xs text-valence-muted">
+                <div className="mt-2 flex items-center justify-between rounded-lg border border-dashed border-valence-border bg-valence-elevated px-3 py-2 text-xs text-valence-muted">
                   <span>No match for "{personQuery}".</span>
                   <button type="button" disabled={creatingPerson} onClick={createPersonInline} className="vl-btn-ghost text-[11px]">
                     <Plus className="h-3 w-3" /> {creatingPerson ? 'Adding…' : 'Create Person'}
@@ -270,7 +272,7 @@ export default function InteractionDrawer({ open, onClose, existing, onSubmit })
                 value={form.counterparty_company}
                 onChange={v => update({ counterparty_company: v })}
                 placeholder="Nimbus Health"
-                className="vl-input mt-1.5 bg-white"
+                className="vl-input mt-1.5 bg-valence-elevated"
                 fetcher={async q => {
                   if (!isSupabaseConfigured) return []
                   const [{ data: fundsRes }, { data: peopleRes }] = await Promise.all([
@@ -296,7 +298,7 @@ export default function InteractionDrawer({ open, onClose, existing, onSubmit })
             </div>
             <div>
               <label className="vl-label">Role</label>
-              <input className="vl-input mt-1.5 bg-white" value={form.counterparty_role} onChange={e => update({ counterparty_role: e.target.value })} placeholder="CEO" />
+              <input className="vl-input mt-1.5 bg-valence-elevated" value={form.counterparty_role} onChange={e => update({ counterparty_role: e.target.value })} placeholder="CEO" />
             </div>
           </div>
           <div>
@@ -308,7 +310,7 @@ export default function InteractionDrawer({ open, onClose, existing, onSubmit })
               value={form.lead_owner}
               onChange={v => update({ lead_owner: v })}
               placeholder="Neha Jain"
-              className="vl-input mt-1.5 bg-white"
+              className="vl-input mt-1.5 bg-valence-elevated"
               minChars={1}
               fetcher={async q => {
                 if (!isSupabaseConfigured) return []
@@ -383,7 +385,7 @@ export default function InteractionDrawer({ open, onClose, existing, onSubmit })
 }
 
 // ============================================================================
-// TranscriptSection — paste / upload / voice memo / Fathom pull. Stores into
+// TranscriptSection — paste / upload / voice memo. Stores into
 // form.transcript + form.transcript_source. Optional Gemini summary is
 // stored in form.transcript_summary. Audio (when voice-memo source) goes to
 // form.audio_url + form.audio_filename via Supabase Storage.
@@ -394,7 +396,6 @@ function TranscriptSection({ form, update }) {
   const [parsing, setParsing] = useState(false)
   const [transcribing, setTranscribing] = useState(false)
   const [summarising, setSummarising] = useState(false)
-  const [pullingFathom, setPullingFathom] = useState(false)
   const [showTranscript, setShowTranscript] = useState(false)
   const fileRef = useRef(null)
   const audioRef = useRef(null)
@@ -448,31 +449,6 @@ function TranscriptSection({ form, update }) {
     }
   }
 
-  async function pullFromFathom() {
-    if (!isFathomConfigured) {
-      toast.info('Fathom not connected. Add VITE_FATHOM_API_KEY (Fathom → Settings → Integrations → API).')
-      return
-    }
-    setPullingFathom(true)
-    try {
-      const m = await pullLatestMeeting()
-      // Stuff the pulled meeting into the form. The transcript +
-      // summary become the interaction body, and the title / attendee
-      // names autofill the counterparty fields when they're empty.
-      update({
-        transcript: m.transcript || '',
-        transcript_summary: m.summary || '',
-        ...(form.counterparty_name ? {} : { counterparty_name: m.attendees?.[0]?.name || form.counterparty_name }),
-        ...(form.notes ? {} : { notes: m.summary ? m.summary : (m.transcript || '').slice(0, 1200) })
-      })
-      toast.success(`Pulled "${m.title || 'meeting'}" from Fathom.`)
-    } catch (err) {
-      toast.error(err?.message || 'Fathom pull failed')
-    } finally {
-      setPullingFathom(false)
-    }
-  }
-
   async function summarise() {
     if (!form.transcript?.trim()) return
     if (!isGeminiConfigured) {
@@ -519,16 +495,15 @@ function TranscriptSection({ form, update }) {
               if (s.id === 'manual')     { setShowTranscript(true); update({ transcript_source: 'manual' }) }
               else if (s.id === 'upload')     fileRef.current?.click()
               else if (s.id === 'voice_memo') audioRef.current?.click()
-              else if (s.id === 'fathom')     pullFromFathom()
             }
-            const busy = (s.id === 'upload' && parsing) || (s.id === 'voice_memo' && transcribing) || (s.id === 'fathom' && pullingFathom)
+            const busy = (s.id === 'upload' && parsing) || (s.id === 'voice_memo' && transcribing)
             return (
               <button
                 key={s.id}
                 type="button"
                 onClick={onClick}
                 disabled={busy}
-                className="rounded-lg border border-valence-border bg-white px-3 py-2.5 text-left text-xs hover:border-valence-blue/40 hover:bg-valence-blue-soft transition disabled:opacity-50 disabled:cursor-not-allowed"
+                className="rounded-lg border border-valence-border bg-valence-elevated px-3 py-2.5 text-left text-xs hover:border-valence-blue/40 hover:bg-valence-blue-soft transition disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <div className="flex items-center gap-1.5 font-semibold text-valence-text">
                   {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Icon className="h-3.5 w-3.5 text-valence-blue" />}
@@ -550,7 +525,6 @@ function TranscriptSection({ form, update }) {
               <span className="vl-chip-blue">
                 {form.transcript_source === 'voice_memo' ? <Mic className="h-3 w-3" /> :
                  form.transcript_source === 'upload'     ? <Upload className="h-3 w-3" /> :
-                 form.transcript_source === 'fathom'     ? <Sparkles className="h-3 w-3" /> :
                                                            <FileText className="h-3 w-3" />}
                 {form.transcript_source.replace('_', ' ')}
               </span>

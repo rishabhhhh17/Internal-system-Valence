@@ -1,21 +1,200 @@
-const GEMINI_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent'
+// All AI calls now flow through the /api/llm Vercel function (multi-
+// provider router). The legacy /api/gemini endpoint still exists and
+// forwards into the same router for backwards compatibility.
+//
+// This module is intentionally still named gemini.js — every prompt + UI
+// callsite imports from here. Internally each call resolves the active
+// provider (Gemini, OpenAI, Anthropic, Vercel AI Gateway, custom) via
+// `src/lib/llmProviders.js` and tags the outbound request with the
+// provider/model headers the proxy expects.
+//
+// "Bring your own key" works for ALL providers — the user's key (if any)
+// goes in the `x-llm-api-key` request header so the proxy can honour it
+// without the rest of the codebase changing.
+import {
+  getActiveConfig,
+  isProviderConfigured as isAnyProviderConfigured,
+  getApiKey as getProviderApiKey,
+  setApiKey as setProviderApiKey,
+  clearApiKey as clearProviderApiKey
+} from './llmProviders.js'
 
-export const geminiKey = import.meta.env.VITE_GEMINI_API_KEY
-export const isGeminiConfigured = Boolean(geminiKey)
+const LLM_PROXY_URL = '/api/llm'
 
-async function gemini(prompt, { temperature = 0.55, maxOutputTokens = 320 } = {}) {
-  if (!isGeminiConfigured) throw new Error('Gemini API key not configured')
-  const res = await fetch(`${GEMINI_URL}?key=${geminiKey}`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      contents: [{ parts: [{ text: prompt }] }],
-      generationConfig: { temperature, maxOutputTokens }
+// Legacy direct URL — kept ONLY for testGeminiKey() which tests a user-
+// provided key against Google directly (not through our proxy, since the
+// point is to verify the user's own key works before saving it).
+const GEMINI_DIRECT_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent'
+
+// Key resolution order: user-provided (localStorage) wins over the
+// build-time env var. Lets a customer demo their own key without
+// rebuilding the app — the env key still works as a default.
+const STORAGE_KEY_GEMINI = 'valence.settings.geminiKey'
+
+function readUserGeminiKey() {
+  try {
+    if (typeof window === 'undefined' || !window.localStorage) return null
+    return window.localStorage.getItem(STORAGE_KEY_GEMINI) || null
+  } catch {
+    return null
+  }
+}
+
+const envGeminiKey = import.meta.env.VITE_GEMINI_API_KEY || null
+
+// Exported as `let` so setGeminiKey() can flip the live ESM binding —
+// importers reading `isGeminiConfigured` on the next render see the
+// updated value without needing a reload. The existing `geminiKey`
+// export stays a string consumers can interpolate into a URL.
+//
+// NOTE: these gemini-specific exports remain for backwards compatibility
+// (GeminiKeyPanel, tests, etc.). New code should call `getActiveConfig()`
+// from `src/lib/llmProviders.js` instead so multi-provider works.
+const _initialUserKey = readUserGeminiKey()
+export let geminiKey = _initialUserKey || envGeminiKey
+export let isGeminiConfigured = Boolean(geminiKey)
+export let geminiKeySource = _initialUserKey ? 'user' : (envGeminiKey ? 'env' : 'none')
+
+export function getGeminiKey() { return geminiKey }
+export function getGeminiKeySource() { return geminiKeySource }
+
+export function setGeminiKey(key) {
+  const trimmed = typeof key === 'string' ? key.trim() : ''
+  try {
+    if (typeof window !== 'undefined' && window.localStorage) {
+      if (trimmed) window.localStorage.setItem(STORAGE_KEY_GEMINI, trimmed)
+      else window.localStorage.removeItem(STORAGE_KEY_GEMINI)
+    }
+  } catch {
+    return false
+  }
+  geminiKey = trimmed || envGeminiKey
+  isGeminiConfigured = Boolean(geminiKey)
+  geminiKeySource = trimmed ? 'user' : (envGeminiKey ? 'env' : 'none')
+  // Keep the multi-provider registry's Gemini slot in sync so a user who
+  // updates Gemini via the legacy panel doesn't have to re-pick it.
+  try { setProviderApiKey('gemini', trimmed) } catch { /* SSR / blocked */ }
+  return true
+}
+
+export function clearGeminiKey() {
+  try { clearProviderApiKey('gemini') } catch {}
+  return setGeminiKey('')
+}
+
+// True when ANY provider can serve a call (Gemini fallback or user-supplied
+// key for one of the others). The legacy `isGeminiConfigured` boolean only
+// reflects Gemini status; new code should use this instead.
+export function isAnyLlmConfigured() {
+  try {
+    const cfg = getActiveConfig()
+    if (cfg.configured) return true
+  } catch { /* SSR */ }
+  return Boolean(geminiKey)
+}
+
+// Lightweight liveness check — performs a tiny generateContent call.
+// Returns { ok, error } so callers can decorate UI without parsing
+// fetch failures themselves. Tests against Google DIRECTLY (not our
+// proxy) because the point is to verify the user's key works.
+export async function testGeminiKey(key) {
+  const target = typeof key === 'string' ? key.trim() : geminiKey
+  if (!target) return { ok: false, error: 'No key provided' }
+  try {
+    const res = await fetch(`${GEMINI_DIRECT_URL}?key=${target}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [{ parts: [{ text: 'ping' }] }],
+        generationConfig: { temperature: 0, maxOutputTokens: 1 }
+      })
     })
+    if (res.ok) return { ok: true }
+    const body = await res.json().catch(() => null)
+    return { ok: false, error: body?.error?.message || `HTTP ${res.status}` }
+  } catch (e) {
+    return { ok: false, error: e?.message || 'Network error' }
+  }
+}
+
+// Pub/sub for usage data. The billing wire-up subscribes once and gets
+// notified after every successful LLM call with the token counts +
+// estimated cost extracted from the upstream's response. Decouples the AI
+// lib from the billing lib — no circular import.
+//
+// Listeners receive: { promptTokens, completionTokens, totalTokens,
+//                      estimatedCostUsd, actionType, provider, model, at }
+// The `provider` + `model` fields are new (multi-LLM); pre-existing
+// listeners that ignored extra fields still work.
+const _usageListeners = new Set()
+let _lastUsage = null
+export function onGeminiUsage(fn) {
+  if (typeof fn !== 'function') return () => {}
+  _usageListeners.add(fn)
+  return () => _usageListeners.delete(fn)
+}
+// Alias — same subscription mechanism, named for the multi-LLM era. New
+// code should import `onLlmUsage`; the gemini-prefixed one stays for the
+// existing aiMeter wire-up.
+export const onLlmUsage = onGeminiUsage
+export function getLastGeminiUsage() { return _lastUsage }
+export const getLastLlmUsage = getLastGeminiUsage
+
+async function gemini(prompt, { temperature = 0.55, maxOutputTokens = 320, actionType = null } = {}) {
+  // Resolve the active provider. When the customer hasn't picked one,
+  // getActiveConfig() falls back to Gemini, which is `managed` — the server
+  // owns the key. So a fresh install with no user setup still works.
+  let cfg
+  try { cfg = getActiveConfig() } catch { cfg = null }
+  const providerId = cfg?.providerId || 'gemini'
+  const modelId    = cfg?.modelId || null
+  const userApiKey = cfg?.apiKey || (providerId === 'gemini' && geminiKeySource === 'user' ? geminiKey : null)
+  const baseUrl    = cfg?.baseUrl || null
+
+  // Configured check: Gemini is managed (server fallback OK); other
+  // providers require a user-supplied key.
+  const okToCall = providerId === 'gemini'
+    ? Boolean(userApiKey || geminiKey || envGeminiKey)
+    : Boolean(userApiKey)
+  if (!okToCall) {
+    throw new Error(`${cfg?.provider?.label || providerId} API key not configured`)
+  }
+
+  const headers = { 'Content-Type': 'application/json', 'x-llm-provider': providerId }
+  if (userApiKey) headers['x-llm-api-key'] = userApiKey
+  if (baseUrl)    headers['x-llm-base-url'] = baseUrl
+
+  const body = { prompt, temperature, maxOutputTokens }
+  if (modelId) body.model = modelId
+
+  const res = await fetch(LLM_PROXY_URL, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify(body)
   })
-  if (!res.ok) throw new Error(`Gemini error ${res.status}`)
-  const json = await res.json()
-  return json?.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || ''
+  const json = await res.json().catch(() => null)
+  if (!res.ok) throw new Error(json?.error || `LLM proxy error ${res.status}`)
+
+  if (json?.usage) {
+    _lastUsage = {
+      ...json.usage,
+      actionType: actionType || null,
+      provider: json.provider || providerId,
+      model:    json.model    || modelId || null,
+      at: new Date().toISOString()
+    }
+    for (const fn of _usageListeners) {
+      try { fn(_lastUsage) } catch (e) { console.warn('llm usage listener threw', e) }
+    }
+  }
+
+  // The unified proxy returns { data: { text } } regardless of provider.
+  // Also support the legacy { data: { candidates: [...] } } shape for the
+  // brief window before the proxy migration completes.
+  const text = json?.data?.text
+    ?? json?.data?.candidates?.[0]?.content?.parts?.[0]?.text
+    ?? ''
+  return String(text).trim()
 }
 
 export async function generateDaySummary({ meetings, tasks, dateLabel }) {
@@ -30,7 +209,7 @@ Open tasks (${tasks.filter(t => !t.completed).length}):
 ${tasks.filter(t => !t.completed).map(t => `- ${t.title}`).join('\n') || '- none'}
 
 Write the summary now.`
-  return gemini(prompt, { temperature: 0.55, maxOutputTokens: 260 })
+  return gemini(prompt, { temperature: 0.55, maxOutputTokens: 260, actionType: 'day_summary' })
 }
 
 export async function draftMeetingMessage({ title, date, time, attendeeName }) {
@@ -42,7 +221,7 @@ Proposed time: ${time}
 Attendee: ${attendeeName}
 
 Write the message now.`
-  return gemini(prompt, { temperature: 0.6, maxOutputTokens: 320 })
+  return gemini(prompt, { temperature: 0.6, maxOutputTokens: 320, actionType: 'meeting_message' })
 }
 
 // ============ DEAL BRIEFER ============
@@ -97,7 +276,7 @@ ${activities.slice(0, 8).map(a => `- ${a.kind}: ${a.body || ''}`).join('\n') || 
 
 Write the brief now.`
 
-  return gemini(prompt, { temperature: 0.45, maxOutputTokens: 620 })
+  return gemini(prompt, { temperature: 0.45, maxOutputTokens: 620, actionType: 'deal_brief' })
 }
 
 // ============ EMAIL SCENARIOS ============
@@ -151,7 +330,7 @@ Attendees: ${attendees.join(', ') || ''}
 Notes:
 ${notes}`
 
-  const text = await gemini(prompt, { temperature: 0.2, maxOutputTokens: 900 })
+  const text = await gemini(prompt, { temperature: 0.2, maxOutputTokens: 900, actionType: 'meeting_summary' })
   const cleaned = text.replace(/^```json\s*|\s*```$/g, '').trim()
   try {
     return JSON.parse(cleaned)
@@ -180,7 +359,7 @@ Schema (null where unknown):
 Teaser text (truncated):
 ${text.slice(0, 9000)}`
 
-  const raw = await gemini(prompt, { temperature: 0.15, maxOutputTokens: 600 })
+  const raw = await gemini(prompt, { temperature: 0.15, maxOutputTokens: 600, actionType: 'teaser_extract' })
   const cleaned = raw.replace(/^```json\s*|\s*```$/g, '').trim()
   try { return JSON.parse(cleaned) }
   catch {
@@ -206,7 +385,7 @@ Context:
 - Internal notes: ${deal.notes || '—'}
 
 Write the email now.`
-  return gemini(prompt, { temperature: 0.65, maxOutputTokens: 420 })
+  return gemini(prompt, { temperature: 0.65, maxOutputTokens: 420, actionType: 'email_draft' })
 }
 
 // ============ HEURISTIC FALLBACKS ============

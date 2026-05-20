@@ -83,13 +83,13 @@ export default function MeetingIntelligence({ deal }) {
         <div className="flex flex-wrap items-center gap-2">
           <span className="vl-eyebrow-ink">Source</span>
           {TRANSCRIPT_SOURCES.map(s => (
-            <button key={s.id} onClick={() => setSource(s.id)} className={`rounded-full border px-2.5 py-1 text-[11px] font-semibold transition ${source === s.id ? 'border-valence-blue/40 bg-valence-blue-soft text-valence-text' : 'border-valence-border bg-white text-valence-muted hover:text-valence-text'}`}>{s.label}</button>
+            <button key={s.id} onClick={() => setSource(s.id)} className={`rounded-full border px-2.5 py-1 text-[11px] font-semibold transition ${source === s.id ? 'border-valence-blue/40 bg-valence-blue-soft text-valence-text' : 'border-valence-border bg-valence-elevated text-valence-muted hover:text-valence-text'}`}>{s.label}</button>
           ))}
         </div>
         <textarea
           value={transcript}
           onChange={e => setTranscript(e.target.value)}
-          className="vl-input min-h-[180px] leading-relaxed bg-white"
+          className="vl-input min-h-[180px] leading-relaxed bg-valence-elevated"
           placeholder="Paste the transcript here…"
         />
         <div className="flex flex-wrap items-center gap-3">
@@ -125,7 +125,7 @@ export default function MeetingIntelligence({ deal }) {
 function BriefCard({ item }) {
   const [expanded, setExpanded] = useState(false)
   return (
-    <li className="rounded-xl border border-valence-border bg-white p-4">
+    <li className="rounded-xl border border-valence-border bg-valence-elevated p-4">
       <div className="flex items-center justify-between gap-3 text-[11px]">
         <span className="inline-flex items-center gap-2 text-valence-muted">
           <FileText className="h-3 w-3" /> {item.source || 'manual'} · {item.created_at ? format(new Date(item.created_at), 'd MMM yyyy · HH:mm') : ''}

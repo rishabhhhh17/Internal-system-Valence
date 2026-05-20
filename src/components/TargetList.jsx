@@ -56,7 +56,7 @@ export default function TargetList({ deal }) {
 
   return (
     <div className="space-y-4">
-      <div className="rounded-xl border border-valence-border bg-gradient-to-br from-valence-blue-soft via-white to-white p-5">
+      <div className="rounded-xl border border-valence-border bg-gradient-to-br from-valence-blue-soft via-valence-elevated to-valence-elevated p-5">
         <div className="flex items-start gap-3">
           <div className="grid h-10 w-10 place-items-center rounded-xl bg-valence-blue-soft ring-1 ring-valence-blue/30 shrink-0">
             <UsersIcon className="h-4 w-4 text-valence-blue" />
@@ -106,7 +106,7 @@ export default function TargetList({ deal }) {
                       {t.warmth === 'Internal relationship'
                         ? <span className="vl-chip-blue">Internal relationship</span>
                         : <span className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-semibold ${
-                            t.warmth === 'Warm' ? 'border-valence-success/30 bg-valence-success-soft text-valence-success' : 'border-valence-border bg-white text-valence-muted'
+                            t.warmth === 'Warm' ? 'border-valence-success/30 bg-valence-success-soft text-valence-success' : 'border-valence-border bg-valence-elevated text-valence-muted'
                           }`}>{t.warmth || 'Cold'}</span>}
                     </div>
                     <p className="mt-2 text-[13px] leading-relaxed text-valence-text">{t.rationale}</p>

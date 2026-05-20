@@ -190,6 +190,96 @@ export async function loadDefaultCriteria() {
   return data
 }
 
+// Pure validator for criteria edits — used by the Settings editor and tested
+// independently. Returns { ok, errors, normalized } where `normalized` is the
+// payload trimmed of empty / duplicate values and ready to write.
+export function validateCriteria(input) {
+  const errors = []
+  if (!input || typeof input !== 'object') {
+    return { ok: false, errors: ['Criteria payload missing'], normalized: null }
+  }
+
+  const cleanList = (v) => Array.isArray(v)
+    ? Array.from(new Set(v.map(s => typeof s === 'string' ? s.trim() : '').filter(Boolean)))
+    : []
+  const sectors = cleanList(input.sectors)
+  const excluded_sectors = cleanList(input.excluded_sectors)
+  const geographies = cleanList(input.geographies)
+
+  // Don't let a sector be both allowed and excluded — that's incoherent.
+  const overlap = sectors.filter(s => excluded_sectors.includes(s))
+  if (overlap.length) {
+    errors.push(`Sector cannot be allowed and excluded: ${overlap.join(', ')}`)
+  }
+
+  const ev_min_usd_m = input.ev_min_usd_m === '' || input.ev_min_usd_m == null
+    ? null
+    : Number(input.ev_min_usd_m)
+  const ev_max_usd_m = input.ev_max_usd_m === '' || input.ev_max_usd_m == null
+    ? null
+    : Number(input.ev_max_usd_m)
+
+  if (ev_min_usd_m != null && !Number.isFinite(ev_min_usd_m)) errors.push('EV min must be a number')
+  if (ev_max_usd_m != null && !Number.isFinite(ev_max_usd_m)) errors.push('EV max must be a number')
+  if (ev_min_usd_m != null && ev_min_usd_m < 0) errors.push('EV min cannot be negative')
+  if (ev_max_usd_m != null && ev_max_usd_m < 0) errors.push('EV max cannot be negative')
+  if (ev_min_usd_m != null && ev_max_usd_m != null && ev_min_usd_m > ev_max_usd_m) {
+    errors.push('EV min must be ≤ EV max')
+  }
+
+  const name = typeof input.name === 'string' && input.name.trim()
+    ? input.name.trim()
+    : 'Default firm criteria'
+
+  const normalized = {
+    name,
+    sectors,
+    excluded_sectors,
+    geographies,
+    ev_min_usd_m,
+    ev_max_usd_m,
+    is_default: true
+  }
+  return { ok: errors.length === 0, errors, normalized }
+}
+
+// Upsert the firm's default criteria row. Creates one if no default exists
+// yet; otherwise updates the most recent default row in place. Returns the
+// fresh row (or DEFAULT_CRITERIA in demo mode).
+export async function saveDefaultCriteria(criteria) {
+  const { ok, errors, normalized } = validateCriteria(criteria)
+  if (!ok) throw new Error(errors[0] || 'Invalid criteria')
+  if (!isSupabaseConfigured) {
+    // Demo / offline — return the normalized payload echoed back so the UI
+    // can render it. No persistence.
+    return { ...normalized, id: 'default-local' }
+  }
+  const { data: existing } = await supabase
+    .from('fit_criteria')
+    .select('id')
+    .eq('is_default', true)
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+  if (existing?.id) {
+    const { data, error } = await supabase
+      .from('fit_criteria')
+      .update({ ...normalized, updated_at: new Date().toISOString() })
+      .eq('id', existing.id)
+      .select()
+      .single()
+    if (error) throw error
+    return data
+  }
+  const { data, error } = await supabase
+    .from('fit_criteria')
+    .insert(normalized)
+    .select()
+    .single()
+  if (error) throw error
+  return data
+}
+
 export async function loadAssessment({ entityType, entityId, criteriaId }) {
   if (!isSupabaseConfigured || !entityType || !entityId || !criteriaId) return null
   const { data, error } = await supabase

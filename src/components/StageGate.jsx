@@ -175,7 +175,7 @@ export default function StageGate({ deal, onChanged }) {
 
   return (
     <div className="space-y-4">
-      <div className="rounded-xl border border-valence-border bg-gradient-to-br from-valence-blue-soft via-white to-white p-5">
+      <div className="rounded-xl border border-valence-border bg-gradient-to-br from-valence-blue-soft via-valence-elevated to-valence-elevated p-5">
         <div className="flex items-start gap-3">
           <div className="grid h-10 w-10 place-items-center rounded-xl bg-valence-blue-soft ring-1 ring-valence-blue/30 shrink-0">
             <ListChecks className="h-4 w-4 text-valence-blue" />
@@ -253,7 +253,7 @@ export default function StageGate({ deal, onChanged }) {
             value={addLabel}
             onChange={e => setAddLabel(e.target.value)}
             placeholder="e.g. Term sheet sent to legal"
-            className="vl-input bg-white"
+            className="vl-input bg-valence-elevated"
           />
           <div className="flex items-center justify-between gap-2">
             <label className="inline-flex items-center gap-2 text-[11px] text-valence-muted cursor-pointer">
@@ -278,7 +278,7 @@ export default function StageGate({ deal, onChanged }) {
       ) : (
         <button
           onClick={() => setAddOpen(true)}
-          className="w-full rounded-lg border border-dashed border-valence-border bg-white px-4 py-3 text-sm text-valence-muted hover:text-valence-text hover:border-valence-ink/30 transition inline-flex items-center justify-center gap-2"
+          className="w-full rounded-lg border border-dashed border-valence-border bg-valence-elevated px-4 py-3 text-sm text-valence-muted hover:text-valence-text hover:border-valence-ink/30 transition inline-flex items-center justify-center gap-2"
         >
           <Plus className="h-3.5 w-3.5" /> Add a custom item for this stage
         </button>
@@ -293,12 +293,12 @@ function ChecklistRow({ done, label, required, doneAt, doneBy, custom, onToggle,
     <li>
       <div
         className={`group flex items-center gap-3 rounded-lg border px-4 py-3 transition ${
-          done ? 'border-valence-success/30 bg-valence-success-soft/40' : 'border-valence-border bg-white hover:border-valence-ink/20'
+          done ? 'border-valence-success/30 bg-valence-success-soft/40' : 'border-valence-border bg-valence-elevated hover:border-valence-ink/20'
         }`}
       >
         <button onClick={onToggle} className="flex flex-1 items-center gap-3 text-left min-w-0">
           <div className={`grid h-5 w-5 place-items-center rounded-full border-2 shrink-0 transition ${
-            done ? 'border-valence-success bg-valence-success' : 'border-valence-faint bg-white'
+            done ? 'border-valence-success bg-valence-success' : 'border-valence-faint bg-valence-elevated'
           }`}>
             {done && <Check className="h-3 w-3 text-white" strokeWidth={3} />}
           </div>
@@ -350,14 +350,14 @@ function StageSwitcher({ current, allStages, onPick, dealStage }) {
     <div className="relative">
       <button
         onClick={() => setOpen(o => !o)}
-        className="rounded-md border border-valence-border bg-white px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-valence-muted hover:border-valence-ink/30"
+        className="rounded-md border border-valence-border bg-valence-elevated px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-valence-muted hover:border-valence-ink/30"
       >
         {current === dealStage ? current : `${current} (preview)`}
       </button>
       {open && (
         <div
           onMouseLeave={() => setOpen(false)}
-          className="absolute right-0 top-full mt-1 z-20 w-44 rounded-lg border border-valence-border-strong bg-white shadow-valence-lg overflow-hidden animate-slide-up-sm"
+          className="absolute right-0 top-full mt-1 z-20 w-44 rounded-lg border border-valence-border-strong bg-valence-elevated shadow-valence-lg overflow-hidden animate-slide-up-sm"
         >
           <p className="px-3 pt-2 pb-1 text-[10px] font-semibold uppercase tracking-wider text-valence-subtle">Preview stage</p>
           <ul className="pb-1 max-h-72 overflow-y-auto">

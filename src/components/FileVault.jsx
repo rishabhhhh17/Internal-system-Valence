@@ -149,7 +149,7 @@ export default function FileVault({ dealId }) {
           <p className="mt-2 text-sm text-valence-muted">No files yet. Everything related to this deal lives here.</p>
         </div>
       ) : (
-        <ul className="divide-y divide-valence-border/60 rounded-lg border border-valence-border bg-white max-h-[60vh] overflow-y-auto">
+        <ul className="divide-y divide-valence-border/60 rounded-lg border border-valence-border bg-valence-elevated max-h-[60vh] overflow-y-auto">
           {files.map(f => (
             <li key={f.id} className="group flex items-center gap-3 px-3 py-2 hover:bg-valence-surface/60 transition">
               <FileText className="h-3.5 w-3.5 text-valence-subtle shrink-0" />
