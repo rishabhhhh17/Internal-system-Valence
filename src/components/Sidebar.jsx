@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { NavLink } from 'react-router-dom'
-import { LayoutDashboard, Briefcase, BookOpen, CalendarDays, CalendarRange, Users, BarChart3, MessageSquare, Handshake, GanttChartSquare, Building2, Sparkles, Inbox, UserCircle, Settings as SettingsIcon, Wallet } from 'lucide-react'
+import { LayoutDashboard, Briefcase, BookOpen, CalendarDays, CalendarRange, Users, BarChart3, MessageSquare, Handshake, GanttChartSquare, Building2, Sparkles, Inbox, UserCircle, Settings as SettingsIcon, Wallet, Upload } from 'lucide-react'
 import Logo from './Logo.jsx'
 import { supabase, isSupabaseConfigured, subscribeTable } from '../lib/supabase.js'
 
@@ -18,6 +18,7 @@ const nav = [
   // Quick Screener (investor ranking) hidden from nav for now — route
   // still resolves so any saved deeplink keeps working.
   // { to: '/screen',       label: 'Quick Screener',icon: Sparkles,                                 section: 'AI' },
+  { to: '/import',       label: 'Import',       icon: Upload,                                    section: 'AI' },
   { to: '/inbox/intake', label: 'Intake inbox', icon: Inbox,        badgeKey: 'newIntakes',     section: 'AI' },
   // Internal-only — what every customer is burning. Hidden once we ship
   // a proper role gate; for now the partner is the only one running this build.

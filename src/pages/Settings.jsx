@@ -13,6 +13,7 @@ import { PITCH_MODE } from '../lib/featureFlags.js'
 import GoogleWorkspacePanel from '../components/GoogleWorkspacePanel.jsx'
 import SampleDataPanel from '../components/SampleDataPanel.jsx'
 import LlmProviderPanel from '../components/LlmProviderPanel.jsx'
+import TeamPanel from '../components/TeamPanel.jsx'
 import CsvContactImport from '../components/CsvContactImport.jsx'
 import ScoringCriteriaPanel from '../components/ScoringCriteriaPanel.jsx'
 import BulkAddPeoplePanel from '../components/BulkAddPeoplePanel.jsx'
@@ -159,6 +160,8 @@ function SectionBody({ id }) {
   switch (id) {
     case 'workspace':
       return <WorkspaceSection />
+    case 'team':
+      return <TeamPanel />
     case 'integrations':
       return <IntegrationsSection />
     case 'data':
