@@ -1,12 +1,15 @@
 import { useEffect, useState } from 'react'
-import { Loader2, RefreshCw, Building2, AlertTriangle, ChevronRight, X } from 'lucide-react'
+import { Loader2, RefreshCw, Building2, AlertTriangle, ChevronRight, X, UserCog, Plus } from 'lucide-react'
 import { supabase, isSupabaseConfigured } from '../lib/supabase.js'
 import {
   getAdminConsumptionOverview,
   getOrgConsumptionDetail,
   planMetersAi,
+  openCycle,
   PLANS
 } from '../lib/billing.js'
+import { getActiveOrgSeat, setActiveOrgSeat } from '../lib/aiMeter.js'
+import { useToast } from '../components/Toast.jsx'
 
 // Internal admin view — what every customer is burning. Shows actions,
 // tokens, dollar cost we incurred, current cycle invoice, storage flags.
@@ -29,12 +32,15 @@ function fmtInt(n) {
 }
 
 export default function AdminBilling() {
+  const toast = useToast()
   const [rows, setRows]   = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [drawerOrg, setDrawerOrg] = useState(null)
   const [detail, setDetail] = useState(null)
   const [detailLoading, setDetailLoading] = useState(false)
+  const [actingAs, setActingAs] = useState(() => getActiveOrgSeat())
+  const [seeding, setSeeding] = useState(false)
 
   async function load() {
     if (!isSupabaseConfigured) {
@@ -54,6 +60,61 @@ export default function AdminBilling() {
   }
 
   useEffect(() => { load() }, [])
+
+  // Pick which org's seat the meter records against. Persisted via
+  // aiMeter's localStorage so future page loads remember.
+  async function actAs(orgId) {
+    if (!orgId) { setActiveOrgSeat({ orgId: null, seatId: null }); setActingAs({ orgId: null, seatId: null }); return }
+    // Resolve a default seat for the org so recordAiAction has a row to point at.
+    const { data: seats } = await supabase
+      .from('seats')
+      .select('id')
+      .eq('org_id', orgId)
+      .eq('active', true)
+      .limit(1)
+    const seatId = seats?.[0]?.id || null
+    if (!seatId) {
+      toast.error('That org has no active seats — create one first.')
+      return
+    }
+    setActiveOrgSeat({ orgId, seatId })
+    setActingAs({ orgId, seatId })
+    const org = rows.find(r => r.orgId === orgId)
+    toast.success(`Now acting as ${org?.orgName || orgId}. AI calls will record into this org.`)
+  }
+
+  // Create a test customer end-to-end so the admin dashboard has
+  // something to drive against without going through the onboarding
+  // route. Two seats + an open cycle + sets actingAs to the new org.
+  async function seedTestOrg() {
+    setSeeding(true)
+    try {
+      const stamp = new Date().toLocaleString('en-GB', { day: '2-digit', month: 'short' })
+      const { data: org, error: orgErr } = await supabase
+        .from('orgs')
+        .insert({ name: `Test customer · ${stamp}`, plan: 'we_run_ai', cycle_anchor_day: 1 })
+        .select()
+        .single()
+      if (orgErr) throw orgErr
+      const { data: seats, error: seatErr } = await supabase
+        .from('seats')
+        .insert([
+          { org_id: org.id, email: 'partner@test.example',  billable_from: '2020-01-01' },
+          { org_id: org.id, email: 'analyst@test.example',  billable_from: '2020-01-01' }
+        ])
+        .select()
+      if (seatErr) throw seatErr
+      await openCycle(supabase, org.id)
+      setActiveOrgSeat({ orgId: org.id, seatId: seats[0].id })
+      setActingAs({ orgId: org.id, seatId: seats[0].id })
+      toast.success(`Created ${org.name} · 2 seats · acting as them now.`)
+      await load()
+    } catch (err) {
+      toast.error(err?.message || 'Seed failed')
+    } finally {
+      setSeeding(false)
+    }
+  }
 
   async function openDrawer(org) {
     setDrawerOrg(org)
@@ -102,6 +163,41 @@ export default function AdminBilling() {
       {error && (
         <div className="rounded-lg bg-red-50 border border-red-200 px-3 py-2 text-xs text-valence-danger">{error}</div>
       )}
+
+      {/* Acting-as switcher — the meter records every Gemini call into
+          whichever org is selected here. Without auth wired yet this is
+          our manual way to drive the dashboard. */}
+      <div className="vl-card p-4 flex flex-wrap items-center gap-3">
+        <span className="vl-eyebrow-ink inline-flex items-center gap-1.5 shrink-0">
+          <UserCog className="h-3 w-3 text-valence-blue" /> Acting as
+        </span>
+        <select
+          value={actingAs.orgId || ''}
+          onChange={e => actAs(e.target.value || null)}
+          className="h-8 rounded-md border border-valence-border bg-valence-elevated px-2.5 text-xs text-valence-text focus:border-valence-blue outline-none flex-1 min-w-[200px]"
+        >
+          <option value="">— Not acting as any org (meter off) —</option>
+          {rows.map(r => (
+            <option key={r.orgId} value={r.orgId}>
+              {r.orgName} · {r.plan} · {r.seatCount} seat{r.seatCount === 1 ? '' : 's'}
+            </option>
+          ))}
+        </select>
+        <button
+          onClick={seedTestOrg}
+          disabled={seeding}
+          className="vl-btn-secondary-sm shrink-0"
+          title="Create a test customer end-to-end (org + 2 seats + open cycle) and become them"
+        >
+          {seeding ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Plus className="h-3.5 w-3.5" />}
+          Seed test customer
+        </button>
+        {actingAs.orgId && (
+          <p className="text-[11px] text-valence-muted basis-full">
+            Every AI call you make now (Ask, Deal Brief, Meeting Summary, etc.) records into this org's billing cycle and shows up in the table below.
+          </p>
+        )}
+      </div>
 
       {/* Top-line totals — sum across every org */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
