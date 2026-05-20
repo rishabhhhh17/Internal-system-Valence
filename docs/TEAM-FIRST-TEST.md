@@ -22,18 +22,20 @@ sanded.
 
 1. Open **https://valenceos.vercel.app** in Chrome (or Safari, or
    anything modern).
-2. Click **Continue with Google**. Use your work Google account
-   (`@valencegrowth.com` if you've got one).
-3. You'll see a **Welcome** screen. Two choices:
-   - **Start a team** — if you're the first one in, click this. Name
-     your firm, fill in your role + title, hit Create. You become the
-     team admin.
-   - **Join a team** — if someone on your team already started one,
-     they'll send you an 8-character invite code. Click Join, paste
-     the code, fill your name, you're in.
+2. Click **Continue with Google**. Use your **@valencegrowth.com**
+   account if you have one.
+3. If your email ends in `@valencegrowth.com`, you'll land **straight
+   in the workspace** — no setup screen. We auto-add you to the
+   Valence team.
+4. If you signed in with a different email (e.g. personal gmail),
+   you'll see a **Welcome** screen instead. From there you can either:
+   - **Join a team** with an 8-character invite code (ask Rishabh for
+     yours), or
+   - **Start a team** — only if you're actually setting up a different
+     firm. Don't pick this if you're a Valence partner.
 
-That's it. You're now inside the workspace with your own isolated
-data — nobody else's firm can see your deals or contacts.
+That's it. You're now inside the workspace with your firm's isolated
+data — no other firm can see your deals or contacts.
 
 ---
 

@@ -34,7 +34,7 @@ export function useSeat() {
     try {
       // Pull the active seat for this auth user, joining the org row.
       // RLS allows the user to read their own seat (seats_self_read).
-      const { data, error: err } = await supabase
+      let { data, error: err } = await supabase
         .from('seats')
         .select('id, org_id, user_id, email, full_name, title, phone, role, active, added_at, billable_from, orgs:org_id ( id, name, plan, cycle_anchor_day )')
         .eq('user_id', userId)
@@ -42,6 +42,31 @@ export function useSeat() {
         .limit(1)
         .maybeSingle()
       if (err) throw err
+
+      // No seat? Give the trusted-domain auto-claim a shot — if the
+      // signed-in user's email matches the allow-list (currently
+      // @valencegrowth.com), the RPC silently creates a seat in the
+      // Valence team and we re-fetch. Returns null for other domains,
+      // in which case the caller (App.jsx) routes them to /welcome.
+      if (!data) {
+        try {
+          const { data: claimedOrgId, error: claimErr } = await supabase.rpc('auto_claim_seat_for_domain')
+          if (!claimErr && claimedOrgId) {
+            // Re-query the seat row we just created so the UI gets the full shape.
+            const refetch = await supabase
+              .from('seats')
+              .select('id, org_id, user_id, email, full_name, title, phone, role, active, added_at, billable_from, orgs:org_id ( id, name, plan, cycle_anchor_day )')
+              .eq('user_id', userId)
+              .eq('active', true)
+              .limit(1)
+              .maybeSingle()
+            if (refetch.data) data = refetch.data
+          }
+        } catch {
+          // Auto-claim failures are non-fatal — fall through to /welcome.
+        }
+      }
+
       if (!data) {
         setSeat(null); setOrg(null)
       } else {
