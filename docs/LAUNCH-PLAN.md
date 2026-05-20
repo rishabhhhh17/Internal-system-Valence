@@ -135,15 +135,15 @@ Once multi-tenant is in place:
   redirects to `/onboarding` if they don't have one yet.
 - Replace localStorage-backed `setActiveOrgSeat` with a real DB lookup.
 
-## 8. Stripe — **blocked on you** 🟠
+## 8. Razorpay — **blocked on you** 🟠
 
 I'd need:
-- Stripe secret key (env: `STRIPE_SECRET_KEY`)
-- Stripe webhook signing secret (env: `STRIPE_WEBHOOK_SECRET`)
+- Razorpay secret key (env: `RAZORPAY_KEY_SECRET`)
+- Razorpay webhook signing secret (env: `RAZORPAY_WEBHOOK_SECRET`)
 - A product + price for the seat fee (one product, two prices: base + volume)
 - A product + price for the overage rate
 
-Then a Vercel function `api/stripe-webhook.js` reflects subscription
+Then a Vercel function `api/razorpay-webhook.js` reflects subscription
 state into our `orgs` table. Roughly 200 lines.
 
 ## 9. Transactional email — **blocked on you** 🟠
@@ -187,7 +187,7 @@ hook in `App.jsx`. ~30 lines.
 3. **Me, after you confirm:** ship phase-10 (multi-tenant), tighten RLS,
    flip auth on, redirect-to-onboarding flow.
 4. **You: lawyer the legal pages.** Cheap, quick, blocks public launch.
-5. **You: get Stripe credentials.** Then I wire payments + invoice link
+5. **You: get Razorpay credentials.** Then I wire payments + invoice link
    email.
 6. **You: pick + provide an email provider key.** Then I wire transactional.
 7. **You: point a real domain.** Then I update OAuth redirect URIs.

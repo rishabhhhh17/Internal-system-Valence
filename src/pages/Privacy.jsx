@@ -36,7 +36,7 @@ export default function Privacy() {
             (Ask, Deal Brief, etc.). Only the prompt + relevant context is
             sent. We do not enable Google's training on our content.</li>
         <li><strong>Vercel</strong> — application hosting.</li>
-        <li><strong>Stripe</strong> — payment processing (when on a paid
+        <li><strong>Razorpay</strong> — payment processing (when on a paid
             plan).</li>
       </ul>
 

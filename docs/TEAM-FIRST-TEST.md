@@ -65,7 +65,7 @@ These are the things we most want feedback on. In rough order:
 
 - **No transactional email yet.** When you generate an invite code,
   you have to manually share the link — we haven't wired Resend / SES.
-- **Stripe billing not yet live.** You see your seat count, AI usage,
+- **Razorpay billing not yet live.** You see your seat count, AI usage,
   and the cycle invoice total in Settings, but no card-on-file or
   invoice email yet.
 - **The "Custom" LLM provider option** in Settings → Integrations is a

@@ -53,7 +53,7 @@ What's **not** yet built or wired:
 - **Multi-tenant data isolation.** Tables don't yet carry an
   `org_id` — so two customers sharing the system today would see
   each other's data. This is the biggest single piece of work left.
-- **Payments.** The pricing logic is in place; Stripe wiring isn't.
+- **Payments.** The pricing logic is in place; Razorpay wiring isn't.
 - **Transactional emails** (invites, allowance warnings, invoices).
 
 ---
@@ -151,7 +151,7 @@ see the dashboard light up live.
 | 5 | Replace open demo RLS with proper org-scoped policies | Same as #3 | Engineering, after #3 |
 | 6 | First-run onboarding (org + first seat created at signup) | Page exists at `/onboarding`; redirect flow after auth pending | Engineering, after #4 |
 | 7 | Sign off on pricing knobs (4 placeholder numbers above) | Pending | **Senior team** |
-| 8 | Stripe integration | Designed; needs API keys | **Senior team for credentials**, then engineering |
+| 8 | Razorpay integration | Designed; needs API keys | **Senior team for credentials**, then engineering |
 | 9 | Transactional email (invite, warnings, invoice) | Provider not picked | **Senior team to choose** (Resend / Postmark / SES), then engineering |
 | 10 | Real domain (`app.valencegrowth.com` or similar) | Vercel auto-alias today | **Senior team for domain decision** |
 | 11 | Terms of Service + Privacy Policy | Starter templates shipped; need lawyer pass | **Senior team to engage counsel** |
@@ -184,7 +184,7 @@ see the dashboard light up live.
    - Email provider — Resend, Postmark, or SES.
    - Analytics — PostHog or Mixpanel.
    - Error monitoring — confirm Sentry, provision DSN.
-   - Payment — confirm Stripe.
+   - Payment — confirm Razorpay.
 
 5. **Counsel sign-off** on the Terms of Service + Privacy Policy
    starters (in `docs/` and rendered at `/terms` / `/privacy`).
@@ -203,10 +203,10 @@ see the dashboard light up live.
 - **The pieces blocked only on decisions from you** (default org,
   pricing numbers, vendor choices, domain) — once decided,
   engineering ships in **3–5 working days**: multi-tenant migration,
-  auth flip, onboarding redirect, Stripe wiring, email wiring.
+  auth flip, onboarding redirect, Razorpay wiring, email wiring.
 
 - **The pieces blocked on third parties** (lawyer review of legal
-  pages, DNS for the domain, Stripe account setup) — typically
+  pages, DNS for the domain, Razorpay account setup) — typically
   **1–2 weeks** of calendar time independent of engineering.
 
 - **Realistic launch window: 3–4 weeks** from senior-team

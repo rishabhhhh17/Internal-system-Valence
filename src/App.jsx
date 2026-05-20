@@ -31,6 +31,7 @@ import Onboarding from './pages/Onboarding.jsx'
 import Welcome from './pages/Welcome.jsx'
 import JoinTeam from './pages/JoinTeam.jsx'
 import Import from './pages/Import.jsx'
+import CompleteProfile from './pages/CompleteProfile.jsx'
 import { useAuth } from './hooks/useAuth.js'
 import { useSeat } from './hooks/useSeat.js'
 import { isSupabaseConfigured } from './lib/supabase.js'
@@ -41,7 +42,8 @@ import { startAiMeter } from './lib/aiMeter.js'
 export default function App() {
   const { pathname } = useLocation()
   const { session, loading, authUnavailable } = useAuth()
-  const { hasSeat, loading: seatLoading } = useSeat()
+  const { seat, hasSeat, loading: seatLoading } = useSeat()
+  const profileComplete = Boolean(seat?.profile_completed_at)
   const firmName = useWorkspaceSetting(WORKSPACE_KEYS.firmName)
   const browserTitleOverride = useWorkspaceSetting(WORKSPACE_KEYS.browserTitle)
   const density = useWorkspaceSetting(WORKSPACE_KEYS.density)
@@ -150,12 +152,29 @@ export default function App() {
         </Routes>
       )
     }
+
+    // Have a seat but profile_completed_at is null — auto-claim path
+    // landed them with a name (from Google) but no title/phone. Show
+    // the one-shot completion screen, then never again. Once the user
+    // saves or skips, the RPC stamps profile_completed_at = now() and
+    // the gate falls through to the main app.
+    if (hasSeat && !profileComplete) {
+      if (pathname !== '/complete-profile') {
+        return <Navigate to="/complete-profile" replace />
+      }
+      return (
+        <Routes>
+          <Route path="/complete-profile" element={<CompleteProfile />} />
+        </Routes>
+      )
+    }
   }
 
-  // Session + seat (or auth unavailable) — render the main app. If a
-  // signed-in seated user lands on /welcome/onboarding/join, send them
-  // home — they're past that step.
-  if (session && hasSeat && ['/welcome', '/onboarding', '/join'].includes(pathname)) {
+  // Session + seat + completed profile (or auth unavailable) — render
+  // the main app. If a signed-in seated user lands on any onboarding
+  // route, send them home — they're past those steps.
+  if (session && hasSeat && profileComplete &&
+      ['/welcome', '/onboarding', '/join', '/complete-profile'].includes(pathname)) {
     return <Navigate to="/" replace />
   }
 
