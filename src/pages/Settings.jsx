@@ -12,7 +12,7 @@ import {
 import { PITCH_MODE } from '../lib/featureFlags.js'
 import GoogleWorkspacePanel from '../components/GoogleWorkspacePanel.jsx'
 import SampleDataPanel from '../components/SampleDataPanel.jsx'
-import GeminiKeyPanel from '../components/GeminiKeyPanel.jsx'
+import LlmProviderPanel from '../components/LlmProviderPanel.jsx'
 import CsvContactImport from '../components/CsvContactImport.jsx'
 import ScoringCriteriaPanel from '../components/ScoringCriteriaPanel.jsx'
 import BulkAddPeoplePanel from '../components/BulkAddPeoplePanel.jsx'
@@ -131,7 +131,7 @@ function IntegrationsSection() {
     <div className="space-y-4">
       <MeetingToolPicker />
       <GoogleWorkspacePanel />
-      <GeminiKeyPanel />
+      <LlmProviderPanel />
     </div>
   )
 }

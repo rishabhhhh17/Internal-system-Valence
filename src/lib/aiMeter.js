@@ -83,7 +83,9 @@ export function startAiMeter() {
         actionType: usage.actionType || 'unknown',
         classification: gate.classification,
         tokensUsed: usage.totalTokens || null,
-        estimatedCostUsd: usage.estimatedCostUsd || null
+        estimatedCostUsd: usage.estimatedCostUsd || null,
+        provider: usage.provider || null,
+        model:    usage.model || null
       })
     } catch (e) {
       console.warn('AI meter record failed', e)

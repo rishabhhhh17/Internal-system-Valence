@@ -224,6 +224,7 @@ export default function AdminBilling() {
               <tr className="border-b border-valence-border">
                 <th className="px-3 py-2 text-left">Customer</th>
                 <th className="px-3 py-2 text-left">Plan</th>
+                <th className="px-3 py-2 text-left">LLM mix</th>
                 <th className="px-3 py-2 text-right">Seats</th>
                 <th className="px-3 py-2 text-right">AI actions</th>
                 <th className="px-3 py-2 text-right">Tokens</th>
@@ -247,6 +248,9 @@ export default function AdminBilling() {
                     </td>
                     <td className="px-3 py-2.5">
                       <PlanChip plan={r.plan} />
+                    </td>
+                    <td className="px-3 py-2.5">
+                      <ProviderMix mix={r.aiProviderMix} />
                     </td>
                     <td className="px-3 py-2.5 text-right tabular-nums">{fmtInt(r.seatCount)}</td>
                     <td className="px-3 py-2.5 text-right">
@@ -315,6 +319,45 @@ function Stat({ label, value, tone = 'neutral', hint }) {
   )
 }
 
+// Compact view of which LLM(s) a customer hit this cycle. Shows the
+// dominant provider as a chip + a "+N more" overflow when they mixed.
+// Empty (no calls yet) renders as an em-dash so the column doesn't jitter.
+function ProviderMix({ mix }) {
+  if (!Array.isArray(mix) || mix.length === 0) {
+    return <span className="text-valence-subtle">—</span>
+  }
+  const labelMap = {
+    gemini:             'Gemini',
+    openai:             'OpenAI',
+    anthropic:          'Claude',
+    vercel_ai_gateway:  'Vercel AI',
+    custom_openai:      'Custom'
+  }
+  const top = mix[0]
+  const topLabel = labelMap[top.provider] || top.provider || 'unknown'
+  const totalCount = mix.reduce((s, b) => s + (b.count || 0), 0)
+  const pct = totalCount > 0 ? Math.round(((top.count || 0) / totalCount) * 100) : 0
+  return (
+    <div className="inline-flex items-center gap-1">
+      <span
+        className="inline-flex items-center gap-1 rounded-full border border-valence-border bg-valence-surface px-1.5 py-0 text-[10px] font-semibold text-valence-text"
+        title={top.model || ''}
+      >
+        {topLabel}
+        <span className="text-valence-subtle">{pct}%</span>
+      </span>
+      {mix.length > 1 && (
+        <span
+          className="text-[9px] text-valence-subtle"
+          title={mix.slice(1).map(b => `${labelMap[b.provider] || b.provider}/${b.model || '?'}: ${b.count}`).join(', ')}
+        >
+          +{mix.length - 1}
+        </span>
+      )}
+    </div>
+  )
+}
+
 function PlanChip({ plan }) {
   const map = {
     [PLANS.WE_RUN_AI]: { label: 'We run AI', cls: 'border-valence-blue/40 bg-valence-blue-soft text-valence-blue-deep' },
@@ -344,6 +387,27 @@ function OrgDetailDrawer({ org, detail, loading, onClose }) {
             <Stat label="Cycle billed" value={fmtUsd(org.cycleInvoiceUsd)} tone="primary" />
             <Stat label="Our provider $" value={fmtUsd(org.aiEstimatedCostUsd)} tone="danger" />
           </div>
+
+          {Array.isArray(org.aiProviderMix) && org.aiProviderMix.length > 0 && (
+            <div>
+              <p className="vl-eyebrow-ink">LLM mix this cycle</p>
+              <ul className="mt-2 divide-y divide-valence-border/60 rounded-lg border border-valence-border">
+                {org.aiProviderMix.map((b, i) => (
+                  <li key={`${b.provider}|${b.model}|${i}`} className="px-3 py-1.5 flex items-center justify-between gap-2 text-[11px]">
+                    <span className="text-valence-text">
+                      <span className="font-semibold">{b.provider || 'unknown'}</span>
+                      {b.model && <span className="text-valence-subtle"> · {b.model}</span>}
+                    </span>
+                    <span className="tabular-nums text-valence-muted">
+                      {fmtInt(b.count)} call{b.count === 1 ? '' : 's'}
+                      {b.tokens ? ` · ${fmtInt(b.tokens)} tok` : ''}
+                      {b.cost ? ` · ${fmtUsd(b.cost)}` : ''}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
 
           {loading ? (
             <div className="text-xs text-valence-muted text-center py-6">
@@ -390,6 +454,11 @@ function OrgDetailDrawer({ org, detail, loading, onClose }) {
                             {a.classification}
                           </span>
                           <span className="text-valence-text">{a.action_type || 'action'}</span>
+                          {a.provider && (
+                            <span className="ml-1.5 text-[9px] text-valence-subtle" title={a.model || ''}>
+                              · {a.provider}{a.model ? `/${a.model}` : ''}
+                            </span>
+                          )}
                         </span>
                         <span className="text-valence-muted tabular-nums shrink-0">
                           {a.tokens_used ? `${fmtInt(a.tokens_used)} tok` : ''}
