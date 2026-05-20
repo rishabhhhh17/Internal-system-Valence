@@ -11,17 +11,21 @@ import {
   applyCompanyAssignment,
   wouldChangeCompany
 } from '../lib/people.js'
+import { scoreAllPeople } from '../lib/relationships.js'
 import { useViewMode } from '../hooks/useViewMode.jsx'
 import ConfigBanner from '../components/ConfigBanner.jsx'
 import EmptyState from '../components/EmptyState.jsx'
 import ViewModeToggle from '../components/ViewModeToggle.jsx'
 import PersonDrawer from '../components/PersonDrawer.jsx'
+import WarmthChip from '../components/WarmthChip.jsx'
 import { useToast } from '../components/Toast.jsx'
 
 export default function People() {
   const toast = useToast()
   const { isSimple } = useViewMode('people')
   const [rows, setRows]           = useState([])
+  const [interactions, setInteractions] = useState([])
+  const [deals, setDeals]         = useState([])
   const [loading, setLoading]     = useState(true)
   const [loadError, setLoadError] = useState(null)
   const [view, setView]           = useState('grid')
@@ -29,6 +33,13 @@ export default function People() {
   const [tagFilter, setTagFilter] = useState('All')
   const [drawer, setDrawer]       = useState(null) // null | 'new' | { row }
   const [params, setParams]       = useSearchParams()
+
+  // Per-person warmth score — derived from interactions + deal involvement.
+  // Recomputed only when one of the three source arrays changes.
+  const scoreMap = useMemo(
+    () => scoreAllPeople(rows, interactions, deals),
+    [rows, interactions, deals]
+  )
 
   useEffect(() => { load() }, [])
 
@@ -48,13 +59,26 @@ export default function People() {
     setLoading(true); setLoadError(null)
     if (!isSupabaseConfigured) { setRows(DEMO_PEOPLE); setLoading(false); return }
     try {
-      const fetchPromise = supabase.from('people').select('*').order('full_name')
+      // People is the primary source; interactions + deals feed the
+      // warmth scorer. We fetch them in parallel and only block the page
+      // on the people query — the score quietly populates after.
+      const fetchPromise = Promise.all([
+        supabase.from('people').select('*').order('full_name'),
+        supabase.from('interactions')
+          .select('id, counterparty_name, counterparty_company, outcome, deal_id, created_at')
+          .order('created_at', { ascending: false })
+          .limit(2000),
+        supabase.from('deals')
+          .select('id, client_name, counterparty_name')
+      ])
       const timeoutPromise = new Promise((_, reject) =>
         setTimeout(() => reject(new Error('Request timed out — check your connection or Supabase status.')), 10_000)
       )
-      const { data, error } = await Promise.race([fetchPromise, timeoutPromise])
-      if (error) throw error
-      setRows(data || [])
+      const [peopleRes, intRes, dealRes] = await Promise.race([fetchPromise, timeoutPromise])
+      if (peopleRes.error) throw peopleRes.error
+      setRows(peopleRes.data || [])
+      setInteractions(intRes.data || [])
+      setDeals(dealRes.data || [])
     } catch (err) {
       console.error(err)
       setLoadError(err?.message || 'Couldn\'t load people.')
@@ -166,11 +190,18 @@ export default function People() {
         <>
           <CompaniesRail companies={companies} onDropPerson={assignCompany} onAfterBulkAdd={load} />
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-            {filtered.map(p => <PersonCard key={p.id} person={p} onOpen={() => setDrawer({ row: p })} />)}
+            {filtered.map(p => (
+              <PersonCard
+                key={p.id}
+                person={p}
+                score={scoreMap.get(p.id)}
+                onOpen={() => setDrawer({ row: p })}
+              />
+            ))}
           </div>
         </>
       ) : (
-        <PersonTable rows={filtered} onOpen={p => setDrawer({ row: p })} />
+        <PersonTable rows={filtered} scoreMap={scoreMap} onOpen={p => setDrawer({ row: p })} />
       )}
 
       <PersonDrawer
@@ -200,7 +231,7 @@ function chipClass(active) {
   }`
 }
 
-function PersonCard({ person, onOpen }) {
+function PersonCard({ person, score, onOpen }) {
   const [dragging, setDragging] = useState(false)
 
   function onDragStart(e) {
@@ -229,11 +260,14 @@ function PersonCard({ person, onOpen }) {
             <p className="text-sm font-semibold text-valence-text truncate">{person.full_name}</p>
             <p className="mt-0.5 text-[11px] text-valence-muted">{[person.role, person.company].filter(Boolean).join(' · ') || '—'}</p>
           </div>
-          {person.tags?.length > 0 && (
-            <span className="inline-flex items-center rounded-full border border-valence-border bg-valence-surface px-2 py-0.5 text-[10px] font-semibold text-valence-muted shrink-0">
-              {person.tags[0]}
-            </span>
-          )}
+          <div className="flex items-center gap-1.5 shrink-0">
+            {score && <WarmthChip score={score} />}
+            {person.tags?.length > 0 && (
+              <span className="inline-flex items-center rounded-full border border-valence-border bg-valence-surface px-2 py-0.5 text-[10px] font-semibold text-valence-muted">
+                {person.tags[0]}
+              </span>
+            )}
+          </div>
         </div>
         {person.how_to_talk && (
           <p className="mt-3 line-clamp-2 text-[12px] leading-relaxed text-valence-muted italic">"{person.how_to_talk}"</p>
@@ -362,7 +396,7 @@ function CompanyDropChip({ company, onDropPerson, onQuickAdd, expanded }) {
   )
 }
 
-function PersonTable({ rows, onOpen }) {
+function PersonTable({ rows, scoreMap, onOpen }) {
   return (
     <div className="vl-card overflow-x-auto">
       <table className="w-full text-sm">
@@ -370,6 +404,7 @@ function PersonTable({ rows, onOpen }) {
           <tr className="text-left text-[10px] font-semibold uppercase tracking-[0.16em] text-valence-subtle">
             <th className="px-5 py-3">Name</th>
             <th className="px-3 py-3">Role / Company</th>
+            <th className="px-3 py-3">Warmth</th>
             <th className="px-3 py-3">Location</th>
             <th className="px-3 py-3">Tags</th>
             <th className="px-3 py-3">Email</th>
@@ -381,6 +416,7 @@ function PersonTable({ rows, onOpen }) {
             <tr key={p.id} className="border-t border-valence-border/60 hover:bg-valence-surface/60">
               <td className="px-5 py-3 font-semibold text-valence-text">{p.full_name}</td>
               <td className="px-3 py-3 text-valence-muted">{[p.role, p.company].filter(Boolean).join(' · ') || '—'}</td>
+              <td className="px-3 py-3">{scoreMap?.get(p.id) ? <WarmthChip score={scoreMap.get(p.id)} showScore /> : '—'}</td>
               <td className="px-3 py-3 text-valence-muted">{locationLine(p) || '—'}</td>
               <td className="px-3 py-3 text-valence-muted truncate max-w-[200px]">{(p.tags || []).join(' · ') || '—'}</td>
               <td className="px-3 py-3 text-valence-muted">{p.email || '—'}</td>
