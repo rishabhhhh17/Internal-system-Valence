@@ -4,6 +4,7 @@ import MobileNav from './MobileNav.jsx'
 import CommandPalette from './CommandPalette.jsx'
 import ShortcutsOverlay from './ShortcutsOverlay.jsx'
 import WelcomeOverlay from './WelcomeOverlay.jsx'
+import AskSidebar from './AskSidebar.jsx'
 import { useWorkspaceSetting } from '../hooks/useWorkspaceSetting.js'
 import { WORKSPACE_KEYS } from '../lib/workspace.js'
 
@@ -20,8 +21,9 @@ export default function Layout({ children }) {
             MobileNav doesn't overlap content, then a normal-density lg
             breakpoint. min-w-0 on the parent prevents flex children from
             forcing horizontal scroll when content overflows (e.g. wide
-            tables on /deals). */}
-        <main className="flex-1 px-3 pt-5 pb-24 sm:px-5 sm:pt-7 sm:pb-10 lg:px-10 lg:pt-9">
+            tables on /deals). The right padding on lg leaves room for
+            the Ask sidebar without it overlapping content. */}
+        <main className="flex-1 px-3 pt-5 pb-24 sm:px-5 sm:pt-7 sm:pb-10 lg:px-10 lg:pt-9 lg:pr-[400px]">
           <div className="mx-auto w-full max-w-[1280px]">{children}</div>
         </main>
         <MobileNav />
@@ -29,6 +31,7 @@ export default function Layout({ children }) {
       <CommandPalette />
       <ShortcutsOverlay />
       <WelcomeOverlay />
+      <AskSidebar />
     </div>
   )
 }

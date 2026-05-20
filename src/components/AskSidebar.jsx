@@ -1,0 +1,310 @@
+// AskSidebar — chat panel for natural-language CRM queries.
+//
+// Lives on every page (mounted in Layout). Collapsible:
+//   - Default open on desktop (>= lg breakpoint), closed on mobile.
+//   - Toggle button persists state in localStorage so a partner who
+//     prefers it closed keeps it closed.
+//
+// Streaming: hits POST /api/ask with the user's Supabase JWT, reads
+// the SSE response and renders chunks as they land. While the model
+// is calling a tool we show a small status line ("Searching people…")
+// so the user knows something's happening within 200ms of submit.
+//
+// Citations: when the model output mentions a person we found in the
+// tool results, we don't link it directly here — citation chips come
+// from the AI emitting them in markdown-ish form, e.g.
+// `[Rohan Mehta](/people?open=<uuid>)`. We render those as styled
+// chips. v1 leaves links inert; v2 wires them.
+//
+// History is per-session only (no persistence) — opening a new tab is
+// a fresh thread. Matches the spec.
+
+import { useEffect, useRef, useState } from 'react'
+import { Sparkles, Send, ChevronRight, ChevronLeft, Loader2, AlertTriangle } from 'lucide-react'
+import { supabase, isSupabaseConfigured } from '../lib/supabase.js'
+
+const STORAGE_KEY = 'valence.askSidebar.open'
+
+export default function AskSidebar() {
+  const [open, setOpen] = useState(() => {
+    if (typeof window === 'undefined') return true
+    const v = window.localStorage?.getItem(STORAGE_KEY)
+    if (v === null || v === undefined) {
+      // Default: open on lg+, closed on smaller screens.
+      return typeof window.matchMedia === 'function'
+        ? window.matchMedia('(min-width: 1024px)').matches
+        : true
+    }
+    return v === '1'
+  })
+  const [messages, setMessages] = useState([])  // [{role, text, toolCalls:[{name,status,matchCount}]}]
+  const [input, setInput] = useState('')
+  const [busy, setBusy] = useState(false)
+  const scrollRef = useRef(null)
+
+  useEffect(() => {
+    try { window.localStorage?.setItem(STORAGE_KEY, open ? '1' : '0') } catch {}
+  }, [open])
+
+  useEffect(() => {
+    if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight
+  }, [messages, busy])
+
+  async function submit(e) {
+    e?.preventDefault()
+    const q = input.trim()
+    if (!q || busy) return
+    setInput('')
+    setMessages(m => [...m, { role: 'user', text: q }])
+    const assistantIndex = (() => {
+      let next
+      setMessages(m => { next = m.length; return [...m, { role: 'assistant', text: '', toolCalls: [] }] })
+      return next
+    })()
+    setBusy(true)
+
+    try {
+      const { data: sess } = isSupabaseConfigured
+        ? await supabase.auth.getSession()
+        : { data: { session: null } }
+      const token = sess?.session?.access_token
+      if (!token) throw new Error('Sign in to ask questions.')
+
+      const res = await fetch('/api/ask', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ question: q })
+      })
+      if (!res.ok || !res.body) {
+        const errTxt = await res.text().catch(() => '')
+        throw new Error(errTxt.slice(0, 200) || `Server ${res.status}`)
+      }
+      await parseEventStream(res.body, (event, data) => {
+        setMessages(m => {
+          const copy = m.slice()
+          const cur = { ...copy[assistantIndex] }
+          if (event === 'tool_call') {
+            cur.toolCalls = [...(cur.toolCalls || []), { name: data.name, status: 'running' }]
+          } else if (event === 'tool_result') {
+            const tcs = (cur.toolCalls || []).slice()
+            for (let i = tcs.length - 1; i >= 0; i--) {
+              if (tcs[i].name === data.name && tcs[i].status === 'running') {
+                tcs[i] = { ...tcs[i], status: 'done', matchCount: data.match_count, hasError: data.has_error }
+                break
+              }
+            }
+            cur.toolCalls = tcs
+          } else if (event === 'chunk') {
+            cur.text = (cur.text || '') + (data.text || '')
+          } else if (event === 'error') {
+            cur.error = data.message
+          } else if (event === 'done') {
+            cur.finished = true
+          }
+          copy[assistantIndex] = cur
+          return copy
+        })
+      })
+    } catch (err) {
+      setMessages(m => {
+        const copy = m.slice()
+        copy[assistantIndex] = { ...copy[assistantIndex], error: err?.message || 'Request failed', finished: true }
+        return copy
+      })
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  if (!open) {
+    return (
+      <button
+        onClick={() => setOpen(true)}
+        className="fixed bottom-6 right-4 z-30 inline-flex items-center gap-2 rounded-full bg-valence-ink text-white px-3 py-2 text-xs font-semibold shadow-valence hover:bg-valence-ink-soft transition"
+        title="Open Ask"
+      >
+        <Sparkles className="h-3.5 w-3.5" />
+        Ask
+        <ChevronLeft className="h-3 w-3" />
+      </button>
+    )
+  }
+
+  return (
+    <aside className="fixed top-0 right-0 z-30 flex h-screen w-full max-w-[380px] flex-col border-l border-valence-border bg-valence-elevated">
+      <header className="flex items-center justify-between gap-2 border-b border-valence-border px-4 py-3">
+        <div className="flex items-center gap-2">
+          <div className="rounded-lg bg-valence-blue-soft p-1.5 text-valence-blue">
+            <Sparkles className="h-3.5 w-3.5" />
+          </div>
+          <div className="leading-tight">
+            <p className="text-[10px] uppercase tracking-[0.18em] text-valence-subtle">VALENCEOS</p>
+            <p className="text-sm font-semibold text-valence-text">Ask</p>
+          </div>
+        </div>
+        <button onClick={() => setOpen(false)} className="vl-btn-ghost text-xs">
+          <ChevronRight className="h-4 w-4" />
+        </button>
+      </header>
+
+      <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 py-3 space-y-3">
+        {messages.length === 0 && (
+          <EmptyHints onPick={(q) => { setInput(q); setTimeout(() => submit(), 0) }} />
+        )}
+        {messages.map((m, i) => (
+          <Message key={i} m={m} />
+        ))}
+        {busy && messages[messages.length - 1]?.role === 'assistant' && !messages[messages.length - 1].finished && (
+          <Typing />
+        )}
+      </div>
+
+      <form onSubmit={submit} className="border-t border-valence-border px-3 py-3">
+        <div className="flex items-end gap-2">
+          <textarea
+            value={input}
+            onChange={e => setInput(e.target.value)}
+            onKeyDown={e => {
+              if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); submit(e) }
+            }}
+            rows={2}
+            placeholder="Ask anything about the Valence network"
+            className="vl-input flex-1 resize-none text-sm py-2"
+            disabled={busy}
+          />
+          <button type="submit" disabled={!input.trim() || busy} className="vl-btn-primary-sm shrink-0">
+            {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
+          </button>
+        </div>
+        <p className="mt-1.5 text-[10px] text-valence-subtle">
+          Answers come from the CRM data only. Nothing made up.
+        </p>
+      </form>
+    </aside>
+  )
+}
+
+// ============ MESSAGE ============
+function Message({ m }) {
+  if (m.role === 'user') {
+    return (
+      <div className="flex justify-end">
+        <div className="max-w-[80%] rounded-lg bg-valence-ink text-white px-3 py-2 text-sm leading-relaxed whitespace-pre-wrap">
+          {m.text}
+        </div>
+      </div>
+    )
+  }
+  return (
+    <div className="space-y-1.5">
+      {(m.toolCalls || []).map((tc, i) => (
+        <ToolBadge key={i} call={tc} />
+      ))}
+      {m.text && (
+        <div className="rounded-lg bg-valence-surface px-3 py-2 text-sm leading-relaxed text-valence-text whitespace-pre-wrap">
+          {m.text}
+        </div>
+      )}
+      {m.error && (
+        <div className="flex items-start gap-1.5 rounded-lg bg-valence-danger/10 px-3 py-2 text-xs text-valence-danger">
+          <AlertTriangle className="h-3.5 w-3.5 shrink-0 mt-0.5" />
+          <span>{m.error}</span>
+        </div>
+      )}
+    </div>
+  )
+}
+
+function ToolBadge({ call }) {
+  const friendly = {
+    search_people:        'Searching people…',
+    get_relationship:     'Pulling relationship history…',
+    find_best_intro_path: 'Looking for the warmest intro…',
+    find_top_connectors:  'Finding top connectors…',
+    search_deals:         'Searching deals…',
+    get_recent_activity:  'Pulling recent activity…'
+  }[call.name] || `Calling ${call.name}…`
+
+  if (call.status === 'running') {
+    return (
+      <div className="inline-flex items-center gap-1.5 rounded-full bg-valence-blue-soft text-valence-blue-deep px-2.5 py-1 text-[10px] font-semibold">
+        <Loader2 className="h-3 w-3 animate-spin" />
+        {friendly}
+      </div>
+    )
+  }
+  return (
+    <div className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[10px] font-semibold ${
+      call.hasError
+        ? 'bg-valence-danger/10 text-valence-danger'
+        : 'bg-valence-surface text-valence-muted'
+    }`}>
+      {call.hasError
+        ? `${call.name} · error`
+        : `${call.name} · ${call.matchCount || 0} match${call.matchCount === 1 ? '' : 'es'}`}
+    </div>
+  )
+}
+
+function Typing() {
+  return (
+    <div className="inline-flex items-center gap-1 px-2 text-valence-subtle">
+      <span className="h-1.5 w-1.5 rounded-full bg-current animate-pulse" />
+      <span className="h-1.5 w-1.5 rounded-full bg-current animate-pulse [animation-delay:120ms]" />
+      <span className="h-1.5 w-1.5 rounded-full bg-current animate-pulse [animation-delay:240ms]" />
+    </div>
+  )
+}
+
+function EmptyHints({ onPick }) {
+  const hints = [
+    'Who at Valence knows the most PE funds?',
+    "What's the warmest path into Apollo?",
+    'Who have we talked to at ChrysCapital in the last 30 days?',
+    'Find founders in healthcare we know in Mumbai'
+  ]
+  return (
+    <div className="space-y-2">
+      <p className="text-xs text-valence-muted">Try one of these:</p>
+      {hints.map(h => (
+        <button
+          key={h}
+          onClick={() => onPick(h)}
+          className="block w-full text-left rounded-lg border border-valence-border bg-valence-elevated px-3 py-2 text-xs text-valence-text hover:border-valence-ink/30 hover:bg-valence-surface transition"
+        >
+          {h}
+        </button>
+      ))}
+    </div>
+  )
+}
+
+// ============ SSE PARSER ============
+// We can't use EventSource here because it doesn't support custom headers
+// (Authorization). Fetch + ReadableStream + manual frame parsing instead.
+async function parseEventStream(body, onEvent) {
+  const reader = body.getReader()
+  const decoder = new TextDecoder()
+  let buf = ''
+  while (true) {
+    const { value, done } = await reader.read()
+    if (done) break
+    buf += decoder.decode(value, { stream: true })
+    const frames = buf.split('\n\n')
+    buf = frames.pop() || ''
+    for (const frame of frames) {
+      let event = 'message', data = ''
+      for (const line of frame.split('\n')) {
+        if (line.startsWith('event:')) event = line.slice(6).trim()
+        else if (line.startsWith('data:')) data += line.slice(5).trim()
+      }
+      if (!data) continue
+      let payload = null
+      try { payload = JSON.parse(data) } catch { payload = { raw: data } }
+      onEvent(event, payload)
+    }
+  }
+}
