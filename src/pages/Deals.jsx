@@ -33,6 +33,7 @@ import CIMGenerator from '../components/CIMGenerator.jsx'
 import TargetList from '../components/TargetList.jsx'
 import FinancialsCard from '../components/FinancialsCard.jsx'
 import ShareManager from '../components/ShareManager.jsx'
+import DealIntroPaths from '../components/DealIntroPaths.jsx'
 import FundShortlist from '../components/FundShortlist.jsx'
 import MeetingIntelligence from '../components/MeetingIntelligence.jsx'
 import GmailSyncButton from '../components/GmailSyncButton.jsx'
@@ -500,6 +501,7 @@ function DealDrawerBody({ deal, onEdit, onDelete, onComposeEmail }) {
     { id: 'financials', label: 'Financials',     icon: TrendingUp },
     { id: 'files',      label: 'Files',          icon: FolderOpen },
     { id: 'contacts',   label: 'Counterparties', icon: UsersIcon },
+    { id: 'intros',     label: 'Intros',         icon: Sparkles },
     { id: 'funds',      label: 'Funds',          icon: Building2 },
     { id: 'meeting',    label: 'Meeting intel',  icon: Sparkles },
     { id: 'activity',   label: 'Activity',       icon: ActivityIcon },
@@ -547,6 +549,7 @@ function DealDrawerBody({ deal, onEdit, onDelete, onComposeEmail }) {
         {tab === 'financials' && <FinancialsCard deal={deal} />}
         {tab === 'files'      && <FileVault dealId={deal.id} />}
         {tab === 'contacts'   && <Contacts dealId={deal.id} onOpenComposer={onComposeEmail} />}
+        {tab === 'intros'     && <DealIntroPaths deal={deal} />}
         {tab === 'funds'      && <FundShortlist deal={deal} />}
         {tab === 'meeting'    && <MeetingIntelligence deal={deal} />}
         {tab === 'activity'   && <ActivityTimeline dealId={deal.id} />}
