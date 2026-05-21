@@ -52,6 +52,26 @@ export async function signInWithGoogle({ redirectTo } = {}) {
 export async function signOut() {
   if (!isSupabaseConfigured) return
   await supabase.auth.signOut()
+  // SECURITY: also clear all user-bound state from localStorage.
+  // supabase.auth.signOut() removes the Supabase session, but the app
+  // stores other personal data under the `valence.` namespace:
+  //   - BYO API keys for Gemini / OpenAI / Anthropic / custom
+  //     (valence.settings.llm.key.*, valence.settings.geminiKey)
+  //   - Active provider + model + base URL preferences
+  //   - Active org / seat IDs cached for AI meter tracking
+  // Without this sweep, the next person who signs in on the same
+  // browser inherits the previous user's API keys and org context —
+  // a real privacy + billing leak on shared machines.
+  try {
+    if (typeof window !== 'undefined' && window.localStorage) {
+      const drop = []
+      for (let i = 0; i < window.localStorage.length; i++) {
+        const k = window.localStorage.key(i)
+        if (k && k.startsWith('valence.')) drop.push(k)
+      }
+      drop.forEach(k => window.localStorage.removeItem(k))
+    }
+  } catch { /* private mode / quota — graceful degrade */ }
 }
 
 export async function currentSession() {
