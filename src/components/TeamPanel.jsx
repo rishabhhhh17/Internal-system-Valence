@@ -16,6 +16,7 @@ import { Users, Plus, Copy, Check, Loader2, Mail, Link as LinkIcon, Clock, X } f
 import { supabase, isSupabaseConfigured } from '../lib/supabase.js'
 import { useSeat } from '../hooks/useSeat.js'
 import { useToast } from './Toast.jsx'
+import { humanError } from '../lib/userError.js'
 
 export default function TeamPanel() {
   const { seat, org } = useSeat()
@@ -47,7 +48,7 @@ export default function TeamPanel() {
       setMembers(seatsRes.data || [])
       setInvites(invitesRes.data || [])
     } catch (e) {
-      toast.error(e?.message || 'Could not load team')
+      toast.error(humanError(e, 'Could not load your team'))
     } finally {
       setLoading(false)
     }
@@ -67,7 +68,7 @@ export default function TeamPanel() {
       setNewEmail('')
       await load()
     } catch (e) {
-      toast.error(e?.message || 'Could not generate code')
+      toast.error(humanError(e, 'Could not generate an invite code — try again.'))
     } finally {
       setGenerating(false)
     }
@@ -85,7 +86,7 @@ export default function TeamPanel() {
       toast.success(`Code ${invite.code} revoked.`)
       await load()
     } catch (e) {
-      toast.error(e?.message || 'Could not revoke')
+      toast.error(humanError(e, 'Could not revoke that invite — try again.'))
     }
   }
 

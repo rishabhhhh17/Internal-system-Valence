@@ -8,6 +8,7 @@ import {
   ListChecks, MessageSquare, UserCircle, Building2, Settings2
 } from 'lucide-react'
 import { supabase, isSupabaseConfigured, subscribeTable } from '../lib/supabase.js'
+import { humanError } from '../lib/userError.js'
 import { logActivity } from '../lib/activity.js'
 import { spawnMandateFolders, stripWikilinkTokens } from '../lib/kb.js'
 import { uploadDealFile } from '../lib/storage.js'
@@ -181,7 +182,7 @@ export default function Deals() {
       setDeals(data || [])
     } catch (err) {
       console.error(err)
-      setLoadError(err?.message || 'Couldn\'t load deals.')
+      setLoadError(humanError(err, "Couldn't load deals — refresh the page."))
       setDeals([])
     } finally {
       setLoading(false)
@@ -231,12 +232,12 @@ export default function Deals() {
     }
     if (id) {
       const { error } = await supabase.from('deals').update(payload).eq('id', id)
-      if (error) return toast.error(error.message)
+      if (error) return toast.error(humanError(error))
       await logActivity({ dealId: id, kind: 'note', body: 'Deal details updated.' })
       toast.success('Deal updated.')
     } else {
       const { data, error } = await supabase.from('deals').insert(payload).select().single()
-      if (error) return toast.error(error.message)
+      if (error) return toast.error(humanError(error))
       const typeLabel = (payload.deal_types || []).join(' + ') || 'mandate'
       const subtypeLabel = payload.deal_subtype ? ` · ${payload.deal_subtype}` : ''
       await logActivity({ dealId: data.id, kind: 'created', body: `New ${typeLabel}${subtypeLabel}` })
@@ -292,7 +293,7 @@ export default function Deals() {
       setDeals(prev => prev.filter(d => d.id !== deal.id))
     } else {
       const { error } = await supabase.from('deals').delete().eq('id', deal.id)
-      if (error) return toast.error(error.message)
+      if (error) return toast.error(humanError(error))
       load()
     }
     setDrawer(null)
@@ -307,7 +308,7 @@ export default function Deals() {
     if (!isSupabaseConfigured) return
     const { error } = await supabase.from('deals').update({ stage: newStage }).eq('id', id)
     if (error) {
-      toast.error(error.message); load(); return
+      toast.error(humanError(error, 'Could not change stage — try again.')); load(); return
     }
     await logActivity({ dealId: id, kind: 'stage_change', body: `${deal.stage} → ${newStage}` })
     toast.success(`${deal.client_name} → ${newStage}`)
@@ -427,7 +428,7 @@ export default function Deals() {
                 onSave={async (next) => {
                   if (isSupabaseConfigured) {
                     const { error } = await supabase.from('deals').update({ client_name: next }).eq('id', drawer.id)
-                    if (error) { toast.error(error.message); throw error }
+                    if (error) { toast.error(humanError(error, 'Could not save the new name.')); throw error }
                     await logActivity({ dealId: drawer.id, kind: 'note', body: `Renamed to "${next}"` })
                   }
                   setDeals(prev => prev.map(d => d.id === drawer.id ? { ...d, client_name: next } : d))

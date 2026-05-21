@@ -146,7 +146,13 @@ async function enrichOne(sb, person) {
       last_enriched_at: new Date().toISOString()
     })
     .eq('id', person.id)
-  if (error) throw new Error(error.message)
+  if (error) {
+    // Log the raw error server-side so we keep the debug detail, but
+    // return a sanitised message to the client. The frontend then routes
+    // it through humanError() which falls back to a friendly default.
+    console.error('[enrich-person] update failed:', error)
+    throw new Error('Could not save enrichment for this person.')
+  }
 
   return { company_type, sector_tags, geography_tags, reasoning: classification.reasoning || null }
 }
