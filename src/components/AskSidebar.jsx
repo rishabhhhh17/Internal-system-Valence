@@ -83,7 +83,17 @@ export default function AskSidebar() {
       })
       if (!res.ok || !res.body) {
         const errTxt = await res.text().catch(() => '')
-        throw new Error(errTxt.slice(0, 200) || `Server ${res.status}`)
+        // Common case: server can't reach Gemini → 503 with a JSON body.
+        // Translate that into a user-friendly message instead of dumping
+        // the raw "{\"error\":\"GEMINI_API_KEY not set on server\"}" string.
+        if (res.status === 503 && /gemini/i.test(errTxt)) {
+          throw new Error("AI features aren't connected yet. Ask your admin to set the Gemini API key in Vercel settings, then refresh.")
+        }
+        // Try to surface the JSON `error` field if there is one, otherwise
+        // raw text, otherwise the HTTP status.
+        let msg = ''
+        try { msg = JSON.parse(errTxt)?.error || '' } catch { /* not JSON */ }
+        throw new Error(msg || errTxt.slice(0, 200) || `Server ${res.status}`)
       }
       await parseEventStream(res.body, (event, data) => {
         setMessages(m => {
