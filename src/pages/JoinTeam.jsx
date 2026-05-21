@@ -8,6 +8,7 @@ import { useState } from 'react'
 import { useNavigate, Link, useSearchParams } from 'react-router-dom'
 import { Loader2, KeyRound, Check, ArrowLeft, User } from 'lucide-react'
 import { supabase, isSupabaseConfigured } from '../lib/supabase.js'
+import { signOut } from '../lib/google.js'
 import { humanError } from '../lib/userError.js'
 import { useToast } from '../components/Toast.jsx'
 import { useAuth } from '../hooks/useAuth.js'
@@ -26,6 +27,7 @@ export default function JoinTeam() {
   const [title,    setTitle]    = useState('')
   const [phone,    setPhone]    = useState('')
   const [busy,     setBusy]     = useState(false)
+  const [blockingError, setBlockingError] = useState(null)
 
   // Auto-uppercase, allow only the alphabet we use in codes (no I/O/0/1).
   function onCodeChange(v) {
@@ -61,10 +63,22 @@ export default function JoinTeam() {
       await refreshSeat()
       navigate('/', { replace: true })
     } catch (err) {
-      toast.error(humanError(err, 'Could not join — check the code and try again.'))
+      // Same pattern as Onboarding — if the user already has a seat,
+      // surface a prominent inline error with a Sign-out button. The
+      // toast alone is too easy to miss.
+      const raw = String(err?.message || '')
+      if (/user already belongs to a team/i.test(raw)) {
+        setBlockingError('alreadyOnTeam')
+      } else {
+        toast.error(humanError(err, 'Could not join — check the code and try again.'))
+      }
     } finally {
       setBusy(false)
     }
+  }
+
+  async function signOutAndRetry() {
+    try { await signOut() } catch { /* render will route */ }
   }
 
   return (
@@ -88,6 +102,24 @@ export default function JoinTeam() {
                 Paste the 8-character code your firm's admin sent you. We'll add you to their workspace.
               </p>
             </div>
+
+            {blockingError === 'alreadyOnTeam' && (
+              <div className="rounded-xl border border-valence-warning/40 bg-valence-warning/10 p-5 space-y-3">
+                <div className="space-y-1.5">
+                  <p className="text-sm font-semibold text-valence-text">You're already in a firm.</p>
+                  <p className="text-xs text-valence-muted leading-relaxed">
+                    Your current Google account already has a seat in a Valence workspace. To join a different firm,
+                    sign out and sign back in with a different Google account.
+                  </p>
+                </div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <button onClick={signOutAndRetry} className="vl-btn-primary text-xs">
+                    Sign out and try a different account
+                  </button>
+                  <Link to="/" className="vl-btn-ghost text-xs">Go to my current firm</Link>
+                </div>
+              </div>
+            )}
 
             <div className="vl-card p-5 space-y-5">
               <div className="space-y-1.5">

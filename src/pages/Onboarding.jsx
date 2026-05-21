@@ -16,6 +16,7 @@ import { useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { Loader2, Check, Building2, Sparkles, KeyRound, ArrowLeft, ArrowRight, User } from 'lucide-react'
 import { supabase, isSupabaseConfigured } from '../lib/supabase.js'
+import { signOut } from '../lib/google.js'
 import { openCycle, PLANS } from '../lib/billing.js'
 import { useToast } from '../components/Toast.jsx'
 import { useAuth } from '../hooks/useAuth.js'
@@ -62,6 +63,7 @@ export default function Onboarding() {
   const [fullName, setFullName] = useState(profile?.name || '')
   const [title, setTitle]       = useState('')
   const [phone, setPhone]       = useState('')
+  const [blockingError, setBlockingError] = useState(null)
   const [busy, setBusy]         = useState(false)
 
   function nextFromFirm() {
@@ -129,10 +131,25 @@ export default function Onboarding() {
       await refreshSeat()
       navigate('/', { replace: true })
     } catch (err) {
-      toast.error(humanError(err, 'Could not create your firm — try again.'))
+      // Common case: signed-in user already has a seat (typically a dev
+      // testing the flow without signing out). The toast is too transient
+      // for this — surface it as a prominent inline card with a direct
+      // Sign-out button so the path forward is obvious.
+      const raw = String(err?.message || '')
+      if (/user already belongs to a team/i.test(raw)) {
+        setBlockingError('alreadyOnTeam')
+      } else {
+        toast.error(humanError(err, 'Could not create your firm — try again.'))
+      }
     } finally {
       setBusy(false)
     }
+  }
+
+  async function signOutAndRetry() {
+    try { await signOut() } catch { /* render will route */ }
+    // signOut() clears Supabase session + valence.* localStorage → App.jsx
+    // re-renders, no session, renders Login.
   }
 
   return (
@@ -158,6 +175,24 @@ export default function Onboarding() {
                   : 'This is what shows up on your seat and on shared mandate pages.'}
               </p>
             </div>
+
+            {blockingError === 'alreadyOnTeam' && (
+              <div className="rounded-xl border border-valence-warning/40 bg-valence-warning/10 p-5 space-y-3">
+                <div className="space-y-1.5">
+                  <p className="text-sm font-semibold text-valence-text">You're already in a firm.</p>
+                  <p className="text-xs text-valence-muted leading-relaxed">
+                    Your current Google account already has a seat in a Valence workspace. To start a brand-new firm,
+                    sign out and sign back in with a different Google account, or use the &quot;Use a different account&quot; option.
+                  </p>
+                </div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <button onClick={signOutAndRetry} className="vl-btn-primary text-xs">
+                    Sign out and start fresh
+                  </button>
+                  <Link to="/" className="vl-btn-ghost text-xs">Go to my current firm</Link>
+                </div>
+              </div>
+            )}
 
             {step === 1 && (
               <div className="space-y-5">
