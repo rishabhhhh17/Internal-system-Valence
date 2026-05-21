@@ -16,7 +16,19 @@
 
 const SUPABASE_PROJECT = 'xwbownhncfthjmxceqrt'
 const STORAGE_KEY = `sb-${SUPABASE_PROJECT}-auth-token`
+const EXTENSION_VERSION = '0.1.1'
 let lastSentToken = null
+
+// Announce ourselves to the page so the web app can detect the extension
+// is installed (and which version). The data-attribute and the CustomEvent
+// both cross the content-script isolated-world boundary because they're
+// DOM-level. The web app's ExtensionStatus component reads both.
+try {
+  document.documentElement.setAttribute('data-valenceos-capture', EXTENSION_VERSION)
+  window.dispatchEvent(new CustomEvent('valenceos-capture:ready', {
+    detail: { version: EXTENSION_VERSION }
+  }))
+} catch { /* extension context invalidated — page reload will refresh */ }
 
 function readSession() {
   try {
