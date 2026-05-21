@@ -3054,13 +3054,20 @@ as $$
 $$;
 
 -- ============================================================================
--- PHASE 18 — Super-connectors matviews
--- Mirrored from supabase/phase-18-super-connectors.sql. Column names match
--- api/_ask-tools.js (note geography view uses `geo_tag`, singular).
+-- PHASE 18 — Super-connectors views
+-- Mirrored from supabase/phase-18-super-connectors.sql. Regular views (not
+-- materialized) because Postgres doesn't allow RLS on matviews; security_invoker
+-- inherits RLS from the underlying tables. Column names match api/_ask-tools.js
+-- (note geography view uses `geo_tag`, singular).
 -- ============================================================================
 
-drop materialized view if exists public.super_connectors_by_company_type;
-create materialized view public.super_connectors_by_company_type as
+drop materialized view if exists public.super_connectors_by_company_type cascade;
+drop materialized view if exists public.super_connectors_by_sector       cascade;
+drop materialized view if exists public.super_connectors_by_geography    cascade;
+
+create or replace view public.super_connectors_by_company_type
+  with (security_invoker = true)
+  as
 select
   rs.org_id, rs.valence_person_id, p.company_type,
   count(*) filter (where rs.bucket in ('strong','warm')) as strong_warm_count,
@@ -3071,13 +3078,9 @@ where rs.bucket in ('strong','warm','cool')
   and p.company_type is not null
 group by rs.org_id, rs.valence_person_id, p.company_type;
 
-create unique index if not exists super_connectors_by_company_type_pk
-  on public.super_connectors_by_company_type (org_id, valence_person_id, company_type);
-create index if not exists super_connectors_by_company_type_lookup
-  on public.super_connectors_by_company_type (company_type, strong_warm_count desc);
-
-drop materialized view if exists public.super_connectors_by_sector;
-create materialized view public.super_connectors_by_sector as
+create or replace view public.super_connectors_by_sector
+  with (security_invoker = true)
+  as
 select
   rs.org_id, rs.valence_person_id, st.sector_tag,
   count(*) filter (where rs.bucket in ('strong','warm')) as strong_warm_count,
@@ -3088,13 +3091,9 @@ cross join lateral unnest(p.sector_tags) as st(sector_tag)
 where rs.bucket in ('strong','warm','cool')
 group by rs.org_id, rs.valence_person_id, st.sector_tag;
 
-create unique index if not exists super_connectors_by_sector_pk
-  on public.super_connectors_by_sector (org_id, valence_person_id, sector_tag);
-create index if not exists super_connectors_by_sector_lookup
-  on public.super_connectors_by_sector (sector_tag, strong_warm_count desc);
-
-drop materialized view if exists public.super_connectors_by_geography;
-create materialized view public.super_connectors_by_geography as
+create or replace view public.super_connectors_by_geography
+  with (security_invoker = true)
+  as
 select
   rs.org_id, rs.valence_person_id, gt.geo_tag,
   count(*) filter (where rs.bucket in ('strong','warm')) as strong_warm_count,
@@ -3105,37 +3104,6 @@ cross join lateral unnest(p.geography_tags) as gt(geo_tag)
 where rs.bucket in ('strong','warm','cool')
 group by rs.org_id, rs.valence_person_id, gt.geo_tag;
 
-create unique index if not exists super_connectors_by_geography_pk
-  on public.super_connectors_by_geography (org_id, valence_person_id, geo_tag);
-create index if not exists super_connectors_by_geography_lookup
-  on public.super_connectors_by_geography (geo_tag, strong_warm_count desc);
-
-alter materialized view public.super_connectors_by_company_type enable row level security;
-alter materialized view public.super_connectors_by_sector       enable row level security;
-alter materialized view public.super_connectors_by_geography    enable row level security;
-
-drop policy if exists tenant_select on public.super_connectors_by_company_type;
-drop policy if exists tenant_select on public.super_connectors_by_sector;
-drop policy if exists tenant_select on public.super_connectors_by_geography;
-
-create policy tenant_select on public.super_connectors_by_company_type
-  for select to authenticated using (org_id = public.current_user_org_id());
-create policy tenant_select on public.super_connectors_by_sector
-  for select to authenticated using (org_id = public.current_user_org_id());
-create policy tenant_select on public.super_connectors_by_geography
-  for select to authenticated using (org_id = public.current_user_org_id());
-
-create or replace function public.refresh_super_connectors()
-returns void
-language plpgsql
-security definer
-set search_path = public
-as $$
-begin
-  refresh materialized view concurrently public.super_connectors_by_company_type;
-  refresh materialized view concurrently public.super_connectors_by_sector;
-  refresh materialized view concurrently public.super_connectors_by_geography;
-end $$;
-
-revoke all on function public.refresh_super_connectors() from public;
-grant execute on function public.refresh_super_connectors() to authenticated, service_role;
+grant select on public.super_connectors_by_company_type to authenticated;
+grant select on public.super_connectors_by_sector       to authenticated;
+grant select on public.super_connectors_by_geography    to authenticated;
