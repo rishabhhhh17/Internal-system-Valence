@@ -27,7 +27,7 @@ export default function Login() {
                 The operating layer for the firm.
               </h1>
               <p className="mt-6 max-w-lg text-base leading-relaxed text-valence-muted lg:text-lg">
-                Sign in with your Valence Google account to unlock the pipeline, the firm's knowledge, and the planner.
+                Sign in with Google to start a new team or join one with an invite code from your admin.
               </p>
               <div className="mt-10 flex flex-wrap items-center gap-3">
                 <button
@@ -41,7 +41,7 @@ export default function Login() {
                 </button>
                 <span className="inline-flex items-center gap-1.5 text-xs text-valence-muted">
                   <Shield className="h-3.5 w-3.5" />
-                  Only accounts your admin has authorised can sign in.
+                  Your firm's data stays isolated — RLS at every query.
                 </span>
               </div>
               {err && (
@@ -62,7 +62,7 @@ export default function Login() {
         </main>
 
         <footer className="px-8 pb-8 pt-16 text-[11px] text-valence-subtle lg:px-16">
-          Mumbai · London · © {new Date().getFullYear()} Valence Growth Partners
+          © {new Date().getFullYear()} ValenceOS · <a href="/privacy" className="hover:text-valence-muted">Privacy</a> · <a href="/terms" className="hover:text-valence-muted">Terms</a>
         </footer>
       </div>
     </div>
