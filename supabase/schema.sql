@@ -3052,3 +3052,90 @@ as $$
     else 0.0
   end
 $$;
+
+-- ============================================================================
+-- PHASE 18 — Super-connectors matviews
+-- Mirrored from supabase/phase-18-super-connectors.sql. Column names match
+-- api/_ask-tools.js (note geography view uses `geo_tag`, singular).
+-- ============================================================================
+
+drop materialized view if exists public.super_connectors_by_company_type;
+create materialized view public.super_connectors_by_company_type as
+select
+  rs.org_id, rs.valence_person_id, p.company_type,
+  count(*) filter (where rs.bucket in ('strong','warm')) as strong_warm_count,
+  count(*)                                                as total_count
+from public.relationship_strength rs
+join public.people p on p.id = rs.external_person_id
+where rs.bucket in ('strong','warm','cool')
+  and p.company_type is not null
+group by rs.org_id, rs.valence_person_id, p.company_type;
+
+create unique index if not exists super_connectors_by_company_type_pk
+  on public.super_connectors_by_company_type (org_id, valence_person_id, company_type);
+create index if not exists super_connectors_by_company_type_lookup
+  on public.super_connectors_by_company_type (company_type, strong_warm_count desc);
+
+drop materialized view if exists public.super_connectors_by_sector;
+create materialized view public.super_connectors_by_sector as
+select
+  rs.org_id, rs.valence_person_id, st.sector_tag,
+  count(*) filter (where rs.bucket in ('strong','warm')) as strong_warm_count,
+  count(*)                                                as total_count
+from public.relationship_strength rs
+join public.people p on p.id = rs.external_person_id
+cross join lateral unnest(p.sector_tags) as st(sector_tag)
+where rs.bucket in ('strong','warm','cool')
+group by rs.org_id, rs.valence_person_id, st.sector_tag;
+
+create unique index if not exists super_connectors_by_sector_pk
+  on public.super_connectors_by_sector (org_id, valence_person_id, sector_tag);
+create index if not exists super_connectors_by_sector_lookup
+  on public.super_connectors_by_sector (sector_tag, strong_warm_count desc);
+
+drop materialized view if exists public.super_connectors_by_geography;
+create materialized view public.super_connectors_by_geography as
+select
+  rs.org_id, rs.valence_person_id, gt.geo_tag,
+  count(*) filter (where rs.bucket in ('strong','warm')) as strong_warm_count,
+  count(*)                                                as total_count
+from public.relationship_strength rs
+join public.people p on p.id = rs.external_person_id
+cross join lateral unnest(p.geography_tags) as gt(geo_tag)
+where rs.bucket in ('strong','warm','cool')
+group by rs.org_id, rs.valence_person_id, gt.geo_tag;
+
+create unique index if not exists super_connectors_by_geography_pk
+  on public.super_connectors_by_geography (org_id, valence_person_id, geo_tag);
+create index if not exists super_connectors_by_geography_lookup
+  on public.super_connectors_by_geography (geo_tag, strong_warm_count desc);
+
+alter materialized view public.super_connectors_by_company_type enable row level security;
+alter materialized view public.super_connectors_by_sector       enable row level security;
+alter materialized view public.super_connectors_by_geography    enable row level security;
+
+drop policy if exists tenant_select on public.super_connectors_by_company_type;
+drop policy if exists tenant_select on public.super_connectors_by_sector;
+drop policy if exists tenant_select on public.super_connectors_by_geography;
+
+create policy tenant_select on public.super_connectors_by_company_type
+  for select to authenticated using (org_id = public.current_user_org_id());
+create policy tenant_select on public.super_connectors_by_sector
+  for select to authenticated using (org_id = public.current_user_org_id());
+create policy tenant_select on public.super_connectors_by_geography
+  for select to authenticated using (org_id = public.current_user_org_id());
+
+create or replace function public.refresh_super_connectors()
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  refresh materialized view concurrently public.super_connectors_by_company_type;
+  refresh materialized view concurrently public.super_connectors_by_sector;
+  refresh materialized view concurrently public.super_connectors_by_geography;
+end $$;
+
+revoke all on function public.refresh_super_connectors() from public;
+grant execute on function public.refresh_super_connectors() to authenticated, service_role;
