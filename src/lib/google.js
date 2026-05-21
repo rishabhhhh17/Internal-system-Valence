@@ -39,10 +39,18 @@ export async function signInWithGoogle({ redirectTo } = {}) {
     provider: 'google',
     options: {
       scopes: GOOGLE_SCOPES,
-      // access_type=offline + prompt=consent forces Google to return a refresh
-      // token even on subsequent grants — required for refreshSession() to
-      // exchange it for a fresh access_token on 401.
-      queryParams: { access_type: 'offline', prompt: 'consent' },
+      // access_type=offline   → Google returns a refresh token (needed for
+      //                         refreshSession() on 401).
+      // prompt=select_account → forces the Google account picker every
+      //                         time. Without this, if the user has a
+      //                         single Google account signed in to Chrome,
+      //                         Google silently reuses it — meaning a
+      //                         user who wants to switch accounts can't,
+      //                         and ends up signed in as their previous
+      //                         identity (avatar carries over, etc.).
+      // prompt=consent        → also re-prompts for scope consent, which
+      //                         guarantees the refresh token comes back.
+      queryParams: { access_type: 'offline', prompt: 'select_account consent' },
       redirectTo: redirectTo || fallback
     }
   })
