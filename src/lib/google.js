@@ -9,13 +9,17 @@
 
 import { supabase, isSupabaseConfigured } from './supabase.js'
 
+// Scopes intentionally kept to Calendar + Drive + Tasks only. Gmail scopes
+// (gmail.send, gmail.metadata) are RESTRICTED scopes that trigger Google's
+// CASA security audit ($10-15k, 4-8 weeks) during OAuth verification. The
+// Chrome extension covers Gmail capture by reading the user's open Gmail
+// tab (DOM, not API), and EmailComposer / Planner / FreeSlots now open
+// Gmail's compose URL in a new tab instead of sending via the API — no
+// scope needed for either path. If a future feature genuinely needs the
+// Gmail API, re-add the scope here AND budget for CASA before re-submitting.
 export const GOOGLE_SCOPES = [
   'https://www.googleapis.com/auth/calendar',
   'https://www.googleapis.com/auth/drive.readonly',
-  'https://www.googleapis.com/auth/gmail.send',
-  // Read-only header access — powers the deal drawer's "Sync Gmail" feature.
-  // We never read bodies; metadataHeaders is limited to From/To/CC/Date/Subject.
-  'https://www.googleapis.com/auth/gmail.metadata',
   // Read + write the user's Google Tasks so the Day Planner Tasks panel
   // can be the source of truth for the partner's to-do list.
   'https://www.googleapis.com/auth/tasks',
@@ -198,36 +202,38 @@ function base64Url(str) {
     .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
 }
 
+// Gmail handoff helpers. Both open Gmail's compose URL in a new tab with
+// the to/subject/body pre-filled — the user hits "Send" themselves. No
+// Gmail API call, no gmail.send scope needed, which keeps us out of
+// Google's CASA audit. Async signature preserved so call sites can keep
+// awaiting them without churn.
+//
+// One downside vs the old API path: we can't distinguish "saved as draft"
+// from "sent" — Gmail's compose URL always opens an editable draft, and
+// the user controls whether to send. Callers should phrase their toast
+// as "Opened in Gmail to send" rather than "Sent".
+
 export async function sendGmail({ to, subject, body, cc = [], bcc = [] }) {
-  const headers = [
-    `To: ${to}`,
-    cc.length  ? `Cc: ${cc.join(', ')}`   : null,
-    bcc.length ? `Bcc: ${bcc.join(', ')}` : null,
-    `Subject: ${subject}`,
-    'Content-Type: text/plain; charset=UTF-8',
-    'MIME-Version: 1.0'
-  ].filter(Boolean).join('\r\n')
-  const raw = base64Url(`${headers}\r\n\r\n${body}`)
-  return gfetch('https://gmail.googleapis.com/gmail/v1/users/me/messages/send', {
-    method: 'POST',
-    body: { raw }
-  })
+  return openGmailCompose({ to, subject, body, cc, bcc })
 }
 
 export async function createGmailDraft({ to, subject, body, cc = [], bcc = [] }) {
-  const headers = [
-    `To: ${to}`,
-    cc.length  ? `Cc: ${cc.join(', ')}`   : null,
-    bcc.length ? `Bcc: ${bcc.join(', ')}` : null,
-    `Subject: ${subject}`,
-    'Content-Type: text/plain; charset=UTF-8',
-    'MIME-Version: 1.0'
-  ].filter(Boolean).join('\r\n')
-  const raw = base64Url(`${headers}\r\n\r\n${body}`)
-  return gfetch('https://gmail.googleapis.com/gmail/v1/users/me/drafts', {
-    method: 'POST',
-    body: { message: { raw } }
-  })
+  return openGmailCompose({ to, subject, body, cc, bcc })
+}
+
+export function openGmailCompose({ to, subject, body, cc = [], bcc = [] } = {}) {
+  if (typeof window === 'undefined') return null
+  const params = new URLSearchParams({ view: 'cm', fs: '1' })
+  if (to)      params.set('to',  Array.isArray(to)  ? to.join(',')  : to)
+  if (cc?.length)  params.set('cc',  cc.join(','))
+  if (bcc?.length) params.set('bcc', bcc.join(','))
+  if (subject) params.set('su', subject)
+  if (body)    params.set('body', body)
+  // Open Gmail compose in a new tab. The user lands directly in a draft
+  // editor with everything filled in and clicks Send themselves.
+  const url = `https://mail.google.com/mail/?${params.toString()}`
+  window.open(url, '_blank', 'noopener,noreferrer')
+  return { opened: true, url }
 }
 
 // ============ DRIVE ============
