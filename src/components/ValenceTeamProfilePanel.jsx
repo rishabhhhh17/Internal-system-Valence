@@ -97,6 +97,16 @@ export default function ValenceTeamProfilePanel({ valencePersonId }) {
     return () => { alive = false }
   }, [valencePersonId])
 
+  // All hooks must run before any early return — Rules of Hooks. Compute
+  // the network grouping unconditionally; cheap when network is small.
+  const networkByBucket = useMemo(() => {
+    const groups = { strong: [], warm: [], cool: [], cold: [] }
+    for (const row of network) {
+      if (groups[row.bucket]) groups[row.bucket].push(row)
+    }
+    return groups
+  }, [network])
+
   if (loading) {
     return (
       <section className="vl-card p-5 space-y-2">
@@ -117,13 +127,6 @@ export default function ValenceTeamProfilePanel({ valencePersonId }) {
   }
 
   const hasAnyTopConnector = byCompanyType.length || bySector.length || byGeography.length
-  const networkByBucket = useMemo(() => {
-    const groups = { strong: [], warm: [], cool: [], cold: [] }
-    for (const row of network) {
-      if (groups[row.bucket]) groups[row.bucket].push(row)
-    }
-    return groups
-  }, [network])
 
   return (
     <section className="space-y-4">
