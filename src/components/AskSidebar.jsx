@@ -44,6 +44,13 @@ export default function AskSidebar() {
   const [input, setInput] = useState('')
   const [busy, setBusy] = useState(false)
   const scrollRef = useRef(null)
+  // AbortController for the in-flight /api/ask stream. LLM responses can
+  // take 5-30s, during which the user might navigate away or close the
+  // sidebar. Without this, the SSE reader keeps consuming the body and
+  // setState fires on an unmounted component, logging React warnings
+  // and burning bytes server-side. The ref + cleanup pattern ensures
+  // unmount aborts the stream cleanly.
+  const abortRef = useRef(null)
 
   useEffect(() => {
     try { window.localStorage?.setItem(STORAGE_KEY, open ? '1' : '0') } catch {}
@@ -52,6 +59,13 @@ export default function AskSidebar() {
   useEffect(() => {
     if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight
   }, [messages, busy])
+
+  // Abort any in-flight stream on unmount. Also clears the ref so a
+  // stale controller from a previous mount can't leak.
+  useEffect(() => () => {
+    try { abortRef.current?.abort() } catch { /* already aborted */ }
+    abortRef.current = null
+  }, [])
 
   async function submit(e) {
     e?.preventDefault()
@@ -73,13 +87,22 @@ export default function AskSidebar() {
       const token = sess?.session?.access_token
       if (!token) throw new Error('Sign in to ask questions.')
 
+      // Abort any previous in-flight stream before kicking off a new one
+      // (user submitted a second question before the first finished). And
+      // store the new controller in the ref so the unmount cleanup can
+      // reach it.
+      try { abortRef.current?.abort() } catch { /* already aborted */ }
+      const ctrl = new AbortController()
+      abortRef.current = ctrl
+
       const res = await fetch('/api/ask', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
         },
-        body: JSON.stringify({ question: q })
+        body: JSON.stringify({ question: q }),
+        signal: ctrl.signal
       })
       if (!res.ok || !res.body) {
         const errTxt = await res.text().catch(() => '')
@@ -122,6 +145,10 @@ export default function AskSidebar() {
         })
       })
     } catch (err) {
+      // AbortError is not user-facing — it fires when the component
+      // unmounts mid-stream or when a new question pre-empts an
+      // in-flight one. Surface only real errors.
+      if (err?.name === 'AbortError') return
       setMessages(m => {
         const copy = m.slice()
         copy[assistantIndex] = { ...copy[assistantIndex], error: err?.message || 'Request failed', finished: true }
