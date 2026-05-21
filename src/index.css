@@ -52,7 +52,7 @@
     color-scheme: dark;
     /* True-black-ish surfaces. Neutral grays, no navy tint. The brand
        blue stays as the only chromatic accent. */
-    --valence-bg:            8   8  10;   /* near-black */
+    --valence-bg:            0   0   0;   /* pure black */
     --valence-surface:      20  20  23;
     --valence-elevated:     28  28  32;
     --valence-ink:          18  18  22;   /* button bg — sits a notch above bg */
