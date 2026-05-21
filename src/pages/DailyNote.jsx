@@ -13,6 +13,7 @@ import { listTodayEvents, GoogleAuthExpired } from '../lib/google.js'
 import ConfigBanner from '../components/ConfigBanner.jsx'
 import WikilinkTextarea from '../components/WikilinkTextarea.jsx'
 import WikilinkText from '../components/WikilinkText.jsx'
+import StaleRelationships from '../components/StaleRelationships.jsx'
 
 // The Daily Note replaces the previous Overview page. One row per (user, date)
 // in the daily_notes table. The auto-section is computed every render from
@@ -299,6 +300,8 @@ export default function DailyNote() {
             <ActionLink to="/planner" icon={Calendar} label="Day Planner" />
           </div>
         </Card>
+
+        <StaleRelationships />
       </section>
 
       {/* Free-form body */}
