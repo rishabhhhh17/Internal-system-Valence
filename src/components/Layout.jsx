@@ -12,8 +12,11 @@ export default function Layout({ children }) {
   const sidebarCollapsed = useWorkspaceSetting(WORKSPACE_KEYS.sidebarCollapsed) === 'true'
   return (
     <div className="relative flex min-h-screen bg-valence-bg text-valence-text">
-      <div className="pointer-events-none fixed inset-0 bg-valence-radial" aria-hidden />
-      <div className="pointer-events-none fixed inset-0 bg-valence-aurora opacity-90" aria-hidden />
+      {/* The brand-orb gradient overlays (valence-radial + valence-aurora)
+          previously sat fixed inset-0 here. Removed: keeps the canvas
+          flat black in dark mode and flat white in light mode — no blue
+          tint bleeding through behind cards. Re-add if the brand
+          signature is wanted back. */}
       {!sidebarCollapsed && <Sidebar />}
       <div className="relative z-10 flex min-w-0 min-h-screen flex-1 flex-col">
         <Topbar />
