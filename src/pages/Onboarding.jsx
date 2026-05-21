@@ -12,8 +12,8 @@
 // belongs to exactly one org, and every customer-data table is scoped to
 // org_id = current_user_org_id() on read + write.
 
-import { useState } from 'react'
-import { useNavigate, Link } from 'react-router-dom'
+import { useEffect, useRef, useState } from 'react'
+import { useNavigate, Link, useSearchParams } from 'react-router-dom'
 import { Loader2, Check, Building2, Sparkles, KeyRound, ArrowLeft, ArrowRight, User } from 'lucide-react'
 import { supabase, isSupabaseConfigured } from '../lib/supabase.js'
 import { signOut } from '../lib/google.js'
@@ -50,6 +50,13 @@ export default function Onboarding() {
   const navigate = useNavigate()
   const toast    = useToast()
   const { profile } = useAuth()
+  const [params] = useSearchParams()
+  const isPreview = params.get('preview') === '1'
+  const previewSuffix = isPreview ? '?preview=1' : ''
+  // Anchor for scrollIntoView when the blocking-error card appears —
+  // the user-reported "Start a team isn't working" symptom is actually
+  // the card mounting below the fold and being missed entirely.
+  const blockingErrorRef = useRef(null)
   // refresh() forces useSeat to re-query after start_team succeeds. Without
   // it, App.jsx still sees hasSeat=false at the navigate('/') hop and
   // bounces the user right back to /welcome — looked like an infinite
@@ -65,6 +72,15 @@ export default function Onboarding() {
   const [phone, setPhone]       = useState('')
   const [blockingError, setBlockingError] = useState(null)
   const [busy, setBusy]         = useState(false)
+
+  // When the blocking-error card appears, scroll it into view + flash it
+  // into the page so the user can't miss it. Without this the card
+  // sometimes mounts below the fold (small viewports, dev tools open)
+  // and the user thinks the submit did nothing.
+  useEffect(() => {
+    if (!blockingError) return
+    blockingErrorRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+  }, [blockingError])
 
   function nextFromFirm() {
     if (!firmName.trim()) {
@@ -156,7 +172,7 @@ export default function Onboarding() {
     <div className="min-h-screen bg-valence-bg">
       <div className="relative mx-auto flex min-h-screen max-w-3xl flex-col px-6 py-10">
         <header className="flex items-center justify-between">
-          <Link to="/welcome" className="text-xs text-valence-muted hover:text-valence-text inline-flex items-center gap-1">
+          <Link to={`/welcome${previewSuffix}`} className="text-xs text-valence-muted hover:text-valence-text inline-flex items-center gap-1">
             <ArrowLeft className="h-3 w-3" /> Back
           </Link>
           <Logo />
@@ -177,7 +193,7 @@ export default function Onboarding() {
             </div>
 
             {blockingError === 'alreadyOnTeam' && (
-              <div className="rounded-xl border border-valence-warning/40 bg-valence-warning/10 p-5 space-y-3">
+              <div ref={blockingErrorRef} className="rounded-xl border-2 border-valence-warning/60 bg-valence-warning/15 p-5 space-y-3 shadow-lg shadow-valence-warning/10 animate-fade-in">
                 <div className="space-y-1.5">
                   <p className="text-sm font-semibold text-valence-text">You're already in a firm.</p>
                   <p className="text-xs text-valence-muted leading-relaxed">

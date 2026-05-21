@@ -36,12 +36,26 @@ export default function StaleRelationships() {
       setLoading(true); setError(null)
       try {
         // Resolve the viewer's people row (the Valence team membership).
-        // No row → user hasn't been onboarded as a people entry yet,
+        // public.people has no user_id column — the bridge from auth user
+        // to the team-member people row goes through seats.email →
+        // people.email_normalised. The previous .eq('user_id', …) raised
+        // 42703 on every Dashboard render and spammed the postgres log.
+        // No row → user hasn't been added as a Valence team member yet,
         // render empty rather than crash.
+        const { data: meSeat } = await supabase
+          .from('seats')
+          .select('email')
+          .eq('user_id', session.user.id)
+          .eq('active', true)
+          .maybeSingle()
+        const seatEmail = meSeat?.email ? String(meSeat.email).trim().toLowerCase() : null
+        if (!alive) return
+        if (!seatEmail) { setRows([]); setLoading(false); return }
+
         const { data: me } = await supabase
           .from('people')
           .select('id')
-          .eq('user_id', session.user.id)
+          .eq('email_normalised', seatEmail)
           .eq('is_valence_team', true)
           .maybeSingle()
         if (!alive) return

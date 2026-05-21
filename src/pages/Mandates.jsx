@@ -226,9 +226,12 @@ function MandateRow({ d, isDetailed, onUpdate }) {
       </td>
       {isDetailed && (
         <td className="px-3 py-3 text-valence-muted">
+          {/* Schema uses target_close. Older code paths read d.expected_close_date
+              as a fallback for demo data; writes must go to target_close
+              or the UPDATE 422-errors with 42703 "expected_close_date does not exist." */}
           <InlineDate
-            value={d.expected_close_date ? String(d.expected_close_date).slice(0, 10) : ''}
-            onCommit={v => onUpdate(d.id, 'expected_close_date', v)}
+            value={(d.target_close || d.expected_close_date) ? String(d.target_close || d.expected_close_date).slice(0, 10) : ''}
+            onCommit={v => onUpdate(d.id, 'target_close', v)}
           />
           {d._daysToClose != null && d._closeIso && (
             <span className="ml-1 text-[10px] text-valence-subtle">

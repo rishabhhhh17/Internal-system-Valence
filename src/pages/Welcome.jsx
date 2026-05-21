@@ -14,12 +14,21 @@
 // bare "Sign out" so the account-switch path is explicit. Pairs with
 // the prompt:select_account fix in lib/google.js — sign out, sign back
 // in, real account picker comes up.
-import { Link } from 'react-router-dom'
+//
+// Preview mode (?preview=1): a seated admin can land here for QA via the
+// App.jsx escape hatch. Without this file knowing about it, clicking
+// "Start a team" navigates to /onboarding (no query string), App.jsx
+// sees a seated user on an onboarding route without preview, and
+// instantly redirects back to /. Looks like "Start a team is broken."
+// Fix: detect preview mode, forward ?preview=1 through to the next
+// route, and surface a banner so the admin understands they're seated.
+import { Link, useSearchParams } from 'react-router-dom'
 import {
   Building2, KeyRound, ArrowRight, Shield, MessageSquare, CalendarDays,
-  Briefcase, BookOpen, Sparkles, Users
+  Briefcase, BookOpen, Sparkles, Users, Eye
 } from 'lucide-react'
 import { useAuth } from '../hooks/useAuth.js'
+import { useSeat } from '../hooks/useSeat.js'
 import { signOut } from '../lib/google.js'
 import Logo from '../components/Logo.jsx'
 
@@ -34,7 +43,13 @@ const FEATURES = [
 
 export default function Welcome() {
   const { profile, loading } = useAuth()
+  const { hasSeat, org } = useSeat()
+  const [params] = useSearchParams()
+  const isPreview = params.get('preview') === '1'
   const firstName = (profile?.name || '').split(' ')[0]
+  // Forward ?preview=1 to the next route so a seated admin testing the
+  // flow doesn't get bounced straight back to / on click.
+  const previewSuffix = isPreview ? '?preview=1' : ''
 
   async function switchAccount() {
     // signOut() clears Supabase session + every valence.* localStorage key
@@ -83,17 +98,41 @@ export default function Welcome() {
             </p>
           </section>
 
+          {/* Preview-mode banner — only shown when a seated admin opens
+              this screen via ?preview=1. Sets expectations up front so
+              they don't think "Start a team" is broken when it correctly
+              refuses (they already have a seat in a workspace). */}
+          {isPreview && hasSeat && (
+            <section className="mt-10 max-w-3xl">
+              <div className="flex items-start gap-3 rounded-xl border border-valence-warning/40 bg-valence-warning/10 px-4 py-3.5">
+                <Eye className="h-4 w-4 text-valence-warning shrink-0 mt-0.5" />
+                <div className="text-xs leading-relaxed">
+                  <p className="font-semibold text-valence-text">Preview mode — you already have a seat{org?.name ? ` in ${org.name}` : ''}.</p>
+                  <p className="text-valence-muted mt-1">
+                    You can browse the onboarding screens to QA the copy, but submitting
+                    “Start a team” or “Join a team” will fail with “user already belongs to a team.”
+                    To do a real first-time sign-in,{' '}
+                    <button onClick={switchAccount} className="text-valence-blue hover:underline">
+                      sign out
+                    </button>{' '}
+                    and sign back in with a different Google account that isn't seated yet.
+                  </p>
+                </div>
+              </div>
+            </section>
+          )}
+
           {/* Two choice cards — primary (start) heavier than secondary (join) */}
           <section className="mt-12 grid gap-4 sm:grid-cols-2 max-w-4xl">
             <PrimaryChoice
-              to="/onboarding"
+              to={`/onboarding${previewSuffix}`}
               icon={Building2}
               eyebrow="New firm"
               title="Start a team"
               body="Create a fresh workspace. You become the admin and invite the rest of the firm after onboarding."
             />
             <SecondaryChoice
-              to="/join"
+              to={`/join${previewSuffix}`}
               icon={KeyRound}
               eyebrow="Have an invite"
               title="Join a team"

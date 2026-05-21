@@ -8,6 +8,7 @@ import {
 import MeetingPrepCard from '../components/MeetingPrepCard.jsx'
 import { supabase, isSupabaseConfigured } from '../lib/supabase.js'
 import { useAuth } from '../hooks/useAuth.js'
+import { useSeat } from '../hooks/useSeat.js'
 import { stageMeta } from '../lib/stages.js'
 import { listTodayEvents, GoogleAuthExpired } from '../lib/google.js'
 import ConfigBanner from '../components/ConfigBanner.jsx'
@@ -24,6 +25,11 @@ const STALE_THRESHOLD_DAYS = 7
 
 export default function DailyNote() {
   const { profile, googleConnected } = useAuth()
+  // org_id is required on insert by the multi-tenant RLS policy on
+  // daily_notes. Without it the insert raised "new row violates
+  // row-level security policy" on every page load and Today never
+  // hydrated for a fresh seat.
+  const { org } = useSeat()
   const [deals, setDeals]         = useState([])
   const [activities, setActivities] = useState([])
   const [interactions, setInteractions] = useState([])
@@ -103,10 +109,19 @@ export default function DailyNote() {
         setNote(existing.data); setBody(existing.data.body || '')
         return
       }
-      const inserted = await supabase.from('daily_notes').insert({ user_id: userId, date: dateIso, body: '' }).select().single()
+      // Wait for org_id before inserting — RLS rejects rows whose
+      // org_id doesn't match current_user_org_id(). If the user isn't
+      // seated yet (still in onboarding) we don't insert; the gate
+      // pages handle their own state.
+      if (!org?.id) return
+      const inserted = await supabase
+        .from('daily_notes')
+        .insert({ user_id: userId, date: dateIso, body: '', org_id: org.id })
+        .select()
+        .single()
       if (inserted.data) { setNote(inserted.data); setBody('') }
     })()
-  }, [userId, dateIso])
+  }, [userId, dateIso, org?.id])
 
   // Debounced auto-save of the body.
   useEffect(() => {
