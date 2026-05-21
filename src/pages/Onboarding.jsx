@@ -19,12 +19,17 @@ import { supabase, isSupabaseConfigured } from '../lib/supabase.js'
 import { openCycle, PLANS } from '../lib/billing.js'
 import { useToast } from '../components/Toast.jsx'
 import { useAuth } from '../hooks/useAuth.js'
+import Logo from '../components/Logo.jsx'
 
+// Two plan choices on the onboarding screen. "Own your key" was a third
+// option that was functionally identical to "Bring your own key" with
+// different wording for procurement teams — folded into BYO so the
+// picker isn't visually three duplicate buttons.
 const PLAN_DETAILS = [
   {
     id: PLANS.WE_RUN_AI,
     title: 'We run the AI',
-    blurb: 'We manage the model and the key. Each seat gets a monthly allowance; opt in for overage if you blow through it.',
+    blurb: 'We manage the model and the API keys. Each seat gets a monthly AI allowance; opt in for overage if you exceed it.',
     icon: Sparkles,
     bestFor: 'Easiest to get started',
     recommended: true
@@ -32,16 +37,9 @@ const PLAN_DETAILS = [
   {
     id: PLANS.BYO_KEY,
     title: 'Bring your own key',
-    blurb: 'You provide your own Gemini / OpenAI / Anthropic key. We charge seat fees only — AI usage is on your bill.',
+    blurb: 'You provide your own Gemini / OpenAI / Anthropic key. We charge seat fees only; AI usage is on your bill.',
     icon: KeyRound,
-    bestFor: 'Firms with an existing AI budget'
-  },
-  {
-    id: PLANS.OWN_KEY,
-    title: 'Own your key',
-    blurb: 'Same as bring-your-own — different label for procurement reasons. Seat-only billing.',
-    icon: KeyRound,
-    bestFor: 'Firms with vendor-procurement rules'
+    bestFor: 'Firms with existing AI procurement'
   }
 ]
 
@@ -116,14 +114,13 @@ export default function Onboarding() {
   }
 
   return (
-    <div className="min-h-screen bg-valence-elevated vl-circles">
-      <div className="absolute inset-0 bg-valence-grid opacity-40 pointer-events-none" aria-hidden />
+    <div className="min-h-screen bg-valence-bg">
       <div className="relative mx-auto flex min-h-screen max-w-3xl flex-col px-6 py-10">
         <header className="flex items-center justify-between">
           <Link to="/welcome" className="text-xs text-valence-muted hover:text-valence-text inline-flex items-center gap-1">
             <ArrowLeft className="h-3 w-3" /> Back
           </Link>
-          <span className="vl-eyebrow">Valence Growth Partners · ValenceOS</span>
+          <Logo />
         </header>
 
         <main className="flex flex-1 items-center">
@@ -157,7 +154,7 @@ export default function Onboarding() {
 
                 <div className="space-y-2">
                   <p className="vl-eyebrow-ink">Pick a plan (changeable later)</p>
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                     {PLAN_DETAILS.map(p => {
                       const Icon = p.icon
                       const selected = plan === p.id
