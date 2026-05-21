@@ -26,6 +26,7 @@
 // a fresh thread. Matches the spec.
 
 import { useEffect, useRef, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { Sparkles, Send, X, Loader2, AlertTriangle } from 'lucide-react'
 import { supabase, isSupabaseConfigured } from '../lib/supabase.js'
 
@@ -257,7 +258,7 @@ function Message({ m }) {
       ))}
       {m.text && (
         <div className="rounded-lg bg-valence-surface px-3 py-2 text-sm leading-relaxed text-valence-text whitespace-pre-wrap">
-          {m.text}
+          {renderAssistantText(m.text)}
         </div>
       )}
       {m.error && (
@@ -299,6 +300,51 @@ function ToolBadge({ call }) {
         : `${call.name} · ${call.matchCount || 0} match${call.matchCount === 1 ? '' : 'es'}`}
     </div>
   )
+}
+
+// Parse the AI's text for citation markdown of the form
+// `[Visible label](/internal/path)` and render those segments as
+// inline <Link>s. Everything else stays as plain text. Per the
+// spec, the AI prompt instructs the model to emit citations as
+// markdown links — without this renderer the user just sees the
+// raw `[Name](/people?open=...)` syntax on screen.
+//
+// SECURITY:
+//   - Only paths starting with a single '/' are turned into links.
+//     '//foo' (protocol-relative) and 'http://foo' (absolute) are
+//     left as plain text — prevents an LLM-induced open-redirect
+//     to a malicious URL.
+//   - The label is rendered as a React child, not innerHTML, so
+//     any HTML/scripts in the label are inert.
+function renderAssistantText(text) {
+  if (!text) return null
+  const re = /\[([^\]]+)\]\(([^)\s]+)\)/g
+  const out = []
+  let lastIndex = 0
+  let m
+  while ((m = re.exec(text)) !== null) {
+    if (m.index > lastIndex) out.push(text.slice(lastIndex, m.index))
+    const label = m[1]
+    const path  = m[2]
+    if (path.startsWith('/') && !path.startsWith('//')) {
+      out.push(
+        <Link
+          key={`${m.index}-${path}`}
+          to={path}
+          className="text-valence-blue font-semibold hover:underline"
+        >
+          {label}
+        </Link>
+      )
+    } else {
+      // Unsafe / external — surface the raw token so it's obvious
+      // something off-spec came back, rather than silently dropping it.
+      out.push(m[0])
+    }
+    lastIndex = m.index + m[0].length
+  }
+  if (lastIndex < text.length) out.push(text.slice(lastIndex))
+  return out.length === 1 ? out[0] : <>{out}</>
 }
 
 function Typing() {
