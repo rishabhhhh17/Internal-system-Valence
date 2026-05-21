@@ -337,13 +337,33 @@ export default function Intake() {
           <div>
             <label className="text-[11px] font-semibold uppercase tracking-[0.18em] text-white/60">Teaser / deck (optional)</label>
             <div className="mt-1.5 flex items-center gap-3">
-              <input ref={inputRef} type="file" accept=".pdf,.docx" className="hidden" onChange={e => setDeckFile(e.target.files?.[0] || null)} />
+              <input
+                ref={inputRef}
+                type="file"
+                accept=".pdf,.docx"
+                className="hidden"
+                onChange={e => {
+                  const f = e.target.files?.[0] || null
+                  if (!f) { setDeckFile(null); return }
+                  // 25 MB cap. Anything bigger and Supabase storage will reject
+                  // with a cryptic message; better to tell the user clearly here.
+                  const MAX_BYTES = 25 * 1024 * 1024
+                  if (f.size > MAX_BYTES) {
+                    setError(`That file is ${(f.size / (1024 * 1024)).toFixed(1)} MB. Please upload a PDF or DOCX under 25 MB.`)
+                    e.target.value = ''
+                    setDeckFile(null)
+                    return
+                  }
+                  setError('')
+                  setDeckFile(f)
+                }}
+              />
               <button type="button" onClick={() => inputRef.current?.click()} className="inline-flex items-center gap-2 rounded-lg border border-white/20 bg-white/10 px-3 py-2 text-xs font-semibold text-white hover:bg-white/15">
                 <Upload className="h-3.5 w-3.5" /> {deckFile ? 'Change file' : 'Upload PDF / DOCX'}
               </button>
               {deckFile && <span className="text-[11px] text-white/60 truncate">{deckFile.name}</span>}
             </div>
-            <p className="mt-2 text-[11px] text-white/50">Stored privately. Only the Valence team can read it.</p>
+            <p className="mt-2 text-[11px] text-white/50">PDF or DOCX up to 25 MB. Stored privately. Only the Valence team can read it.</p>
           </div>
 
           {error && <p className="rounded-lg border border-valence-danger/50 bg-valence-danger/10 px-3 py-2 text-sm text-valence-danger">{error}</p>}
