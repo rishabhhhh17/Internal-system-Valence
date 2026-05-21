@@ -83,9 +83,10 @@ export default function Onboarding() {
     }
     setBusy(true)
     try {
-      // RPC creates the org and our admin seat in one transaction. Avoids
-      // the chicken-and-egg of "user has no seat yet, so RLS blocks the
-      // inserts into orgs/seats."
+      // STEP 1 (REQUIRED) — atomic RPC creates the org + admin seat in
+      // one transaction. If this fails, the whole onboarding fails and
+      // the user sees an error. Nothing else has run yet, so nothing to
+      // roll back.
       const { data: newOrgId, error: rpcErr } = await supabase.rpc('start_team', {
         p_org_name:  firmName.trim(),
         p_full_name: fullName.trim(),
@@ -94,21 +95,29 @@ export default function Onboarding() {
       })
       if (rpcErr) throw rpcErr
 
-      // If the user picked a different plan, update the org (RLS now lets
-      // us — we just created the seat). Cycle anchor is today so the first
-      // cycle starts now rather than rolling forward to next month.
-      if (plan !== PLANS.WE_RUN_AI) {
-        await supabase.from('orgs')
-          .update({ plan, cycle_anchor_day: new Date().getDate() })
-          .eq('id', newOrgId)
-      } else {
-        await supabase.from('orgs')
-          .update({ cycle_anchor_day: new Date().getDate() })
-          .eq('id', newOrgId)
+      // STEP 2 (BEST-EFFORT) — apply the plan choice + cycle anchor.
+      // start_team already defaults to plan='we_run_ai' and cycle_anchor_day=1.
+      // If this update fails (network blip, RLS hiccup) the user just keeps
+      // the default plan and can change it in Settings later. NOT a reason
+      // to block them at onboarding. Same logic for the cycle_anchor_day
+      // bump — having it default to 1 is sensible if today's update fails.
+      try {
+        const updates = plan !== PLANS.WE_RUN_AI
+          ? { plan, cycle_anchor_day: new Date().getDate() }
+          : { cycle_anchor_day: new Date().getDate() }
+        const { error: planErr } = await supabase.from('orgs').update(updates).eq('id', newOrgId)
+        if (planErr) console.warn('[onboarding] plan/anchor update failed (non-fatal):', planErr.message)
+      } catch (e) {
+        console.warn('[onboarding] plan/anchor update threw (non-fatal):', e?.message || e)
       }
 
-      // Open the first billing cycle so the meter has somewhere to record.
-      try { await openCycle(supabase, newOrgId) } catch (e) { console.warn('openCycle failed (non-fatal)', e) }
+      // STEP 3 (BEST-EFFORT) — open the first billing cycle so the AI
+      // meter has somewhere to record. If this fails, billing.js' lazy
+      // openCycle is also called from the first meter write, so the
+      // cycle still gets created at first AI use. NOT a reason to block.
+      try { await openCycle(supabase, newOrgId) } catch (e) {
+        console.warn('[onboarding] openCycle failed (non-fatal):', e?.message || e)
+      }
 
       toast.success(`Welcome, ${firmName.trim()}.`)
 
