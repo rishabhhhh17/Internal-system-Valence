@@ -66,7 +66,16 @@ export default function Analytics() {
   // The demo array still uses old stage names; migrate them on init so the
   // component doesn't need a 18-row data rewrite. Live data from Supabase
   // is already migrated by the Phase 0 SQL.
-  const [deals, setDeals]           = useState(() => DEMO_DEALS.map(d => ({ ...d, stage: migrateStage(d.stage) })))
+  // Demo data is ONLY a fallback when Supabase isn't configured (local
+  // dev, broken env). With a real backend, we start empty and let the
+  // fetch on mount populate. The previous version always initialised
+  // with DEMO_DEALS and only overwrote when `d.data?.length` was
+  // truthy — which meant a real org with zero deals saw 18 fake deals
+  // worth millions in pipeline. Bad first impression for tomorrow's
+  // pilot, fixed by gating the seed on isSupabaseConfigured.
+  const [deals, setDeals] = useState(() =>
+    isSupabaseConfigured ? [] : DEMO_DEALS.map(d => ({ ...d, stage: migrateStage(d.stage) }))
+  )
   const [activities, setActivities] = useState([])
   const [sectorFilter, setSectorFilter] = useState('all')
   const [period, setPeriod]         = useState('LTM')
@@ -156,6 +165,31 @@ export default function Analytics() {
     const stalled = activeAging.filter(d => (d._stageDays || 0) > STALE_THRESHOLD_DAYS).length
     return { activeCount: active.length, avgDays, closing30, stalled }
   }, [filteredDeals, aging, active])
+
+  // Empty-state: signed-in user with no deals yet. We don't want to
+  // render the 18-chart wall against zero data — every chart would
+  // either be empty or show "0%". Surface a clear "log your first
+  // deal" prompt instead.
+  if (isSupabaseConfigured && deals.length === 0) {
+    return (
+      <div className="space-y-10">
+        <ConfigBanner />
+        <div>
+          <p className="vl-eyebrow-ink">Analytics · Internal</p>
+          <h1 className="mt-2 font-display text-feature font-bold text-valence-text">
+            The firm, in numbers.
+          </h1>
+        </div>
+        <div className="vl-card p-8 text-center max-w-xl mx-auto">
+          <p className="text-sm font-semibold text-valence-text">No deals to chart yet.</p>
+          <p className="mt-2 text-xs text-valence-muted leading-relaxed">
+            Log your first mandate on <a href="/deals" className="text-valence-blue hover:underline">/deals</a>{' '}
+            and Analytics fills in automatically — pipeline, conversion ladder, fee composition, velocity, the lot.
+          </p>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="space-y-10">
