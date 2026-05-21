@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { Plus, Search, Filter, LayoutGrid, Table as TableIcon, Building2, ArrowUpRight } from 'lucide-react'
-import { supabase, isSupabaseConfigured } from '../lib/supabase.js'
+import { supabase, isSupabaseConfigured, subscribeTable } from '../lib/supabase.js'
 import { FUND_TYPES, WARMTH_LEVELS, warmthTone, fundTypeLabel, DEMO_FUNDS } from '../lib/funds.js'
 import { useViewMode } from '../hooks/useViewMode.jsx'
 import { useCurrency } from '../hooks/useCurrency.jsx'
@@ -35,6 +35,13 @@ export default function Funds() {
   const [params, setParams] = useSearchParams()
 
   useEffect(() => { load() }, [])
+
+  // Live sync — teammate's new fund / warmth change shows up without reload.
+  useEffect(() => {
+    if (!isSupabaseConfigured) return
+    const off = subscribeTable('funds', load)
+    return () => off()
+  }, [])
 
   // Deep-link from clickable wikilink chips: /funds?open=<uuid>
   useEffect(() => {

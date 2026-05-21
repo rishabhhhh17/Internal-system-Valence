@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { format, formatDistanceToNowStrict, parseISO, differenceInCalendarDays } from 'date-fns'
 import { Plus, Search, Sparkles, ArrowRight, AlertCircle, MessageSquare, Download } from 'lucide-react'
-import { supabase, isSupabaseConfigured } from '../lib/supabase.js'
+import { supabase, isSupabaseConfigured, subscribeTable } from '../lib/supabase.js'
 import {
   PURPOSES, CONTEXT_GROUPS, DEMO_INTERACTIONS, purposeLabel, typeLabel, outcomeLabel, outcomeTone
 } from '../lib/interactions.js'
@@ -27,6 +27,13 @@ export default function Interactions() {
   const [drawer, setDrawer] = useState(null)   // null | 'new' | { row }
 
   useEffect(() => { load() }, [])
+
+  // Live sync — teammate's new interaction shows up here without reload.
+  useEffect(() => {
+    if (!isSupabaseConfigured) return
+    const off = subscribeTable('interactions', load)
+    return () => off()
+  }, [])
 
   async function load() {
     setLoading(true); setLoadError(null)
