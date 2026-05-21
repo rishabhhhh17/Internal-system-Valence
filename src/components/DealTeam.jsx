@@ -183,6 +183,10 @@ function AddForm({ onSubmit, onCancel, suggestedLead }) {
   )
 }
 
-function initials(name = '') {
-  return name.split(' ').map(p => p[0]).slice(0, 2).join('').toUpperCase()
+function initials(name) {
+  // Default to '' first — caller may pass null/undefined, not just '',
+  // which would bypass the parameter default and crash on .split.
+  const n = (name || '').trim()
+  if (!n) return '?'
+  return n.split(/\s+/).filter(Boolean).map(p => p[0]).slice(0, 2).join('').toUpperCase()
 }
