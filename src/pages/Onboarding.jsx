@@ -19,6 +19,7 @@ import { supabase, isSupabaseConfigured } from '../lib/supabase.js'
 import { openCycle, PLANS } from '../lib/billing.js'
 import { useToast } from '../components/Toast.jsx'
 import { useAuth } from '../hooks/useAuth.js'
+import { useSeat } from '../hooks/useSeat.js'
 import Logo from '../components/Logo.jsx'
 
 // Two plan choices on the onboarding screen. "Own your key" was a third
@@ -47,6 +48,12 @@ export default function Onboarding() {
   const navigate = useNavigate()
   const toast    = useToast()
   const { profile } = useAuth()
+  // refresh() forces useSeat to re-query after start_team succeeds. Without
+  // it, App.jsx still sees hasSeat=false at the navigate('/') hop and
+  // bounces the user right back to /welcome — looked like an infinite
+  // "fill the form, end up at the same screen" loop. Same fix that
+  // CompleteProfile.jsx has been doing since day one.
+  const { refresh: refreshSeat } = useSeat()
 
   const [step, setStep]         = useState(1) // 1 = firm, 2 = profile
   const [firmName, setFirmName] = useState('')
@@ -103,8 +110,13 @@ export default function Onboarding() {
       try { await openCycle(supabase, newOrgId) } catch (e) { console.warn('openCycle failed (non-fatal)', e) }
 
       toast.success(`Welcome, ${firmName.trim()}.`)
-      // The useSeat hook will pick up the new seat on its next refresh —
-      // navigate to the app root and App.jsx routes us in.
+
+      // CRITICAL: refresh useSeat BEFORE navigating. The seat was created
+      // on the server but React/useSeat still thinks the user has none.
+      // Without this await, App.jsx renders / with stale hasSeat=false
+      // and redirects right back to /welcome — the user-reported
+      // "I fill the form and land back at the same screen" loop.
+      await refreshSeat()
       navigate('/', { replace: true })
     } catch (err) {
       toast.error(err?.message || 'Onboarding failed')
