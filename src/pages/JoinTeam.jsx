@@ -4,7 +4,7 @@
 // RPC which atomically validates the code, creates their seat, and marks
 // the invite as claimed.
 
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useNavigate, Link, useSearchParams } from 'react-router-dom'
 import { Loader2, KeyRound, Check, ArrowLeft, User } from 'lucide-react'
 import { supabase, isSupabaseConfigured } from '../lib/supabase.js'
@@ -21,6 +21,11 @@ export default function JoinTeam() {
   const toast = useToast()
   const { profile } = useAuth()
   const { refresh: refreshSeat } = useSeat()
+  const isPreview = params.get('preview') === '1'
+  const previewSuffix = isPreview ? '?preview=1' : ''
+  // Scroll the blocking-error card into view when it appears — same fix
+  // as Onboarding.jsx, see comment there.
+  const blockingErrorRef = useRef(null)
 
   const [code,     setCode]     = useState(params.get('code') || '')
   const [fullName, setFullName] = useState(profile?.name || '')
@@ -28,6 +33,11 @@ export default function JoinTeam() {
   const [phone,    setPhone]    = useState('')
   const [busy,     setBusy]     = useState(false)
   const [blockingError, setBlockingError] = useState(null)
+
+  useEffect(() => {
+    if (!blockingError) return
+    blockingErrorRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+  }, [blockingError])
 
   // Auto-uppercase, allow only the alphabet we use in codes (no I/O/0/1).
   function onCodeChange(v) {
@@ -85,7 +95,7 @@ export default function JoinTeam() {
     <div className="min-h-screen bg-valence-bg">
       <div className="relative mx-auto flex min-h-screen max-w-2xl flex-col px-6 py-10">
         <header className="flex items-center justify-between">
-          <Link to="/welcome" className="text-xs text-valence-muted hover:text-valence-text inline-flex items-center gap-1">
+          <Link to={`/welcome${previewSuffix}`} className="text-xs text-valence-muted hover:text-valence-text inline-flex items-center gap-1">
             <ArrowLeft className="h-3 w-3" /> Back
           </Link>
           <Logo />
@@ -104,7 +114,7 @@ export default function JoinTeam() {
             </div>
 
             {blockingError === 'alreadyOnTeam' && (
-              <div className="rounded-xl border border-valence-warning/40 bg-valence-warning/10 p-5 space-y-3">
+              <div ref={blockingErrorRef} className="rounded-xl border-2 border-valence-warning/60 bg-valence-warning/15 p-5 space-y-3 shadow-lg shadow-valence-warning/10 animate-fade-in">
                 <div className="space-y-1.5">
                   <p className="text-sm font-semibold text-valence-text">You're already in a firm.</p>
                   <p className="text-xs text-valence-muted leading-relaxed">
@@ -162,7 +172,7 @@ export default function JoinTeam() {
             </div>
 
             <div className="flex items-center justify-between">
-              <Link to="/onboarding" className="text-xs text-valence-muted hover:text-valence-text">
+              <Link to={`/onboarding${previewSuffix}`} className="text-xs text-valence-muted hover:text-valence-text">
                 No invite? Start a new team instead →
               </Link>
               <button

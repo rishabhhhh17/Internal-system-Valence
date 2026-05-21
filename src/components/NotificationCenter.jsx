@@ -40,8 +40,11 @@ export function useNotifications({ live = true } = {}) {
         .select('id, deal_id, kind, body, created_at, deals(client_name)')
         .order('created_at', { ascending: false })
         .limit(30),
+      // public.tasks doesn't have deal_id — selecting it returns 42703
+      // and spams the postgres error log on every render of the Topbar.
+      // Drop it; the notification renderer never reads task.deal_id.
       supabase.from('tasks')
-        .select('id, title, due_date, completed, deal_id')
+        .select('id, title, due_date, completed')
         .eq('completed', false)
         .order('due_date', { ascending: true })
         .limit(50),
