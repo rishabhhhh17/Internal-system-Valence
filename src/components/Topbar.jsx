@@ -5,6 +5,7 @@ import Logo from './Logo.jsx'
 import GoogleButton from './GoogleButton.jsx'
 import CurrencyToggle from './CurrencyToggle.jsx'
 import NotificationCenter, { useNotifications } from './NotificationCenter.jsx'
+import Tutorial from './Tutorial.jsx'
 import { useWorkspaceSetting } from '../hooks/useWorkspaceSetting.js'
 import { WORKSPACE_KEYS, setWorkspaceSetting } from '../lib/workspace.js'
 
@@ -101,9 +102,11 @@ export default function Topbar() {
           )}
         </button>
 
-        {/* Topbar kept lean: sidebar toggle, page title, search, bell,
-            currency cycle, Google avatar. Tour / Sample / Firm pulse
-            stay out — they were chrome, not action. */}
+        {/* Topbar order: sidebar toggle, page title, search, bell, Tour,
+            currency cycle, Google avatar. The Tour pill auto-glows on a
+            new user's first visit and quietens once engaged — it's the
+            cheapest way to get a new team member productive. */}
+        <Tutorial />
         <div className="hidden lg:block"><CurrencyToggle /></div>
         <GoogleButton />
       </header>
