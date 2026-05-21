@@ -10,6 +10,7 @@ import { Loader2, KeyRound, Check, ArrowLeft, User } from 'lucide-react'
 import { supabase, isSupabaseConfigured } from '../lib/supabase.js'
 import { useToast } from '../components/Toast.jsx'
 import { useAuth } from '../hooks/useAuth.js'
+import { useSeat } from '../hooks/useSeat.js'
 import Logo from '../components/Logo.jsx'
 
 export default function JoinTeam() {
@@ -17,6 +18,7 @@ export default function JoinTeam() {
   const [params] = useSearchParams()
   const toast = useToast()
   const { profile } = useAuth()
+  const { refresh: refreshSeat } = useSeat()
 
   const [code,     setCode]     = useState(params.get('code') || '')
   const [fullName, setFullName] = useState(profile?.name || '')
@@ -50,6 +52,12 @@ export default function JoinTeam() {
       if (!data) throw new Error('Invite not found or expired')
 
       toast.success('Joined. Welcome aboard.')
+
+      // Refresh useSeat BEFORE navigating — otherwise App.jsx still sees
+      // hasSeat=false and bounces back to /welcome. Without this await,
+      // the user filled the form, the server gave them a seat, but the
+      // client redirected them to start the same flow over again.
+      await refreshSeat()
       navigate('/', { replace: true })
     } catch (err) {
       toast.error(err?.message || 'Could not join — check the code and try again.')
