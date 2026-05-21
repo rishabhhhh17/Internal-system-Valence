@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { Plus, Search, Filter, LayoutGrid, Table as TableIcon, UserCircle, ArrowUpRight, MapPin, Mail, Phone, Building2, GripVertical, UserPlus, X } from 'lucide-react'
 import BulkAddPeoplePanel from '../components/BulkAddPeoplePanel.jsx'
-import { supabase, isSupabaseConfigured } from '../lib/supabase.js'
+import { supabase, isSupabaseConfigured, subscribeTable } from '../lib/supabase.js'
 import {
   TAG_SUGGESTIONS,
   DEMO_PEOPLE,
@@ -42,6 +42,17 @@ export default function People() {
   )
 
   useEffect(() => { load() }, [])
+
+  // Live sync — when another teammate adds, edits, or deletes a person
+  // in the same org, refresh so the change appears here without a manual
+  // reload. Same realtime channel pattern Deals/Planner/Knowledge use.
+  // Cleanup unsubscribes on unmount.
+  useEffect(() => {
+    if (!isSupabaseConfigured) return
+    const offPeople        = subscribeTable('people', load)
+    const offInteractions  = subscribeTable('interactions', load)
+    return () => { offPeople(); offInteractions() }
+  }, [])
 
   // Deep-link from clickable wikilink chips: /people?open=<uuid>
   // Drains the param so back/forward doesn't keep re-opening the drawer.

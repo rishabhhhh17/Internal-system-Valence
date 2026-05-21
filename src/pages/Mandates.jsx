@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { format, parseISO, differenceInCalendarDays, formatDistanceToNowStrict } from 'date-fns'
 import { Briefcase, Filter, Users, AlertTriangle, ArrowUpRight } from 'lucide-react'
-import { supabase, isSupabaseConfigured } from '../lib/supabase.js'
+import { supabase, isSupabaseConfigured, subscribeTable } from '../lib/supabase.js'
 import { STAGES, LIVE_MANDATE_STAGES, stageMeta, stageToneClasses } from '../lib/stages.js'
 import { useViewMode } from '../hooks/useViewMode.jsx'
 import ConfigBanner from '../components/ConfigBanner.jsx'
@@ -26,6 +26,13 @@ export default function Mandates() {
   const [ownerFilter, setOwnerFilter] = useState('All')
 
   useEffect(() => { load() }, [])
+
+  // Live sync — teammate's stage change / new mandate appears here without reload.
+  useEffect(() => {
+    if (!isSupabaseConfigured) return
+    const off = subscribeTable('deals', load)
+    return () => off()
+  }, [])
 
   // Optimistic in-place patch + Supabase update. If the request fails, the
   // toast surfaces the error and the next load() will reconcile.
