@@ -2,14 +2,12 @@ import { useEffect, useRef, useState } from 'react'
 import { Mail, Copy, Check, Wand2, RefreshCw, Send, FileEdit } from 'lucide-react'
 import Modal from './Modal.jsx'
 import { draftEmail, emailScenarios, isGeminiConfigured } from '../lib/gemini.js'
-import { sendGmail, createGmailDraft, GoogleAuthExpired, signInWithGoogle } from '../lib/google.js'
+import { openGmailCompose } from '../lib/google.js'
 import { logActivity } from '../lib/activity.js'
-import { useAuth } from '../hooks/useAuth.js'
 import { useToast } from './Toast.jsx'
 
 export default function EmailComposer({ open, onClose, deal, contact }) {
   const toast = useToast()
-  const { googleConnected } = useAuth()
   const [scenario, setScenario] = useState('intro')
   const [body, setBody] = useState('')
   const [subject, setSubject] = useState('')
@@ -53,27 +51,20 @@ export default function EmailComposer({ open, onClose, deal, contact }) {
     setCopied(true); setTimeout(() => setCopied(false), 1500)
   }
 
-  async function gmailSend({ draftOnly = false } = {}) {
+  // Opens Gmail's compose URL in a new tab with everything pre-filled.
+  // The user hits Send themselves — we don't have (and intentionally don't
+  // want) gmail.send scope. Same effect from the partner's seat; no CASA
+  // audit needed for OAuth verification.
+  async function openInGmail() {
     if (!contact?.email) { toast.error('This counterparty has no email on file.'); return }
     setSending(true)
     try {
-      const payload = { to: contact.email, subject: currentSubject(), body: currentBody() }
-      if (draftOnly) {
-        await createGmailDraft(payload)
-        toast.success('Draft saved in Gmail.')
-      } else {
-        await sendGmail(payload)
-        toast.success(`Email sent to ${contact.email}.`)
-      }
-      if (deal?.id) await logActivity({ dealId: deal.id, kind: 'email_drafted', body: `${draftOnly ? 'Drafted' : 'Sent'} via Gmail to ${contact.name || contact.email}` })
+      openGmailCompose({ to: contact.email, subject: currentSubject(), body: currentBody() })
+      toast.success('Opened in Gmail to send.')
+      if (deal?.id) await logActivity({ dealId: deal.id, kind: 'email_drafted', body: `Drafted via Gmail to ${contact.name || contact.email}` })
       onClose?.()
     } catch (err) {
-      if (err instanceof GoogleAuthExpired) {
-        toast.error('Google session expired. Reconnect to send.')
-        signInWithGoogle().catch(() => {})
-      } else {
-        toast.error(err.message || 'Send failed')
-      }
+      toast.error(err.message || 'Could not open Gmail')
     } finally {
       setSending(false)
     }
@@ -147,27 +138,17 @@ export default function EmailComposer({ open, onClose, deal, contact }) {
                 <button onClick={copy} className="vl-btn-ghost">
                   {copied ? <><Check className="h-4 w-4 text-valence-success" /> Copied</> : <><Copy className="h-4 w-4" /> Copy</>}
                 </button>
-                {googleConnected ? (
-                  <>
-                    <button onClick={() => gmailSend({ draftOnly: true })} disabled={sending} className="vl-btn-secondary">
-                      <FileEdit className="h-4 w-4" /> Save as draft
-                    </button>
-                    <button onClick={() => gmailSend({ draftOnly: false })} disabled={sending || !contact?.email} className="vl-btn-primary">
-                      <Send className="h-4 w-4" /> {sending ? 'Sending…' : 'Send via Gmail'}
-                    </button>
-                  </>
-                ) : (
-                  <a href={mailto} className="vl-btn-primary">
-                    <Mail className="h-4 w-4" /> Open in mail
-                  </a>
-                )}
+                <a href={mailto} className="vl-btn-ghost" title="Open in your default mail client">
+                  <Mail className="h-4 w-4" /> Mail app
+                </a>
+                <button onClick={openInGmail} disabled={sending || !contact?.email} className="vl-btn-primary">
+                  <Send className="h-4 w-4" /> {sending ? 'Opening…' : 'Open in Gmail'}
+                </button>
               </div>
 
-              {!googleConnected && (
-                <p className="text-[11px] text-valence-muted text-right">
-                  Connect Google to send directly from your Gmail instead of opening a mail client.
-                </p>
-              )}
+              <p className="text-[11px] text-valence-muted text-right">
+                Opens a pre-filled draft in Gmail. You hit Send.
+              </p>
             </>
           )}
         </div>

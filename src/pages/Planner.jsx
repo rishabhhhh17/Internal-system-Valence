@@ -11,7 +11,7 @@ import { googleCalendarUrl } from '../lib/calendar.js'
 import {
   listTodayEvents, computeFreeSlots, createCalendarEvent,
   GoogleAuthExpired, signInWithGoogle,
-  sendGmail, createGmailDraft,
+  openGmailCompose,
   listGoogleTasks, createGoogleTask, toggleGoogleTask, deleteGoogleTask
 } from '../lib/google.js'
 import { useAuth } from '../hooks/useAuth.js'
@@ -802,31 +802,18 @@ function DraftedMessage({ drafted, googleConnected, onClose }) {
     setCopied(true); setTimeout(() => setCopied(false), 1500)
   }
 
-  async function sendViaGmail() {
+  // Opens Gmail's compose URL in a new tab pre-filled. User clicks Send
+  // themselves — we don't have (and intentionally don't request) the
+  // gmail.send scope. Keeps us out of Google's restricted-scope CASA audit.
+  function openInGmail() {
     if (sending) return
     setSending(true)
     try {
-      await sendGmail({ to: meeting.attendee_email, subject, body: current() })
-      toast.success(`Email sent to ${meeting.attendee_name}`)
+      openGmailCompose({ to: meeting.attendee_email, subject, body: current() })
+      toast.success('Opened in Gmail to send.')
       onClose()
     } catch (err) {
-      if (err instanceof GoogleAuthExpired) toast.error('Google session expired — reconnect Google.')
-      else toast.error(err?.message || 'Could not send')
-    } finally {
-      setSending(false)
-    }
-  }
-
-  async function saveGmailDraft() {
-    if (sending) return
-    setSending(true)
-    try {
-      await createGmailDraft({ to: meeting.attendee_email, subject, body: current() })
-      toast.success('Saved as Gmail draft')
-      onClose()
-    } catch (err) {
-      if (err instanceof GoogleAuthExpired) toast.error('Google session expired — reconnect Google.')
-      else toast.error(err?.message || 'Could not save draft')
+      toast.error(err?.message || 'Could not open Gmail')
     } finally {
       setSending(false)
     }
@@ -865,20 +852,12 @@ function DraftedMessage({ drafted, googleConnected, onClose }) {
         <button onClick={copy} className="vl-btn-secondary">
           {copied ? <><Check className="h-4 w-4" /> Copied</> : <><Copy className="h-4 w-4" /> Copy</>}
         </button>
-        {googleConnected ? (
-          <>
-            <button onClick={saveGmailDraft} disabled={sending} className="vl-btn-secondary">
-              <Mail className="h-4 w-4" /> Save Gmail draft
-            </button>
-            <button onClick={sendViaGmail} disabled={sending} className="vl-btn-primary">
-              <Mail className="h-4 w-4" /> {sending ? 'Sending…' : 'Send via Gmail'}
-            </button>
-          </>
-        ) : (
-          <a href={mailto} className="vl-btn-primary">
-            <Mail className="h-4 w-4" /> Open in mail
-          </a>
-        )}
+        <a href={mailto} className="vl-btn-ghost" title="Open in your default mail client">
+          <Mail className="h-4 w-4" /> Mail app
+        </a>
+        <button onClick={openInGmail} disabled={sending} className="vl-btn-primary">
+          <Mail className="h-4 w-4" /> {sending ? 'Opening…' : 'Open in Gmail'}
+        </button>
       </div>
     </div>
   )
