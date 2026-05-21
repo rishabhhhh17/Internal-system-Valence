@@ -179,8 +179,29 @@ export default function App() {
   // Session + seat + completed profile (or auth unavailable) — render
   // the main app. If a signed-in seated user lands on any onboarding
   // route, send them home — they're past those steps.
-  if (session && hasSeat && profileComplete &&
-      ['/welcome', '/onboarding', '/join', '/complete-profile'].includes(pathname)) {
+  //
+  // Preview escape hatch (?preview=1): admins / devs may want to look at
+  // the onboarding screens to QA the copy, screenshot them, or train
+  // a teammate on what they'll see. Without this, the only way to view
+  // /welcome with an already-seated account is to sign out — which is
+  // hostile to anyone iterating on these pages.
+  const isPreview = typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('preview') === '1'
+  const onboardingRoutes = ['/welcome', '/onboarding', '/join', '/complete-profile']
+  if (session && hasSeat && profileComplete && onboardingRoutes.includes(pathname)) {
+    if (isPreview) {
+      // Render the onboarding routes anyway so an admin can preview them.
+      // Note: Start/Join from this preview state would still hit the
+      // "user already belongs to a team" guard server-side (PR #154
+      // surfaces that with an explicit yellow card).
+      return (
+        <Routes>
+          <Route path="/welcome"          element={<Welcome />} />
+          <Route path="/onboarding"       element={<Onboarding />} />
+          <Route path="/join"             element={<JoinTeam />} />
+          <Route path="/complete-profile" element={<CompleteProfile />} />
+        </Routes>
+      )
+    }
     return <Navigate to="/" replace />
   }
 
