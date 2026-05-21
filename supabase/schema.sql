@@ -3052,3 +3052,102 @@ as $$
     else 0.0
   end
 $$;
+
+-- ============================================================================
+-- PHASE 18 — Super-connectors views
+-- Mirrored from supabase/phase-18-super-connectors.sql. Regular views (not
+-- materialized) because Postgres doesn't allow RLS on matviews; security_invoker
+-- inherits RLS from the underlying tables. Column names match api/_ask-tools.js
+-- (note geography view uses `geo_tag`, singular).
+-- ============================================================================
+
+drop materialized view if exists public.super_connectors_by_company_type cascade;
+drop materialized view if exists public.super_connectors_by_sector       cascade;
+drop materialized view if exists public.super_connectors_by_geography    cascade;
+
+create or replace view public.super_connectors_by_company_type
+  with (security_invoker = true)
+  as
+select
+  rs.org_id, rs.valence_person_id, p.company_type,
+  count(*) filter (where rs.bucket in ('strong','warm')) as strong_warm_count,
+  count(*)                                                as total_count
+from public.relationship_strength rs
+join public.people p on p.id = rs.external_person_id
+where rs.bucket in ('strong','warm','cool')
+  and p.company_type is not null
+group by rs.org_id, rs.valence_person_id, p.company_type;
+
+create or replace view public.super_connectors_by_sector
+  with (security_invoker = true)
+  as
+select
+  rs.org_id, rs.valence_person_id, st.sector_tag,
+  count(*) filter (where rs.bucket in ('strong','warm')) as strong_warm_count,
+  count(*)                                                as total_count
+from public.relationship_strength rs
+join public.people p on p.id = rs.external_person_id
+cross join lateral unnest(p.sector_tags) as st(sector_tag)
+where rs.bucket in ('strong','warm','cool')
+group by rs.org_id, rs.valence_person_id, st.sector_tag;
+
+create or replace view public.super_connectors_by_geography
+  with (security_invoker = true)
+  as
+select
+  rs.org_id, rs.valence_person_id, gt.geo_tag,
+  count(*) filter (where rs.bucket in ('strong','warm')) as strong_warm_count,
+  count(*)                                                as total_count
+from public.relationship_strength rs
+join public.people p on p.id = rs.external_person_id
+cross join lateral unnest(p.geography_tags) as gt(geo_tag)
+where rs.bucket in ('strong','warm','cool')
+group by rs.org_id, rs.valence_person_id, gt.geo_tag;
+
+grant select on public.super_connectors_by_company_type to authenticated;
+grant select on public.super_connectors_by_sector       to authenticated;
+grant select on public.super_connectors_by_geography    to authenticated;
+
+-- ============================================================================
+-- PHASE 18b — interactions.updated_by fix + legacy bridge
+-- Mirrored from supabase/phase-18b-fixup-interactions-and-legacy-bridge.sql.
+-- ============================================================================
+
+alter table public.interactions add column if not exists updated_by uuid;
+
+update public.interactions
+set
+  valence_person_id = coalesce(valence_person_id, 'bf01533f-57be-449b-a7f5-0c6a88c7b632'::uuid),
+  occurred_at       = coalesce(occurred_at, created_at),
+  interaction_type  = coalesce(
+    interaction_type,
+    case lower(type)
+      when 'phone_call'    then 'call_logged'
+      when 'pitch_meeting' then 'meeting'
+      when 'intro_call'    then 'meeting'
+      when 'coffee'        then 'meeting'
+      when 'event'         then 'meeting'
+      when 'email_thread'  then 'email_received'
+      else null
+    end
+  )
+where org_id = '3fff2bc2-e9d8-4e96-b314-c76fb30568a1'
+  and (valence_person_id is null or interaction_type is null or occurred_at is null);
+
+-- ============================================================================
+-- PHASE 19 — Schedule nightly relationship scoring
+-- Mirrored from supabase/phase-19-schedule-nightly-scoring.sql.
+-- compute_relationship_strength() is defined earlier (already shipped).
+-- ============================================================================
+
+create extension if not exists pg_cron with schema cron;
+
+do $$ begin
+  perform cron.unschedule('compute_relationship_strength_nightly');
+exception when others then null; end $$;
+
+select cron.schedule(
+  'compute_relationship_strength_nightly',
+  '30 21 * * *',
+  $job$ select public.compute_relationship_strength(); $job$
+);
