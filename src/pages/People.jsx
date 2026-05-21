@@ -269,8 +269,15 @@ function PersonCard({ person, score, onOpen }) {
             )}
           </div>
         </div>
-        {person.how_to_talk && (
+        {person.how_to_talk ? (
           <p className="mt-3 line-clamp-2 text-[12px] leading-relaxed text-valence-muted italic">"{person.how_to_talk}"</p>
+        ) : (
+          // Empty-state placeholder so incomplete cards have the same
+          // height as filled ones and invite the user to complete the
+          // persona section. Otherwise the grid looks janky.
+          <p className="mt-3 line-clamp-2 text-[12px] leading-relaxed text-valence-subtle italic opacity-70">
+            No persona notes yet — tap to add.
+          </p>
         )}
         <div className="mt-3 flex items-center justify-between text-[11px] text-valence-muted">
           <span className="inline-flex items-center gap-1"><MapPin className="h-3 w-3" /> {locationLine(person) || '—'}</span>
