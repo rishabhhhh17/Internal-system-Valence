@@ -2473,13 +2473,52 @@ begin
     exit when not exists (select 1 from public.org_invites where code = new_code);
   end loop;
 
-  insert into public.org_invites (org_id, code, role, email, created_by)
-  values (caller_org, new_code, coalesce(p_role, 'analyst'), p_email, auth.uid());
+  insert into public.org_invites (org_id, code, role, email, created_by, expires_at)
+  values (caller_org, new_code, coalesce(p_role, 'analyst'), p_email, auth.uid(),
+          now() + interval '14 days');
 
   return new_code;
 end $$;
 revoke all on function public.create_invite(text, text) from public;
 grant execute on function public.create_invite(text, text) to authenticated;
+
+-- revoke_invite — admin retires an unclaimed invite by collapsing its expiry
+-- to now(). Row is kept for audit; the invite simply becomes unusable.
+create or replace function public.revoke_invite(p_invite_id uuid)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  caller_org uuid := public.current_user_org_id();
+  caller_role text;
+  inv_org uuid;
+  inv_claimed timestamptz;
+begin
+  if caller_org is null then
+    raise exception 'no active seat';
+  end if;
+  select role into caller_role from public.seats where user_id = auth.uid() and org_id = caller_org;
+  if caller_role <> 'admin' then
+    raise exception 'only admins can revoke invites';
+  end if;
+  select org_id, claimed_at into inv_org, inv_claimed
+  from public.org_invites where id = p_invite_id;
+  if inv_org is null then
+    raise exception 'invite not found';
+  end if;
+  if inv_org <> caller_org then
+    raise exception 'invite belongs to a different org';
+  end if;
+  if inv_claimed is not null then
+    raise exception 'invite already claimed and cannot be revoked';
+  end if;
+  update public.org_invites set expires_at = now() where id = p_invite_id;
+end $$;
+revoke all on function public.revoke_invite(uuid) from public;
+grant execute on function public.revoke_invite(uuid) to authenticated;
+
 -- Phase 12b — Auto-claim Valence seat for @valencegrowth.com sign-ins.
 -- =========================================================================
 -- Multi-tenancy is the right default, but the Valence team itself doesn't
@@ -2643,6 +2682,9 @@ declare
   uid uuid := auth.uid();
 begin
   if uid is null then raise exception 'must be signed in to join a team'; end if;
+  if p_full_name is null or length(trim(p_full_name)) = 0 then
+    raise exception 'full name is required';
+  end if;
   if exists (select 1 from public.seats where user_id = uid and active = true) then
     raise exception 'user already belongs to a team';
   end if;
@@ -2658,7 +2700,7 @@ begin
     org_id, user_id, full_name, title, phone, role,
     active, billable_from, profile_completed_at
   ) values (
-    target_org_id, uid, p_full_name, p_title, p_phone, coalesce(invite_role, 'analyst'),
+    target_org_id, uid, trim(p_full_name), p_title, p_phone, coalesce(invite_role, 'analyst'),
     true, current_date, now()
   );
 

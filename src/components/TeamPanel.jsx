@@ -12,7 +12,7 @@
 // claimed, the row shows who claimed it and when.
 
 import { useEffect, useState } from 'react'
-import { Users, Plus, Copy, Check, Loader2, Mail, Link as LinkIcon, Clock } from 'lucide-react'
+import { Users, Plus, Copy, Check, Loader2, Mail, Link as LinkIcon, Clock, X } from 'lucide-react'
 import { supabase, isSupabaseConfigured } from '../lib/supabase.js'
 import { useSeat } from '../hooks/useSeat.js'
 import { useToast } from './Toast.jsx'
@@ -70,6 +70,22 @@ export default function TeamPanel() {
       toast.error(e?.message || 'Could not generate code')
     } finally {
       setGenerating(false)
+    }
+  }
+
+  // Retire an open invite — admin-only, single confirm. Calls the
+  // revoke_invite RPC which collapses the expiry to now() so the code
+  // stops being valid. Row is kept for audit.
+  async function revoke(invite) {
+    if (!isAdmin) { toast.error('Only admins can revoke invites.'); return }
+    if (!confirm(`Revoke invite ${invite.code}? Anyone who hasn't used it yet won't be able to.`)) return
+    try {
+      const { error } = await supabase.rpc('revoke_invite', { p_invite_id: invite.id })
+      if (error) throw error
+      toast.success(`Code ${invite.code} revoked.`)
+      await load()
+    } catch (e) {
+      toast.error(e?.message || 'Could not revoke')
     }
   }
 
@@ -223,14 +239,23 @@ export default function TeamPanel() {
                         <button onClick={() => copy(link, inv.id + '_link')} className="vl-btn-ghost text-[11px]">
                           {copied === inv.id + '_link' ? <Check className="h-3 w-3" /> : <LinkIcon className="h-3 w-3" />} Link
                         </button>
+                        {isAdmin && (
+                          <button onClick={() => revoke(inv)} className="vl-btn-ghost text-[11px] text-valence-danger hover:bg-valence-danger/10" title="Revoke this invite">
+                            <X className="h-3 w-3" /> Revoke
+                          </button>
+                        )}
                       </div>
                     )}
                   </div>
                   <div className="mt-1 flex items-center gap-2 text-[10px] text-valence-subtle">
                     <Clock className="h-3 w-3" />
-                    {status === 'claimed' ? `Claimed ${formatDate(inv.claimed_at)}`
-                    : status === 'expired' ? `Expired ${formatDate(inv.expires_at)}`
-                    : `Expires ${formatDate(inv.expires_at)}`}
+                    {status === 'claimed'
+                      ? `Claimed ${formatDate(inv.claimed_at)}`
+                      : status === 'expired'
+                        ? `Expired ${formatDate(inv.expires_at)}`
+                        : inv.expires_at
+                          ? `Expires ${formatDate(inv.expires_at)}`
+                          : 'No expiry set'}
                   </div>
                 </div>
               )
