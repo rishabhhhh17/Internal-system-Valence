@@ -173,7 +173,7 @@ async function gemini(prompt, {
   // Configured check: Gemini is managed (server fallback OK); other
   // providers require a user-supplied key.
   const okToCall = providerId === 'gemini'
-    ? Boolean(userApiKey || geminiKey || envGeminiKey)
+    ? Boolean(userApiKey || geminiKey)
     : Boolean(userApiKey)
   if (!okToCall) {
     throw new Error(`${cfg?.provider?.label || providerId} API key not configured`)
@@ -259,7 +259,7 @@ export async function llmStream(prompt, {
   const baseUrl    = cfg?.baseUrl || null
 
   const okToCall = providerId === 'gemini'
-    ? Boolean(userApiKey || geminiKey || envGeminiKey)
+    ? Boolean(userApiKey || geminiKey)
     : Boolean(userApiKey)
   if (!okToCall) {
     throw new Error(`${cfg?.provider?.label || providerId} API key not configured`)
@@ -343,7 +343,7 @@ export async function llmCallRaw({ url, body, actionType = null } = {}) {
   // the URL shape, so we just key off our own server env regardless of
   // what provider the customer picked.
   const userKey = geminiKeySource === 'user' ? geminiKey : null
-  const okToCall = Boolean(userKey || geminiKey || envGeminiKey)
+  const okToCall = Boolean(userKey || geminiKey)
   if (!okToCall) throw new Error('Gemini API key not configured (raw passthrough requires Gemini)')
 
   const headers = { 'Content-Type': 'application/json', 'x-llm-provider': 'gemini' }
