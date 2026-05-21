@@ -5,6 +5,7 @@ import { draftEmail, emailScenarios, isGeminiConfigured } from '../lib/gemini.js
 import { openGmailCompose } from '../lib/google.js'
 import { logActivity } from '../lib/activity.js'
 import { useToast } from './Toast.jsx'
+import { humanError } from '../lib/userError.js'
 
 export default function EmailComposer({ open, onClose, deal, contact }) {
   const toast = useToast()
@@ -64,7 +65,7 @@ export default function EmailComposer({ open, onClose, deal, contact }) {
       if (deal?.id) await logActivity({ dealId: deal.id, kind: 'email_drafted', body: `Drafted via Gmail to ${contact.name || contact.email}` })
       onClose?.()
     } catch (err) {
-      toast.error(err.message || 'Could not open Gmail')
+      toast.error(humanError(err, 'Could not open Gmail. Allow pop-ups for this site and try again.'))
     } finally {
       setSending(false)
     }

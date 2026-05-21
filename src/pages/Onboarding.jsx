@@ -21,6 +21,7 @@ import { useToast } from '../components/Toast.jsx'
 import { useAuth } from '../hooks/useAuth.js'
 import { useSeat } from '../hooks/useSeat.js'
 import Logo from '../components/Logo.jsx'
+import { humanError } from '../lib/userError.js'
 
 // Two plan choices on the onboarding screen. "Own your key" was a third
 // option that was functionally identical to "Bring your own key" with
@@ -119,7 +120,7 @@ export default function Onboarding() {
       await refreshSeat()
       navigate('/', { replace: true })
     } catch (err) {
-      toast.error(err?.message || 'Onboarding failed')
+      toast.error(humanError(err, 'Could not create your firm — try again.'))
     } finally {
       setBusy(false)
     }

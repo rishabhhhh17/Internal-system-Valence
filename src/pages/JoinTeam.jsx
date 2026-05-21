@@ -8,6 +8,7 @@ import { useState } from 'react'
 import { useNavigate, Link, useSearchParams } from 'react-router-dom'
 import { Loader2, KeyRound, Check, ArrowLeft, User } from 'lucide-react'
 import { supabase, isSupabaseConfigured } from '../lib/supabase.js'
+import { humanError } from '../lib/userError.js'
 import { useToast } from '../components/Toast.jsx'
 import { useAuth } from '../hooks/useAuth.js'
 import { useSeat } from '../hooks/useSeat.js'
@@ -60,7 +61,7 @@ export default function JoinTeam() {
       await refreshSeat()
       navigate('/', { replace: true })
     } catch (err) {
-      toast.error(err?.message || 'Could not join — check the code and try again.')
+      toast.error(humanError(err, 'Could not join — check the code and try again.'))
     } finally {
       setBusy(false)
     }

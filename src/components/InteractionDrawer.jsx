@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { Sparkles, UserCircle, Plus, FileText, Mic, Upload, Wand2, Trash2, Loader2, ExternalLink } from 'lucide-react'
 import Drawer from './Drawer.jsx'
 import { supabase, isSupabaseConfigured } from '../lib/supabase.js'
+import { humanError } from '../lib/userError.js'
 import {
   PURPOSES, CONTEXT_GROUPS, TYPES, outcomesForPurpose, outcomeLabel, purposeLabel
 } from '../lib/interactions.js'
@@ -133,7 +134,7 @@ export default function InteractionDrawer({ open, onClose, existing, onSubmit })
       pickPerson(data)
       toast.success(`${name} added to People`)
     } catch (err) {
-      toast.error(err?.message || 'Could not create person')
+      toast.error(humanError(err, 'Could not create that person — try again.'))
     } finally {
       setCreatingPerson(false)
     }
@@ -415,7 +416,7 @@ function TranscriptSection({ form, update }) {
       setShowTranscript(true)
       toast.success(`Loaded transcript from ${file.name}`)
     } catch (err) {
-      toast.error(err?.message || 'Could not read that file')
+      toast.error(humanError(err, "Couldn't read that file. Try a different format."))
     } finally {
       setParsing(false)
       e.target.value = ''
@@ -442,7 +443,7 @@ function TranscriptSection({ form, update }) {
       setShowTranscript(true)
       toast.success('Transcribed via Gemini.')
     } catch (err) {
-      toast.error(err?.message || 'Transcription failed')
+      toast.error(humanError(err, 'Transcription failed — try the recording again.'))
     } finally {
       setTranscribing(false)
       e.target.value = ''
