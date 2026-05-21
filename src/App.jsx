@@ -125,16 +125,20 @@ export default function App() {
   // ============ AUTH + ONBOARDING GATE ============
   // The order of checks here matters:
   //   1. While auth is loading, show a splash (avoids flash of Login).
-  //   2. If Supabase is unreachable (authUnavailable), fall through to the
-  //      app — better to render demo state than to lock the user out of
-  //      every page because of a transient network blip.
-  //   3. No session → Login.
-  //   4. Session but no seat → render Welcome / Onboarding / JoinTeam
-  //      route group (chromeless). Any other URL bounces to /welcome.
-  //   5. Session + seat → normal app.
-  if (isSupabaseConfigured && !authUnavailable) {
+  //   2. No session → Login (regardless of authUnavailable — dumping an
+  //      unauthed user into the main app with broken Supabase queries
+  //      looked like "sign-in screen twice" to the user).
+  //   3. Session but no seat → render Welcome / Onboarding / JoinTeam.
+  //   4. Session + seat → normal app.
+  // authUnavailable is now ONLY used to skip the seat-loading splash for
+  // a signed-in user when Supabase is unreachable — we don't want them
+  // stuck on the splash if the network drops mid-session. It's no longer
+  // a license to fall through to the main app for unauthed users.
+  if (isSupabaseConfigured) {
     if (loading) return <BootSplash />
     if (!session) return <Login />
+
+    if (!authUnavailable) {
 
     // Have a session but no seat yet — gate every URL through the
     // onboarding route group. seatLoading shows a splash to avoid a
@@ -169,7 +173,8 @@ export default function App() {
         </Routes>
       )
     }
-  }
+    } // end if (!authUnavailable)
+  } // end if (isSupabaseConfigured)
 
   // Session + seat + completed profile (or auth unavailable) — render
   // the main app. If a signed-in seated user lands on any onboarding
