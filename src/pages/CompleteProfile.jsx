@@ -17,6 +17,7 @@ import { supabase, isSupabaseConfigured } from '../lib/supabase.js'
 import { useAuth } from '../hooks/useAuth.js'
 import { useSeat } from '../hooks/useSeat.js'
 import { useToast } from '../components/Toast.jsx'
+import Logo from '../components/Logo.jsx'
 
 export default function CompleteProfile() {
   const navigate = useNavigate()
@@ -61,11 +62,13 @@ export default function CompleteProfile() {
   const firstName = (fullName || profile?.name || '').split(' ')[0] || 'there'
 
   return (
-    <div className="min-h-screen bg-valence-elevated vl-circles">
-      <div className="absolute inset-0 bg-valence-grid opacity-40 pointer-events-none" aria-hidden />
+    <div className="min-h-screen bg-valence-bg">
       <div className="relative mx-auto flex min-h-screen max-w-2xl flex-col px-6 py-10">
         <header className="flex items-center justify-between">
-          <span className="vl-eyebrow">{org?.name || 'Your firm'} · ValenceOS</span>
+          <Logo />
+          {org?.name && (
+            <span className="vl-eyebrow">{org.name}</span>
+          )}
         </header>
 
         <main className="flex flex-1 items-center">

@@ -11,17 +11,19 @@ import { Link } from 'react-router-dom'
 import { Building2, KeyRound, Sparkles, ArrowRight, Shield } from 'lucide-react'
 import { useAuth } from '../hooks/useAuth.js'
 import { signOut } from '../lib/google.js'
+import Logo from '../components/Logo.jsx'
 
 export default function Welcome() {
-  const { profile } = useAuth()
-  const firstName = (profile?.name || '').split(' ')[0] || 'there'
+  const { profile, loading } = useAuth()
+  // Only show a personalised greeting once the profile has actually loaded —
+  // otherwise we render "Welcome, there." for half a second which looks broken.
+  const firstName = (profile?.name || '').split(' ')[0]
 
   return (
-    <div className="min-h-screen bg-valence-elevated vl-circles">
-      <div className="absolute inset-0 bg-valence-grid opacity-40 pointer-events-none" aria-hidden />
+    <div className="min-h-screen bg-valence-bg">
       <div className="relative mx-auto flex min-h-screen max-w-[1280px] flex-col">
         <header className="flex items-center justify-between px-8 pt-8 lg:px-16">
-          <span className="vl-eyebrow">Valence Growth Partners · ValenceOS</span>
+          <Logo />
           <button
             type="button"
             onClick={() => signOut()}
@@ -34,7 +36,9 @@ export default function Welcome() {
         <main className="flex flex-1 items-center px-8 lg:px-16">
           <div className="grid w-full gap-12 lg:grid-cols-2 lg:gap-20 items-start">
             <div className="pt-4">
-              <p className="vl-eyebrow-ink mb-3">Welcome, {firstName}</p>
+              <p className="vl-eyebrow-ink mb-3">
+                {firstName ? `Welcome, ${firstName}` : loading ? 'Loading…' : 'Welcome'}
+              </p>
               <h1 className="font-display text-display font-bold text-valence-text leading-[1.08]">
                 Let's get your firm set up.
               </h1>
@@ -74,7 +78,7 @@ export default function Welcome() {
         </main>
 
         <footer className="px-8 pb-8 pt-16 text-[11px] text-valence-subtle lg:px-16">
-          Mumbai · London · © {new Date().getFullYear()} Valence Growth Partners
+          © {new Date().getFullYear()} ValenceOS · <Link to="/privacy" className="hover:text-valence-muted">Privacy</Link> · <Link to="/terms" className="hover:text-valence-muted">Terms</Link>
         </footer>
       </div>
     </div>

@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Sparkles, ArrowRight, Shield } from 'lucide-react'
 import { signInWithGoogle } from '../lib/google.js'
+import Logo from '../components/Logo.jsx'
 
 export default function Login() {
   const [busy, setBusy] = useState(false)
@@ -13,11 +14,10 @@ export default function Login() {
   }
 
   return (
-    <div className="min-h-screen bg-valence-elevated vl-circles">
-      <div className="absolute inset-0 bg-valence-grid opacity-40 pointer-events-none" aria-hidden />
+    <div className="min-h-screen bg-valence-bg">
       <div className="relative mx-auto flex min-h-screen max-w-[1280px] flex-col">
         <header className="px-8 pt-8 lg:px-16">
-          <span className="vl-eyebrow">Valence Growth Partners · ValenceOS</span>
+          <Logo />
         </header>
 
         <main className="flex flex-1 items-center px-8 lg:px-16">

@@ -10,6 +10,7 @@ import { Loader2, KeyRound, Check, ArrowLeft, User } from 'lucide-react'
 import { supabase, isSupabaseConfigured } from '../lib/supabase.js'
 import { useToast } from '../components/Toast.jsx'
 import { useAuth } from '../hooks/useAuth.js'
+import Logo from '../components/Logo.jsx'
 
 export default function JoinTeam() {
   const navigate = useNavigate()
@@ -58,14 +59,13 @@ export default function JoinTeam() {
   }
 
   return (
-    <div className="min-h-screen bg-valence-elevated vl-circles">
-      <div className="absolute inset-0 bg-valence-grid opacity-40 pointer-events-none" aria-hidden />
+    <div className="min-h-screen bg-valence-bg">
       <div className="relative mx-auto flex min-h-screen max-w-2xl flex-col px-6 py-10">
         <header className="flex items-center justify-between">
           <Link to="/welcome" className="text-xs text-valence-muted hover:text-valence-text inline-flex items-center gap-1">
             <ArrowLeft className="h-3 w-3" /> Back
           </Link>
-          <span className="vl-eyebrow">Valence Growth Partners · ValenceOS</span>
+          <Logo />
         </header>
 
         <main className="flex flex-1 items-center">
