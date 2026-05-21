@@ -9,6 +9,7 @@ import WikilinkTextarea from './WikilinkTextarea.jsx'
 import WikilinkText from './WikilinkText.jsx'
 import InlineEditableText from './InlineEditableText.jsx'
 import ValenceConnectionsPanel from './ValenceConnectionsPanel.jsx'
+import ValenceTeamProfilePanel from './ValenceTeamProfilePanel.jsx'
 
 const TABS = [
   { id: 'overview',    label: 'Overview' },
@@ -142,11 +143,15 @@ export default function PersonDrawer({ open, onClose, existing, onSubmit, onRena
 
       {tab === 'overview' && (
         <form id="person-form" onSubmit={submit} className="space-y-5">
-          {/* Valence Connections panel — only for existing external
-              people. Suppressed for the create form (no id yet) and
-              for Valence team members themselves. */}
+          {/* Relationship layer panels. Both gated on existing.id (no
+              point on the create form) and mutually exclusive on
+              is_valence_team — external people see who at Valence knows
+              them, team members see their own network breakdown. */}
           {existing?.id && !existing?.is_valence_team && (
             <ValenceConnectionsPanel externalPersonId={existing.id} />
+          )}
+          {existing?.id && existing?.is_valence_team && (
+            <ValenceTeamProfilePanel valencePersonId={existing.id} />
           )}
           <div className="grid gap-4 sm:grid-cols-2">
             <Field label="Full name *">
