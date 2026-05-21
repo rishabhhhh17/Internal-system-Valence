@@ -13,10 +13,16 @@ export default function SimilarDeals({ deal }) {
   useEffect(() => {
     if (!deal?.id) return
     if (!isSupabaseConfigured) { setCandidates([]); setLoading(false); return }
+    // Guard against unmount during the round-trip — drawer can be closed
+    // mid-flight by the user clicking elsewhere, which would otherwise log
+    // a React "state update on unmounted component" warning.
+    let alive = true
     supabase.from('deals').select('*').then(({ data }) => {
+      if (!alive) return
       setCandidates(data || [])
       setLoading(false)
     })
+    return () => { alive = false }
   }, [deal?.id])
 
   const similar = useMemo(() => similarDealsHeuristic(deal, candidates), [deal, candidates])

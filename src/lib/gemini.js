@@ -41,20 +41,19 @@ function readUserGeminiKey() {
   }
 }
 
-const envGeminiKey = import.meta.env.VITE_GEMINI_API_KEY || null
-
-// Exported as `let` so setGeminiKey() can flip the live ESM binding —
-// importers reading `isGeminiConfigured` on the next render see the
-// updated value without needing a reload. The existing `geminiKey`
-// export stays a string consumers can interpolate into a URL.
-//
-// NOTE: these gemini-specific exports remain for backwards compatibility
-// (GeminiKeyPanel, tests, etc.). New code should call `getActiveConfig()`
-// from `src/lib/llmProviders.js` instead so multi-provider works.
+// SECURITY: deliberately do NOT read VITE_GEMINI_API_KEY here. Any
+// `VITE_*` env var gets bundled into the public JS at build time, so an
+// API key wired through that variable would be lifted out by anyone
+// with DevTools. The proxy endpoints /api/llm + /api/gemini hold the
+// server-side GEMINI_API_KEY (no VITE_ prefix), and per-user BYO keys
+// live in localStorage. The old `envGeminiKey` fallback is therefore
+// gone — `isGeminiConfigured` now reflects "user provided their own
+// key" only. Server-side configuration is detected by the API proxy
+// returning a 200 from a probe rather than by importing it client-side.
 const _initialUserKey = readUserGeminiKey()
-export let geminiKey = _initialUserKey || envGeminiKey
+export let geminiKey = _initialUserKey || null
 export let isGeminiConfigured = Boolean(geminiKey)
-export let geminiKeySource = _initialUserKey ? 'user' : (envGeminiKey ? 'env' : 'none')
+export let geminiKeySource = _initialUserKey ? 'user' : 'none'
 
 export function getGeminiKey() { return geminiKey }
 export function getGeminiKeySource() { return geminiKeySource }
@@ -69,9 +68,9 @@ export function setGeminiKey(key) {
   } catch {
     return false
   }
-  geminiKey = trimmed || envGeminiKey
+  geminiKey = trimmed || null
   isGeminiConfigured = Boolean(geminiKey)
-  geminiKeySource = trimmed ? 'user' : (envGeminiKey ? 'env' : 'none')
+  geminiKeySource = trimmed ? 'user' : 'none'
   // Keep the multi-provider registry's Gemini slot in sync so a user who
   // updates Gemini via the legacy panel doesn't have to re-pick it.
   try { setProviderApiKey('gemini', trimmed) } catch { /* SSR / blocked */ }
