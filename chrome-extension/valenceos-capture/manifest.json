@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "ValenceOS Capture",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Auto-capture contacts and meetings from Gmail + Calendar into your ValenceOS workspace. No more typing 'had a call with Rohan' — it just lands.",
   "permissions": ["storage", "activeTab", "scripting"],
   "host_permissions": [

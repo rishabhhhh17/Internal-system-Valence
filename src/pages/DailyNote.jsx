@@ -14,6 +14,7 @@ import ConfigBanner from '../components/ConfigBanner.jsx'
 import WikilinkTextarea from '../components/WikilinkTextarea.jsx'
 import WikilinkText from '../components/WikilinkText.jsx'
 import StaleRelationships from '../components/StaleRelationships.jsx'
+import ExtensionStatus from '../components/ExtensionStatus.jsx'
 
 // The Daily Note replaces the previous Overview page. One row per (user, date)
 // in the daily_notes table. The auto-section is computed every render from
@@ -302,6 +303,8 @@ export default function DailyNote() {
         </Card>
 
         <StaleRelationships />
+
+        <ExtensionStatus />
       </section>
 
       {/* Free-form body */}
