@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useLocation } from 'react-router-dom'
-import { Search, Bell, PanelLeftClose, PanelLeftOpen } from 'lucide-react'
+import { Search, Bell, PanelLeftClose, PanelLeftOpen, RotateCcw } from 'lucide-react'
 import Logo from './Logo.jsx'
 import GoogleButton from './GoogleButton.jsx'
 import CurrencyToggle from './CurrencyToggle.jsx'
@@ -8,6 +8,7 @@ import NotificationCenter, { useNotifications } from './NotificationCenter.jsx'
 import Tutorial from './Tutorial.jsx'
 import { useWorkspaceSetting } from '../hooks/useWorkspaceSetting.js'
 import { WORKSPACE_KEYS, setWorkspaceSetting } from '../lib/workspace.js'
+import { signOut } from '../lib/google.js'
 
 // Title + subtitle per route. Keep titles in lockstep with the sidebar
 // labels so the topbar / sidebar / page hero never disagree about what
@@ -109,6 +110,7 @@ export default function Topbar() {
             new user's first visit and quietens once engaged — it's the
             cheapest way to get a new team member productive. */}
         <Tutorial />
+        <DemoResetButton />
         <div className="hidden lg:block"><CurrencyToggle /></div>
         <GoogleButton />
       </header>
@@ -128,6 +130,55 @@ export default function Topbar() {
 // invisible; preview branches show a small coloured pill next to the
 // page title. Removes the "am I on production or on rishabh-testing?"
 // guessing problem when the URL is hidden under a long subdomain.
+// "Reset demo" — only renders on demo deploys (VITE_DEMO_MODE='true').
+// One click: signs the current user out + clears every valence.* key
+// in this origin's localStorage, then reloads. The next render shows
+// Login fresh, the way a prospect opening the URL for the first time
+// would see it.
+//
+// SCOPE: localStorage is per-origin in browsers. Clicking this on the
+// demo deploy only touches the demo's storage — production and
+// rishabh-testing sessions on other Vercel subdomains are untouched.
+// Safe to click as a pre-send "QA the fresh-visitor flow" check.
+function DemoResetButton() {
+  const isDemo = import.meta.env.VITE_DEMO_MODE === 'true'
+  const [busy, setBusy] = useState(false)
+  if (!isDemo) return null
+
+  async function reset() {
+    if (busy) return
+    if (typeof window !== 'undefined') {
+      const confirmed = window.confirm(
+        'Reset the demo to a fresh-visitor view? This will sign you out and clear the demo session in this browser. Your sessions on valenceos.vercel.app and the testing URL are not affected.'
+      )
+      if (!confirmed) return
+    }
+    setBusy(true)
+    try {
+      await signOut() // clears Supabase session + all valence.* localStorage
+      // signOut already strips localStorage in this origin only; reload
+      // so the next render starts from Login with no in-memory state.
+      window.location.replace('/')
+    } catch {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={reset}
+      disabled={busy}
+      title="Sign out + clear this browser's demo session — what a fresh prospect would see"
+      aria-label="Reset demo session"
+      className="hidden md:inline-flex shrink-0 items-center gap-1.5 rounded-full border border-valence-warning/50 bg-valence-warning/10 px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.1em] text-valence-warning hover:bg-valence-warning/20 transition disabled:opacity-60"
+    >
+      <RotateCcw className="h-3 w-3" />
+      {busy ? 'Resetting…' : 'Reset demo'}
+    </button>
+  )
+}
+
 function BranchBadge() {
   const branch = import.meta.env.VITE_BRANCH
   if (!branch || branch === 'main') return null
