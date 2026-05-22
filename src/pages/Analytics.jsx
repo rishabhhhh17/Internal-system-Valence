@@ -4,12 +4,12 @@ import { format } from 'date-fns'
 import {
   BarChart3, TrendingUp, TrendingDown, DollarSign, Briefcase, Trophy,
   Activity, MapPin, Sparkles, ArrowRight, Info, CalendarDays, PieChart,
-  AlertTriangle, Zap, Filter, Printer, Layers, Users,
+  AlertTriangle, Zap, Building2, Filter, Printer, Layers, Users,
   Hourglass, Scale, ShieldAlert, Flame, Globe2, Crown,
   Handshake, FileSearch, CalendarClock
 } from 'lucide-react'
 import { supabase, isSupabaseConfigured } from '../lib/supabase.js'
-import { STAGES, ACTIVE_STAGES, stageMeta, stageToneClasses } from '../lib/stages.js'
+import { STAGES, ACTIVE_STAGES, stageMeta, stageToneClasses, migrateStage } from '../lib/stages.js'
 import {
   forecastPipeline, expectedFee, distribution, conversionLadder, feeByQuarter,
   geographyMix, winRateTrend, activityHeatmap,
@@ -20,6 +20,7 @@ import {
 import { useCurrency } from '../hooks/useCurrency.jsx'
 import ConfigBanner from '../components/ConfigBanner.jsx'
 import VelocityChart from '../components/VelocityChart.jsx'
+import { SHOW_METRICS } from '../lib/featureFlags.js'
 import StaleDealsCard from '../components/StaleDealsCard.jsx'
 import ExpertsWidget from '../components/ExpertsWidget.jsx'
 import InfoDot from '../components/InfoDot.jsx'
@@ -62,7 +63,19 @@ const PERIODS = [
 
 export default function Analytics() {
   const { money, amount, currency } = useCurrency()
-  const [deals, setDeals]           = useState(DEMO_DEALS)
+  // The demo array still uses old stage names; migrate them on init so the
+  // component doesn't need a 18-row data rewrite. Live data from Supabase
+  // is already migrated by the Phase 0 SQL.
+  // Demo data is ONLY a fallback when Supabase isn't configured (local
+  // dev, broken env). With a real backend, we start empty and let the
+  // fetch on mount populate. The previous version always initialised
+  // with DEMO_DEALS and only overwrote when `d.data?.length` was
+  // truthy — which meant a real org with zero deals saw 18 fake deals
+  // worth millions in pipeline. Bad first impression for tomorrow's
+  // pilot, fixed by gating the seed on isSupabaseConfigured.
+  const [deals, setDeals] = useState(() =>
+    isSupabaseConfigured ? [] : DEMO_DEALS.map(d => ({ ...d, stage: migrateStage(d.stage) }))
+  )
   const [activities, setActivities] = useState([])
   const [sectorFilter, setSectorFilter] = useState('all')
   const [period, setPeriod]         = useState('LTM')
@@ -112,15 +125,18 @@ export default function Analytics() {
   const origin       = useMemo(() => originationMix(filteredDeals),                    [filteredDeals])
   const flags        = useMemo(() => riskFlags(filteredDeals),                         [filteredDeals])
 
-  // ── What-if: uplift on Diligence + Negotiation ──
+  // ── What-if: uplift on Pre-Mandate + Mandate conversion ──
+  // Old model had separate sliders for Diligence and Negotiation; the new
+  // model collapses both into Mandate, so the second slider now lifts
+  // Pre-Mandate conversion and the first lifts in-Mandate close-rate.
   const whatIf = useMemo(() => {
     const baseline = forecast.weighted
     let scenario = 0
     for (const d of filteredDeals) {
       const fee = expectedFee(d)
       let p = STAGE_PROBABILITY[d.stage] ?? 0
-      if (d.stage === 'Diligence')   p = Math.min(1, p * (1 + simDiligenceUplift / 100))
-      if (d.stage === 'Negotiation') p = Math.min(1, p * (1 + simNegotiationUplift / 100))
+      if (d.stage === 'Mandate')     p = Math.min(1, p * (1 + simDiligenceUplift / 100))
+      if (d.stage === 'Pre-Mandate') p = Math.min(1, p * (1 + simNegotiationUplift / 100))
       scenario += fee * p
     }
     return { baseline, scenario, delta: scenario - baseline }
@@ -135,7 +151,7 @@ export default function Analytics() {
     const horizon = new Date(today)
     horizon.setDate(horizon.getDate() + 30)
     const closing30 = filteredDeals.filter(d => {
-      if (!['Closing', 'Negotiation'].includes(d.stage)) return false
+      if (d.stage !== 'Mandate') return false
       const iso = d.expected_close_date || d.target_close
       if (!iso) return false
       const t = new Date(iso)
@@ -150,6 +166,31 @@ export default function Analytics() {
     return { activeCount: active.length, avgDays, closing30, stalled }
   }, [filteredDeals, aging, active])
 
+  // Empty-state: signed-in user with no deals yet. We don't want to
+  // render the 18-chart wall against zero data — every chart would
+  // either be empty or show "0%". Surface a clear "log your first
+  // deal" prompt instead.
+  if (isSupabaseConfigured && deals.length === 0) {
+    return (
+      <div className="space-y-10">
+        <ConfigBanner />
+        <div>
+          <p className="vl-eyebrow-ink">Analytics · Internal</p>
+          <h1 className="mt-2 font-display text-feature font-bold text-valence-text">
+            The firm, in numbers.
+          </h1>
+        </div>
+        <div className="vl-card p-8 text-center max-w-xl mx-auto">
+          <p className="text-sm font-semibold text-valence-text">No deals to chart yet.</p>
+          <p className="mt-2 text-xs text-valence-muted leading-relaxed">
+            Log your first mandate on <a href="/deals" className="text-valence-blue hover:underline">/deals</a>{' '}
+            and Analytics fills in automatically — pipeline, conversion ladder, fee composition, velocity, the lot.
+          </p>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="space-y-10">
       <ConfigBanner />
@@ -161,13 +202,9 @@ export default function Analytics() {
           <h1 className="mt-2 font-display text-feature font-bold text-valence-text">
             The firm, in numbers.
           </h1>
-          <p className="mt-3 max-w-2xl text-sm leading-relaxed text-valence-muted">
-            Pipeline, fees, velocity, and coverage — organised the way an investment committee would read it.
-            Live where data exists; clearly flagged where illustrative.
-          </p>
         </div>
         <div className="flex flex-wrap items-center gap-2 text-[11px] text-valence-muted print:hidden">
-          <div className="inline-flex items-center rounded-full border border-valence-border bg-white p-0.5">
+          <div className="inline-flex items-center rounded-full border border-valence-border bg-valence-elevated p-0.5">
             {PERIODS.map(p => (
               <button
                 key={p.id}
@@ -178,14 +215,14 @@ export default function Analytics() {
               >{p.label}</button>
             ))}
           </div>
-          <span className="inline-flex items-center gap-1.5 rounded-full border border-valence-border bg-white px-2.5 py-1">
+          <span className="inline-flex items-center gap-1.5 rounded-full border border-valence-border bg-valence-elevated px-2.5 py-1">
             <span className="h-1.5 w-1.5 rounded-full bg-valence-success shadow-[0_0_6px_#22c55e]" />
             Updated {updatedLabel}
           </span>
-          <span className="rounded-full border border-valence-border bg-white px-2.5 py-1">Currency · {currency}</span>
+          <span className="rounded-full border border-valence-border bg-valence-elevated px-2.5 py-1">Currency · {currency}</span>
           <button
             onClick={() => window.print()}
-            className="inline-flex items-center gap-1.5 rounded-full border border-valence-border bg-white px-2.5 py-1 text-valence-muted hover:text-valence-text"
+            className="inline-flex items-center gap-1.5 rounded-full border border-valence-border bg-valence-elevated px-2.5 py-1 text-valence-muted hover:text-valence-text"
           ><Printer className="h-3 w-3" /> Print</button>
         </div>
       </div>
@@ -200,7 +237,7 @@ export default function Analytics() {
             className={`rounded-full border px-2.5 py-1 text-[11px] font-semibold transition ${
               sectorFilter === s
                 ? 'border-valence-blue/40 bg-valence-blue-soft text-valence-text'
-                : 'border-valence-border bg-white text-valence-muted hover:text-valence-text'
+                : 'border-valence-border bg-valence-elevated text-valence-muted hover:text-valence-text'
             }`}
           >{s === 'all' ? 'All sectors' : s}</button>
         ))}
@@ -250,7 +287,10 @@ export default function Analytics() {
       <SectionHeading kicker="III" title="Productivity" subtitle="How the team converts effort into fees" icon={Flame} />
 
       <section className="grid gap-6 lg:grid-cols-2">
-        <VelocityChart />
+        {/* VelocityChart carries gut-feel benchmark numbers — hidden on the
+            pitch deploy until we have enough real firm data to defend the
+            comparison line. Toggle via VITE_SHOW_METRICS=true. */}
+        {SHOW_METRICS ? <VelocityChart /> : null}
         <WinRateTrendCard trend={trend} />
       </section>
 
@@ -310,7 +350,7 @@ export default function Analytics() {
         <ExpertsWidget deals={filteredDeals} />
       </section>
 
-      <div className="rounded-xl border border-dashed border-valence-border bg-white px-5 py-4 text-xs text-valence-muted">
+      <div className="rounded-xl border border-dashed border-valence-border bg-valence-elevated px-5 py-4 text-xs text-valence-muted">
         <p className="inline-flex items-start gap-2">
           <Info className="h-3.5 w-3.5 mt-0.5 shrink-0 text-valence-blue" />
           <span>
@@ -358,7 +398,7 @@ function CardTitle({ icon: Icon, title, subtitle, right }) {
 
 function KPI({ label, value, sub, icon: Icon, accent = false, info }) {
   return (
-    <div className={`bg-white p-5 ${accent ? 'ring-1 ring-valence-blue/20' : ''}`}>
+    <div className={`bg-valence-elevated p-5 ${accent ? 'ring-1 ring-valence-blue/20' : ''}`}>
       <div className="flex items-center justify-between">
         <span className="vl-eyebrow-ink inline-flex items-center gap-1.5">
           {label}
@@ -478,7 +518,7 @@ function StageAgingTable({ aging }) {
   return (
     <ul className="space-y-1.5">
       {top.map(d => (
-        <li key={d.id} className="flex items-center gap-3 rounded-lg border border-valence-border bg-white px-3 py-2">
+        <li key={d.id} className="flex items-center gap-3 rounded-lg border border-valence-border bg-valence-elevated px-3 py-2">
           <span className={`inline-flex w-24 shrink-0 justify-center rounded-full border px-2 py-0.5 text-[10px] font-semibold ${stageToneClasses(d.stage)}`}>{d.stage}</span>
           <div className="min-w-0 flex-1">
             <p className="truncate text-sm font-semibold text-valence-text">{d.client_name}</p>
@@ -566,7 +606,7 @@ function SizeHistogramCard({ hist, money }) {
       <CardTitle icon={BarChart3} title="Deal size distribution" subtitle="Ticket sizes across the book — buckets in USD" />
       <div className="grid grid-cols-4 gap-3">
         {hist.map(b => (
-          <div key={b.label} className="rounded-xl border border-valence-border bg-white p-3 text-center">
+          <div key={b.label} className="rounded-xl border border-valence-border bg-valence-elevated p-3 text-center">
             <p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-valence-muted">{b.label}</p>
             <div className="relative mt-2 h-20 rounded bg-valence-surface overflow-hidden">
               <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-valence-blue/30 to-valence-blue/70" style={{ height: `${(b.count / maxCount) * 100}%` }} />
@@ -714,7 +754,7 @@ function QuarterBars({ quarters, amount }) {
         const hWeighted = (q.weightedFeeUsd / max) * 100
         const hCommitted = (q.committedFeeUsd / max) * 100
         return (
-          <div key={q.label} className="rounded-xl border border-valence-border bg-white p-4">
+          <div key={q.label} className="rounded-xl border border-valence-border bg-valence-elevated p-4">
             <div className="flex items-baseline justify-between">
               <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-valence-muted">{q.label}</p>
               <p className="text-[10px] text-valence-subtle">{q.dealCount} deal{q.dealCount === 1 ? '' : 's'}</p>
@@ -800,12 +840,12 @@ function GeographyCard({ geo, money }) {
         <div className="absolute inset-y-0 right-0 bg-valence-ink/80" style={{ width: `${100 - mumbaiPct}%` }} />
       </div>
       <div className="mt-5 grid grid-cols-2 gap-3">
-        <div className="rounded-lg border border-valence-border bg-white p-4">
+        <div className="rounded-lg border border-valence-border bg-valence-elevated p-4">
           <p className="vl-eyebrow-ink inline-flex items-center gap-1.5"><Building2 className="h-3 w-3 text-valence-blue" /> Mumbai</p>
           <p className="mt-2 font-display text-2xl font-bold tabular-nums text-valence-text">{geo.mumbai.count}</p>
           <p className="text-[11px] text-valence-muted mt-0.5">{money(geo.mumbai.valueUsdM)} aggregate</p>
         </div>
-        <div className="rounded-lg border border-valence-border bg-white p-4">
+        <div className="rounded-lg border border-valence-border bg-valence-elevated p-4">
           <p className="vl-eyebrow-ink inline-flex items-center gap-1.5"><Building2 className="h-3 w-3 text-valence-ink" /> London</p>
           <p className="mt-2 font-display text-2xl font-bold tabular-nums text-valence-text">{geo.london.count}</p>
           <p className="text-[11px] text-valence-muted mt-0.5">{money(geo.london.valueUsdM)} aggregate</p>

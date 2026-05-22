@@ -4,6 +4,7 @@ import { format } from 'date-fns'
 import { Download, FileText, AlertTriangle, Lock, CheckCircle2, Loader2 } from 'lucide-react'
 import { loadShareByCode, logAccess } from '../lib/shares.js'
 import { publicUrlFor, formatBytes } from '../lib/storage.js'
+import { supabase, isSupabaseConfigured } from '../lib/supabase.js'
 import Logo from '../components/Logo.jsx'
 
 // Public page rendered at /share/:code — no sidebar, no Valence chrome.
@@ -20,6 +21,13 @@ export default function Share() {
         setState({ loading: false, share })
         if (!share._revoked && !share._expired) {
           logAccess({ shareId: share.id, event: 'view' })
+          // Phase 1.8 — also write a richer audit row to share_access_logs.
+          if (isSupabaseConfigured) {
+            supabase.from('share_access_logs').insert({
+              share_code: code,
+              user_agent: navigator.userAgent || null
+            }).catch(() => {})
+          }
         }
       } catch (e) {
         setState({ loading: false, error: e.message || 'Could not load share.' })
@@ -63,11 +71,13 @@ export default function Share() {
 
   const deal = share.deal
   const files = share.files || []
+  const watermarkOn = files.some(f => f.watermark_enabled)
+  const watermarkLabel = `${code} · ${format(new Date(), "d MMM yyyy HH:mm")}`
 
   return (
-    <Shell>
+    <Shell watermark={watermarkOn ? watermarkLabel : null}>
       <div className="mx-auto w-full max-w-3xl space-y-8 py-10 px-5">
-        <section className="rounded-2xl border border-valence-border bg-white vl-circles px-8 py-10 relative overflow-hidden">
+        <section className="rounded-2xl border border-valence-border bg-valence-elevated vl-circles px-8 py-10 relative overflow-hidden">
           <div className="relative">
             <p className="vl-eyebrow">Shared data room</p>
             <h1 className="mt-4 font-display text-3xl font-semibold text-valence-text lg:text-4xl">
@@ -119,7 +129,7 @@ export default function Share() {
                     href={publicUrlFor(f.path)}
                     target="_blank" rel="noreferrer"
                     onClick={() => logAccess({ shareId: share.id, event: 'download', fileId: f.id })}
-                    className="group flex items-center gap-3 rounded-lg border border-valence-border bg-white px-4 py-3 transition hover:border-valence-ink/20 hover:shadow-valence"
+                    className="group flex items-center gap-3 rounded-lg border border-valence-border bg-valence-elevated px-4 py-3 transition hover:border-valence-ink/20 hover:shadow-valence"
                   >
                     <div className="grid h-10 w-10 place-items-center rounded-lg bg-valence-blue-soft ring-1 ring-valence-blue/20 shrink-0">
                       <FileText className="h-4 w-4 text-valence-blue" />
@@ -149,21 +159,34 @@ export default function Share() {
   )
 }
 
-function Shell({ children }) {
+function Shell({ children, watermark }) {
   return (
-    <div className="min-h-screen bg-valence-bg text-valence-text">
-      <header className="border-b border-valence-border bg-white">
+    <div className="relative min-h-screen bg-valence-bg text-valence-text">
+      <header className="border-b border-valence-border bg-valence-elevated">
         <div className="mx-auto flex h-16 max-w-3xl items-center px-5">
           <Logo />
           <span className="ml-auto text-[11px] text-valence-muted">Delivered via ValenceOS</span>
         </div>
       </header>
       {children}
-      <footer className="border-t border-valence-border bg-white">
+      <footer className="border-t border-valence-border bg-valence-elevated">
         <div className="mx-auto max-w-3xl px-5 py-8 text-[11px] text-valence-muted">
           Confidential · for the intended recipient only. Forwarding or downloading is audited.
         </div>
       </footer>
+      {watermark && (
+        <div className="pointer-events-none fixed inset-0 z-50 select-none overflow-hidden">
+          <div className="absolute inset-0 grid grid-cols-3 grid-rows-6 gap-0">
+            {Array.from({ length: 18 }).map((_, i) => (
+              <div key={i} className="grid place-items-center">
+                <span className="rotate-[-30deg] whitespace-nowrap text-[10px] font-semibold uppercase tracking-[0.3em] text-valence-ink/[0.08]">
+                  {watermark}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   )
 }

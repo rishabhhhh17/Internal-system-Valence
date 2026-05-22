@@ -8,14 +8,19 @@ import { askWithStreaming } from '../lib/rag.js'
 import { isGeminiConfigured } from '../lib/gemini.js'
 import { filePublicUrl } from '../lib/knowledge.js'
 import { supabase, isSupabaseConfigured } from '../lib/supabase.js'
+import { humanError } from '../lib/userError.js'
 import { useToast } from './Toast.jsx'
 
+// Suggested prompts are IB-flavoured on purpose — partners shouldn't have to
+// translate "what's in the knowledge base" into questions a generic AI would
+// understand. These map to common partner moves: stage check, fund coverage,
+// precedent comps, sector view, mandate diligence.
 const SUGGESTED = [
-  'What is our thesis on healthcare consolidation?',
-  'Summarise the active fintech deals.',
-  'What playbook do we follow for M&A mandates?',
-  'Which precedent comps did we price around 10x EBITDA?',
-  'Which deals are in negotiation right now?'
+  'What did Renuka Ramnath say about HoV Mushrooms in our last call?',
+  'Which funds have we pitched on Healthcare in the last 90 days?',
+  'Summarise active mandates in Negotiation or Closing.',
+  'What playbook do we run for sell-side infrastructure deals?',
+  'Which comps did we use to price the Helios Infra mandate?'
 ]
 
 export default function AskChat() {
@@ -52,7 +57,7 @@ export default function AskChat() {
         onError:   (err) => update({ streaming: false, error: true, text: err.message })
       })
     } catch (err) {
-      if (!err.message.includes('not configured')) toast.error(err.message)
+      if (!err.message.includes('not configured')) toast.error(humanError(err, 'Could not run query'))
     } finally {
       setStreaming(false)
     }
@@ -81,19 +86,19 @@ export default function AskChat() {
     <div className="flex flex-col space-y-5">
       {/* Hero */}
       {!hasAnyConversation && (
-        <section className="relative overflow-hidden rounded-2xl border border-valence-border bg-white vl-circles py-16 px-8 lg:py-24 lg:px-14">
+        <section className="relative overflow-hidden rounded-2xl border border-valence-border bg-valence-elevated vl-circles py-8 px-5 sm:py-12 sm:px-8 lg:py-20 lg:px-14">
           <div className="absolute inset-0 bg-valence-grid opacity-50" aria-hidden />
           <div className="relative max-w-2xl z-10">
-            <p className="vl-eyebrow"><Sparkles className="h-3 w-3" /> Ask ValenceOS</p>
+            <p className="vl-eyebrow"><Sparkles className="h-3 w-3" /> Ask the firm</p>
             <h1 className="mt-5 font-display text-display font-bold text-valence-text">
-              Ask anything. Answers grounded in your documents.
+              The firm's memory, on tap.
             </h1>
             <p className="mt-5 max-w-xl text-sm leading-relaxed text-valence-muted lg:text-base">
-              Plain-English questions. Responses drawn from memos, files, deal notes, and precedent comps — every fact cited to source.
+              Ask in plain English. Answers come from your interactions, mandate notes, sector memos, files and precedent comps — every fact cited to its source. The walk-in-prepared moment without the rolodex search.
             </p>
             {!isGeminiConfigured && (
-              <p className="mt-3 inline-block rounded-md border border-valence-warning/30 bg-valence-warning/10 px-3 py-1.5 text-[11px] text-valence-warning">
-                Add <span className="vl-kbd">VITE_GEMINI_API_KEY</span> to activate Ask. Search tab still works without it.
+              <p className="mt-4 inline-flex items-center gap-2 rounded-lg border border-amber-300/50 bg-amber-50 px-3 py-1.5 text-[11px] text-amber-800">
+                <Sparkles className="h-3 w-3" /> Add <span className="vl-kbd">VITE_GEMINI_API_KEY</span> to activate Ask. Search tab still works without it.
               </p>
             )}
             <div className="mt-6 flex flex-wrap gap-2">

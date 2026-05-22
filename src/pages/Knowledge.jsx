@@ -4,10 +4,14 @@ import { format, formatDistanceToNow } from 'date-fns'
 import {
   Plus, Search, BookOpen, Tag as TagIcon, Hash, Trash2, Table as TableIcon,
   Sparkles, Download, Briefcase, ExternalLink, Loader2,
-  Filter as FilterIcon, File as FileIcon
+  Filter as FilterIcon, File as FileIcon, FolderTree,
+  User2, Building2, MessageSquare
 } from 'lucide-react'
 import { supabase, isSupabaseConfigured, subscribeTable } from '../lib/supabase.js'
 import { searchKnowledge, groupResults, filePublicUrl, deleteKnowledgeFile } from '../lib/knowledge.js'
+import { smartEntitySearch, mergeAndRank } from '../lib/smartSearch.js'
+import { PITCH_MODE } from '../lib/featureFlags.js'
+import { isGeminiConfigured } from '../lib/gemini.js'
 import { embeddingsEnabled } from '../lib/embeddings.js'
 import { useAuth } from '../hooks/useAuth.js'
 import ConfigBanner from '../components/ConfigBanner.jsx'
@@ -16,16 +20,25 @@ import Drawer from '../components/Drawer.jsx'
 import EmptyState from '../components/EmptyState.jsx'
 import KnowledgeUpload from '../components/KnowledgeUpload.jsx'
 import AskChat from '../components/AskChat.jsx'
+import { WikilinkTextarea, WikilinkContent, useWikilinkEntities } from '../components/Wikilink.jsx'
+import { stripWikilinkTokens } from '../lib/kb.js'
 import { useToast } from '../components/Toast.jsx'
 import { useConfirm } from '../components/ConfirmDialog.jsx'
+import { humanError } from '../lib/userError.js'
 import { Bot } from 'lucide-react'
+import { MandatesPanel } from './KnowledgeMandates.jsx'
 
 const SOURCE_LABELS = {
-  document:  { label: 'Memo',       icon: BookOpen,   color: 'text-valence-blue' },
-  file:      { label: 'File',       icon: FileIcon,   color: 'text-valence-blue' },
-  comp:      { label: 'Comp',       icon: TableIcon,  color: 'text-valence-success' },
-  deal:      { label: 'Deal',       icon: Briefcase,  color: 'text-valence-text' },
-  deal_file: { label: 'Deal file',  icon: FileIcon,   color: 'text-valence-warning' }
+  document:    { label: 'Memo',         icon: BookOpen,        color: 'text-valence-blue' },
+  file:        { label: 'File',         icon: FileIcon,        color: 'text-valence-blue' },
+  comp:        { label: 'Comp',         icon: TableIcon,       color: 'text-valence-success' },
+  deal:        { label: 'Deal',         icon: Briefcase,       color: 'text-valence-text' },
+  deal_file:   { label: 'Deal file',    icon: FileIcon,        color: 'text-valence-warning' },
+  // Entity surfaces — added by smartEntitySearch so a search across the
+  // firm also reaches persona fields and meeting notes.
+  person:      { label: 'Person',       icon: User2,           color: 'text-valence-blue' },
+  fund:        { label: 'Fund',         icon: Building2,       color: 'text-violet-600' },
+  interaction: { label: 'Interaction',  icon: MessageSquare,   color: 'text-emerald-700' }
 }
 
 export default function Knowledge() {
@@ -36,46 +49,150 @@ export default function Knowledge() {
     if (t === 'ask') next.delete('tab'); else next.set('tab', t)
     setParams(next, { replace: true })
   }
-  const tabMeta = {
-    ask:    { label: 'Ask',    body: 'Ask plain-English questions. Answers cite the firm\'s memos, files, deals, and comps.' },
-    search: { label: 'Search', body: 'One search across every memo, file, deal note, comp and deal file indexed by the firm.' },
-    memos:  { label: 'Memos',  body: 'Short written notes shared with the firm — sector theses, frameworks, playbooks.' },
-    files:  { label: 'Files',  body: 'Uploaded documents shared with the whole firm (PDFs, decks, research).' },
-    comps:  { label: 'Comps',  body: 'Precedent transactions — targets, acquirers, multiples. Used for benchmarking.' }
-  }
   return (
     <div className="space-y-6">
       <ConfigBanner />
 
-      {/* Page framing — tell the user what this page IS and what it isn't */}
-      <div className="rounded-xl border border-valence-border bg-white px-5 py-4">
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <p className="vl-eyebrow-ink">Firm-shared knowledge</p>
-            <p className="mt-1.5 text-sm text-valence-muted">
-              Everything the team shares with the firm lives here. Your personal files live in <a href="/knowledge/private" className="font-semibold text-valence-blue hover:text-valence-blue-hover">Private</a>.
-            </p>
-          </div>
-          <a href="/knowledge" className="shrink-0 text-xs font-semibold text-valence-muted hover:text-valence-text">← Knowledge</a>
-        </div>
+      <div>
+        <p className="vl-eyebrow-ink">Knowledge</p>
+        <h1 className="mt-2 font-display text-feature font-bold text-valence-text">Everything the firm knows.</h1>
       </div>
 
+      {/* Pitch branch — four tabs with the Mandates / Company split from the
+          partner conversation. Ask is gated when Gemini isn't configured
+          (PITCH_MODE deploys without a key would otherwise hit a dead
+          chat). Memos fold into Files. Search lives in ⌘K. Comps deferred. */}
       <div className="flex items-center gap-1 rounded-lg border border-valence-border bg-valence-surface p-1 w-fit overflow-x-auto">
-        <TabButton active={tab === 'ask'}    onClick={() => setTab('ask')}    icon={Bot}>Ask</TabButton>
-        <TabButton active={tab === 'search'} onClick={() => setTab('search')} icon={Sparkles}>Search</TabButton>
-        <TabButton active={tab === 'memos'}  onClick={() => setTab('memos')}  icon={BookOpen}>Memos</TabButton>
-        <TabButton active={tab === 'files'}  onClick={() => setTab('files')}  icon={FileIcon}>Files</TabButton>
-        <TabButton active={tab === 'comps'}  onClick={() => setTab('comps')}  icon={TableIcon}>Comps</TabButton>
+        {(isGeminiConfigured || !PITCH_MODE) && (
+          <TabButton active={tab === 'ask'}                          onClick={() => setTab('ask')}      icon={Bot}>Ask</TabButton>
+        )}
+        <TabButton active={tab === 'search'}                         onClick={() => setTab('search')}   icon={Search}>Search</TabButton>
+        <TabButton active={tab === 'files' || tab === 'memos'}       onClick={() => setTab('files')}    icon={FileIcon}>Files</TabButton>
+        <TabButton active={tab === 'mandates'}                       onClick={() => setTab('mandates')} icon={FolderTree}>Mandates</TabButton>
       </div>
 
-      {/* Sub-section helper: one clear sentence about this view */}
-      <p className="text-xs text-valence-muted -mt-2">{tabMeta[tab]?.body}</p>
+      {tab === 'ask' && (isGeminiConfigured || !PITCH_MODE)   && <AskChat />}
+      {tab === 'ask' && isGeminiConfigured === false && PITCH_MODE && <SearchSection />}
+      {tab === 'search'                                       && <SearchSection />}
+      {/* Files absorbs the old Memos tab — memo uploads land in Files now. */}
+      {(tab === 'files' || tab === 'memos')                   && <FilesSection />}
+      {tab === 'mandates'                                     && <MandatesPanel />}
+      {/* Legacy ?tab=company and ?tab=comps fall back to Mandates — the
+          Firm library lives there as the first item in the Sources column. */}
+      {(tab === 'company' || tab === 'comps')                 && <MandatesPanel />}
+    </div>
+  )
+}
 
-      {tab === 'ask'    && <AskChat />}
-      {tab === 'search' && <SearchPortal onSelectTab={setTab} />}
-      {tab === 'memos'  && <Documents />}
-      {tab === 'files'  && <FilesSection />}
-      {tab === 'comps'  && <Comps />}
+
+// ============ SEARCH SECTION ============
+// Hybrid full-text + semantic search across the firm's knowledge surfaces.
+// Falls back to lexical-only when embeddings aren't enabled (no Gemini
+// key needed for FTS). Reuses searchKnowledge + smartEntitySearch.
+function SearchSection() {
+  const navigate = useNavigate()
+  const [q, setQ]                 = useState('')
+  const [results, setResults]     = useState(null)  // null = idle
+  const [searching, setSearching] = useState(false)
+  const [mode, setMode]           = useState('lexical')
+  const [error, setError]         = useState(null)
+
+  useEffect(() => {
+    if (!q.trim()) { setResults(null); setError(null); return }
+    let cancelled = false
+    const t = setTimeout(async () => {
+      setSearching(true); setError(null)
+      try {
+        const [kb, entities] = await Promise.all([
+          searchKnowledge(q, { matchCount: 24 }),
+          smartEntitySearch(q)
+        ])
+        if (cancelled) return
+        setMode(kb.mode || 'lexical')
+        const merged = mergeAndRank(kb.results || [], entities || [])
+        setResults(groupResults(merged))
+      } catch (e) {
+        if (!cancelled) setError(e?.message || 'Search failed')
+      } finally {
+        if (!cancelled) setSearching(false)
+      }
+    }, 250)
+    return () => { cancelled = true; clearTimeout(t) }
+  }, [q])
+
+  function openResult(r) {
+    const top = r.top || r
+    if (top.source_type === 'person'      && top.source_id) navigate(`/people?open=${top.source_id}`)
+    else if (top.source_type === 'fund'   && top.source_id) navigate(`/funds?open=${top.source_id}`)
+    else if (top.source_type === 'deal'   && top.source_id) navigate(`/deals?open=${top.source_id}`)
+    else if (top.source_type === 'interaction') navigate('/interactions')
+    else if (top.source_type === 'file' || top.source_type === 'deal_file') {
+      const url = filePublicUrl(top.path || top.source_id)
+      if (url && url !== '#') window.open(url, '_blank', 'noopener')
+    }
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="vl-card p-3 space-y-3">
+        <div className="relative">
+          <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-valence-subtle" />
+          <input
+            autoFocus
+            value={q}
+            onChange={e => setQ(e.target.value)}
+            placeholder="Search everywhere — notes · memos · files · people · funds · interactions"
+            className="vl-input h-10 w-full pl-10 text-sm"
+          />
+          {searching && <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-valence-muted" />}
+        </div>
+        <p className="text-[11px] text-valence-subtle px-1">
+          {mode === 'hybrid' && q
+            ? 'Hybrid mode — keyword + semantic similarity (Gemini embeddings active).'
+            : q
+              ? 'Lexical mode — keyword-only. Add a Gemini key in Settings → Integrations for semantic search.'
+              : 'Combines keyword + (when Gemini is configured) semantic similarity across the whole firm.'}
+        </p>
+      </div>
+
+      {error && (
+        <div className="rounded-lg bg-red-50 border border-red-200 px-3 py-2 text-xs text-valence-danger">{error}</div>
+      )}
+
+      {!q.trim() ? (
+        <EmptyState icon={Search} title="Search the firm" description="Type a name, sector, mandate, or any phrase — results from notes, files, interactions, people, and funds." sampleEligible={false} />
+      ) : results && results.length === 0 && !searching ? (
+        <EmptyState icon={Search} title="No matches" description={`Nothing matches "${q}". Try a different phrase or broader keywords.`} sampleEligible={false} />
+      ) : results && results.length > 0 ? (
+        <ul className="vl-card divide-y divide-valence-border/60 overflow-hidden">
+          {results.slice(0, 30).map((r, i) => {
+            const top = r.top || r
+            const meta = SOURCE_LABELS[top.source_type] || { label: top.source_type, icon: FileIcon, color: 'text-valence-muted' }
+            const Icon = meta.icon
+            return (
+              <li key={`${top.source_type}-${top.source_id}-${i}`}>
+                <button onClick={() => openResult(r)} className="block w-full text-left px-4 py-3 hover:bg-valence-surface transition">
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <Icon className={`h-3.5 w-3.5 shrink-0 ${meta.color}`} />
+                      <span className="truncate text-sm font-semibold text-valence-text">{top.title || top.source_id}</span>
+                      <span className="vl-chip text-[9.5px] shrink-0">{meta.label}</span>
+                    </div>
+                    {typeof top.score === 'number' && (
+                      <span className="text-[10px] tabular-nums text-valence-subtle shrink-0">score {top.score.toFixed(2)}</span>
+                    )}
+                  </div>
+                  {(top.snippet || top.preview) && (
+                    <p className="mt-1 line-clamp-2 text-[12px] leading-relaxed text-valence-muted">
+                      {stripWikilinkTokens(String(top.snippet || top.preview))}
+                    </p>
+                  )}
+                </button>
+              </li>
+            )
+          })}
+        </ul>
+      ) : null}
     </div>
   )
 }
@@ -118,13 +235,18 @@ function SearchPortal({ onSelectTab }) {
     const myReq = ++reqIdRef.current
     setLoading(true); setError('')
     try {
-      const { results, mode } = await searchKnowledge(query, {
-        matchCount: 30,
-        sourceFilter: src === 'all' ? null : [src]
-      })
+      const filter = src === 'all' ? null : [src]
+      // Hit both surfaces in parallel: the knowledge_chunks RPC (memos,
+      // files, comps, deal chunks) AND the entity tables (people, funds,
+      // interactions). Merged + re-ranked by score so an interaction note
+      // matching "seed B $30M revenue" can outrank a name-only fund hit.
+      const [kb, entities] = await Promise.all([
+        searchKnowledge(query, { matchCount: 30, sourceFilter: filter }),
+        query?.trim() ? smartEntitySearch(query, { sourceFilter: filter }) : Promise.resolve([])
+      ])
       if (myReq !== reqIdRef.current) return
-      setResults(results)
-      setMode(mode)
+      setResults(mergeAndRank(kb.results, entities))
+      setMode(kb.mode)
     } catch (e) {
       if (myReq !== reqIdRef.current) return
       setError(e.message || 'Search failed')
@@ -138,6 +260,9 @@ function SearchPortal({ onSelectTab }) {
 
   function openResult(r) {
     if (r.source_type === 'document') navigate(`/knowledge?tab=memos&open=${r.source_id}`)
+    else if (r.source_type === 'person')      navigate(`/people?open=${r.source_id}`)
+    else if (r.source_type === 'fund')        navigate(`/funds?open=${r.source_id}`)
+    else if (r.source_type === 'interaction') navigate(r.metadata?.deal_id ? `/deals?open=${r.metadata.deal_id}` : '/interactions')
     else if (r.source_type === 'deal' || r.source_type === 'deal_file')
       navigate(`/deals?open=${r.metadata?.deal_id || r.source_id}`)
     else if (r.source_type === 'file') {
@@ -153,7 +278,7 @@ function SearchPortal({ onSelectTab }) {
   return (
     <div className="space-y-5">
       {/* Hero search */}
-      <section className="relative overflow-hidden rounded-2xl border border-valence-border bg-white vl-circles py-16 px-8 lg:py-24 lg:px-14">
+      <section className="relative overflow-hidden rounded-2xl border border-valence-border bg-valence-elevated vl-circles py-8 px-5 sm:py-12 sm:px-8 lg:py-20 lg:px-14">
         <div className="absolute inset-0 bg-valence-grid opacity-50" aria-hidden />
         <div className="relative max-w-3xl z-10">
           <p className="vl-eyebrow">Firm-wide search</p>
@@ -166,8 +291,8 @@ function SearchPortal({ onSelectTab }) {
               : 'Add a Gemini key to unlock semantic search across meaning, not just text.'}
           </p>
 
-          <div className="mt-8 flex items-center gap-3 rounded-xl border border-valence-border bg-white px-4 py-3 focus-within:border-valence-blue focus-within:ring-2 focus-within:ring-valence-blue-ring transition shadow-valence">
-            <Search className="h-4 w-4 text-valence-blue" />
+          <div className="mt-8 flex items-center gap-3 rounded-xl border border-valence-border bg-valence-elevated px-4 py-3 focus-within:border-valence-blue focus-within:ring-2 focus-within:ring-valence-blue-ring transition shadow-valence">
+            <Search className="h-3.5 w-3.5 text-valence-subtle" />
             <input
               value={q} onChange={e => setQ(e.target.value)} autoFocus
               placeholder={mode === 'hybrid'
@@ -183,12 +308,15 @@ function SearchPortal({ onSelectTab }) {
               <FilterIcon className="inline h-3 w-3 mr-1" /> Show
             </span>
             {[
-              ['all',      'Everything'],
-              ['document', 'Memos'],
-              ['file',     'Files'],
-              ['comp',     'Comps'],
-              ['deal',     'Deals'],
-              ['deal_file','Deal files']
+              ['all',         'Everything'],
+              ['document',    'Memos'],
+              ['file',        'Files'],
+              ['comp',        'Comps'],
+              ['deal',        'Deals'],
+              ['deal_file',   'Deal files'],
+              ['person',      'People'],
+              ['fund',        'Funds'],
+              ['interaction', 'Interactions']
             ].map(([id, label]) => (
               <button
                 key={id} onClick={() => setSource(id)}
@@ -250,6 +378,20 @@ function ResultRow({ r, onOpen }) {
           <div className="flex items-center gap-2 flex-wrap">
             <p className="truncate text-sm font-semibold text-valence-text group-hover:text-valence-blue transition">{r.title || '(untitled)'}</p>
             <span className="vl-chip">{meta.label}</span>
+            {/* "Matched on" badge — tells the partner WHICH field/dimension
+                caused this row to surface. Defined by smartEntitySearch on
+                people / funds / interactions; absent on knowledge-RPC rows
+                where the match dimension isn't exposed by the RPC. */}
+            {r.matched_on && (
+              <span className="inline-flex items-center rounded-full border border-valence-blue/30 bg-valence-blue-soft px-1.5 py-0 text-[9.5px] font-semibold uppercase tracking-[0.14em] text-valence-blue">
+                Matched · {r.matched_on}
+              </span>
+            )}
+            {r.metadata?.warmth && (
+              <span className="inline-flex items-center rounded-full border border-valence-border bg-valence-elevated px-1.5 py-0 text-[9.5px] font-semibold uppercase tracking-[0.14em] text-valence-muted">
+                {r.metadata.warmth}
+              </span>
+            )}
             {r.metadata?.sector && <span className="vl-chip-blue">{r.metadata.sector}</span>}
             {r.matchCount > 1 && <span className="text-[10px] text-valence-subtle">{r.matchCount} matching sections</span>}
           </div>
@@ -303,7 +445,7 @@ function Documents() {
     setLoading(true)
     if (!isSupabaseConfigured) { setDocs([]); setLoading(false); return }
     const { data, error } = await supabase.from('documents').select('*').order('created_at', { ascending: false })
-    if (error) toast.error(error.message)
+    if (error) toast.error(humanError(error, 'Could not load memos'))
     setDocs(data || [])
     setLoading(false)
   }
@@ -324,7 +466,7 @@ function Documents() {
 
   async function saveDoc(payload) {
     const { error } = await supabase.from('documents').insert(payload)
-    if (error) return toast.error(error.message)
+    if (error) return toast.error(humanError(error, 'Could not publish memo'))
     setModal(false); load(); toast.success('Memo published.')
   }
 
@@ -332,7 +474,7 @@ function Documents() {
     const ok = await confirm({ title: 'Delete memo?', body: `"${doc.title}" will be removed.`, destructive: true, confirmLabel: 'Delete' })
     if (!ok) return
     const { error } = await supabase.from('documents').delete().eq('id', doc.id)
-    if (error) return toast.error(error.message)
+    if (error) return toast.error(humanError(error, 'Could not delete memo'))
     load(); setOpen(null); toast.success('Memo deleted.')
   }
 
@@ -341,7 +483,7 @@ function Documents() {
       <div className="vl-card p-4">
         <div className="flex flex-wrap items-center gap-3">
           <div className="flex flex-1 min-w-[240px] items-center gap-2 rounded-lg border border-valence-border bg-valence-surface px-3 py-2">
-            <Search className="h-4 w-4 text-valence-blue" />
+            <Search className="h-3.5 w-3.5 text-valence-subtle" />
             <input value={q} onChange={e => setQ(e.target.value)} placeholder="Filter memos…" className="flex-1 bg-transparent text-sm text-valence-text placeholder:text-valence-subtle outline-none" />
           </div>
           <Select label="Sector" value={sector} onChange={setSector} options={['All', ...sectors]} />
@@ -363,7 +505,7 @@ function Documents() {
                 <span className="text-[11px] text-valence-subtle">{format(new Date(d.created_at), 'd MMM')}</span>
               </div>
               <h3 className="mt-3 text-base font-semibold leading-snug text-valence-text group-hover:text-valence-blue transition">{d.title}</h3>
-              <p className="mt-2 text-xs leading-relaxed text-valence-muted line-clamp-4">{d.content}</p>
+              <p className="mt-2 text-xs leading-relaxed text-valence-muted line-clamp-4">{stripWikilinkTokens(d.content)}</p>
               {(d.tags || []).length > 0 && (
                 <div className="mt-4 flex flex-wrap gap-1.5">
                   {(d.tags || []).slice(0, 4).map(t => (
@@ -391,15 +533,7 @@ function Documents() {
           </div>
         )}
       >
-        {open && (
-          <div className="space-y-5">
-            <div className="flex flex-wrap items-center gap-2">
-              {open.sector && <span className="vl-chip-blue">{open.sector}</span>}
-              {(open.tags || []).map(t => <span key={t} className="vl-chip"><Hash className="h-3 w-3" />{t}</span>)}
-            </div>
-            <div className="whitespace-pre-wrap rounded-lg border border-valence-border bg-valence-surface px-4 py-4 text-sm leading-relaxed text-valence-text">{open.content}</div>
-          </div>
-        )}
+        {open && <MemoBody open={open} />}
       </Drawer>
 
       <Modal open={modal} onClose={() => setModal(false)} title="New memo" description="Write a memo, template, or playbook. It becomes searchable for the whole team instantly." size="lg">
@@ -428,7 +562,7 @@ function FilesSection() {
     setLoading(true)
     if (!isSupabaseConfigured) { setFiles([]); setLoading(false); return }
     const { data, error } = await supabase.from('knowledge_files').select('*').order('created_at', { ascending: false })
-    if (error) toast.error(error.message)
+    if (error) toast.error(humanError(error, 'Could not load files'))
     setFiles(data || [])
     setLoading(false)
   }
@@ -450,7 +584,7 @@ function FilesSection() {
       await deleteKnowledgeFile(f)
       toast.success('File deleted.')
       load()
-    } catch (e) { toast.error(e.message) }
+    } catch (e) { toast.error(humanError(e, 'Could not delete file')) }
   }
 
   return (
@@ -482,35 +616,44 @@ function FilesSection() {
 }
 
 function FileCard({ file, onDelete }) {
+  const url = filePublicUrl(file.path)
   return (
     <article className="vl-card vl-card-hover p-4 group relative">
-      <div className="flex items-start gap-3">
-        <div className="grid h-10 w-10 place-items-center rounded-lg bg-valence-blue-soft ring-1 ring-valence-blue/20 shrink-0">
-          <FileIcon className="h-4 w-4 text-valence-blue" />
-        </div>
-        <div className="flex-1 min-w-0">
-          <p className="truncate text-sm font-semibold text-valence-text" title={file.name}>{file.name}</p>
-          <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] text-valence-muted">
-            {file.sector && <span className="vl-chip-blue">{file.sector}</span>}
-            {file.char_count > 0 && <span>{Math.round(file.char_count / 1000)}k chars</span>}
-            <span className="text-valence-subtle">·</span>
-            <span>{formatDistanceToNow(new Date(file.created_at), { addSuffix: true })}</span>
+      <a
+        href={url}
+        target="_blank"
+        rel="noreferrer"
+        className="block cursor-pointer"
+        title="Open in new tab"
+      >
+        <div className="flex items-start gap-3">
+          <div className="grid h-10 w-10 place-items-center rounded-lg bg-valence-blue-soft ring-1 ring-valence-blue/20 shrink-0">
+            <FileIcon className="h-4 w-4 text-valence-blue" />
           </div>
-          {(file.tags || []).length > 0 && (
-            <div className="mt-2 flex flex-wrap gap-1">
-              {file.tags.slice(0, 4).map(t => (
-                <span key={t} className="inline-flex items-center gap-1 rounded-md border border-valence-border bg-valence-surface px-1.5 py-0.5 text-[10px] font-medium text-valence-muted">
-                  <Hash className="h-2.5 w-2.5" />{t}
-                </span>
-              ))}
+          <div className="flex-1 min-w-0">
+            <p className="truncate text-sm font-semibold text-valence-text group-hover:text-valence-blue transition" title={file.name}>{file.name}</p>
+            <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] text-valence-muted">
+              {file.sector && <span className="vl-chip-blue">{file.sector}</span>}
+              {file.char_count > 0 && <span>{Math.round(file.char_count / 1000)}k chars</span>}
+              <span className="text-valence-subtle">·</span>
+              <span>{formatDistanceToNow(new Date(file.created_at), { addSuffix: true })}</span>
             </div>
-          )}
-          {file.summary && <p className="mt-2 text-[11px] leading-relaxed text-valence-muted line-clamp-3">{file.summary}</p>}
+            {(file.tags || []).length > 0 && (
+              <div className="mt-2 flex flex-wrap gap-1">
+                {file.tags.slice(0, 4).map(t => (
+                  <span key={t} className="inline-flex items-center gap-1 rounded-md border border-valence-border bg-valence-surface px-1.5 py-0.5 text-[10px] font-medium text-valence-muted">
+                    <Hash className="h-2.5 w-2.5" />{t}
+                  </span>
+                ))}
+              </div>
+            )}
+            {file.summary && <p className="mt-2 text-[11px] leading-relaxed text-valence-muted line-clamp-3">{file.summary}</p>}
+          </div>
         </div>
-      </div>
+      </a>
 
-      <div className="mt-3 flex items-center justify-end gap-1">
-        <a href={filePublicUrl(file.path)} target="_blank" rel="noreferrer" className="vl-btn-ghost" aria-label="Open">
+      <div className="mt-3 flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition">
+        <a href={url} target="_blank" rel="noreferrer" className="vl-btn-ghost" aria-label="Open">
           <Download className="h-3.5 w-3.5" />
         </a>
         <button onClick={() => onDelete(file)} className="vl-btn-ghost text-valence-subtle hover:text-valence-danger" aria-label="Delete">
@@ -539,7 +682,7 @@ function Comps() {
     setLoading(true)
     if (!isSupabaseConfigured) { setComps([]); setLoading(false); return }
     const { data, error } = await supabase.from('comps').select('*').order('year', { ascending: false })
-    if (error) toast.error(error.message)
+    if (error) toast.error(humanError(error, 'Could not load comps'))
     setComps(data || [])
     setLoading(false)
   }
@@ -557,14 +700,14 @@ function Comps() {
 
   async function saveComp(payload) {
     const { error } = await supabase.from('comps').insert(payload)
-    if (error) return toast.error(error.message)
+    if (error) return toast.error(humanError(error, 'Could not add comp'))
     setModal(false); load(); toast.success('Comp added.')
   }
   async function deleteComp(c) {
     const ok = await confirm({ title: 'Delete this comp?', body: `${c.target} will be removed.`, destructive: true, confirmLabel: 'Delete' })
     if (!ok) return
     const { error } = await supabase.from('comps').delete().eq('id', c.id)
-    if (error) return toast.error(error.message)
+    if (error) return toast.error(humanError(error, 'Could not delete comp'))
     load(); toast.success('Comp deleted.')
   }
 
@@ -649,12 +792,31 @@ function Select({ value, onChange, label, options }) {
   )
 }
 
+// Memo detail body — renders [[wikilinks]] as clickable chips + tag/sector
+// chips up top. Pulled into its own component so we can hook the entity
+// universe via useWikilinkEntities (a hook can't live inline in JSX).
+function MemoBody({ open }) {
+  const entities = useWikilinkEntities()
+  return (
+    <div className="space-y-5">
+      <div className="flex flex-wrap items-center gap-2">
+        {open.sector && <span className="vl-chip-blue">{open.sector}</span>}
+        {(open.tags || []).map(t => <span key={t} className="vl-chip"><Hash className="h-3 w-3" />{t}</span>)}
+      </div>
+      <div className="rounded-lg border border-valence-border bg-valence-surface px-4 py-4 text-sm">
+        <WikilinkContent body={open.content} entities={entities} />
+      </div>
+    </div>
+  )
+}
+
 function DocForm({ onSubmit, onCancel }) {
   const [title, setTitle] = useState('')
   const [content, setContent] = useState('')
   const [tagsStr, setTagsStr] = useState('')
   const [sector, setSector] = useState('')
   const [submitting, setSubmitting] = useState(false)
+  const entities = useWikilinkEntities()
 
   async function submit(e) {
     e.preventDefault()
@@ -672,7 +834,13 @@ function DocForm({ onSubmit, onCancel }) {
       </div>
       <div>
         <label className="vl-label">Content</label>
-        <textarea className="vl-input min-h-[220px]" value={content} onChange={e => setContent(e.target.value)} required />
+        <WikilinkTextarea
+          value={content}
+          onChange={setContent}
+          entities={entities}
+          minHeight={220}
+          placeholder={'Write the memo. Type [[ to link to a person, fund, mandate, or another memo.\n\nExample: "Met [[ to autocomplete a name."'}
+        />
       </div>
       <div className="grid grid-cols-2 gap-4">
         <div>
@@ -728,7 +896,7 @@ function CompForm({ onSubmit, onCancel }) {
         <div><label className="vl-label">EV (USD M)</label><input className="vl-input" type="number" value={form.ev_usd_m} onChange={e => set('ev_usd_m', e.target.value)} /></div>
         <div><label className="vl-label">Revenue multiple</label><input className="vl-input" type="number" step="0.1" value={form.revenue_multiple} onChange={e => set('revenue_multiple', e.target.value)} /></div>
         <div className="col-span-2"><label className="vl-label">EBITDA multiple</label><input className="vl-input" type="number" step="0.1" value={form.ebitda_multiple} onChange={e => set('ebitda_multiple', e.target.value)} /></div>
-        <div className="col-span-2"><label className="vl-label">Notes</label><textarea className="vl-input min-h-[80px]" value={form.notes} onChange={e => set('notes', e.target.value)} /></div>
+        <div className="col-span-2"><label className="vl-label">Notes</label><WikilinkTextarea value={form.notes} onChange={v => set('notes', v)} entities={entities} minHeight={80} placeholder="Type [[ to link people / funds / mandates" /></div>
       </div>
       <div className="flex items-center justify-end gap-3 pt-2">
         <button type="button" onClick={onCancel} className="vl-btn-secondary">Cancel</button>

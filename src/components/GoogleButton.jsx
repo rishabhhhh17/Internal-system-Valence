@@ -1,7 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
-import { LogOut, RefreshCw, Check, Mail, Calendar, FolderOpen } from 'lucide-react'
+import { Link } from 'react-router-dom'
+import { LogOut, Settings as SettingsIcon } from 'lucide-react'
 import { signInWithGoogle, signOut } from '../lib/google.js'
 import { useAuth } from '../hooks/useAuth.js'
+import { humanError } from '../lib/userError.js'
 import { useToast } from './Toast.jsx'
 
 export default function GoogleButton() {
@@ -23,7 +25,7 @@ export default function GoogleButton() {
     try {
       await signInWithGoogle()
     } catch (e) {
-      toast.error(e.message || 'Could not start Google sign-in')
+      toast.error(humanError(e, 'Could not start Google sign-in'))
       setBusy(false)
     }
   }
@@ -31,7 +33,7 @@ export default function GoogleButton() {
   async function disconnect() {
     setBusy(true)
     try { await signOut(); toast.success('Signed out.') }
-    catch (e) { toast.error(e.message) }
+    catch (e) { toast.error(humanError(e, 'Could not sign out')) }
     finally { setBusy(false); setOpen(false) }
   }
 
@@ -56,13 +58,13 @@ export default function GoogleButton() {
         <Avatar profile={profile} />
         <span className="hidden md:inline text-xs font-semibold text-valence-text max-w-[140px] truncate">{profile.name}</span>
         {googleConnected
-          ? <span className="h-1.5 w-1.5 rounded-full bg-valence-success shadow-[0_0_6px_#34d399]" title="Google connected" />
-          : <span className="h-1.5 w-1.5 rounded-full bg-valence-warning" title="Google session expired" />
+          ? <span role="img" aria-label="Google connected" className="h-1.5 w-1.5 rounded-full bg-valence-success shadow-[0_0_6px_#34d399]" title="Google connected" />
+          : <span role="img" aria-label="Google session expired" className="h-1.5 w-1.5 rounded-full bg-valence-warning" title="Google session expired" />
         }
       </button>
 
       {open && (
-        <div className="absolute right-0 top-full mt-2 z-50 w-72 animate-slide-up rounded-xl border border-valence-border-strong bg-valence-surface shadow-valence">
+        <div className="absolute right-0 top-full mt-2 z-50 w-64 animate-slide-up rounded-xl border border-valence-border-strong bg-valence-surface shadow-valence">
           <div className="flex items-center gap-3 border-b border-valence-border px-4 py-3.5">
             <Avatar profile={profile} size="lg" />
             <div className="min-w-0">
@@ -71,44 +73,29 @@ export default function GoogleButton() {
             </div>
           </div>
 
-          <div className="px-2 py-2">
-            <div className="px-3 pb-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-valence-subtle">
-              Google access
-            </div>
-            <Row icon={Calendar}   label="Calendar"    ok={googleConnected} />
-            <Row icon={FolderOpen} label="Drive"       ok={googleConnected} />
-            <Row icon={Mail}       label="Gmail send"  ok={googleConnected} />
-          </div>
-
           <div className="border-t border-valence-border px-2 py-2 space-y-1">
             {needsReconnect && (
-              <button onClick={connect} className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm font-semibold text-valence-warning hover:bg-valence-surface">
-                <RefreshCw className="h-3.5 w-3.5" /> Reconnect Google
-              </button>
+              <Link
+                to="/settings?section=integrations"
+                onClick={() => setOpen(false)}
+                className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm font-semibold text-amber-700 hover:bg-valence-surface"
+              >
+                <SettingsIcon className="h-3.5 w-3.5" /> Reconnect Google
+              </Link>
             )}
-            {!needsReconnect && googleConnected && (
-              <button onClick={connect} className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-valence-muted hover:bg-valence-surface hover:text-valence-text">
-                <RefreshCw className="h-3.5 w-3.5" /> Refresh Google scopes
-              </button>
-            )}
+            <Link
+              to="/settings?section=integrations"
+              onClick={() => setOpen(false)}
+              className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-valence-muted hover:bg-valence-surface hover:text-valence-text"
+            >
+              <SettingsIcon className="h-3.5 w-3.5" /> Manage Google in Settings
+            </Link>
             <button onClick={disconnect} disabled={busy} className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-valence-muted hover:bg-valence-surface hover:text-valence-danger">
               <LogOut className="h-3.5 w-3.5" /> Sign out
             </button>
           </div>
         </div>
       )}
-    </div>
-  )
-}
-
-function Row({ icon: Icon, label, ok }) {
-  return (
-    <div className="flex items-center gap-2 rounded-lg px-3 py-1.5 text-xs">
-      <Icon className="h-3.5 w-3.5 text-valence-muted" />
-      <span className="flex-1 text-valence-text">{label}</span>
-      {ok
-        ? <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-valence-success"><Check className="h-3 w-3" /> Connected</span>
-        : <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-valence-warning">Reauth needed</span>}
     </div>
   )
 }

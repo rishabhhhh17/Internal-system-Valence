@@ -3,9 +3,7 @@
 // the deal's own data (notes, counterparties, files, activity, comps).
 
 import { searchKnowledge } from './knowledge.js'
-import { geminiKey, isGeminiConfigured } from './gemini.js'
-
-const URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:streamGenerateContent'
+import { isGeminiConfigured, llmStream } from './gemini.js'
 
 export const CIM_SECTIONS = [
   { id: 'executive_summary',  label: 'Executive Summary',    hint: 'High-level situation, why now, headline asks.' },
@@ -92,41 +90,20 @@ export async function generateCIM({
 
   const prompt = buildPrompt({ deal, sections, contacts, files, activities, compsContext, financials })
 
-  const res = await fetch(`${URL}?key=${geminiKey}&alt=sse`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      contents: [{ parts: [{ text: prompt }] }],
-      generationConfig: { temperature: 0.35, maxOutputTokens: 2400 }
-    })
-  })
-  if (!res.ok || !res.body) {
-    const t = await res.text().catch(() => '')
-    const err = new Error(`Gemini error ${res.status}: ${t.slice(0, 200)}`)
-    onError?.(err); throw err
-  }
-
-  const reader = res.body.getReader()
-  const dec = new TextDecoder()
+  // Stream through the multi-provider proxy. Same `data: TEXT\n\n` shape
+  // regardless of which LLM the customer has picked — for CIMs we lean
+  // higher on maxOutputTokens because the doc covers 9 sections.
   let full = ''
-  let buffer = ''
-  while (true) {
-    const { value, done } = await reader.read()
-    if (done) break
-    buffer += dec.decode(value, { stream: true })
-    const lines = buffer.split('\n')
-    buffer = lines.pop() || ''
-    for (const line of lines) {
-      const trimmed = line.trim()
-      if (!trimmed.startsWith('data:')) continue
-      const payload = trimmed.slice(5).trim()
-      if (!payload || payload === '[DONE]') continue
-      try {
-        const json = JSON.parse(payload)
-        const text = json?.candidates?.[0]?.content?.parts?.[0]?.text || ''
-        if (text) { full += text; onChunk?.(text, full) }
-      } catch {}
-    }
+  try {
+    const result = await llmStream(prompt, {
+      temperature: 0.35,
+      maxOutputTokens: 2400,
+      actionType: 'cim_draft',
+      onChunk: (text, fullSoFar) => { full = fullSoFar; onChunk?.(text, fullSoFar) }
+    })
+    full = result.text || full
+  } catch (err) {
+    onError?.(err); throw err
   }
 
   onDone?.(full)

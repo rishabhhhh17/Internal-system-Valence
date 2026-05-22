@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Plus, User2, Trash2, Percent } from 'lucide-react'
 import { supabase, isSupabaseConfigured } from '../lib/supabase.js'
+import { humanError } from '../lib/userError.js'
 import { useToast } from './Toast.jsx'
 import { useConfirm } from './ConfirmDialog.jsx'
 
@@ -23,7 +24,7 @@ export default function DealTeam({ deal }) {
     setLoading(true)
     const { data, error } = await supabase
       .from('deal_team').select('*').eq('deal_id', deal.id).order('created_at')
-    if (error) toast.error(error.message)
+    if (error) toast.error(humanError(error, 'Could not load team'))
     setRows(data || [])
     setLoading(false)
   }
@@ -35,7 +36,7 @@ export default function DealTeam({ deal }) {
       return
     }
     const { data, error } = await supabase.from('deal_team').insert({ deal_id: deal.id, ...form }).select().single()
-    if (error) return toast.error(error.message)
+    if (error) return toast.error(humanError(error, 'Could not add team member'))
     setRows(prev => [...prev, data])
     setAdding(false)
     toast.success(`${form.name} added to the team.`)
@@ -47,7 +48,7 @@ export default function DealTeam({ deal }) {
       return
     }
     const { error } = await supabase.from('deal_team').update(patch).eq('id', row.id)
-    if (error) return toast.error(error.message)
+    if (error) return toast.error(humanError(error, 'Could not update team member'))
     setRows(prev => prev.map(r => r.id === row.id ? { ...r, ...patch } : r))
   }
 
@@ -56,7 +57,7 @@ export default function DealTeam({ deal }) {
     if (!ok) return
     if (!isSupabaseConfigured) { setRows(prev => prev.filter(r => r.id !== row.id)); return }
     const { error } = await supabase.from('deal_team').delete().eq('id', row.id)
-    if (error) return toast.error(error.message)
+    if (error) return toast.error(humanError(error, 'Could not remove team member'))
     setRows(prev => prev.filter(r => r.id !== row.id))
     toast.success('Removed.')
   }
@@ -97,7 +98,7 @@ export default function DealTeam({ deal }) {
         <>
           <ul className="space-y-2">
             {rows.map(r => (
-              <li key={r.id} className="group rounded-lg border border-valence-border bg-white px-4 py-3">
+              <li key={r.id} className="group rounded-lg border border-valence-border bg-valence-elevated px-4 py-3">
                 <div className="flex items-center gap-3">
                   <div className="grid h-9 w-9 place-items-center rounded-full bg-gradient-to-br from-valence-blue to-[#1a66cc] text-[11px] font-semibold text-white ring-1 ring-valence-border-strong shrink-0">
                     {initials(r.name)}
@@ -170,7 +171,7 @@ function AddForm({ onSubmit, onCancel, suggestedLead }) {
       <div className="grid grid-cols-2 gap-2">
         <input value={form.name} onChange={e => set('name', e.target.value)} placeholder="Name" className="vl-input" required autoFocus />
         <select value={form.role} onChange={e => set('role', e.target.value)} className="vl-input">
-          {ROLES.map(r => <option key={r} className="bg-white" value={r}>{r}</option>)}
+          {ROLES.map(r => <option key={r} className="bg-valence-elevated" value={r}>{r}</option>)}
         </select>
         <input value={form.email} onChange={e => set('email', e.target.value)} placeholder="Email (optional)" type="email" className="vl-input" />
         <input value={form.share_pct} onChange={e => set('share_pct', e.target.value)} placeholder="Credit %" type="number" min="0" max="100" step="5" className="vl-input" />
@@ -183,6 +184,10 @@ function AddForm({ onSubmit, onCancel, suggestedLead }) {
   )
 }
 
-function initials(name = '') {
-  return name.split(' ').map(p => p[0]).slice(0, 2).join('').toUpperCase()
+function initials(name) {
+  // Default to '' first — caller may pass null/undefined, not just '',
+  // which would bypass the parameter default and crash on .split.
+  const n = (name || '').trim()
+  if (!n) return '?'
+  return n.split(/\s+/).filter(Boolean).map(p => p[0]).slice(0, 2).join('').toUpperCase()
 }

@@ -3,6 +3,7 @@ import { Upload, FileText, X, Loader2, CheckCircle2 } from 'lucide-react'
 import { uploadKnowledgeFile } from '../lib/knowledge.js'
 import { fileTypeFor } from '../lib/fileParse.js'
 import { embeddingsEnabled } from '../lib/embeddings.js'
+import { humanError } from '../lib/userError.js'
 import { useToast } from './Toast.jsx'
 
 export default function KnowledgeUpload({ onUploaded, uploadedBy }) {
@@ -60,7 +61,7 @@ export default function KnowledgeUpload({ onUploaded, uploadedBy }) {
         updateItem(item.id, { status: 'done', pct: 1, label: 'Indexed' })
       } catch (err) {
         updateItem(item.id, { status: 'error', label: err.message || 'Failed' })
-        toast.error(`${item.file.name}: ${err.message}`)
+        toast.error(`${item.file.name}: ${humanError(err, 'Upload failed')}`)
       }
     }
     setBusy(false)

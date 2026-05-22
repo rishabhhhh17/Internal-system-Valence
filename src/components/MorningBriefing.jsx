@@ -78,7 +78,7 @@ export default function MorningBriefing() {
   }
 
   return (
-    <section className="vl-card p-8 lg:p-10 bg-gradient-to-br from-white to-valence-surface">
+    <section className="vl-card p-8 lg:p-10 bg-gradient-to-br from-valence-elevated to-valence-surface">
       {/* Header: greeting + date */}
       <div className="flex items-start justify-between gap-4">
         <div className="flex items-start gap-3">
@@ -195,7 +195,7 @@ function Column({ title, icon: Icon, link, count, empty, children }) {
           <p className="text-sm text-valence-muted">{empty}</p>
         </div>
       ) : (
-        <ul className="divide-y divide-valence-border/60 rounded-xl border border-valence-border bg-white px-4">
+        <ul className="divide-y divide-valence-border/60 rounded-xl border border-valence-border bg-valence-elevated px-4">
           {children}
         </ul>
       )}

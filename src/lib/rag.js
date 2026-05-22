@@ -3,10 +3,7 @@
 // prompt with numbered citations, streams the response back.
 
 import { searchKnowledge } from './knowledge.js'
-import { geminiKey, isGeminiConfigured } from './gemini.js'
-
-const MODEL_STREAM_URL =
-  'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:streamGenerateContent'
+import { isGeminiConfigured, llmStream } from './gemini.js'
 
 function buildPrompt({ question, chunks, history = [] }) {
   const context = chunks.map((c, i) => `[${i + 1}] ${c.title || '(untitled)'}\n${(c.content || c.snippet || '').replace(/<<|>>/g, '')}`).join('\n\n---\n\n')
@@ -60,50 +57,25 @@ export async function askWithStreaming(question, {
     throw err
   }
 
-  // Stream generation
+  // Stream generation through the multi-provider proxy. The streaming
+  // endpoint normalises every upstream's SSE shape into `data: TEXT\n\n`
+  // chunks, so we just append each delta as it arrives.
   const prompt = buildPrompt({ question, chunks, history })
-  const res = await fetch(`${MODEL_STREAM_URL}?key=${geminiKey}&alt=sse`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      contents: [{ parts: [{ text: prompt }] }],
-      generationConfig: { temperature: 0.25, maxOutputTokens: 700 }
+  let full = ''
+  try {
+    const result = await llmStream(prompt, {
+      temperature: 0.25,
+      maxOutputTokens: 700,
+      actionType: 'rag_ask',
+      onChunk: (text, fullSoFar) => {
+        full = fullSoFar
+        onChunk?.(text, fullSoFar)
+      }
     })
-  })
-  if (!res.ok || !res.body) {
-    const t = await res.text().catch(() => '')
-    const err = new Error(`Gemini error ${res.status}: ${t.slice(0, 200)}`)
+    full = result.text || full
+  } catch (err) {
     onError?.(err)
     throw err
-  }
-
-  const reader = res.body.getReader()
-  const decoder = new TextDecoder()
-  let full = ''
-  let buffer = ''
-
-  while (true) {
-    const { value, done } = await reader.read()
-    if (done) break
-    buffer += decoder.decode(value, { stream: true })
-    const lines = buffer.split('\n')
-    buffer = lines.pop() || ''
-    for (const line of lines) {
-      const trimmed = line.trim()
-      if (!trimmed.startsWith('data:')) continue
-      const payload = trimmed.slice(5).trim()
-      if (!payload || payload === '[DONE]') continue
-      try {
-        const json = JSON.parse(payload)
-        const text = json?.candidates?.[0]?.content?.parts?.[0]?.text || ''
-        if (text) {
-          full += text
-          onChunk?.(text, full)
-        }
-      } catch {
-        // Occasionally Gemini returns a chunk mid-line; leave it in the buffer
-      }
-    }
   }
 
   onDone?.({ answer: full, sources: chunks })

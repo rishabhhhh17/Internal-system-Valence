@@ -1,7 +1,6 @@
 import { useMemo, useRef, useState } from 'react'
-import { Briefcase, TrendingUp, MoreHorizontal, Move } from 'lucide-react'
+import { Briefcase, MoreHorizontal } from 'lucide-react'
 import { STAGES, STAGE_IDS, stageToneClasses } from '../lib/stages.js'
-import { useCurrency } from '../hooks/useCurrency.jsx'
 
 export default function DealKanban({ deals, onOpen, onStageChange }) {
   const [draggingId, setDraggingId] = useState(null)
@@ -21,8 +20,7 @@ export default function DealKanban({ deals, onOpen, onStageChange }) {
 
   return (
     <div className="vl-card p-4">
-      <Legend />
-      <div className="mt-4 flex gap-3 overflow-x-auto pb-2 -mx-1 px-1 snap-x">
+      <div className="flex gap-3 overflow-x-auto pb-2 -mx-1 px-1 snap-x">
         {STAGES.map(stage => {
           const items = byStage[stage.id] || []
           const isOver = overStage === stage.id
@@ -48,7 +46,7 @@ export default function DealKanban({ deals, onOpen, onStageChange }) {
                   <span className={`h-1.5 w-1.5 rounded-full shrink-0 ${dotForTone(stage.tone)}`} />
                   <p className="text-[11px] font-semibold uppercase tracking-wider text-valence-text truncate" title={stage.desc}>{stage.id}</p>
                 </div>
-                <span className="rounded-md border border-valence-border bg-white px-1.5 py-0.5 text-[10px] font-semibold tabular-nums text-valence-muted">
+                <span className="rounded-md border border-valence-border bg-valence-elevated px-1.5 py-0.5 text-[10px] font-semibold tabular-nums text-valence-muted">
                   {items.length}
                 </span>
               </div>
@@ -79,7 +77,6 @@ export default function DealKanban({ deals, onOpen, onStageChange }) {
 
 function Card({ deal: d, onOpen, onStageChange, setDraggingId, setOverStage, openMenu, setOpenMenu }) {
   const ref = useRef(null)
-  const { money } = useCurrency()
   return (
     <article
       ref={ref}
@@ -97,7 +94,7 @@ function Card({ deal: d, onOpen, onStageChange, setDraggingId, setOverStage, ope
         if (e.target.closest('[data-menu-trigger]')) return
         onOpen?.(d)
       }}
-      className="group relative cursor-pointer rounded-lg border border-valence-border bg-white p-3 transition hover:border-valence-ink/20 hover:shadow-valence active:opacity-60"
+      className="group relative cursor-pointer rounded-lg border border-valence-border bg-valence-elevated p-3 transition hover:border-valence-ink/20 hover:shadow-valence active:opacity-60"
     >
       <div className="flex items-start gap-2">
         <div className="grid h-7 w-7 place-items-center rounded-md bg-valence-blue-soft ring-1 ring-valence-blue/20 shrink-0">
@@ -114,12 +111,14 @@ function Card({ deal: d, onOpen, onStageChange, setDraggingId, setOverStage, ope
         </button>
       </div>
       <div className="mt-2 flex flex-wrap items-center gap-1.5 text-[10px]">
-        <span className="inline-flex items-center rounded-md border border-valence-border bg-valence-surface px-1.5 py-0.5 font-semibold text-valence-muted">
-          {d.deal_type}
-        </span>
-        {d.side && (
-          <span className="inline-flex items-center rounded-md border border-valence-border bg-valence-surface px-1.5 py-0.5 font-semibold text-valence-muted">
-            {d.side}
+        {(Array.isArray(d.deal_types) ? d.deal_types : []).map(t => (
+          <span key={t} className="inline-flex items-center rounded-md border border-valence-border bg-valence-surface px-1.5 py-0.5 font-semibold text-valence-muted capitalize">
+            {t === 'm_and_a' ? 'M&A' : t}
+          </span>
+        ))}
+        {d.deal_subtype && d.deal_types?.includes('transaction') && (
+          <span className="inline-flex items-center rounded-md border border-valence-blue/30 bg-valence-blue-soft px-1.5 py-0.5 font-semibold text-valence-blue">
+            {d.deal_subtype === 'm_and_a' ? 'M&A' : d.deal_subtype.replace(/_/g, ' ')}
           </span>
         )}
         {d.sector && (
@@ -128,17 +127,12 @@ function Card({ deal: d, onOpen, onStageChange, setDraggingId, setOverStage, ope
           </span>
         )}
       </div>
-      {d.ticket_size_usd_m != null && (
-        <div className="mt-2 flex items-center gap-1 text-[11px] font-semibold text-valence-blue">
-          <TrendingUp className="h-3 w-3" /> {money(d.ticket_size_usd_m)}
-        </div>
-      )}
 
       {openMenu && (
         <div
           data-menu-trigger
           onClick={(e) => e.stopPropagation()}
-          className="absolute right-2 top-10 z-20 w-44 rounded-lg border border-valence-border-strong bg-white shadow-valence-lg overflow-hidden animate-slide-up"
+          className="absolute right-2 top-10 z-20 w-44 rounded-lg border border-valence-border-strong bg-valence-elevated shadow-valence-lg overflow-hidden animate-slide-up"
         >
           <p className="px-3 pt-2 pb-1 text-[10px] font-semibold uppercase tracking-wider text-valence-subtle">Move to</p>
           <ul className="pb-1 max-h-60 overflow-y-auto">
@@ -163,22 +157,6 @@ function Card({ deal: d, onOpen, onStageChange, setDraggingId, setOverStage, ope
         </div>
       )}
     </article>
-  )
-}
-
-function Legend() {
-  return (
-    <div className="flex items-start gap-3 rounded-xl bg-valence-blue-soft/40 border border-valence-blue/20 px-4 py-3">
-      <div className="grid h-8 w-8 place-items-center rounded-lg bg-valence-blue-soft ring-1 ring-valence-blue/30 shrink-0">
-        <Move className="h-3.5 w-3.5 text-valence-blue" />
-      </div>
-      <div className="flex-1">
-        <p className="text-sm font-semibold text-valence-text">How the funnel works</p>
-        <p className="mt-0.5 text-[11px] leading-relaxed text-valence-muted">
-          Preliminary conversations sit in <b className="text-valence-text">Origination</b> and <b className="text-valence-text">Pitch</b>. Once engaged (<b className="text-valence-text">Mandate</b>) we build materials (<b className="text-valence-text">Preparation</b>), run <b className="text-valence-text">Marketing</b>, <b className="text-valence-text">Diligence</b> and <b className="text-valence-text">Negotiation</b>, and ship at <b className="text-valence-text">Closing</b>. Drag a card between columns, or tap the menu on a card to move on mobile.
-        </p>
-      </div>
-    </div>
   )
 }
 

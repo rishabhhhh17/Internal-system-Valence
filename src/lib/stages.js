@@ -1,82 +1,56 @@
-// Canonical Valence deal funnel. Every stage is defined with a short
-// description so anyone on the team — analyst to MD — knows exactly what
-// it means. Hover tooltips across the UI use these descriptions.
+// Canonical Valence pipeline. Compressed from the previous 11-stage model
+// to 7 stages that mirror how mandates actually progress at the firm. The
+// old execution-phase stages (Preparation, Marketing, Diligence,
+// Negotiation, Closing) collapse into "Mandate" — that work is captured in
+// the activity log, not as separate pipeline stages.
 
 export const STAGES = [
   {
     id: 'Origination',
     short: 'Prospect',
-    desc: 'Preliminary conversations. A potential client or target is identified but no mandate is in place yet.',
+    desc: 'First few interactions. We have started talking. Nothing committed.',
     tone: 'slate',
     terminal: false
   },
   {
-    id: 'Pitch',
+    id: 'Pitching',
     short: 'Pitching',
-    desc: 'Actively pitching for the mandate — credentials, approach, indicative economics being discussed.',
+    desc: 'Actively hard-pitching the proposition. Not soft-pitching, not informal.',
     tone: 'slate',
+    terminal: false
+  },
+  {
+    id: 'Pre-Mandate',
+    short: 'Pre-mandate',
+    desc: 'Negotiating pricing, NDAs, engagement letter. Pre-contractual paperwork.',
+    tone: 'blue',
     terminal: false
   },
   {
     id: 'Mandate',
     short: 'Engaged',
-    desc: 'Engagement letter signed. Valence is formally retained; scope, fees, and timeline are locked.',
-    tone: 'blue',
-    terminal: false
-  },
-  {
-    id: 'Preparation',
-    short: 'Prepping',
-    desc: 'Building the materials — teaser, IM/management presentation, financial model, data room, investor list.',
-    tone: 'blue',
-    terminal: false
-  },
-  {
-    id: 'Marketing',
-    short: 'Outreach',
-    desc: 'Teaser released. NDAs flowing. Counterparties (buyers, investors, strategics) being engaged.',
-    tone: 'blue',
-    terminal: false
-  },
-  {
-    id: 'Diligence',
-    short: 'Diligence',
-    desc: 'Counterparties are in the data room. Management meetings, Q&A, and site visits underway.',
-    tone: 'blue-strong',
-    terminal: false
-  },
-  {
-    id: 'Negotiation',
-    short: 'LOI / Terms',
-    desc: 'LOIs, term sheets, or pricing under discussion. Shortlisted counterparty being selected.',
-    tone: 'blue-strong',
-    terminal: false
-  },
-  {
-    id: 'Closing',
-    short: 'Closing',
-    desc: 'Definitive documentation, regulatory approvals, signing and funds flow.',
+    desc: 'Fully working on the engagement. Active execution.',
     tone: 'blue-strong',
     terminal: false
   },
   {
     id: 'Closed',
     short: 'Closed',
-    desc: 'Mandate successfully completed. Success fee recognised.',
+    desc: 'Successfully completed mandate.',
     tone: 'success',
     terminal: true
   },
   {
     id: 'On Hold',
     short: 'Paused',
-    desc: 'Paused awaiting a specific trigger (financials, market window, counterparty decision).',
+    desc: 'Holding the contract but not actively working — payment dispute, client emergency, force majeure.',
     tone: 'warning',
     terminal: true
   },
   {
     id: 'Lost',
     short: 'Lost',
-    desc: 'Dead. Counterparty walked, mandate withdrawn, or lost in a competitive process.',
+    desc: 'Engagement ended abruptly. Not a successful close.',
     tone: 'danger',
     terminal: true
   }
@@ -85,6 +59,11 @@ export const STAGES = [
 export const ACTIVE_STAGES   = STAGES.filter(s => !s.terminal)
 export const TERMINAL_STAGES = STAGES.filter(s =>  s.terminal)
 export const STAGE_IDS       = STAGES.map(s => s.id)
+
+// "Live mandate" stages — what the Live Mandates page and Timeline view show.
+// Pre-Mandate + Mandate. Origination and Pitching are pre-pipeline (Interactions
+// territory); the terminal three are after.
+export const LIVE_MANDATE_STAGES = ['Pre-Mandate', 'Mandate']
 
 export function stageMeta(id) {
   return STAGES.find(s => s.id === id) || STAGES[0]
@@ -95,7 +74,7 @@ export function stageToneClasses(id) {
   switch (tone) {
     case 'slate':       return 'bg-white/5 text-valence-muted border-valence-border'
     case 'blue':        return 'bg-valence-blue/10 text-valence-blue border-valence-blue/30'
-    case 'blue-strong': return 'bg-valence-blue-soft text-white border-valence-blue/50'
+    case 'blue-strong': return 'bg-valence-blue-soft text-valence-blue border-valence-blue/50'
     case 'success':     return 'bg-valence-success/10 text-valence-success border-valence-success/30'
     case 'warning':     return 'bg-valence-warning/10 text-valence-warning border-valence-warning/30'
     case 'danger':      return 'bg-valence-danger/10 text-valence-danger border-valence-danger/30'
@@ -109,4 +88,15 @@ export function stageProgress(id) {
   if (m.terminal) return m.id === 'Closed' ? 1 : 0
   const idx = ACTIVE_STAGES.findIndex(s => s.id === id)
   return (idx + 1) / ACTIVE_STAGES.length
+}
+
+// Map old stage names to new ones. Used at runtime when reading historical
+// data that hasn't been migrated yet (the SQL migration covers the durable
+// case; this catches in-memory data and demo arrays).
+export function migrateStage(old) {
+  if (!old) return 'Origination'
+  if (old === 'Pitch') return 'Pitching'
+  if (['Preparation', 'Marketing', 'Diligence', 'Negotiation', 'Closing'].includes(old)) return 'Mandate'
+  if (STAGE_IDS.includes(old)) return old
+  return 'Origination'
 }

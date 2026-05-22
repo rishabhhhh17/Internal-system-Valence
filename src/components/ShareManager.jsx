@@ -5,6 +5,7 @@ import Modal from './Modal.jsx'
 import { createShare, listShares, revokeShare, deleteShare, shareUrl, listAccess } from '../lib/shares.js'
 import { supabase, isSupabaseConfigured } from '../lib/supabase.js'
 import { useAuth } from '../hooks/useAuth.js'
+import { humanError } from '../lib/userError.js'
 import { useToast } from './Toast.jsx'
 import { useConfirm } from './ConfirmDialog.jsx'
 
@@ -32,7 +33,7 @@ export default function ShareManager({ deal }) {
       setShares(s)
       setFiles(f.data || [])
     } catch (e) {
-      toast.error(e.message)
+      toast.error(humanError(e, 'Could not load shares'))
     } finally {
       setLoading(false)
     }
@@ -59,7 +60,7 @@ export default function ShareManager({ deal }) {
         toast.info('Link copied to clipboard.')
       } catch {}
     } catch (e) {
-      toast.error(e.message || 'Could not create share.')
+      toast.error(humanError(e, 'Could not create share'))
     }
   }
 
@@ -70,7 +71,7 @@ export default function ShareManager({ deal }) {
       await revokeShare(s.id)
       setShares(prev => prev.map(x => x.id === s.id ? { ...x, revoked: true } : x))
       toast.success('Revoked.')
-    } catch (e) { toast.error(e.message) }
+    } catch (e) { toast.error(humanError(e, 'Could not revoke share')) }
   }
 
   async function handleDelete(s) {
@@ -80,7 +81,7 @@ export default function ShareManager({ deal }) {
       await deleteShare(s.id)
       setShares(prev => prev.filter(x => x.id !== s.id))
       toast.success('Deleted.')
-    } catch (e) { toast.error(e.message) }
+    } catch (e) { toast.error(humanError(e, 'Could not delete share')) }
   }
 
   async function viewLog(s) {
@@ -88,12 +89,12 @@ export default function ShareManager({ deal }) {
     try {
       const data = await listAccess(s.id)
       setAccess(data)
-    } catch (e) { toast.error(e.message) }
+    } catch (e) { toast.error(humanError(e, 'Could not load access log')) }
   }
 
   return (
     <div className="space-y-4">
-      <div className="rounded-xl border border-valence-border bg-gradient-to-br from-valence-blue-soft via-white to-white p-5">
+      <div className="rounded-xl border border-valence-border bg-gradient-to-br from-valence-blue-soft via-valence-elevated to-valence-elevated p-5">
         <div className="flex items-start gap-3">
           <div className="grid h-10 w-10 place-items-center rounded-xl bg-valence-blue-soft ring-1 ring-valence-blue/30 shrink-0">
             <Globe className="h-4 w-4 text-valence-blue" />
@@ -138,7 +139,7 @@ export default function ShareManager({ deal }) {
             ) : (
               <ul className="space-y-1.5">
                 {access.map(e => (
-                  <li key={e.id} className="rounded-lg border border-valence-border bg-white px-3 py-2 text-xs">
+                  <li key={e.id} className="rounded-lg border border-valence-border bg-valence-elevated px-3 py-2 text-xs">
                     <div className="flex items-center justify-between">
                       <span className="font-semibold text-valence-text capitalize">{e.event}</span>
                       <span className="text-valence-muted">{formatDistanceToNow(new Date(e.created_at), { addSuffix: true })}</span>
@@ -268,7 +269,7 @@ function ShareForm({ files, onSubmit, onCancel, dealName }) {
         {files.length === 0 ? (
           <p className="rounded-lg border border-valence-border bg-valence-surface px-4 py-3 text-xs text-valence-muted">No files uploaded to this deal yet. The share will show only deal metadata until you upload files.</p>
         ) : (
-          <div className="max-h-48 overflow-y-auto rounded-lg border border-valence-border bg-white divide-y divide-valence-border">
+          <div className="max-h-48 overflow-y-auto rounded-lg border border-valence-border bg-valence-elevated divide-y divide-valence-border">
             {files.map(f => (
               <label key={f.id} className="flex items-center gap-2 px-3 py-2 text-sm cursor-pointer hover:bg-valence-surface">
                 <input

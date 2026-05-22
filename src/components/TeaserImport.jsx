@@ -2,6 +2,7 @@ import { useRef, useState } from 'react'
 import { Sparkles, Upload, Loader2, FileText } from 'lucide-react'
 import { extractText, fileTypeFor } from '../lib/fileParse.js'
 import { extractDealFromTeaser, isGeminiConfigured } from '../lib/gemini.js'
+import { humanError } from '../lib/userError.js'
 import { useToast } from './Toast.jsx'
 
 // Compact inline panel shown at the top of the "New deal" modal.
@@ -24,7 +25,7 @@ export default function TeaserImport({ onExtracted }) {
       toast.success('Deal fields extracted. Review and save.')
       onExtracted?.(data)
     } catch (e) {
-      toast.error(e.message || 'Could not read teaser')
+      toast.error(humanError(e, 'Could not read teaser'))
     } finally {
       setBusy(false); setLabel('')
     }

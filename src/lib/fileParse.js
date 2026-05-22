@@ -3,19 +3,23 @@
 // bundle when a user actually uploads a matching file type.
 
 export const SUPPORTED_TYPES = {
-  'application/pdf':                                                        'pdf',
-  'application/msword':                                                     'doc',
-  'application/vnd.openxmlformats-officedocument.wordprocessingml.document':'docx',
-  'text/plain':                                                             'txt',
-  'text/markdown':                                                          'md',
-  'text/csv':                                                               'csv',
-  'text/html':                                                              'html'
+  'application/pdf':                                                            'pdf',
+  'application/msword':                                                         'doc',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document':    'docx',
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet':          'xlsx',
+  'application/vnd.ms-excel':                                                   'xls',
+  'text/plain':                                                                 'txt',
+  'text/markdown':                                                              'md',
+  'text/csv':                                                                   'csv',
+  'text/html':                                                                  'html'
 }
 
 export function fileTypeFor(file) {
   if (SUPPORTED_TYPES[file.type]) return SUPPORTED_TYPES[file.type]
   const ext = (file.name.split('.').pop() || '').toLowerCase()
-  if (['pdf','docx','doc','txt','md','csv','html','htm'].includes(ext)) return ext === 'htm' ? 'html' : ext
+  if (['pdf','docx','doc','xlsx','xls','txt','md','csv','html','htm'].includes(ext)) {
+    return ext === 'htm' ? 'html' : ext
+  }
   return null
 }
 
@@ -27,12 +31,33 @@ export async function extractText(file, { onProgress } = {}) {
   if (type === 'pdf')  return extractPdf(file, onProgress)
   if (type === 'docx') return extractDocx(file, onProgress)
   if (type === 'doc')  throw new Error('Legacy .doc files are not supported. Please save as .docx or PDF.')
+  if (type === 'xlsx' || type === 'xls') return extractXlsx(file, onProgress)
   if (type === 'html') {
     const text = await file.text()
     return stripHtml(text)
   }
   // txt / md / csv
   return file.text()
+}
+
+async function extractXlsx(file, onProgress) {
+  // Dynamic import — keeps xlsx out of the main bundle (~400kB minified).
+  const XLSX = await import('xlsx')
+  onProgress?.(0.2, 'Parsing spreadsheet')
+  const buf = await file.arrayBuffer()
+  const wb = XLSX.read(buf, { type: 'array' })
+  // Emit one section per sheet as CSV so the downstream AI classifier
+  // sees both the structure (rows + cols) and the sheet labels.
+  const sections = []
+  for (const name of wb.SheetNames) {
+    const sheet = wb.Sheets[name]
+    const csv = XLSX.utils.sheet_to_csv(sheet)
+    if (csv && csv.trim()) {
+      sections.push(`### ${name}\n${csv}`)
+    }
+  }
+  onProgress?.(0.7, 'Spreadsheet parsed')
+  return sections.join('\n\n')
 }
 
 async function extractPdf(file, onProgress) {

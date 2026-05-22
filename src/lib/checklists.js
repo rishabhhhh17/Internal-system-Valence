@@ -1,48 +1,32 @@
-// Templated checklist for each stage of the Valence advisory funnel.
-// Ticked-state is persisted in deal_checklist; item vocabulary lives here.
+// Templated checklist for each stage of the new 7-stage Valence pipeline.
+// The old execution-phase stages (Preparation, Marketing, Diligence,
+// Negotiation, Closing) collapsed into "Mandate", so all of their items now
+// live under Mandate as a single execution checklist.
 
 export const STAGE_CHECKLISTS = {
   Origination: [
     { key: 'first_contact',    label: 'First contact logged',           required: true  },
     { key: 'prospect_note',    label: 'Prospect profile note captured', required: false }
   ],
-  Pitch: [
+  Pitching: [
     { key: 'pitch_deck',       label: 'Pitch deck drafted',                        required: true  },
     { key: 'intro_call',       label: 'Intro call held with counterparty',         required: true  },
     { key: 'firm_creds',       label: 'Valence credentials shared',                required: false }
   ],
+  'Pre-Mandate': [
+    { key: 'fee_terms',        label: 'Pricing and fee terms negotiated',          required: true  },
+    { key: 'nda_signed',       label: 'NDA signed',                                required: true  },
+    { key: 'engagement_letter',label: 'Engagement letter drafted',                 required: true  },
+    { key: 'el_countersigned', label: 'Engagement letter countersigned',           required: true  }
+  ],
   Mandate: [
-    { key: 'engagement_letter',label: 'Engagement letter signed',                  required: true  },
-    { key: 'fee_scope',        label: 'Scope and fees locked internally',          required: true  },
-    { key: 'kickoff',          label: 'Internal kickoff held',                     required: false }
-  ],
-  Preparation: [
-    { key: 'teaser',           label: 'Teaser drafted',                            required: true  },
-    { key: 'im_outline',       label: 'IM outlined',                               required: true  },
-    { key: 'model',            label: 'Financial model built',                     required: true  },
-    { key: 'vdr',              label: 'Data room opened',                          required: true  },
-    { key: 'buyer_list',       label: 'Buyer / investor long-list compiled',       required: true  }
-  ],
-  Marketing: [
-    { key: 'teaser_sent',      label: 'Teaser sent to shortlist',                  required: true  },
-    { key: 'nda_signed',       label: 'At least one NDA countersigned',            required: true  },
-    { key: 'im_sent',          label: 'IM distributed to NDA signers',             required: false },
-    { key: 'shortlist',        label: 'Shortlist segmented (strategic / financial)', required: false }
-  ],
-  Diligence: [
-    { key: 'mgmt_presentations', label: 'Management presentations completed',      required: true  },
-    { key: 'vdr_qa',             label: 'VDR Q&A rounds logged',                   required: true  },
-    { key: 'site_visits',        label: 'Site visits (if relevant)',               required: false }
-  ],
-  Negotiation: [
-    { key: 'loi_received',     label: 'LOI(s) received',                           required: true  },
-    { key: 'shortlist_chosen', label: 'Preferred counterparty selected',           required: true  },
-    { key: 'exclusivity',      label: 'Exclusivity window agreed',                 required: false }
-  ],
-  Closing: [
-    { key: 'spa',              label: 'Definitive SPA executed',                   required: true  },
-    { key: 'regulatory',       label: 'Regulatory approvals received',             required: true  },
-    { key: 'funds_flow',       label: 'Funds flow confirmed',                      required: true  }
+    { key: 'kickoff',            label: 'Internal kickoff held',                   required: true  },
+    { key: 'materials',          label: 'Core materials prepared (teaser / IM / brief)', required: true  },
+    { key: 'outreach',           label: 'Outreach to counterparties begun',        required: false },
+    { key: 'mgmt_presentations', label: 'Management or counterparty meetings held',required: false },
+    { key: 'shortlist',          label: 'Counterparty shortlist segmented',        required: false },
+    { key: 'definitive_terms',   label: 'Definitive terms / LOIs progressed',      required: false },
+    { key: 'closing_docs',       label: 'Closing documents executed',              required: false }
   ],
   Closed: [
     { key: 'invoice',          label: 'Success fee invoice issued',                required: true  },

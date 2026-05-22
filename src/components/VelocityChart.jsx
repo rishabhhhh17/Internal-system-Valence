@@ -1,8 +1,20 @@
 import { useEffect, useMemo, useState } from 'react'
-import { TrendingUp, Clock, AlertTriangle } from 'lucide-react'
+import { TrendingUp, Clock, AlertTriangle, ArrowDown, ArrowUp } from 'lucide-react'
 import { supabase, isSupabaseConfigured } from '../lib/supabase.js'
 import { stageVelocity } from '../lib/insights.js'
 import { stageToneClasses } from '../lib/stages.js'
+
+// Rough boutique-IB benchmarks — based on the ~mid-market sell-side /
+// fund-raise mandates Valence runs. Sourced from a partner's gut, not
+// hard data — partner can edit when they have firm-specific numbers.
+// Stages outside the active book (Closed / On Hold / Lost) intentionally
+// omitted — they're terminal, average-days isn't a useful read.
+const BENCHMARK_DAYS = {
+  'Origination':  14,
+  'Pitching':     21,
+  'Pre-Mandate':  18,
+  'Mandate':      90
+}
 
 export default function VelocityChart() {
   const [rows, setRows] = useState([])
@@ -41,25 +53,54 @@ export default function VelocityChart() {
       <div className="mt-4 space-y-2">
         {loading ? Array.from({ length: 8 }).map((_, i) => (
           <div key={i} className="h-7 rounded bg-valence-surface animate-pulse" />
-        )) : rows.map(r => (
-          <div key={r.stage} className="flex items-center gap-3">
-            <span className={`inline-flex w-28 justify-center rounded-full border px-2 py-1 text-[10px] font-semibold shrink-0 ${stageToneClasses(r.stage)}`}>
-              {r.stage}
-            </span>
-            <div className="relative flex-1 h-6 rounded-md bg-valence-surface overflow-hidden">
-              <div
-                className="h-full rounded-md bg-gradient-to-r from-valence-blue/30 to-valence-blue/80 transition-all"
-                style={{ width: r.avgDays ? `${(r.avgDays / maxAvg) * 100}%` : '2%' }}
-              />
-              <span className="absolute inset-0 flex items-center justify-end pr-2 text-[11px] font-semibold tabular-nums text-valence-text">
-                {r.avgDays != null ? `${Math.round(r.avgDays)}d` : '—'}
+        )) : rows.map(r => {
+          const benchmark = BENCHMARK_DAYS[r.stage]
+          const delta     = r.avgDays != null && benchmark ? Math.round(r.avgDays) - benchmark : null
+          // Faster than benchmark = good (emerald). Slower = caution (amber).
+          // ±2d tolerance treated as on-par (neutral).
+          const tone =
+            delta == null      ? 'text-valence-subtle'
+          : delta <= -3        ? 'text-emerald-700'
+          : delta >=  3        ? 'text-amber-700'
+          :                       'text-valence-muted'
+          return (
+            <div key={r.stage} className="flex items-center gap-3">
+              <span className={`inline-flex w-28 justify-center rounded-full border px-2 py-1 text-[10px] font-semibold shrink-0 ${stageToneClasses(r.stage)}`}>
+                {r.stage}
+              </span>
+              <div className="relative flex-1 h-6 rounded-md bg-valence-surface overflow-hidden">
+                <div
+                  className="h-full rounded-md bg-gradient-to-r from-valence-blue/30 to-valence-blue/80 transition-all"
+                  style={{ width: r.avgDays ? `${(r.avgDays / maxAvg) * 100}%` : '2%' }}
+                />
+                {/* Benchmark notch — vertical line at the typical-day mark
+                    so partners see at a glance if they're tracking on-pace. */}
+                {benchmark && (
+                  <span
+                    aria-hidden
+                    className="absolute top-0 bottom-0 w-px bg-valence-ink/40"
+                    style={{ left: `${Math.min(100, (benchmark / maxAvg) * 100)}%` }}
+                    title={`Benchmark · ${benchmark}d`}
+                  />
+                )}
+                <span className="absolute inset-0 flex items-center justify-end pr-2 text-[11px] font-semibold tabular-nums text-valence-text">
+                  {r.avgDays != null ? `${Math.round(r.avgDays)}d` : '—'}
+                </span>
+              </div>
+              {/* Delta vs benchmark — small inline tag */}
+              <span className={`inline-flex items-center gap-0.5 w-20 justify-end text-[10px] font-semibold tabular-nums ${tone}`} title={benchmark ? `Typical: ${benchmark}d` : 'No benchmark'}>
+                {delta == null
+                  ? '—'
+                  : delta === 0
+                    ? 'on par'
+                    : <>{delta < 0 ? <ArrowDown className="h-2.5 w-2.5" /> : <ArrowUp className="h-2.5 w-2.5" />}{Math.abs(delta)}d vs typical</>}
+              </span>
+              <span className="text-[10px] text-valence-subtle w-10 text-right tabular-nums">
+                n={r.sampleSize}
               </span>
             </div>
-            <span className="text-[10px] text-valence-subtle w-10 text-right tabular-nums">
-              n={r.sampleSize}
-            </span>
-          </div>
-        ))}
+          )
+        })}
       </div>
 
       <p className="mt-4 text-[10px] text-valence-subtle flex items-center gap-1.5">

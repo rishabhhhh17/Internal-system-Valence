@@ -8,7 +8,13 @@ export default function ExpertsWidget({ deals = [] }) {
 
   useEffect(() => {
     if (!isSupabaseConfigured) return
-    supabase.from('documents').select('sector').then(({ data }) => setDocs(data || []))
+    // Guard against the user navigating away during the round-trip — otherwise
+    // the setDocs() call lands on an unmounted component and React warns.
+    let alive = true
+    supabase.from('documents').select('sector').then(({ data }) => {
+      if (alive) setDocs(data || [])
+    })
+    return () => { alive = false }
   }, [])
 
   const experts = useMemo(() => expertsBySector(deals, docs).slice(0, 6), [deals, docs])

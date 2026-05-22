@@ -13,17 +13,23 @@ export default function SimilarDeals({ deal }) {
   useEffect(() => {
     if (!deal?.id) return
     if (!isSupabaseConfigured) { setCandidates([]); setLoading(false); return }
+    // Guard against unmount during the round-trip — drawer can be closed
+    // mid-flight by the user clicking elsewhere, which would otherwise log
+    // a React "state update on unmounted component" warning.
+    let alive = true
     supabase.from('deals').select('*').then(({ data }) => {
+      if (!alive) return
       setCandidates(data || [])
       setLoading(false)
     })
+    return () => { alive = false }
   }, [deal?.id])
 
   const similar = useMemo(() => similarDealsHeuristic(deal, candidates), [deal, candidates])
 
   return (
     <div className="space-y-3">
-      <div className="rounded-xl border border-valence-border bg-gradient-to-br from-valence-blue/5 via-white/[0.02] to-transparent p-4">
+      <div className="rounded-xl border border-valence-border bg-gradient-to-br from-valence-blue/5 via-valence-elevated/[0.02] to-transparent p-4">
         <div className="flex items-start gap-3">
           <div className="grid h-10 w-10 place-items-center rounded-xl bg-valence-blue-soft ring-1 ring-valence-blue/30 shrink-0">
             <Sparkles className="h-4 w-4 text-valence-blue" />

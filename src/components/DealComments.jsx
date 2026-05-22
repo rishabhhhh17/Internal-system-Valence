@@ -3,7 +3,10 @@ import { formatDistanceToNow } from 'date-fns'
 import { Send, Loader2, MessageSquare } from 'lucide-react'
 import { supabase, isSupabaseConfigured, subscribeTable } from '../lib/supabase.js'
 import { useAuth } from '../hooks/useAuth.js'
+import { humanError } from '../lib/userError.js'
 import { useToast } from './Toast.jsx'
+import WikilinkTextarea from './WikilinkTextarea.jsx'
+import WikilinkText from './WikilinkText.jsx'
 
 export default function DealComments({ deal }) {
   const toast = useToast()
@@ -25,7 +28,7 @@ export default function DealComments({ deal }) {
     const { data, error } = await supabase
       .from('deal_comments').select('*').eq('deal_id', deal.id)
       .order('created_at', { ascending: true })
-    if (error) toast.error(error.message)
+    if (error) toast.error(humanError(error, 'Could not load comments'))
     setRows(data || [])
     setLoading(false)
   }
@@ -44,7 +47,7 @@ export default function DealComments({ deal }) {
     const { data, error } = await supabase.from('deal_comments').insert({
       deal_id: deal.id, author, body: text, mentions
     }).select().single()
-    if (error) { toast.error(error.message); setSubmitting(false); return }
+    if (error) { toast.error(humanError(error, 'Could not post comment')); setSubmitting(false); return }
     setRows(prev => [...prev, data])
     setBody(''); setSubmitting(false)
   }
@@ -75,7 +78,7 @@ export default function DealComments({ deal }) {
                 {initials(c.author)}
               </div>
               <div className="flex-1 min-w-0">
-                <div className="rounded-xl rounded-tl-sm border border-valence-border bg-white px-4 py-2.5">
+                <div className="rounded-xl rounded-tl-sm border border-valence-border bg-valence-elevated px-4 py-2.5">
                   <div className="flex items-center gap-2 text-[11px]">
                     <span className="font-semibold text-valence-text">{c.author}</span>
                     <span className="text-valence-subtle">· {formatDistanceToNow(new Date(c.created_at), { addSuffix: true })}</span>
@@ -91,11 +94,11 @@ export default function DealComments({ deal }) {
       )}
 
       <form onSubmit={post} className="flex items-start gap-2">
-        <textarea
+        <WikilinkTextarea
           value={body}
-          onChange={e => setBody(e.target.value)}
+          onChange={setBody}
           onKeyDown={e => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); post(e) } }}
-          placeholder="Leave a note for the team… (⌘↵ to send)"
+          placeholder="Leave a note for the team… (⌘↵ to send) · Type [[ to link people / funds / mandates"
           className="vl-input min-h-[72px] resize-y flex-1"
         />
         <button type="submit" disabled={!body.trim() || submitting} className="vl-btn-primary-sm shrink-0">

@@ -2,10 +2,13 @@ import { useEffect, useState } from 'react'
 import { formatDistanceToNow, format } from 'date-fns'
 import {
   Plus, Sparkles, FileUp, PenLine, Handshake, Mail, Users as UsersIcon,
-  ArrowRightCircle, FileSignature, CalendarClock, CircleDot
+  ArrowRightCircle, FileSignature, CalendarClock, CircleDot, MessageSquare
 } from 'lucide-react'
 import { supabase, isSupabaseConfigured } from '../lib/supabase.js'
 import { logActivity, ACTIVITY_LABELS } from '../lib/activity.js'
+import { typeLabel as interactionTypeLabel, outcomeLabel as interactionOutcomeLabel } from '../lib/interactions.js'
+import WikilinkTextarea from './WikilinkTextarea.jsx'
+import WikilinkText from './WikilinkText.jsx'
 
 const KIND_ICON = {
   created:         Sparkles,
@@ -17,7 +20,8 @@ const KIND_ICON = {
   file_upload:     FileUp,
   email_drafted:   Mail,
   contact_added:   UsersIcon,
-  brief_generated: Sparkles
+  brief_generated: Sparkles,
+  interaction:     MessageSquare
 }
 
 export default function ActivityTimeline({ dealId }) {
@@ -34,8 +38,23 @@ export default function ActivityTimeline({ dealId }) {
 
   async function load() {
     setLoading(true)
-    const { data } = await supabase.from('activities').select('*').eq('deal_id', dealId).order('created_at', { ascending: false })
-    setItems(data || [])
+    const [a, i] = await Promise.all([
+      supabase.from('activities').select('*').eq('deal_id', dealId).order('created_at', { ascending: false }),
+      supabase.from('interactions').select('*').eq('deal_id', dealId).order('created_at', { ascending: false })
+    ])
+    const interactionItems = (i.data || []).map(row => ({
+      id: `int-${row.id}`,
+      kind: 'interaction',
+      body: [
+        `${interactionTypeLabel(row.type)} with ${row.counterparty_name}${row.counterparty_company ? ` (${row.counterparty_company})` : ''}`,
+        row.notes
+      ].filter(Boolean).join(' — '),
+      meta: interactionOutcomeLabel(row.outcome),
+      created_at: row.created_at
+    }))
+    const merged = [...(a.data || []), ...interactionItems]
+      .sort((x, y) => new Date(y.created_at) - new Date(x.created_at))
+    setItems(merged)
     setLoading(false)
   }
 
@@ -62,9 +81,9 @@ export default function ActivityTimeline({ dealId }) {
 
       {noteOpen && (
         <form onSubmit={addNote} className="space-y-2 rounded-lg border border-valence-border bg-valence-surface p-3">
-          <textarea
-            value={note} onChange={e => setNote(e.target.value)}
-            className="vl-input min-h-[72px]" placeholder="Log a note — what changed, what was agreed, what's next…"
+          <WikilinkTextarea
+            value={note} onChange={setNote}
+            className="vl-input min-h-[72px]" placeholder="Log a note — what changed, what was agreed, what's next… Type [[ to link people / funds / mandates"
             autoFocus
           />
           <div className="flex justify-end gap-2">
@@ -93,9 +112,10 @@ export default function ActivityTimeline({ dealId }) {
                 <div className="rounded-lg border border-valence-border bg-valence-surface px-4 py-2.5">
                   <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wider text-valence-blue">
                     {ACTIVITY_LABELS[item.kind] || item.kind}
+                    {item.meta && <span className="rounded-full bg-valence-elevated border border-valence-border px-1.5 py-0 text-[10px] font-semibold text-valence-muted">{item.meta}</span>}
                     <span className="text-valence-subtle font-normal normal-case tracking-normal">· {formatDistanceToNow(new Date(item.created_at), { addSuffix: true })}</span>
                   </div>
-                  {item.body && <p className="mt-1 text-sm text-valence-text leading-relaxed">{item.body}</p>}
+                  {item.body && <p className="mt-1 text-sm text-valence-text leading-relaxed"><WikilinkText>{item.body}</WikilinkText></p>}
                   <p className="mt-1 text-[10px] text-valence-subtle">{format(new Date(item.created_at), 'd MMM yyyy · HH:mm')}</p>
                 </div>
               </li>

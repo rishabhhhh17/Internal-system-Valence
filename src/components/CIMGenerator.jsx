@@ -4,7 +4,9 @@ import { supabase, isSupabaseConfigured } from '../lib/supabase.js'
 import { generateCIM, parseCIM, CIM_SECTIONS } from '../lib/cim.js'
 import { isGeminiConfigured } from '../lib/gemini.js'
 import { logActivity } from '../lib/activity.js'
+import { humanError } from '../lib/userError.js'
 import { useToast } from './Toast.jsx'
+import { firmDisplayName } from '../lib/firmIdentity.js'
 
 export default function CIMGenerator({ deal }) {
   const toast = useToast()
@@ -59,7 +61,7 @@ export default function CIMGenerator({ deal }) {
       if (error) throw error
       toast.success('CIM draft saved to the deal.')
     } catch (e) {
-      toast.error(e.message || 'Save failed')
+      toast.error(humanError(e, 'Could not save CIM draft'))
     } finally {
       setSaving(false)
     }
@@ -94,7 +96,7 @@ export default function CIMGenerator({ deal }) {
 </style></head>
 <body>
   <header>
-    <div class="sub">Confidential — Valence Growth Partners · CIM draft</div>
+    <div class="sub">Confidential — ${safe(firmDisplayName('your firm'))} · CIM draft</div>
     <h1>${safe(deal?.client_name || 'Untitled Mandate')}</h1>
     <div class="sub" style="margin-top:6px;">${safe(deal?.deal_type || '')} · ${safe(deal?.side || '')} · ${safe(deal?.sector || '')}</div>
   </header>
@@ -113,7 +115,7 @@ export default function CIMGenerator({ deal }) {
 
   return (
     <div className="space-y-5">
-      <div className="rounded-xl border border-valence-border bg-gradient-to-br from-valence-blue-soft via-white to-white p-5">
+      <div className="rounded-xl border border-valence-border bg-gradient-to-br from-valence-blue-soft via-valence-elevated to-valence-elevated p-5">
         <div className="flex items-start gap-3">
           <div className="grid h-10 w-10 place-items-center rounded-xl bg-valence-blue-soft ring-1 ring-valence-blue/30 shrink-0">
             <Sparkles className="h-4 w-4 text-valence-blue" />
@@ -140,7 +142,7 @@ export default function CIMGenerator({ deal }) {
               className={`rounded-full border px-2.5 py-1 text-[11px] font-semibold transition ${
                 selected.includes(s.id)
                   ? 'border-valence-blue/40 bg-valence-blue-soft text-valence-blue-deep'
-                  : 'border-valence-border bg-white text-valence-muted hover:border-valence-ink/20'
+                  : 'border-valence-border bg-valence-elevated text-valence-muted hover:border-valence-ink/20'
               }`}
               title={s.hint}
             >

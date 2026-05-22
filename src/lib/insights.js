@@ -5,19 +5,17 @@ import { differenceInDays, parseISO } from 'date-fns'
 import { ACTIVE_STAGES, STAGES, stageMeta } from './stages.js'
 
 // Stage-weighted probability estimates used for forecasting pipeline value.
-// Tuned for a typical advisory shop; adjust with real hit rates later.
+// Aligned to the new 7-stage model. Mandate is a single execution stage that
+// absorbs what used to be Preparation / Marketing / Diligence / Negotiation /
+// Closing — its probability sits where those stages used to average out.
 export const STAGE_PROBABILITY = {
-  Origination: 0.05,
-  Pitch:       0.15,
-  Mandate:     0.35,
-  Preparation: 0.45,
-  Marketing:   0.55,
-  Diligence:   0.70,
-  Negotiation: 0.85,
-  Closing:     0.95,
-  Closed:      1.0,
-  'On Hold':   0.10,
-  Lost:        0
+  'Origination':  0.05,
+  'Pitching':     0.15,
+  'Pre-Mandate':  0.40,
+  'Mandate':      0.75,
+  'Closed':       1.0,
+  'On Hold':      0.10,
+  'Lost':         0
 }
 
 // Compute the expected fee for a deal given its size and fee structure.
@@ -190,7 +188,7 @@ export function feeByQuarter(deals, { quarters = 4, now = new Date() } = {}) {
     if (quarterOffset < 0 || quarterOffset >= quarters) return
     const b = buckets[quarterOffset]
     b.weightedFeeUsd += weighted
-    if (stage === 'Closing' || stage === 'Negotiation' || stage === 'Closed') b.committedFeeUsd += fee
+    if (stage === 'Mandate' || stage === 'Closed') b.committedFeeUsd += fee
     b.dealCount += 1
   }
   for (const d of deals) {
@@ -565,18 +563,17 @@ export function sideMix(deals) {
 export function riskFlags(deals) {
   const flags = []
   for (const d of deals) {
+    const isLive = ['Pre-Mandate', 'Mandate'].includes(d.stage)
     if (!d.lead_owner)
       flags.push({ severity: 'warn',  message: `${d.client_name || 'Deal'} — no lead owner assigned`, deal_id: d.id })
     if (!d.sector)
       flags.push({ severity: 'info',  message: `${d.client_name || 'Deal'} — sector not tagged`, deal_id: d.id })
-    if (!stageMeta(d.stage).terminal && !d.ticket_size_usd_m)
-      flags.push({ severity: 'warn',  message: `${d.client_name || 'Deal'} — ticket size missing`, deal_id: d.id })
-    if (!stageMeta(d.stage).terminal && !d.fee_success_pct && !d.fee_retainer_usd)
-      flags.push({ severity: 'high',  message: `${d.client_name || 'Deal'} — fee structure missing`, deal_id: d.id })
-    if (d.stage === 'Closing' && !d.expected_close_date)
-      flags.push({ severity: 'high',  message: `${d.client_name || 'Deal'} — Closing with no expected close date`, deal_id: d.id })
-    if (['Mandate','Preparation','Marketing','Diligence'].includes(d.stage) && d.nda_status === 'Pending')
-      flags.push({ severity: 'info',  message: `${d.client_name || 'Deal'} — NDA still pending past Mandate`, deal_id: d.id })
+    if (isLive && !d.deal_subtype && !(d.deal_types || []).includes('advisory'))
+      flags.push({ severity: 'warn',  message: `${d.client_name || 'Deal'} — transaction type not classified`, deal_id: d.id })
+    if (d.stage === 'Mandate' && !d.expected_close_date && !d.target_close)
+      flags.push({ severity: 'high',  message: `${d.client_name || 'Deal'} — Mandate stage with no target close date`, deal_id: d.id })
+    if (isLive && d.nda_status === 'Pending')
+      flags.push({ severity: 'info',  message: `${d.client_name || 'Deal'} — NDA still pending`, deal_id: d.id })
   }
   return flags
 }
@@ -607,10 +604,10 @@ export function similarDealsHeuristic(target, candidates, { limit = 4 } = {}) {
     .filter(c => c.id !== target.id)
     .map(c => {
       let score = 0
-      if (c.sector && c.sector === target.sector)         score += 3
-      if (c.deal_type && c.deal_type === target.deal_type) score += 2
-      if (c.side && c.side === target.side)                score += 1
-      if (c.lead_owner && c.lead_owner === target.lead_owner) score += 1
+      if (c.sector && c.sector === target.sector)                       score += 3
+      if (c.deal_subtype && c.deal_subtype === target.deal_subtype)     score += 2
+      if (c.ma_side && target.ma_side && c.ma_side === target.ma_side)  score += 1
+      if (c.lead_owner && c.lead_owner === target.lead_owner)           score += 1
       if (target.ticket_size_usd_m && c.ticket_size_usd_m) {
         const ratio = Math.min(target.ticket_size_usd_m, c.ticket_size_usd_m) /
                       Math.max(target.ticket_size_usd_m, c.ticket_size_usd_m)

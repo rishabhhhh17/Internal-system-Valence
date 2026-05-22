@@ -1,39 +1,49 @@
 /** @type {import('tailwindcss').Config} */
+import typography from '@tailwindcss/typography'
+
 export default {
   content: ['./index.html', './src/**/*.{js,jsx}'],
+  darkMode: 'class',
   theme: {
     extend: {
       colors: {
+        // Palette is CSS-variable-backed so the same `bg-valence-bg` class
+        // flips between light + dark themes automatically when the `.dark`
+        // class is toggled on <html>. Light values live in :root, dark
+        // values in :root.dark — both in src/index.css. RGB-triplet form
+        // (`51 153 255` not `#3399ff`) is what unlocks Tailwind's `/N`
+        // opacity modifier (`bg-valence-blue/20` etc.) — heavily used.
         valence: {
-          // Palette pulled from the actual valencegrowth.com stylesheet.
-          // Ink navy #0D1E3A, accent blue #3399FF, surface grey #f6f7f7.
-          bg:            '#ffffff',
-          surface:       '#f6f7f7',
-          elevated:      '#ffffff',
-          'ink':         '#0D1E3A',
-          'ink-soft':    '#17315a',
+          bg:             'rgb(var(--valence-bg) / <alpha-value>)',
+          surface:        'rgb(var(--valence-surface) / <alpha-value>)',
+          elevated:       'rgb(var(--valence-elevated) / <alpha-value>)',
+          ink:            'rgb(var(--valence-ink) / <alpha-value>)',
+          'ink-soft':     'rgb(var(--valence-ink-soft) / <alpha-value>)',
 
-          border:        'rgba(0, 0, 0, 0.06)',
-          'border-strong':'rgba(0, 0, 0, 0.16)',
-          'border-ink':  'rgba(255, 255, 255, 0.10)',
+          // Borders + rings stay as full rgba — they're meant as low-alpha
+          // overlays rather than semantic palette colors. Variables let
+          // them swap on theme change without per-component patches.
+          border:         'var(--valence-border)',
+          'border-strong':'var(--valence-border-strong)',
+          'border-ink':   'var(--valence-border-ink)',
 
-          blue:          '#3399FF',
-          'blue-hover':  '#1a85ff',
-          'blue-deep':   '#1a66cc',
-          'blue-soft':   '#e6f2ff',
-          'blue-ring':   'rgba(51, 153, 255, 0.22)',
+          blue:           'rgb(var(--valence-blue) / <alpha-value>)',
+          'blue-hover':   'rgb(var(--valence-blue-hover) / <alpha-value>)',
+          'blue-deep':    'rgb(var(--valence-blue-deep) / <alpha-value>)',
+          'blue-soft':    'rgb(var(--valence-blue-soft) / <alpha-value>)',
+          'blue-ring':    'var(--valence-blue-ring)',
 
-          text:          '#0D1E3A',
-          muted:         '#4b5872',
-          subtle:        '#94a3b8',
-          faint:         '#cbd5e1',
+          text:           'rgb(var(--valence-text) / <alpha-value>)',
+          muted:          'rgb(var(--valence-muted) / <alpha-value>)',
+          subtle:         'rgb(var(--valence-subtle) / <alpha-value>)',
+          faint:          'rgb(var(--valence-faint) / <alpha-value>)',
 
-          success:       '#357b49',
-          'success-soft':'#dceadf',
-          warning:       '#b45309',
-          'warning-soft':'#fef3c7',
-          danger:        '#dc2626',
-          'danger-soft': '#fee2e2'
+          success:        'rgb(var(--valence-success) / <alpha-value>)',
+          'success-soft': 'rgb(var(--valence-success-soft) / <alpha-value>)',
+          warning:        'rgb(var(--valence-warning) / <alpha-value>)',
+          'warning-soft': 'rgb(var(--valence-warning-soft) / <alpha-value>)',
+          danger:         'rgb(var(--valence-danger) / <alpha-value>)',
+          'danger-soft':  'rgb(var(--valence-danger-soft) / <alpha-value>)'
         }
       },
       fontFamily: {
@@ -59,7 +69,13 @@ export default {
       backgroundImage: {
         'valence-radial': 'radial-gradient(70% 60% at 15% 0%, rgba(51,153,255,0.10) 0%, rgba(255,255,255,0) 50%), radial-gradient(50% 40% at 100% 0%, rgba(51,153,255,0.05) 0%, rgba(255,255,255,0) 55%)',
         'valence-hero':   'linear-gradient(180deg, rgba(230,242,255,0.9) 0%, rgba(255,255,255,0) 70%)',
-        'ink-grain':      'radial-gradient(80% 50% at 10% 0%, rgba(51,153,255,0.14) 0%, rgba(10,15,30,0) 60%)'
+        'ink-grain':      'radial-gradient(80% 50% at 10% 0%, rgba(51,153,255,0.14) 0%, rgba(10,15,30,0) 60%)',
+        /* Liquid-Glass aurora — richer color blobs so frosted chrome has
+           something to refract against. Used by the .vl-aurora layer. */
+        'valence-aurora': 'radial-gradient(45% 40% at 12% 8%,   rgba(51,153,255,0.28)  0%, rgba(255,255,255,0) 55%),\
+                           radial-gradient(35% 35% at 92% 14%,  rgba(149,210,255,0.22) 0%, rgba(255,255,255,0) 55%),\
+                           radial-gradient(40% 40% at 70% 90%,  rgba(255,189,127,0.18) 0%, rgba(255,255,255,0) 55%),\
+                           radial-gradient(40% 40% at 25% 88%,  rgba(189,148,255,0.18) 0%, rgba(255,255,255,0) 55%)'
       },
       animation: {
         'fade-in':        'fadeIn 0.3s ease-out',
@@ -68,7 +84,11 @@ export default {
         'slide-up':       'slideUp 0.28s cubic-bezier(0.22, 1, 0.36, 1)',
         'slide-up-sm':    'slideUpSm 0.2s cubic-bezier(0.22, 1, 0.36, 1)',
         'pulse-soft':     'pulseSoft 2s ease-in-out infinite',
-        'shimmer':        'shimmer 2s linear infinite'
+        'shimmer':        'shimmer 2s linear infinite',
+        // Soft attention-grabber for the Tour pill on first visit.
+        // Glow pulses the box-shadow + background. Ring grows + fades.
+        'attention-glow': 'attentionGlow 2.2s ease-in-out infinite',
+        'attention-ring': 'attentionRing 2.2s ease-out infinite'
       },
       keyframes: {
         fadeIn:        { '0%': { opacity: 0 }, '100%': { opacity: 1 } },
@@ -76,9 +96,18 @@ export default {
         slideUp:       { '0%': { transform: 'translateY(12px)', opacity: 0 }, '100%': { transform: 'translateY(0)', opacity: 1 } },
         slideUpSm:     { '0%': { transform: 'translateY(4px)', opacity: 0 }, '100%': { transform: 'translateY(0)', opacity: 1 } },
         pulseSoft:     { '0%,100%': { opacity: 1 }, '50%': { opacity: 0.6 } },
-        shimmer:       { '0%': { backgroundPosition: '-200% 0' }, '100%': { backgroundPosition: '200% 0' } }
+        shimmer:       { '0%': { backgroundPosition: '-200% 0' }, '100%': { backgroundPosition: '200% 0' } },
+        attentionGlow: {
+          '0%,100%': { boxShadow: '0 0 0 0 rgba(51,153,255,0.55), 0 0 0 0 rgba(51,153,255,0.0)' },
+          '50%':     { boxShadow: '0 0 0 4px rgba(51,153,255,0.18), 0 0 12px 2px rgba(51,153,255,0.35)' }
+        },
+        attentionRing: {
+          '0%':   { transform: 'scale(0.85)', opacity: 0.65 },
+          '70%':  { transform: 'scale(1.55)', opacity: 0 },
+          '100%': { transform: 'scale(1.55)', opacity: 0 }
+        }
       }
     }
   },
-  plugins: []
+  plugins: [typography]
 }

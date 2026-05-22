@@ -1,6 +1,8 @@
 import { useState } from 'react'
 import { Sparkles, ArrowRight, Shield } from 'lucide-react'
 import { signInWithGoogle } from '../lib/google.js'
+import { humanError } from '../lib/userError.js'
+import Logo from '../components/Logo.jsx'
 
 export default function Login() {
   const [busy, setBusy] = useState(false)
@@ -8,16 +10,32 @@ export default function Login() {
 
   async function connect() {
     setErr(null); setBusy(true)
-    try { await signInWithGoogle() }
-    catch (e) { setErr(e.message || 'Sign-in failed'); setBusy(false) }
+    try {
+      // Always route Google's OAuth callback back to /welcome — the
+      // first surface every signed-in user should see. Welcome itself
+      // decides what to render (seated users get a "Continue to your
+      // firm" CTA; seatless users get Start / Join cards). Previously
+      // we let the redirect default to window.location.href which sent
+      // a seated user straight to / and made the onboarding screens
+      // invisible. /welcome now sits between sign-in and dashboard for
+      // everyone.
+      const origin = typeof window !== 'undefined' ? window.location.origin : ''
+      await signInWithGoogle({ redirectTo: `${origin}/welcome` })
+    } catch (e) {
+      // Raw Supabase OAuth errors look like "Invalid redirect URI: ..."
+      // — meaningful to Supabase staff, gibberish to the prospect on the
+      // very first screen of the demo. Route through humanError() so
+      // they see a friendly fallback instead.
+      setErr(humanError(e, 'Sign-in failed — try again'))
+      setBusy(false)
+    }
   }
 
   return (
-    <div className="min-h-screen bg-white vl-circles">
-      <div className="absolute inset-0 bg-valence-grid opacity-40 pointer-events-none" aria-hidden />
+    <div className="min-h-screen bg-valence-bg">
       <div className="relative mx-auto flex min-h-screen max-w-[1280px] flex-col">
         <header className="px-8 pt-8 lg:px-16">
-          <span className="vl-eyebrow">Valence Growth Partners · ValenceOS</span>
+          <Logo />
         </header>
 
         <main className="flex flex-1 items-center px-8 lg:px-16">
@@ -27,7 +45,7 @@ export default function Login() {
                 The operating layer for the firm.
               </h1>
               <p className="mt-6 max-w-lg text-base leading-relaxed text-valence-muted lg:text-lg">
-                Sign in with your Valence Google account to unlock the pipeline, the firm's knowledge, and the planner.
+                Sign in with Google to start a new team or join one with an invite code from your admin.
               </p>
               <div className="mt-10 flex flex-wrap items-center gap-3">
                 <button
@@ -41,7 +59,7 @@ export default function Login() {
                 </button>
                 <span className="inline-flex items-center gap-1.5 text-xs text-valence-muted">
                   <Shield className="h-3.5 w-3.5" />
-                  Only accounts your admin has authorised can sign in.
+                  Your firm's data stays isolated — RLS at every query.
                 </span>
               </div>
               {err && (
@@ -62,7 +80,7 @@ export default function Login() {
         </main>
 
         <footer className="px-8 pb-8 pt-16 text-[11px] text-valence-subtle lg:px-16">
-          Mumbai · London · © {new Date().getFullYear()} Valence Growth Partners
+          © {new Date().getFullYear()} ValenceOS · <a href="/privacy" className="hover:text-valence-muted">Privacy</a> · <a href="/terms" className="hover:text-valence-muted">Terms</a>
         </footer>
       </div>
     </div>

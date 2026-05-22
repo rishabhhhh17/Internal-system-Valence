@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
-import { Upload, FileText, Download, Trash2, Paperclip, AlertTriangle } from 'lucide-react'
+import { Upload, FileText, Download, Trash2, Paperclip, AlertTriangle, Droplets } from 'lucide-react'
 import { format } from 'date-fns'
 import { supabase, isSupabaseConfigured, checkDealFilesBucket, resetBucketStatus } from '../lib/supabase.js'
 import { uploadDealFile, publicUrlFor, deleteDealFile, formatBytes } from '../lib/storage.js'
 import { logActivity } from '../lib/activity.js'
+import { humanError } from '../lib/userError.js'
 import { useToast } from './Toast.jsx'
 import { useConfirm } from './ConfirmDialog.jsx'
 
@@ -30,7 +31,7 @@ export default function FileVault({ dealId }) {
     setLoading(true)
     const { data, error } = await supabase
       .from('deal_files').select('*').eq('deal_id', dealId).order('created_at', { ascending: false })
-    if (error) toast.error(error.message)
+    if (error) toast.error(humanError(error, 'Could not load files'))
     setFiles(data || [])
     setLoading(false)
   }
@@ -51,7 +52,7 @@ export default function FileVault({ dealId }) {
       setFiles(f => [row, ...f])
       toast.success(`Uploaded ${file.name}`)
     } catch (err) {
-      toast.error(err.message || 'Upload failed')
+      toast.error(humanError(err, 'Could not upload file'))
     } finally {
       setUploading(false)
     }
@@ -63,6 +64,19 @@ export default function FileVault({ dealId }) {
     handleFile(file)
   }
 
+  async function toggleWatermark(f) {
+    const next = !f.watermark_enabled
+    setFiles(prev => prev.map(x => x.id === f.id ? { ...x, watermark_enabled: next } : x))
+    if (!isSupabaseConfigured) return
+    const { error } = await supabase.from('deal_files').update({ watermark_enabled: next }).eq('id', f.id)
+    if (error) {
+      setFiles(prev => prev.map(x => x.id === f.id ? { ...x, watermark_enabled: !next } : x))
+      toast.error(humanError(error, 'Could not update watermark'))
+    } else {
+      toast.success(next ? 'Watermark on when shared' : 'Watermark off')
+    }
+  }
+
   async function remove(f) {
     const ok = await confirm({ title: 'Delete this file?', body: `"${f.name}" will be permanently removed from the data room.`, destructive: true, confirmLabel: 'Delete' })
     if (!ok) return
@@ -71,7 +85,7 @@ export default function FileVault({ dealId }) {
       setFiles(prev => prev.filter(x => x.id !== f.id))
       toast.success('File deleted.')
     } catch (err) {
-      toast.error(err.message || 'Delete failed')
+      toast.error(humanError(err, 'Could not delete file'))
     }
   }
 
@@ -136,27 +150,35 @@ export default function FileVault({ dealId }) {
           <p className="mt-2 text-sm text-valence-muted">No files yet. Everything related to this deal lives here.</p>
         </div>
       ) : (
-        <ul className="space-y-2">
+        <ul className="divide-y divide-valence-border/60 rounded-lg border border-valence-border bg-valence-elevated max-h-[60vh] overflow-y-auto">
           {files.map(f => (
-            <li key={f.id} className="group flex items-center gap-3 rounded-lg border border-valence-border bg-valence-surface px-4 py-3 hover:bg-valence-surface transition">
-              <div className="grid h-9 w-9 place-items-center rounded-lg bg-valence-blue-soft ring-1 ring-valence-blue/20 shrink-0">
-                <FileText className="h-4 w-4 text-valence-blue" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="truncate text-sm font-semibold text-valence-text">{f.name}</p>
-                <div className="mt-0.5 flex items-center gap-2 text-[11px] text-valence-muted">
-                  <span className="inline-flex items-center rounded-md border border-valence-border bg-valence-surface px-1.5 py-0.5 font-semibold text-valence-blue">{f.category || 'Other'}</span>
-                  <span>{formatBytes(f.size_bytes)}</span>
-                  <span className="text-valence-subtle">·</span>
-                  <span>{format(new Date(f.created_at), 'd MMM yyyy')}</span>
-                </div>
-              </div>
-              <a href={publicUrlFor(f.path)} target="_blank" rel="noreferrer" className="vl-btn-ghost" aria-label="Download">
-                <Download className="h-3.5 w-3.5" />
+            <li key={f.id} className="group flex items-center gap-3 px-3 py-2 hover:bg-valence-surface/60 transition">
+              <FileText className="h-3.5 w-3.5 text-valence-subtle shrink-0" />
+              <a
+                href={publicUrlFor(f.path)}
+                target="_blank"
+                rel="noreferrer"
+                className="flex-1 min-w-0"
+                title="Open in new tab"
+              >
+                <p className="truncate text-sm font-medium text-valence-text group-hover:text-valence-blue transition">{f.name}</p>
+                <p className="text-[10px] text-valence-subtle tabular-nums truncate">
+                  {f.category || 'Other'} · {formatBytes(f.size_bytes)} · {format(new Date(f.created_at), 'd MMM yyyy')}
+                </p>
               </a>
-              <button onClick={() => remove(f)} className="vl-btn-ghost text-valence-subtle hover:text-valence-danger" aria-label="Delete">
-                <Trash2 className="h-3.5 w-3.5" />
-              </button>
+              <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition shrink-0">
+                <button
+                  onClick={() => toggleWatermark(f)}
+                  title={f.watermark_enabled ? 'Watermark on when shared' : 'Watermark off'}
+                  className={`p-1.5 rounded-md hover:bg-valence-surface ${f.watermark_enabled ? 'text-valence-blue' : 'text-valence-subtle hover:text-valence-blue'}`}
+                  aria-label="Toggle watermark"
+                >
+                  <Droplets className="h-3 w-3" />
+                </button>
+                <button onClick={() => remove(f)} className="p-1.5 rounded-md text-valence-subtle hover:bg-valence-surface hover:text-valence-danger" aria-label="Delete">
+                  <Trash2 className="h-3 w-3" />
+                </button>
+              </div>
             </li>
           ))}
         </ul>

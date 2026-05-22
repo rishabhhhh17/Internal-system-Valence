@@ -8,6 +8,19 @@ ValenceOS gives the core team a single place to track live mandates across the f
 
 ## What's inside
 
+### 0. Pre-DD modules (the wedge)
+
+| Module | Route | What it is |
+| --- | --- | --- |
+| **Live Mandates** | `/mandates` | Filtered, money-free pipeline grouped by stage and sorted by days-stuck. |
+| **Timeline** | `/timeline` | Horizontal Gantt of every active mandate — past stages from the activity log, current stage pulsing on today's line, future stages projected from target close. |
+| **Interactions** | `/interactions` | Pre-mandate touchpoints (pitches, outreach, relationship building, referrals) with dynamic outcomes per purpose. Convert-to-origination action surfaces when a touchpoint becomes a mandate. |
+| **Firm** | `/funds` | Universe of funds with sector / stage / cheque-size tags. The "Find matching funds" button inside any deal drawer scores funds against the mandate and shortlists them with one click. |
+| **AI Quick Screener** | `/screen` | Two modes — **Fund-Match** (rank our funds for a deal) and **Mandate-Fit** (5-line verdict on an inbound teaser against Valence's standing criteria). |
+| **Smart Intake Portal** | `/intake` (public) and `/inbox/intake` (internal) | Branded public form for inbound mandate submissions. Each row gets the AI Mandate-Fit verdict pre-attached for the firm to triage. |
+| **Meeting Intelligence** | deal drawer → Meeting intel tab | Paste a transcript (Otter, Fireflies, Granola, manual) → Gemini extracts founder highlights, red flags, claims to verify, action items + a 3-sentence summary. |
+| **Doc enhancements** | FileVault + Share | Per-file watermark toggle; tiled CSS overlay watermark on the public share viewer; richer share-access audit log. |
+
 ### 1. Deal Logger — the funnel
 An 11-stage advisory pipeline, tuned for how Valence actually works.
 
@@ -85,15 +98,13 @@ The app runs on in-memory demo data until the env keys are filled in — every s
    VITE_SUPABASE_URL=…
    VITE_SUPABASE_ANON_KEY=…
    ```
-3. Open **SQL Editor → New query**, paste the entire contents of [`supabase/schema.sql`](supabase/schema.sql), run.
-4. Optional: seed sample data with [`supabase/seed.sql`](supabase/seed.sql).
-5. **Create a Storage bucket** for deal files:
-   - Storage → **New bucket**
-   - Name: `deal-files`
-   - Public bucket: **on**
-   - Create.
-   
-   The schema SQL already grants anon read/insert/delete policies for this bucket.
+3. Open **SQL Editor → New query**, paste the entire contents of [`supabase/schema.sql`](supabase/schema.sql), run. Or, to apply just the Phase 1 deltas one module at a time, use the focused files: [`supabase/phase-1-interactions.sql`](supabase/phase-1-interactions.sql), [`supabase/phase-1-funds.sql`](supabase/phase-1-funds.sql), [`supabase/phase-1-screener.sql`](supabase/phase-1-screener.sql), [`supabase/phase-1-intake.sql`](supabase/phase-1-intake.sql), [`supabase/phase-1-meeting-intelligence.sql`](supabase/phase-1-meeting-intelligence.sql), [`supabase/phase-1-doc-enhancements.sql`](supabase/phase-1-doc-enhancements.sql).
+4. Optional: seed sample data with [`supabase/seed.sql`](supabase/seed.sql) — includes 25 interactions and 32 funds.
+5. **Create Storage buckets**:
+   - `deal-files` (public) — backs FileVault.
+   - `intake-decks` (public) — backs the public Smart Intake Portal at `/intake`.
+
+   The schema SQL already grants anon read/insert/delete policies for the deal-files bucket.
 
 ### 3. Gemini
 1. Grab a free API key at [aistudio.google.com/apikey](https://aistudio.google.com/apikey).

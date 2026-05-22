@@ -3,30 +3,10 @@
 
 import { searchKnowledge } from './knowledge.js'
 import { supabase, isSupabaseConfigured } from './supabase.js'
-import { geminiKey, isGeminiConfigured } from './gemini.js'
-
-const URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent'
-
-async function gemini(prompt, cfg = {}) {
-  const res = await fetch(`${URL}?key=${geminiKey}`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      contents: [{ parts: [{ text: prompt }] }],
-      generationConfig: { temperature: 0.45, maxOutputTokens: 1400, ...cfg }
-    })
-  })
-  if (!res.ok) {
-    const t = await res.text().catch(() => '')
-    throw new Error(`Gemini error ${res.status}: ${t.slice(0, 200)}`)
-  }
-  const j = await res.json()
-  return j?.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || ''
-}
+import { llmCall } from './gemini.js'
 
 // Returns JSON: [{ name, kind: 'Strategic' | 'Financial', rationale, warmth }]
 export async function suggestTargets(deal) {
-  if (!isGeminiConfigured) throw new Error('Gemini API key required for target lists.')
 
   // Gather relevant firm context
   let firmContext = ''
@@ -87,7 +67,7 @@ ${internalContacts.slice(0, 40).map(c => `- ${c.name}${c.company ? ' (' + c.comp
 
 Return JSON only.`
 
-  const raw = await gemini(prompt)
+  const raw = await llmCall(prompt, { temperature: 0.45, maxOutputTokens: 1400, actionType: 'targets' })
   const cleaned = raw.replace(/^```json\s*|\s*```$/g, '').trim()
   try {
     const obj = JSON.parse(cleaned)

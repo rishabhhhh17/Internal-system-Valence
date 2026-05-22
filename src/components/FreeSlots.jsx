@@ -1,10 +1,12 @@
 import { useEffect, useState } from 'react'
 import { format } from 'date-fns'
-import { Clock, Sparkles, Send, Mail, Copy, Check, FileEdit, RefreshCw } from 'lucide-react'
+import { Clock, Sparkles, Send, Copy, Check, RefreshCw } from 'lucide-react'
 import Modal from './Modal.jsx'
-import { sendGmail, createGmailDraft, createCalendarEvent, GoogleAuthExpired, signInWithGoogle } from '../lib/google.js'
+import { openGmailCompose, createCalendarEvent, GoogleAuthExpired, signInWithGoogle } from '../lib/google.js'
 import { draftMeetingMessage, isGeminiConfigured } from '../lib/gemini.js'
 import { useToast } from './Toast.jsx'
+import { humanError } from '../lib/userError.js'
+import { firmDisplayName } from '../lib/firmIdentity.js'
 
 export default function FreeSlots({ slots, connected, onSent }) {
   const [pick, setPick] = useState(null)
@@ -83,20 +85,18 @@ function ProposeTimeModal({ open, slot, onClose, onSent }) {
     }
   }
 
-  async function send({ draftOnly = false } = {}) {
+  // Opens Gmail compose in a new tab pre-filled. The calendar invite still
+  // goes through the Calendar API (sensitive scope, no CASA needed). The
+  // user clicks Send on the Gmail draft themselves.
+  async function send() {
     if (!to.trim() || !subject.trim() || !body.trim()) {
       toast.error('Fill in recipient, subject, and message.')
       return
     }
     setSending(true)
     try {
-      if (draftOnly) {
-        await createGmailDraft({ to: to.trim(), subject: subject.trim(), body })
-        toast.success('Draft saved in Gmail.')
-      } else {
-        await sendGmail({ to: to.trim(), subject: subject.trim(), body })
-        toast.success(`Email sent to ${to.trim()}.`)
-      }
+      openGmailCompose({ to: to.trim(), subject: subject.trim(), body })
+      toast.success('Opened in Gmail to send.')
       if (addInvite) {
         try {
           await createCalendarEvent({
@@ -108,17 +108,17 @@ function ProposeTimeModal({ open, slot, onClose, onSent }) {
           })
           toast.success('Calendar invite sent.')
         } catch (e) {
-          toast.error('Email sent but calendar invite failed: ' + (e.message || ''))
+          if (e instanceof GoogleAuthExpired) {
+            toast.error('Google session expired. Reconnect to send the calendar invite.')
+            signInWithGoogle().catch(() => {})
+          } else {
+            toast.error('Gmail draft opened, but calendar invite failed: ' + humanError(e, 'unknown error'))
+          }
         }
       }
-      onSent?.({ to: to.trim(), subject: subject.trim(), slot, draftOnly })
+      onSent?.({ to: to.trim(), subject: subject.trim(), slot })
     } catch (e) {
-      if (e instanceof GoogleAuthExpired) {
-        toast.error('Google session expired. Click Connect Google to reauthenticate.')
-        signInWithGoogle().catch(() => {})
-      } else {
-        toast.error(e.message || 'Send failed')
-      }
+      toast.error(humanError(e, 'Could not open Gmail'))
     } finally {
       setSending(false)
     }
@@ -182,11 +182,8 @@ function ProposeTimeModal({ open, slot, onClose, onSent }) {
               {copied ? <><Check className="h-4 w-4 text-valence-success" /> Copied</> : <><Copy className="h-4 w-4" /> Copy</>}
             </button>
             <button onClick={onClose} className="vl-btn-secondary">Cancel</button>
-            <button onClick={() => send({ draftOnly: true })} disabled={sending || !body} className="vl-btn-secondary">
-              <FileEdit className="h-4 w-4" /> Save draft
-            </button>
-            <button onClick={() => send({ draftOnly: false })} disabled={sending || !body} className="vl-btn-primary">
-              <Send className="h-4 w-4" /> {sending ? 'Sending…' : 'Send now'}
+            <button onClick={send} disabled={sending || !body} className="vl-btn-primary">
+              <Send className="h-4 w-4" /> {sending ? 'Opening…' : 'Open in Gmail'}
             </button>
           </div>
         </div>
@@ -205,5 +202,5 @@ I hope you're well. Could we lock in ${when} for "${title}"? Happy to adjust if 
 Looking forward to the conversation.
 
 Best,
-Valence Growth Partners`
+${firmDisplayName('our team')}`
 }

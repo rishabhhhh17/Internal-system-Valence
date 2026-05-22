@@ -10,7 +10,9 @@ import { generateDaySummary, draftMeetingMessage, isGeminiConfigured } from '../
 import { googleCalendarUrl } from '../lib/calendar.js'
 import {
   listTodayEvents, computeFreeSlots, createCalendarEvent,
-  GoogleAuthExpired, signInWithGoogle
+  GoogleAuthExpired, signInWithGoogle,
+  openGmailCompose,
+  listGoogleTasks, createGoogleTask, toggleGoogleTask, deleteGoogleTask
 } from '../lib/google.js'
 import { useAuth } from '../hooks/useAuth.js'
 import { logActivity } from '../lib/activity.js'
@@ -20,6 +22,7 @@ import FreeSlots from '../components/FreeSlots.jsx'
 import MeetingSummary from '../components/MeetingSummary.jsx'
 import { useToast } from '../components/Toast.jsx'
 import { useConfirm } from '../components/ConfirmDialog.jsx'
+import { humanError } from '../lib/userError.js'
 
 const todayISO = () => format(new Date(), 'yyyy-MM-dd')
 
@@ -43,7 +46,8 @@ export default function Planner() {
   const [gEvents, setGEvents] = useState([])
   const [gLoading, setGLoading] = useState(false)
   const [gError, setGError] = useState('')
-  const [tasks, setTasks] = useState([])
+  const [tasks, setTasks] = useState([])      // local Supabase tasks
+  const [gTasks, setGTasks] = useState([])    // Google Tasks (merged into display)
   const [deals, setDeals] = useState([])
   const [loading, setLoading] = useState(true)
 
@@ -67,7 +71,7 @@ export default function Planner() {
     return () => { offM(); offT() }
   }, [])
 
-  useEffect(() => { loadGoogleEvents() }, [googleConnected])
+  useEffect(() => { loadGoogleEvents(); loadGoogleTasks() }, [googleConnected])
 
   async function loadGoogleEvents() {
     if (!googleConnected) { setGEvents([]); setGError(''); return }
@@ -80,6 +84,19 @@ export default function Planner() {
       else setGError(e.message || 'Could not load Google Calendar')
     } finally {
       setGLoading(false)
+    }
+  }
+
+  async function loadGoogleTasks() {
+    if (!googleConnected) { setGTasks([]); return }
+    try {
+      const items = await listGoogleTasks()
+      setGTasks(items)
+    } catch (e) {
+      // Silent — task scope might be missing (added in Phase X);
+      // surface in the Tasks panel header instead of a toast.
+      console.warn('Google Tasks load failed', e)
+      setGTasks([])
     }
   }
 
@@ -123,11 +140,18 @@ export default function Planner() {
     [googleConnected, gEvents]
   )
 
-  const dueToday  = useMemo(() => tasks.filter(t => !t.completed && t.due_date === today), [tasks, today])
-  const overdue   = useMemo(() => tasks.filter(t => !t.completed && t.due_date && t.due_date < today), [tasks, today])
-  const upcoming  = useMemo(() => tasks.filter(t => !t.completed && t.due_date && t.due_date > today), [tasks, today])
-  const completed = useMemo(() => tasks.filter(t => t.completed), [tasks])
-  const openTaskCount = overdue.length + dueToday.length + upcoming.length + tasks.filter(t => !t.completed && !t.due_date).length
+  // Merge local Supabase tasks + Google Tasks so the panel is one inbox.
+  // Google rows carry source='google'; local rows are untagged. Stable
+  // key per row uses the id (Supabase uuid or 'gtask:<google id>').
+  const allTasks = useMemo(() => {
+    return [...tasks, ...gTasks]
+  }, [tasks, gTasks])
+
+  const dueToday  = useMemo(() => allTasks.filter(t => !t.completed && t.due_date === today), [allTasks, today])
+  const overdue   = useMemo(() => allTasks.filter(t => !t.completed && t.due_date && t.due_date < today), [allTasks, today])
+  const upcoming  = useMemo(() => allTasks.filter(t => !t.completed && t.due_date && t.due_date > today), [allTasks, today])
+  const completed = useMemo(() => allTasks.filter(t => t.completed), [allTasks])
+  const openTaskCount = overdue.length + dueToday.length + upcoming.length + allTasks.filter(t => !t.completed && !t.due_date).length
 
   // AI summary — run once per day/count combination, never in a loop
   useEffect(() => {
@@ -178,7 +202,7 @@ export default function Planner() {
       setMeetings(prev => [...prev, created])
     } else {
       const { data, error } = await supabase.from('meetings').insert(payload).select().single()
-      if (error) { toast.error(error.message); return }
+      if (error) { toast.error(humanError(error, 'Could not save meeting')); return }
       created = data
       if (payload.deal_id) {
         await logActivity({ dealId: payload.deal_id, kind: 'meeting', body: `${payload.title} — ${payload.date} ${payload.time?.slice(0,5)} with ${payload.attendee_name}` })
@@ -201,7 +225,7 @@ export default function Planner() {
         loadGoogleEvents()
       } catch (e) {
         if (e instanceof GoogleAuthExpired) toast.error('Google session expired — reconnect to sync meetings.')
-        else toast.error('Calendar sync failed: ' + (e.message || ''))
+        else toast.error('Calendar sync failed: ' + humanError(e, 'unknown error'))
       }
     }
 
@@ -225,23 +249,49 @@ export default function Planner() {
 
   async function toggleTask(task) {
     const next = !task.completed
+    // Google task → toggle remotely + update local mirror so the row
+    // flips immediately without waiting for a refetch.
+    if (task.source === 'google') {
+      setGTasks(prev => prev.map(t => t.id === task.id ? { ...t, completed: next } : t))
+      try { await toggleGoogleTask(task) }
+      catch (e) {
+        setGTasks(prev => prev.map(t => t.id === task.id ? { ...t, completed: !next } : t))
+        toast.error(humanError(e, 'Could not update Google task'))
+      }
+      return
+    }
     if (!isSupabaseConfigured) {
       setTasks(prev => prev.map(t => t.id === task.id ? { ...t, completed: next } : t)); return
     }
     const { error } = await supabase.from('tasks').update({ completed: next }).eq('id', task.id)
-    if (error) toast.error(error.message)
+    if (error) toast.error(humanError(error, 'Could not update task'))
   }
 
   async function addTask(e) {
     e.preventDefault()
     const title = newTask.trim()
     if (!title) return
+    // When Google is connected, write the task into Google Tasks so the
+    // partner's phone / Google Tasks app sees it immediately. Falls back
+    // to local Supabase / demo state otherwise.
+    if (googleConnected) {
+      try {
+        const created = await createGoogleTask({ title, due_date: newDue || null })
+        setGTasks(prev => [created, ...prev])
+        toast.success('Task added to Google Tasks.')
+      } catch (e) {
+        toast.error(humanError(e, 'Could not add to Google Tasks'))
+        return
+      }
+      setNewTask(''); setNewDue(todayISO())
+      return
+    }
     const payload = { title, due_date: newDue || null, completed: false }
     if (!isSupabaseConfigured) {
       setTasks(prev => [{ id: `local-${Date.now()}`, ...payload }, ...prev])
     } else {
       const { error } = await supabase.from('tasks').insert(payload)
-      if (error) { toast.error(error.message); return }
+      if (error) { toast.error(humanError(error, 'Could not add task')); return }
       toast.success('Task added.')
     }
     setNewTask(''); setNewDue(todayISO())
@@ -250,16 +300,30 @@ export default function Planner() {
   async function deleteTask(task) {
     const ok = await confirm({ title: 'Delete task?', body: `"${task.title}" will be removed.`, destructive: true, confirmLabel: 'Delete' })
     if (!ok) return
+    if (task.source === 'google') {
+      setGTasks(prev => prev.filter(t => t.id !== task.id))
+      try { await deleteGoogleTask(task) }
+      catch (e) {
+        loadGoogleTasks()  // refetch on failure so UI reconciles
+        toast.error(humanError(e, 'Could not delete Google task'))
+      }
+      return
+    }
     if (!isSupabaseConfigured) {
       setTasks(prev => prev.filter(t => t.id !== task.id)); return
     }
     const { error } = await supabase.from('tasks').delete().eq('id', task.id)
-    if (error) return toast.error(error.message)
+    if (error) return toast.error(humanError(error, 'Could not delete task'))
   }
 
   return (
     <div className="space-y-6">
       <ConfigBanner />
+
+      <div>
+        <p className="vl-eyebrow-ink">Day Planner</p>
+        <h1 className="mt-2 font-display text-feature font-bold text-valence-text">Run your day.</h1>
+      </div>
 
       {/* AI Summary */}
       <AiSummaryCard
@@ -314,7 +378,7 @@ export default function Planner() {
           <p className="flex-1 text-[12px] text-valence-muted">
             Connect Google to surface your live calendar and send meeting invites from here.
           </p>
-          <button onClick={() => signInWithGoogle().catch(e => toast.error(e.message))} className="vl-btn-ghost shrink-0 text-[11px]">
+          <button onClick={() => signInWithGoogle().catch(e => toast.error(humanError(e, 'Could not start Google sign-in')))} className="vl-btn-ghost shrink-0 text-[11px]">
             Connect Google
           </button>
         </div>
@@ -467,7 +531,7 @@ export default function Planner() {
         description="Review, copy, and send. You can also add the event straight to Google Calendar."
         size="lg"
       >
-        {drafted && <DraftedMessage drafted={drafted} onClose={() => setDrafted(null)} />}
+        {drafted && <DraftedMessage drafted={drafted} googleConnected={googleConnected} onClose={() => setDrafted(null)} />}
       </Modal>
     </div>
   )
@@ -716,8 +780,10 @@ function MeetingForm({ deals = [], onSubmit, onCancel }) {
   )
 }
 
-function DraftedMessage({ drafted, onClose }) {
+function DraftedMessage({ drafted, googleConnected, onClose }) {
   const [copied, setCopied] = useState(false)
+  const [sending, setSending] = useState(false)
+  const toast = useToast()
   const textareaRef = useRef(null)
   const { meeting, message } = drafted
 
@@ -735,6 +801,23 @@ function DraftedMessage({ drafted, onClose }) {
   async function copy() {
     await navigator.clipboard.writeText(current())
     setCopied(true); setTimeout(() => setCopied(false), 1500)
+  }
+
+  // Opens Gmail's compose URL in a new tab pre-filled. User clicks Send
+  // themselves — we don't have (and intentionally don't request) the
+  // gmail.send scope. Keeps us out of Google's restricted-scope CASA audit.
+  function openInGmail() {
+    if (sending) return
+    setSending(true)
+    try {
+      openGmailCompose({ to: meeting.attendee_email, subject, body: current() })
+      toast.success('Opened in Gmail to send.')
+      onClose()
+    } catch (err) {
+      toast.error(humanError(err, 'Could not open Gmail'))
+    } finally {
+      setSending(false)
+    }
   }
 
   return (
@@ -767,11 +850,14 @@ function DraftedMessage({ drafted, onClose }) {
         <a href={gcal} target="_blank" rel="noreferrer" className="vl-btn-secondary">
           <CalendarPlus className="h-4 w-4" /> Add to Google Calendar
         </a>
-        <a href={mailto} className="vl-btn-secondary">
-          <Mail className="h-4 w-4" /> Open in mail
+        <button onClick={copy} className="vl-btn-secondary">
+          {copied ? <><Check className="h-4 w-4" /> Copied</> : <><Copy className="h-4 w-4" /> Copy</>}
+        </button>
+        <a href={mailto} className="vl-btn-ghost" title="Open in your default mail client">
+          <Mail className="h-4 w-4" /> Mail app
         </a>
-        <button onClick={copy} className="vl-btn-primary">
-          {copied ? <><Check className="h-4 w-4" /> Copied</> : <><Copy className="h-4 w-4" /> Copy message</>}
+        <button onClick={openInGmail} disabled={sending} className="vl-btn-primary">
+          <Mail className="h-4 w-4" /> {sending ? 'Opening…' : 'Open in Gmail'}
         </button>
       </div>
     </div>
