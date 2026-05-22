@@ -21,7 +21,7 @@
 
 import { Link } from 'react-router-dom'
 import {
-  Building2, KeyRound, ArrowRight, Shield, MessageSquare, CalendarDays,
+  Building2, KeyRound, ArrowRight, MessageSquare, CalendarDays,
   Briefcase, BookOpen, Sparkles, Users, Eye, Home
 } from 'lucide-react'
 import { useAuth } from '../hooks/useAuth.js'
@@ -29,13 +29,15 @@ import { useSeat } from '../hooks/useSeat.js'
 import { signOut } from '../lib/google.js'
 import Logo from '../components/Logo.jsx'
 
+// Plain feature labels — no marketing copy underneath. Pills exist just
+// to remind the user what's inside, not to sell.
 const FEATURES = [
-  { icon: Briefcase,     label: 'Deal Logger',         body: 'Every mandate, every stage, in one pipeline.' },
-  { icon: Users,         label: 'People CRM',          body: 'Personas, warmth, and who knows who.' },
-  { icon: MessageSquare, label: 'Auto-capture',        body: 'Gmail + Calendar flow in via the Chrome extension.' },
-  { icon: BookOpen,      label: 'Knowledge base',      body: 'Files, memos, and AI-searched firm notes.' },
-  { icon: CalendarDays,  label: 'Day planner',         body: 'Free-slot finder, meeting prep, intro drafts.' },
-  { icon: Sparkles,      label: 'Ask',                 body: 'Plain-English chat over the whole firm.' }
+  { icon: Briefcase,     label: 'Deal Status' },
+  { icon: Users,         label: 'People' },
+  { icon: MessageSquare, label: 'Interactions' },
+  { icon: BookOpen,      label: 'Knowledge' },
+  { icon: CalendarDays,  label: 'Day Planner' },
+  { icon: Sparkles,      label: 'Ask' }
 ]
 
 export default function Welcome() {
@@ -87,13 +89,11 @@ export default function Welcome() {
                 <h1 className="font-display text-display font-bold text-valence-text leading-[1.05]">
                   {org?.name ? <>You're in <span className="text-valence-blue">{org.name}</span>.</> : "You're signed in."}
                 </h1>
-                <p className="mt-6 max-w-xl text-base leading-relaxed text-valence-muted">
-                  Your workspace is ready. Pick up where you left off, or browse the
-                  setup screens below to walk through what a new teammate would see.
-                </p>
               </section>
 
-              {/* PRIMARY CTA — continue to the dashboard */}
+              {/* PRIMARY CTA — continue to the dashboard. Stripped the
+                  flowery "Today's note, priorities..." subtitle — the
+                  card title says it all. */}
               <section className="mt-10 max-w-2xl">
                 <Link
                   to="/"
@@ -108,27 +108,20 @@ export default function Welcome() {
                       <h3 className="mt-1 text-xl font-bold text-valence-text leading-tight">
                         Continue to {org?.name || 'your firm'}
                       </h3>
-                      <p className="mt-1.5 text-sm text-valence-muted leading-relaxed">
-                        Today's note, priorities, meetings, AI Ask, the full pipeline.
-                      </p>
                     </div>
                   </div>
                   <ArrowRight className="h-5 w-5 text-valence-blue opacity-60 group-hover:opacity-100 group-hover:translate-x-1 transition shrink-0" />
                 </Link>
               </section>
 
-              {/* SECONDARY — preview the onboarding flow. Admins QAing
-                  the screens can still click Start / Join; the forms
-                  refuse server-side with the existing yellow blocking
-                  card ("user already belongs to a team"). */}
+              {/* SECONDARY — onboarding-preview cards left visible so the
+                  current user can QA the new-partner experience. */}
               <section className="mt-14 max-w-4xl">
                 <div className="flex items-start gap-3 rounded-xl border border-valence-border bg-valence-elevated/40 px-4 py-3 mb-5">
                   <Eye className="h-4 w-4 text-valence-muted shrink-0 mt-0.5" />
                   <p className="text-xs text-valence-muted leading-relaxed">
                     <span className="font-semibold text-valence-text">Onboarding preview.</span>{' '}
-                    These are the screens a brand-new partner sees on their first sign-in. You're
-                    already seated, so submitting either card will refuse — sign out to do a
-                    real first-time run.
+                    What a new teammate sees on first sign-in.
                   </p>
                 </div>
 
@@ -138,14 +131,14 @@ export default function Welcome() {
                     icon={Building2}
                     eyebrow="New firm"
                     title="Start a team"
-                    body="Create a fresh workspace. You become the admin and invite the rest of the firm after onboarding."
+                    body="Create a workspace and invite teammates."
                   />
                   <SecondaryChoice
                     to="/join"
                     icon={KeyRound}
                     eyebrow="Have an invite"
                     title="Join a team"
-                    body="Paste the 8-character code your firm's admin sent you."
+                    body="Paste the 8-character code from your admin."
                   />
                 </div>
               </section>
@@ -161,14 +154,8 @@ export default function Welcome() {
                   {firstName ? `Welcome, ${firstName}` : loading ? 'Loading…' : 'Welcome'}
                 </p>
                 <h1 className="font-display text-display font-bold text-valence-text leading-[1.05]">
-                  The operating layer
-                  <br />
-                  for the firm.
+                  Start or join a firm.
                 </h1>
-                <p className="mt-6 max-w-xl text-base leading-relaxed text-valence-muted">
-                  Every deal, every relationship, every interaction — one workspace your team
-                  actually uses. Pick how you'd like to start.
-                </p>
               </section>
 
               <section className="mt-12 grid gap-4 sm:grid-cols-2 max-w-4xl">
@@ -177,38 +164,26 @@ export default function Welcome() {
                   icon={Building2}
                   eyebrow="New firm"
                   title="Start a team"
-                  body="Create a fresh workspace. You become the admin and invite the rest of the firm after onboarding."
+                  body="Create a workspace and invite teammates."
                 />
                 <SecondaryChoice
                   to="/join"
                   icon={KeyRound}
                   eyebrow="Have an invite"
                   title="Join a team"
-                  body="Paste the 8-character code your firm's admin sent you."
+                  body="Paste the 8-character code from your admin."
                 />
               </section>
             </>
           )}
 
-          {/* Feature pills — small, glanceable, same for both states. */}
+          {/* Feature pills — glanceable list of what's inside. No sales copy. */}
           <section className="mt-16 max-w-4xl">
-            <p className="vl-eyebrow text-valence-muted mb-4">What you unlock</p>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            <p className="vl-eyebrow text-valence-muted mb-4">Inside</p>
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
               {FEATURES.map(f => (
-                <FeaturePill key={f.label} icon={f.icon} label={f.label} body={f.body} />
+                <FeaturePill key={f.label} icon={f.icon} label={f.label} />
               ))}
-            </div>
-          </section>
-
-          {/* Trust line — security promise, not a footer */}
-          <section className="mt-14 max-w-2xl">
-            <div className="flex items-start gap-3 rounded-xl border border-valence-border bg-valence-elevated/40 px-4 py-3.5">
-              <Shield className="h-4 w-4 text-valence-blue shrink-0 mt-0.5" />
-              <p className="text-xs text-valence-muted leading-relaxed">
-                Your firm's data is fully isolated. Row-level security in the database
-                guarantees nothing crosses tenants — every team's deals, people, and
-                interactions are visible only to their seats.
-              </p>
             </div>
           </section>
         </main>
@@ -270,14 +245,11 @@ function SecondaryChoice({ to, icon: Icon, eyebrow, title, body }) {
   )
 }
 
-function FeaturePill({ icon: Icon, label, body }) {
+function FeaturePill({ icon: Icon, label }) {
   return (
-    <div className="rounded-xl border border-valence-border bg-valence-elevated/50 p-3.5">
-      <div className="flex items-center gap-2 mb-1.5">
-        <Icon className="h-3.5 w-3.5 text-valence-blue shrink-0" />
-        <span className="text-sm font-semibold text-valence-text">{label}</span>
-      </div>
-      <p className="text-[11px] text-valence-muted leading-relaxed">{body}</p>
+    <div className="flex items-center gap-2 rounded-lg border border-valence-border bg-valence-elevated/50 px-3 py-2">
+      <Icon className="h-3.5 w-3.5 text-valence-blue shrink-0" />
+      <span className="text-xs font-semibold text-valence-text truncate">{label}</span>
     </div>
   )
 }

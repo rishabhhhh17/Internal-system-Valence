@@ -9,8 +9,11 @@ const LIVE_MANDATE_STAGES = new Set(['Mandate', 'Preparation', 'Marketing', 'Dil
 
 const nav = [
   { to: '/',             label: 'Today',        icon: LayoutDashboard },
-  { to: '/deals',        label: 'Deal Logger',  icon: Briefcase,     badgeKey: 'activeDeals' },
-  { to: '/mandates',     label: 'Live Mandates',icon: Handshake,     badgeKey: 'liveMandates' },
+  // Was two entries — "Deal Logger" + "Live Mandates" — collapsed into a
+  // single "Deal Status" page with an internal All/Live filter + Gantt/Table
+  // toggle. The live-mandates badge stays on the new entry so partners
+  // still see the active-mandates count at a glance.
+  { to: '/deals',        label: 'Deal Status',  icon: Briefcase,     badgeKey: 'liveMandates' },
   { to: '/timeline',     label: 'Timeline',     icon: GanttChartSquare },
   { to: '/interactions', label: 'Interactions', icon: MessageSquare, badgeKey: 'pendingFollowUps', section: 'Relationships' },
   { to: '/people',       label: 'People',       icon: UserCircle,                                section: 'Relationships' },
