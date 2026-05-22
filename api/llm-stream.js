@@ -22,11 +22,19 @@
 //   - custom_openai      — same as openai, against a customer base URL.
 
 const DEFAULTS = {
-  gemini:             { model: 'gemini-2.0-flash' },
+  gemini:             { model: 'gemini-2.5-flash-lite' },
   openai:             { model: 'gpt-4o-mini' },
   anthropic:          { model: 'claude-3-5-haiku-latest' },
   vercel_ai_gateway:  { model: 'anthropic/claude-3-5-haiku' },
   custom_openai:      { model: 'custom-model' }
+}
+
+// Same fallback chain as /api/llm — when a model returns 429 or 5xx, the
+// next model in the list takes over. Keeps a streaming AI panel from
+// dying with "[ERROR] Gemini 429" mid-demo when the primary model's
+// per-minute pool is exhausted.
+const FALLBACK_CHAINS = {
+  gemini: ['gemini-2.5-flash-lite', 'gemini-2.0-flash-lite']
 }
 
 export default async function handler(req, res) {
@@ -113,24 +121,38 @@ function resolveServerKey(providerId) {
 }
 
 // ============ GEMINI ============
+// Walks the fallback chain. If the requested model returns 429/5xx,
+// silently retry the next model and stream from that one instead.
+// Only emits chunks once a model actually starts producing them — so a
+// failed primary doesn't leak partial output to the client before the
+// fallback takes over.
 async function streamGemini({ apiKey, model, prompt, temperature, maxTokens, writeChunk }) {
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:streamGenerateContent?key=${encodeURIComponent(apiKey)}&alt=sse`
-  const r = await fetch(url, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      contents: [{ parts: [{ text: prompt }] }],
-      generationConfig: { temperature, maxOutputTokens: maxTokens }
+  const TRANSIENT = (s) => s === 429 || (s >= 500 && s < 600)
+  const chain = [model, ...((FALLBACK_CHAINS.gemini || []).filter(m => m !== model))]
+  let lastErr = null
+  for (const m of chain) {
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(m)}:streamGenerateContent?key=${encodeURIComponent(apiKey)}&alt=sse`
+    const r = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [{ parts: [{ text: prompt }] }],
+        generationConfig: { temperature, maxOutputTokens: maxTokens }
+      })
     })
-  })
-  if (!r.ok || !r.body) {
-    const t = await r.text().catch(() => '')
-    throw new Error(`Gemini ${r.status}: ${t.slice(0, 200)}`)
+    if (!r.ok || !r.body) {
+      const t = await r.text().catch(() => '')
+      lastErr = new Error(`Gemini ${r.status}: ${t.slice(0, 200)}`)
+      if (TRANSIENT(r.status)) continue   // try next model in chain
+      throw lastErr                        // permanent error → bail
+    }
+    await parseSseStream(r.body, (json) => {
+      const text = json?.candidates?.[0]?.content?.parts?.[0]?.text || ''
+      if (text) writeChunk(text)
+    })
+    return  // success — done
   }
-  await parseSseStream(r.body, (json) => {
-    const text = json?.candidates?.[0]?.content?.parts?.[0]?.text || ''
-    if (text) writeChunk(text)
-  })
+  throw lastErr || new Error('Gemini: all fallback models exhausted')
 }
 
 // ============ OPENAI / VERCEL GATEWAY / CUSTOM ============
