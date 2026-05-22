@@ -179,10 +179,22 @@ async function gemini(prompt, {
   const userApiKey = cfg?.apiKey || (providerId === 'gemini' && geminiKeySource === 'user' ? geminiKey : null)
   const baseUrl    = cfg?.baseUrl || null
 
-  // Configured check: Gemini is managed (server fallback OK); other
-  // providers require a user-supplied key.
+  // Configured check: Gemini is `managed: true` in PROVIDERS — the
+  // server-side /api/llm proxy ALWAYS has GEMINI_API_KEY on these
+  // deploys, so a call always has a key available even when the user
+  // hasn't pasted their own. For non-Gemini providers (OpenAI /
+  // Anthropic / custom) there's no server fallback, so a user key is
+  // strictly required.
+  //
+  // History: this branch previously did `Boolean(userApiKey || geminiKey)`
+  // which threw "Gemini API key not configured" on a fresh demo deploy
+  // because neither was set client-side — even though the proxy would
+  // happily serve the call with the server env. Caller paths affected:
+  // generateDaySummary, draftMeetingMessage, generateDealBrief,
+  // summariseMeeting, extractDealFromTeaser, draftEmail, the screener
+  // and meeting-intel JSON paths.
   const okToCall = providerId === 'gemini'
-    ? Boolean(userApiKey || geminiKey)
+    ? true   // server-managed fallback is always available
     : Boolean(userApiKey)
   if (!okToCall) {
     throw new Error(`${cfg?.provider?.label || providerId} API key not configured`)
