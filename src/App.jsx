@@ -3,7 +3,9 @@ import { Routes, Route, Navigate, useLocation, useSearchParams } from 'react-rou
 import Layout from './components/Layout.jsx'
 import DailyNote from './pages/DailyNote.jsx'
 import Deals from './pages/Deals.jsx'
-import Mandates from './pages/Mandates.jsx'
+// Mandates page retired — /mandates now redirects to /deals?filter=live.
+// Kept the import line out of this file; the source file in src/pages/Mandates.jsx
+// remains for now in case we ever want to revive it.
 import Timeline from './pages/Timeline.jsx'
 import Funds from './pages/Funds.jsx'
 import People from './pages/People.jsx'
@@ -240,7 +242,10 @@ export default function App() {
       <Routes>
         <Route path="/" element={<DailyNote />} />
         <Route path="/deals" element={<Deals />} />
-        <Route path="/mandates" element={<Mandates />} />
+        {/* Live Mandates was merged into Deal Status — the standalone page
+            is retired. Anyone with a saved /mandates link lands on the
+            same merged page with the "Live" filter pre-selected. */}
+        <Route path="/mandates" element={<Navigate to="/deals?filter=live" replace />} />
         <Route path="/timeline" element={<Timeline />} />
         <Route path="/funds" element={<Funds />} />
         <Route path="/people" element={<People />} />
