@@ -10,8 +10,18 @@ export default function Login() {
 
   async function connect() {
     setErr(null); setBusy(true)
-    try { await signInWithGoogle() }
-    catch (e) {
+    try {
+      // Always route Google's OAuth callback back to /welcome — the
+      // first surface every signed-in user should see. Welcome itself
+      // decides what to render (seated users get a "Continue to your
+      // firm" CTA; seatless users get Start / Join cards). Previously
+      // we let the redirect default to window.location.href which sent
+      // a seated user straight to / and made the onboarding screens
+      // invisible. /welcome now sits between sign-in and dashboard for
+      // everyone.
+      const origin = typeof window !== 'undefined' ? window.location.origin : ''
+      await signInWithGoogle({ redirectTo: `${origin}/welcome` })
+    } catch (e) {
       // Raw Supabase OAuth errors look like "Invalid redirect URI: ..."
       // — meaningful to Supabase staff, gibberish to the prospect on the
       // very first screen of the demo. Route through humanError() so

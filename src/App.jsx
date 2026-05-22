@@ -176,33 +176,29 @@ export default function App() {
     } // end if (!authUnavailable)
   } // end if (isSupabaseConfigured)
 
-  // Session + seat + completed profile (or auth unavailable) — render
-  // the main app. If a signed-in seated user lands on any onboarding
-  // route, send them home — they're past those steps.
+  // Session + seat + completed profile — seated users can browse the
+  // onboarding cluster freely. /welcome is always allowed (it renders
+  // a "Welcome back · Continue to your firm" hero for seated users).
+  // /onboarding and /join still let admins preview the screens — those
+  // forms refuse server-side with the "user already belongs to a team"
+  // blocking card so nothing duplicates.
   //
-  // Preview escape hatch (?preview=1): admins / devs may want to look at
-  // the onboarding screens to QA the copy, screenshot them, or train
-  // a teammate on what they'll see. Without this, the only way to view
-  // /welcome with an already-seated account is to sign out — which is
-  // hostile to anyone iterating on these pages.
-  const isPreview = typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('preview') === '1'
+  // History: this used to redirect seated users straight from /welcome
+  // → /, which made the onboarding flow invisible to anyone testing
+  // with their own seat. The ?preview=1 escape hatch worked but was
+  // hidden — partners kept hitting / and asking "where is Welcome?".
+  // Letting Welcome render unconditionally fixes the visibility
+  // problem and the page itself does the right thing per seat state.
   const onboardingRoutes = ['/welcome', '/onboarding', '/join', '/complete-profile']
   if (session && hasSeat && profileComplete && onboardingRoutes.includes(pathname)) {
-    if (isPreview) {
-      // Render the onboarding routes anyway so an admin can preview them.
-      // Note: Start/Join from this preview state would still hit the
-      // "user already belongs to a team" guard server-side (PR #154
-      // surfaces that with an explicit yellow card).
-      return (
-        <Routes>
-          <Route path="/welcome"          element={<Welcome />} />
-          <Route path="/onboarding"       element={<Onboarding />} />
-          <Route path="/join"             element={<JoinTeam />} />
-          <Route path="/complete-profile" element={<CompleteProfile />} />
-        </Routes>
-      )
-    }
-    return <Navigate to="/" replace />
+    return (
+      <Routes>
+        <Route path="/welcome"          element={<Welcome />} />
+        <Route path="/onboarding"       element={<Onboarding />} />
+        <Route path="/join"             element={<JoinTeam />} />
+        <Route path="/complete-profile" element={<CompleteProfile />} />
+      </Routes>
+    )
   }
 
   return (
