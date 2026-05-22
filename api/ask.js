@@ -28,7 +28,17 @@ import { TOOL_DECLARATIONS, TOOL_IMPLEMENTATIONS } from './_ask-tools.js'
 const SUPABASE_URL      = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL
 const SUPABASE_ANON_KEY = process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY
 const GEMINI_API_KEY    = process.env.GEMINI_API_KEY
-const GEMINI_MODEL      = 'gemini-2.0-flash'
+
+// Same chain pattern as /api/llm + /api/llm-stream. cheapest → strongest
+// so a free-tier 429 on flash-lite silently rolls over to the next bucket
+// instead of dropping the SSE stream. Without this the floating Ask
+// sidebar dies the moment one model's quota window closes.
+const GEMINI_MODEL_CHAIN = [
+  'gemini-2.5-flash-lite',
+  'gemini-2.0-flash-lite',
+  'gemini-2.5-flash',
+  'gemini-2.0-flash'
+]
 
 const MAX_TOOL_TURNS = 4
 
@@ -151,28 +161,33 @@ export default async function handler(req, res) {
 }
 
 // ============ GEMINI CALL ============
+// Walks GEMINI_MODEL_CHAIN. On 429/5xx silently moves to the next model
+// (each one has its own quota bucket) instead of bubbling up the error.
+// Only throws when EVERY model in the chain fails.
 async function callGemini(contents) {
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(GEMINI_MODEL)}:generateContent?key=${encodeURIComponent(GEMINI_API_KEY)}`
+  const TRANSIENT = (s) => s === 429 || (s >= 500 && s < 600)
   const body = {
     system_instruction: { parts: [{ text: SYSTEM_PROMPT }] },
     contents,
     tools: [{ function_declarations: TOOL_DECLARATIONS }],
     generationConfig: {
       temperature: 0.15,
-      maxOutputTokens: 1500,
-      // Force tool_use over freeform when the question looks data-driven.
-      // 'AUTO' is fine for now; we can tighten to 'ANY' to require a
-      // tool call on the first turn if the model hallucinates.
+      maxOutputTokens: 1500
     }
   }
-  const r = await fetch(url, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body)
-  })
-  if (!r.ok) {
+  let lastErr = null
+  for (const model of GEMINI_MODEL_CHAIN) {
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(GEMINI_API_KEY)}`
+    const r = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    })
+    if (r.ok) return r.json()
     const txt = await r.text().catch(() => '')
-    throw new Error(`Gemini ${r.status}: ${txt.slice(0, 200)}`)
+    lastErr = new Error(`Gemini ${r.status} (${model}): ${txt.slice(0, 200)}`)
+    if (TRANSIENT(r.status)) continue   // try next model
+    throw lastErr                        // permanent failure → bail
   }
-  return r.json()
+  throw lastErr || new Error('Gemini: all fallback models exhausted')
 }
