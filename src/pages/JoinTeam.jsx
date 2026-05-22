@@ -6,7 +6,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate, Link, useSearchParams } from 'react-router-dom'
-import { Loader2, KeyRound, Check, ArrowLeft, User } from 'lucide-react'
+import { Loader2, KeyRound, Check, ArrowLeft, User, Building2 } from 'lucide-react'
 import { supabase, isSupabaseConfigured } from '../lib/supabase.js'
 import { signOut } from '../lib/google.js'
 import { humanError } from '../lib/userError.js'
@@ -33,11 +33,44 @@ export default function JoinTeam() {
   const [phone,    setPhone]    = useState('')
   const [busy,     setBusy]     = useState(false)
   const [blockingError, setBlockingError] = useState(null)
+  // Preview state: once the user has typed a full 8-char code, hit
+  // peek_invite() to surface the org name they'd be joining BEFORE
+  // they submit. Removes the "I typed a code, who am I about to join?"
+  // ambiguity that several testers flagged.
+  //   null    → no preview attempted yet (or code too short)
+  //   'loading' → fetch in flight
+  //   { orgName, role } → valid invite
+  //   'invalid' → 8-char code typed but doesn't map to a usable invite
+  const [previewState, setPreviewState] = useState(null)
 
   useEffect(() => {
     if (!blockingError) return
     blockingErrorRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
   }, [blockingError])
+
+  // Debounced peek_invite lookup. Fires once the code reaches 8 chars,
+  // cancels in-flight on edit, settles fast (one PostgREST round-trip
+  // to a SECURITY DEFINER fn — no client RLS friction).
+  useEffect(() => {
+    if (!isSupabaseConfigured) return
+    if (code.length !== 8) { setPreviewState(null); return }
+    let cancelled = false
+    setPreviewState('loading')
+    const t = setTimeout(async () => {
+      try {
+        const { data, error } = await supabase.rpc('peek_invite', { p_invite_code: code })
+        if (cancelled) return
+        if (error || !data || data.length === 0) {
+          setPreviewState('invalid')
+        } else {
+          setPreviewState({ orgName: data[0].org_name, role: data[0].role })
+        }
+      } catch {
+        if (!cancelled) setPreviewState('invalid')
+      }
+    }, 250)
+    return () => { cancelled = true; clearTimeout(t) }
+  }, [code])
 
   // Auto-uppercase, allow only the alphabet we use in codes (no I/O/0/1).
   function onCodeChange(v) {
@@ -145,6 +178,37 @@ export default function JoinTeam() {
                   autoFocus
                 />
                 <p className="text-[11px] text-valence-subtle">8 letters / digits. Case-insensitive. No I, O, 0, or 1.</p>
+
+                {/* Live preview — once 8 chars typed, hit peek_invite() and
+                    tell the user which workspace this code would land them
+                    in. Removes the "I have no idea who I'm joining" beat
+                    before they hit submit. */}
+                {previewState === 'loading' && (
+                  <div className="mt-3 inline-flex items-center gap-2 text-[12px] text-valence-muted">
+                    <Loader2 className="h-3 w-3 animate-spin" /> Checking code…
+                  </div>
+                )}
+                {previewState === 'invalid' && (
+                  <div className="mt-3 rounded-lg border border-valence-danger/30 bg-valence-danger/5 px-3 py-2 text-[12px] text-valence-danger">
+                    That code isn't valid, or it's already been claimed. Ask your firm's admin for a fresh one.
+                  </div>
+                )}
+                {previewState && typeof previewState === 'object' && (
+                  <div className="mt-3 rounded-lg border border-valence-blue/30 bg-valence-blue-soft/40 px-3.5 py-3">
+                    <div className="flex items-start gap-3">
+                      <div className="rounded-lg bg-valence-blue p-2 text-white shadow-sm">
+                        <Building2 className="h-4 w-4" />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-[10px] uppercase tracking-[0.14em] text-valence-blue-deep font-semibold">You're joining</p>
+                        <p className="mt-0.5 text-sm font-semibold text-valence-text truncate">{previewState.orgName}</p>
+                        <p className="text-[11px] text-valence-muted mt-0.5">
+                          You'll be added as <span className="font-semibold text-valence-text">{previewState.role}</span>. Fill in your details below.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
 
               <div className="space-y-1.5">
@@ -177,10 +241,14 @@ export default function JoinTeam() {
               </Link>
               <button
                 onClick={submit}
-                disabled={busy || code.length !== 8 || !fullName.trim()}
+                disabled={busy || code.length !== 8 || !fullName.trim() || previewState === 'invalid'}
                 className="vl-btn-primary"
               >
-                {busy ? <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Joining…</> : <><Check className="h-3.5 w-3.5" /> Join team</>}
+                {busy
+                  ? <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Joining…</>
+                  : previewState && typeof previewState === 'object'
+                    ? <><Check className="h-3.5 w-3.5" /> Join {previewState.orgName}</>
+                    : <><Check className="h-3.5 w-3.5" /> Join team</>}
               </button>
             </div>
           </div>
