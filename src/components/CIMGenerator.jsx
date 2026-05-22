@@ -4,6 +4,7 @@ import { supabase, isSupabaseConfigured } from '../lib/supabase.js'
 import { generateCIM, parseCIM, CIM_SECTIONS } from '../lib/cim.js'
 import { isGeminiConfigured } from '../lib/gemini.js'
 import { logActivity } from '../lib/activity.js'
+import { humanError } from '../lib/userError.js'
 import { useToast } from './Toast.jsx'
 import { firmDisplayName } from '../lib/firmIdentity.js'
 
@@ -60,7 +61,7 @@ export default function CIMGenerator({ deal }) {
       if (error) throw error
       toast.success('CIM draft saved to the deal.')
     } catch (e) {
-      toast.error(e.message || 'Save failed')
+      toast.error(humanError(e, 'Could not save CIM draft'))
     } finally {
       setSaving(false)
     }

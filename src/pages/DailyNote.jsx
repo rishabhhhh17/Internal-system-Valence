@@ -40,6 +40,14 @@ export default function DailyNote() {
   const [body, setBody]           = useState('')
   const [saving, setSaving]       = useState(false)
   const [savedAt, setSavedAt]     = useState(0)
+  // Loading flicker fix: without this flag, the Today cards render their
+  // "Inbox zero. Rare day." / "No meetings on the board today." empty
+  // states for ~200-400ms on the initial paint (state defaults to []),
+  // then snap to real data as soon as Promise.all settles. The flash
+  // looked like the product was empty and then suddenly populated.
+  // With `ready`, the cards show a small skeleton until the first
+  // fetch has returned.
+  const [ready, setReady]         = useState(!isSupabaseConfigured)
 
   const today    = useMemo(() => startOfToday(), [])
   const dateIso  = format(today, 'yyyy-MM-dd')
@@ -66,6 +74,7 @@ export default function DailyNote() {
       setInteractions(i.data || [])
       setMeetings(m.data || [])
       setMeetingsSource('local')
+      setReady(true)
     })()
   }, [dateIso])
 
@@ -234,7 +243,9 @@ export default function DailyNote() {
       {/* Auto sections — read-only, regenerated every render */}
       <section className="grid gap-4 lg:grid-cols-2">
         <Card tour="today-meetings" icon={Calendar} title="Today's meetings" subtitle={meetingsSource === 'google' ? 'From your Google Calendar' : 'From your calendar'}>
-          {meetings.length === 0 ? (
+          {!ready ? (
+            <SkeletonRows count={3} />
+          ) : meetings.length === 0 ? (
             <Empty>No meetings on the board today.</Empty>
           ) : (
             <ul className="divide-y divide-valence-border/60">
@@ -271,7 +282,9 @@ export default function DailyNote() {
           subtitle="Stale mandates · close-window · overdue follow-ups"
           countBadge={auto.priorities.length}
         >
-          {auto.priorities.length === 0 ? (
+          {!ready ? (
+            <SkeletonRows count={4} />
+          ) : auto.priorities.length === 0 ? (
             <Empty>Inbox zero. Rare day.</Empty>
           ) : (
             <ExpandableList items={auto.priorities} initial={4} kind="priorities">
@@ -294,7 +307,9 @@ export default function DailyNote() {
           subtitle="Where we're blocked on someone else"
           countBadge={auto.waitingOn.length}
         >
-          {auto.waitingOn.length === 0 ? (
+          {!ready ? (
+            <SkeletonRows count={3} />
+          ) : auto.waitingOn.length === 0 ? (
             <Empty>Nothing flagged.</Empty>
           ) : (
             <ExpandableList items={auto.waitingOn} initial={3} kind="items">
@@ -411,6 +426,22 @@ function Empty({ children }) {
     <div className="rounded-lg border border-dashed border-valence-border bg-valence-surface px-4 py-5 text-center">
       <p className="text-sm text-valence-muted">{children}</p>
     </div>
+  )
+}
+
+// Loading skeleton for the Today cards. Renders `count` faint pulse-rows
+// so the prospect sees calm "data on its way" affordance instead of the
+// briefly-visible empty-state messaging.
+function SkeletonRows({ count = 3 }) {
+  return (
+    <ul className="divide-y divide-valence-border/40">
+      {Array.from({ length: count }).map((_, i) => (
+        <li key={i} className="flex items-center gap-3 py-2">
+          <span className="h-2 w-12 rounded-full bg-valence-border/60 animate-pulse" />
+          <span className="h-2 w-3/5 rounded-full bg-valence-border/40 animate-pulse" />
+        </li>
+      ))}
+    </ul>
   )
 }
 

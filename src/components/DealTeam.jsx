@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Plus, User2, Trash2, Percent } from 'lucide-react'
 import { supabase, isSupabaseConfigured } from '../lib/supabase.js'
+import { humanError } from '../lib/userError.js'
 import { useToast } from './Toast.jsx'
 import { useConfirm } from './ConfirmDialog.jsx'
 
@@ -23,7 +24,7 @@ export default function DealTeam({ deal }) {
     setLoading(true)
     const { data, error } = await supabase
       .from('deal_team').select('*').eq('deal_id', deal.id).order('created_at')
-    if (error) toast.error(error.message)
+    if (error) toast.error(humanError(error, 'Could not load team'))
     setRows(data || [])
     setLoading(false)
   }
@@ -35,7 +36,7 @@ export default function DealTeam({ deal }) {
       return
     }
     const { data, error } = await supabase.from('deal_team').insert({ deal_id: deal.id, ...form }).select().single()
-    if (error) return toast.error(error.message)
+    if (error) return toast.error(humanError(error, 'Could not add team member'))
     setRows(prev => [...prev, data])
     setAdding(false)
     toast.success(`${form.name} added to the team.`)
@@ -47,7 +48,7 @@ export default function DealTeam({ deal }) {
       return
     }
     const { error } = await supabase.from('deal_team').update(patch).eq('id', row.id)
-    if (error) return toast.error(error.message)
+    if (error) return toast.error(humanError(error, 'Could not update team member'))
     setRows(prev => prev.map(r => r.id === row.id ? { ...r, ...patch } : r))
   }
 
@@ -56,7 +57,7 @@ export default function DealTeam({ deal }) {
     if (!ok) return
     if (!isSupabaseConfigured) { setRows(prev => prev.filter(r => r.id !== row.id)); return }
     const { error } = await supabase.from('deal_team').delete().eq('id', row.id)
-    if (error) return toast.error(error.message)
+    if (error) return toast.error(humanError(error, 'Could not remove team member'))
     setRows(prev => prev.filter(r => r.id !== row.id))
     toast.success('Removed.')
   }

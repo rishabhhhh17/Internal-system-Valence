@@ -18,6 +18,7 @@ import EmptyState from '../components/EmptyState.jsx'
 import Modal from '../components/Modal.jsx'
 import EventComposer from '../components/EventComposer.jsx'
 import { useToast } from '../components/Toast.jsx'
+import { humanError } from '../lib/userError.js'
 
 const VIEWS = ['Day', 'Week', 'Month']
 const DURATIONS = [15, 30, 45, 60, 90, 120]
@@ -148,13 +149,13 @@ export default function Calendar() {
     try {
       await signInWithGoogle({ redirectTo: `${window.location.origin}/calendar` })
     } catch (err) {
-      toast.error(err?.message || 'Could not start Google sign-in')
+      toast.error(humanError(err, 'Could not start Google sign-in'))
     }
   }
 
   async function disconnectGoogle() {
     try { await signOut(); await refreshAuth(); toast.success('Signed out of Google') }
-    catch (err) { toast.error(err?.message || 'Sign out failed') }
+    catch (err) { toast.error(humanError(err, 'Could not sign out')) }
   }
 
   async function syncFromGoogle() {
@@ -179,14 +180,14 @@ export default function Calendar() {
         toast.error('Google session expired — click Connect to reauthorise.')
         await refreshAuth()
       } else if (fail.length > 0) {
-        toast.error(`Synced ${ok.length} calendars · ${fail.length} failed (${fail[0].error?.message || 'unknown error'})`)
+        toast.error(`Synced ${ok.length} calendars · ${fail.length} failed (${humanError(fail[0].error, 'unknown error')})`)
       } else {
         const total = ok.reduce((sum, r) => sum + r.upserted, 0)
         toast.success(`Synced ${total} events from ${ok.length} Google calendar${ok.length === 1 ? '' : 's'}.`)
       }
       await load()
     } catch (err) {
-      toast.error(err?.message || 'Google sync failed')
+      toast.error(humanError(err, 'Google sync failed'))
     } finally {
       setSyncing(false)
     }
@@ -221,7 +222,7 @@ export default function Calendar() {
       return
     }
     const { data, error } = await supabase.from('team_calendars').insert(rows).select()
-    if (error) return toast.error(error.message)
+    if (error) return toast.error(humanError(error, 'Could not import calendars'))
     setCalendars(prev => [...prev, ...(data || [])])
     setShowImport(false)
     toast.success(`Imported ${data?.length || 0} calendar${data?.length === 1 ? '' : 's'} — running first sync…`)
@@ -240,7 +241,7 @@ export default function Calendar() {
       return
     }
     const { data, error } = await supabase.from('team_calendars').insert(payload).select().single()
-    if (error) return toast.error(error.message)
+    if (error) return toast.error(humanError(error, 'Could not add calendar'))
     setCalendars(prev => [...prev, data])
     setShowAddCal(false)
     toast.success(`${payload.name} added — click Sync to pull events.`)
@@ -256,7 +257,7 @@ export default function Calendar() {
       return
     }
     const { data, error } = await supabase.from('calendar_events').insert(payload).select().single()
-    if (error) return toast.error(error.message)
+    if (error) return toast.error(humanError(error, 'Could not create event'))
     setEvents(prev => [data, ...prev])
     setComposeAt(null)
     toast.success(`${title} added to ${calendarsById.get(calendar_id)?.name || 'calendar'}.`)
@@ -519,7 +520,7 @@ export default function Calendar() {
               if (googleConnected) syncFromGoogle()
             } catch (err) {
               if (err instanceof GoogleAuthExpired) toast.error('Google session expired. Reconnect Google.')
-              else toast.error(err?.message || 'Could not create event')
+              else toast.error(humanError(err, 'Could not create event'))
             }
           }}
         />

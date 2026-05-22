@@ -10,6 +10,7 @@ import EmptyState from '../components/EmptyState.jsx'
 import FundDrawer from '../components/FundDrawer.jsx'
 import ViewModeToggle from '../components/ViewModeToggle.jsx'
 import { useToast } from '../components/Toast.jsx'
+import { humanError } from '../lib/userError.js'
 
 function chequeRange(fund, money) {
   const lo = fund?.check_size_min_usd_m
@@ -82,11 +83,11 @@ export default function Funds() {
     }
     if (existingId) {
       const { error } = await supabase.from('funds').update(payload).eq('id', existingId)
-      if (error) return toast.error(error.message)
+      if (error) return toast.error(humanError(error, 'Could not save fund'))
       toast.success('Fund updated')
     } else {
       const { error } = await supabase.from('funds').insert(payload)
-      if (error) return toast.error(error.message)
+      if (error) return toast.error(humanError(error, 'Could not add fund'))
       toast.success('Fund saved')
     }
     setDrawer(null); load()
@@ -163,7 +164,7 @@ export default function Funds() {
         onRename={async (id, name) => {
           if (isSupabaseConfigured) {
             const { error } = await supabase.from('funds').update({ name }).eq('id', id)
-            if (error) { toast.error(error.message); throw error }
+            if (error) { toast.error(humanError(error, 'Could not rename fund')); throw error }
           }
           setRows(prev => prev.map(r => r.id === id ? { ...r, name } : r))
           setDrawer(prev => prev && prev.row?.id === id ? { ...prev, row: { ...prev.row, name } } : prev)

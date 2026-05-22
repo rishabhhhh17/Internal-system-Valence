@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Database, Loader2, RefreshCw, Trash2, AlertTriangle } from 'lucide-react'
 import { supabase, isSupabaseConfigured } from '../lib/supabase.js'
 import { seedSampleFirm, resetSampleFirm } from '../lib/demoSeed.js'
+import { humanError } from '../lib/userError.js'
 import { useToast } from './Toast.jsx'
 
 // Settings → Data panel for loading or wiping the demo dataset. Replaces
@@ -53,7 +54,7 @@ export default function SampleDataPanel() {
       toast.success(`Seeded — ${result.totalInserted} rows`)
       setTimeout(() => window.location.reload(), 500)
     } catch (err) {
-      toast.error(err?.message || 'Seed failed')
+      toast.error(humanError(err, 'Could not seed sample firm'))
       setBusy(null)
     }
   }
@@ -66,7 +67,7 @@ export default function SampleDataPanel() {
       setConfirmReset(false)
       setTimeout(() => window.location.reload(), 500)
     } catch (err) {
-      toast.error(err?.message || 'Reset failed')
+      toast.error(humanError(err, 'Could not reset sample firm'))
       setBusy(null)
     }
   }

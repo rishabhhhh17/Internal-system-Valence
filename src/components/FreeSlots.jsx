@@ -5,6 +5,7 @@ import Modal from './Modal.jsx'
 import { openGmailCompose, createCalendarEvent, GoogleAuthExpired, signInWithGoogle } from '../lib/google.js'
 import { draftMeetingMessage, isGeminiConfigured } from '../lib/gemini.js'
 import { useToast } from './Toast.jsx'
+import { humanError } from '../lib/userError.js'
 import { firmDisplayName } from '../lib/firmIdentity.js'
 
 export default function FreeSlots({ slots, connected, onSent }) {
@@ -111,13 +112,13 @@ function ProposeTimeModal({ open, slot, onClose, onSent }) {
             toast.error('Google session expired. Reconnect to send the calendar invite.')
             signInWithGoogle().catch(() => {})
           } else {
-            toast.error('Gmail draft opened, but calendar invite failed: ' + (e.message || ''))
+            toast.error('Gmail draft opened, but calendar invite failed: ' + humanError(e, 'unknown error'))
           }
         }
       }
       onSent?.({ to: to.trim(), subject: subject.trim(), slot })
     } catch (e) {
-      toast.error(e.message || 'Could not open Gmail')
+      toast.error(humanError(e, 'Could not open Gmail'))
     } finally {
       setSending(false)
     }

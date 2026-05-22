@@ -5,6 +5,7 @@ import { supabase, isSupabaseConfigured } from '../lib/supabase.js'
 import { extractText } from '../lib/fileParse.js'
 import { extractMeetingIntelligence, TRANSCRIPT_SOURCES } from '../lib/meetingIntel.js'
 import { isGeminiConfigured } from '../lib/gemini.js'
+import { humanError } from '../lib/userError.js'
 import { useToast } from './Toast.jsx'
 
 export default function MeetingIntelligence({ deal }) {
@@ -37,7 +38,7 @@ export default function MeetingIntelligence({ deal }) {
       setTranscript(text || '')
       toast.success('Transcript loaded')
     } catch (err) {
-      toast.error(err?.message || 'Could not parse file')
+      toast.error(humanError(err, 'Could not parse file'))
     } finally {
       setParsing(false)
     }
@@ -64,7 +65,7 @@ export default function MeetingIntelligence({ deal }) {
       setTranscript('')
       toast.success('Meeting brief saved')
     } catch (err) {
-      toast.error(err?.message || 'Extraction failed')
+      toast.error(humanError(err, 'Could not extract meeting brief'))
     } finally {
       setRunning(false)
     }

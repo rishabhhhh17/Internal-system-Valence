@@ -2,6 +2,8 @@ import { useState } from 'react'
 import { Sparkles, Database, Loader2 } from 'lucide-react'
 import { supabase, isSupabaseConfigured } from '../lib/supabase.js'
 import { seedSampleFirm } from '../lib/demoSeed.js'
+import { PITCH_MODE } from '../lib/featureFlags.js'
+import { humanError } from '../lib/userError.js'
 import { useToast } from './Toast.jsx'
 
 // Centred empty-state card used across list pages (/people, /funds, /deals,
@@ -38,12 +40,19 @@ export default function EmptyState({
       toast.success(`Loaded sample firm — ${result.totalInserted} rows`)
       setTimeout(() => window.location.reload(), 500)
     } catch (err) {
-      toast.error(err?.message || 'Sample load failed')
+      toast.error(humanError(err, 'Could not load sample firm'))
       setBusy(false)
     }
   }
 
-  const showSampleLink = sampleEligible && isSupabaseConfigured
+  // Hide the "Load sample firm" affordance on production builds and in
+  // PITCH_MODE. Reasoning: a real customer-facing prod empty state with
+  // a "load sample data" link reads as "this is a sandbox" rather than
+  // "this is your workspace." Admins who genuinely want to seed sample
+  // data still have the dedicated Settings → Data → Sample firm panel.
+  // Dev / local builds keep it for one-click iteration.
+  const showSampleLink =
+    sampleEligible && isSupabaseConfigured && !PITCH_MODE && import.meta.env.DEV
 
   return (
     <div className="vl-card flex flex-col items-center justify-center px-6 py-16 text-center">

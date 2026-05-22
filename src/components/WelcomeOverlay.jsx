@@ -5,6 +5,7 @@ import { Sparkles, Compass, ArrowRight, Loader2, Database, X, Check, Building2, 
 import { supabase, isSupabaseConfigured } from '../lib/supabase.js'
 import { seedSampleFirm } from '../lib/demoSeed.js'
 import { useToast } from './Toast.jsx'
+import { humanError } from '../lib/userError.js'
 import { PITCH_MODE } from '../lib/featureFlags.js'
 
 // ------------------------------------------------------------------------------
@@ -82,7 +83,7 @@ export default function WelcomeOverlay() {
         window.location.reload()
       }, 900)
     } catch (err) {
-      toast.error(err?.message || 'Sample load failed — try the SQL pack')
+      toast.error(humanError(err, 'Could not load sample — try the SQL pack'))
       setBusy(false)
     }
   }

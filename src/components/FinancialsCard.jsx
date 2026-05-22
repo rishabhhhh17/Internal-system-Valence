@@ -5,6 +5,7 @@ import { extractFinancials, formatMoney } from '../lib/financials.js'
 import { isGeminiConfigured } from '../lib/gemini.js'
 import { supabase, isSupabaseConfigured } from '../lib/supabase.js'
 import { logActivity } from '../lib/activity.js'
+import { humanError } from '../lib/userError.js'
 import { useToast } from './Toast.jsx'
 
 export default function FinancialsCard({ deal, onUpdated }) {
@@ -32,7 +33,7 @@ export default function FinancialsCard({ deal, onUpdated }) {
       toast.success('Financials extracted and saved.')
       onUpdated?.(data)
     } catch (e) {
-      toast.error(e.message || 'Extraction failed.')
+      toast.error(humanError(e, 'Could not extract financials'))
     } finally {
       setBusy(false); setLabel('')
     }
@@ -46,7 +47,7 @@ export default function FinancialsCard({ deal, onUpdated }) {
       toast.success('Cleared.')
       onUpdated?.(null)
     } catch (e) {
-      toast.error(e.message)
+      toast.error(humanError(e, 'Could not clear financials'))
     }
   }
 

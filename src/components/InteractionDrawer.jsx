@@ -476,7 +476,7 @@ function TranscriptSection({ form, update }) {
       update({ transcript_summary: result.summary || '' })
       toast.success('Summary generated.')
     } catch (err) {
-      toast.error(err?.message || 'Summary failed')
+      toast.error(humanError(err, 'Could not generate summary'))
     } finally {
       setSummarising(false)
     }

@@ -21,6 +21,7 @@ import { extractText, fileTypeFor } from '../lib/fileParse.js'
 import { classifyImport, commitEntities, KIND_META } from '../lib/aiImport.js'
 import { useSeat } from '../hooks/useSeat.js'
 import { useToast } from '../components/Toast.jsx'
+import { humanError } from '../lib/userError.js'
 
 export default function Import() {
   const { org } = useSeat()
@@ -46,7 +47,7 @@ export default function Import() {
     try {
       text = await extractText(file, { onProgress: (pct, label) => setProgress({ pct, label }) })
     } catch (err) {
-      toast.error(err?.message || 'Could not read file')
+      toast.error(humanError(err, 'Could not read file'))
       setPhase('idle'); return
     }
     if (!text || !text.trim()) {
@@ -74,7 +75,7 @@ export default function Import() {
       }
       setPhase('preview')
     } catch (err) {
-      toast.error(err?.message || 'AI classification failed')
+      toast.error(humanError(err, 'AI classification failed'))
       setPhase('idle')
     }
   }
@@ -110,7 +111,7 @@ export default function Import() {
       else toast.error(`${ok} created · ${fail} failed — see details below.`)
       setPhase('done')
     } catch (err) {
-      toast.error(err?.message || 'Commit failed')
+      toast.error(humanError(err, 'Could not commit import'))
     } finally {
       setCommitting(false)
     }

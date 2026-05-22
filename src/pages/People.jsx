@@ -19,6 +19,7 @@ import ViewModeToggle from '../components/ViewModeToggle.jsx'
 import PersonDrawer from '../components/PersonDrawer.jsx'
 import WarmthChip from '../components/WarmthChip.jsx'
 import { useToast } from '../components/Toast.jsx'
+import { humanError } from '../lib/userError.js'
 
 export default function People() {
   const toast = useToast()
@@ -114,7 +115,7 @@ export default function People() {
       .eq('id', personId)
     if (error) {
       setRows(before)
-      toast.error(error.message || 'Could not move contact')
+      toast.error(humanError(error, 'Could not move contact'))
       return
     }
     toast.success(`${target.full_name} → ${newCompany}`)
@@ -128,11 +129,11 @@ export default function People() {
     }
     if (existingId) {
       const { error } = await supabase.from('people').update(payload).eq('id', existingId)
-      if (error) return toast.error(error.message)
+      if (error) return toast.error(humanError(error, 'Could not save person'))
       toast.success('Person updated')
     } else {
       const { error } = await supabase.from('people').insert(payload)
-      if (error) return toast.error(error.message)
+      if (error) return toast.error(humanError(error, 'Could not add person'))
       toast.success('Person added')
     }
     setDrawer(null); load()
@@ -223,7 +224,7 @@ export default function People() {
         onRename={async (id, full_name) => {
           if (isSupabaseConfigured) {
             const { error } = await supabase.from('people').update({ full_name }).eq('id', id)
-            if (error) { toast.error(error.message); throw error }
+            if (error) { toast.error(humanError(error, 'Could not rename person')); throw error }
           }
           setRows(prev => prev.map(p => p.id === id ? { ...p, full_name } : p))
           setDrawer(prev => prev && prev.row?.id === id ? { ...prev, row: { ...prev.row, full_name } } : prev)

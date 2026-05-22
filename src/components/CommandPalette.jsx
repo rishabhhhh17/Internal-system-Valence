@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useFocusTrap } from '../hooks/useFocusTrap.js'
 import {
   Search, Briefcase, BookOpen, CalendarDays, Users, CheckCircle2,
   CornerDownLeft, Sparkles, LayoutDashboard, ArrowRight, File as FileIcon,
@@ -35,7 +36,9 @@ export default function CommandPalette() {
   const [kbHits, setKbHits] = useState([])
   const kbReqRef = useRef(0)
   const inputRef = useRef(null)
+  const panelRef = useRef(null)
   const navigate = useNavigate()
+  useFocusTrap(panelRef, open)
 
   // Global ⌘K / Ctrl+K binding
   useEffect(() => {
@@ -214,9 +217,9 @@ export default function CommandPalette() {
   let runningIdx = 0
 
   return (
-    <div className="fixed inset-0 z-[60] flex items-start justify-center px-4 pt-[14vh] animate-fade-in">
+    <div className="fixed inset-0 z-[60] flex items-start justify-center px-4 pt-[14vh] animate-fade-in" role="dialog" aria-modal="true" aria-label="Command palette">
       <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setOpen(false)} />
-      <div className="relative w-full max-w-xl animate-slide-up rounded-2xl border border-valence-border-strong bg-valence-surface shadow-valence overflow-hidden">
+      <div ref={panelRef} className="relative w-full max-w-xl animate-slide-up rounded-2xl border border-valence-border-strong bg-valence-surface shadow-valence overflow-hidden">
         <div className="flex items-center gap-3 border-b border-valence-border px-4 py-3">
           <Search className="h-4 w-4 text-valence-blue" />
           <input

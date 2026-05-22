@@ -3,6 +3,7 @@ import { Mail, Loader2, RefreshCw } from 'lucide-react'
 import { syncGmailActivity } from '../lib/gmailSync.js'
 import { useAuth } from '../hooks/useAuth.js'
 import { GoogleAuthExpired, signInWithGoogle } from '../lib/google.js'
+import { humanError } from '../lib/userError.js'
 import { useToast } from './Toast.jsx'
 
 export default function GmailSyncButton({ dealId, onSynced }) {
@@ -33,7 +34,7 @@ export default function GmailSyncButton({ dealId, onSynced }) {
         toast.error('Google session expired. Reconnect to continue.')
         signInWithGoogle().catch(() => {})
       } else {
-        toast.error(e.message || 'Sync failed')
+        toast.error(humanError(e, 'Gmail sync failed'))
       }
     } finally {
       setBusy(false); setLabel('')

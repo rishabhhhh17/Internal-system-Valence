@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { Sparkles, Plus, Check, Building2 } from 'lucide-react'
 import { supabase, isSupabaseConfigured } from '../lib/supabase.js'
 import { matchFundsForDeal, warmthTone, fundTypeLabel, DEMO_FUNDS, screenerModeForDeal, audienceLabelFor } from '../lib/funds.js'
+import { humanError } from '../lib/userError.js'
 import { useToast } from './Toast.jsx'
 
 export default function FundShortlist({ deal }) {
@@ -40,7 +41,7 @@ export default function FundShortlist({ deal }) {
       return
     }
     const { data, error } = await supabase.from('deal_fund_pings').insert({ deal_id: deal.id, fund_id: fund.id, status: 'shortlisted' }).select('*, funds(name)').single()
-    if (error) return toast.error(error.message)
+    if (error) return toast.error(humanError(error, 'Could not add to shortlist'))
     setPings(prev => [data, ...prev])
     toast.success(`${fund.name} added to shortlist`)
   }

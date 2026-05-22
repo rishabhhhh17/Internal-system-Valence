@@ -5,6 +5,7 @@ import { supabase, isSupabaseConfigured } from '../lib/supabase.js'
 import { parseTags, syncMentions, renderMentionToken, embedNote, fetchBacklinks } from '../lib/kb.js'
 import { uploadVoiceMemo, transcribeAndSummarise } from '../lib/voiceMemo.js'
 import { isGeminiConfigured } from '../lib/gemini.js'
+import { humanError } from '../lib/userError.js'
 import { useToast } from './Toast.jsx'
 import WikilinkTextarea from './WikilinkTextarea.jsx'
 
@@ -101,7 +102,7 @@ export default function KbNoteEditor({ note, folder, onSaved }) {
       onSaved?.({ ...note, title, body, tags })
       setSavedAt(Date.now())
     } catch (err) {
-      toast.error(err?.message || 'Save failed')
+      toast.error(humanError(err, 'Could not save note'))
     } finally {
       setSaving(false)
     }
@@ -112,7 +113,7 @@ export default function KbNoteEditor({ note, folder, onSaved }) {
   async function persistAudioFields(patch) {
     if (!note || !isSupabaseConfigured) return
     const { error } = await supabase.from('kb_notes').update(patch).eq('id', note.id)
-    if (error) toast.error(error.message)
+    if (error) toast.error(humanError(error, 'Could not save audio'))
     else onSaved?.({ ...note, ...patch })
   }
 
@@ -133,7 +134,7 @@ export default function KbNoteEditor({ note, folder, onSaved }) {
       rec.start()
       setRecording(true)
     } catch (err) {
-      toast.error(err?.message || 'Could not access the microphone')
+      toast.error(humanError(err, 'Could not access the microphone'))
     }
   }
 
@@ -164,7 +165,7 @@ export default function KbNoteEditor({ note, folder, onSaved }) {
         transcript: null, transcript_summary: null, transcribed_at: null
       })
     } catch (err) {
-      toast.error(err?.message || 'Upload failed')
+      toast.error(humanError(err, 'Could not upload audio'))
     } finally {
       setUploading(false)
     }
@@ -188,7 +189,7 @@ export default function KbNoteEditor({ note, folder, onSaved }) {
       })
       toast.success('Transcribed')
     } catch (err) {
-      toast.error(err?.message || 'Transcription failed')
+      toast.error(humanError(err, 'Could not transcribe audio'))
     } finally {
       setTranscribing(false)
     }

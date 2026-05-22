@@ -60,7 +60,7 @@ export default function Topbar() {
           onClick={toggleSidebar}
           aria-label={sidebarCollapsed ? 'Show sidebar' : 'Hide sidebar'}
           title={sidebarCollapsed ? 'Show sidebar' : 'Hide sidebar'}
-          className="hidden lg:inline-flex h-9 w-9 items-center justify-center rounded-lg border border-valence-border bg-valence-elevated text-valence-muted hover:text-valence-text hover:border-valence-ink/30 transition shrink-0"
+          className="hidden lg:inline-flex vl-icon-btn shrink-0"
         >
           {sidebarCollapsed ? <PanelLeftOpen className="h-4 w-4" /> : <PanelLeftClose className="h-4 w-4" />}
         </button>
@@ -91,8 +91,9 @@ export default function Topbar() {
 
         <button
           onClick={() => setNotifOpen(true)}
-          className="relative grid h-9 w-9 place-items-center rounded-lg border border-valence-border bg-valence-elevated text-valence-muted hover:text-valence-text hover:border-valence-ink/30 transition"
+          className="relative vl-icon-btn"
           aria-label={notifs.unread > 0 ? `${notifs.unread} unread notifications` : 'Notifications'}
+          title="Notifications"
         >
           <Bell className="h-4 w-4" />
           {notifs.unread > 0 && (

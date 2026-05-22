@@ -3,6 +3,7 @@ import { format } from 'date-fns'
 import { Upload, FileText, Download, Trash2, Loader2 } from 'lucide-react'
 import { supabase, isSupabaseConfigured } from '../lib/supabase.js'
 import { uploadKbFile, deleteKbFile, kbFilePublicUrl, formatBytes } from '../lib/storage.js'
+import { humanError } from '../lib/userError.js'
 import { useToast } from './Toast.jsx'
 
 // Files attached to a single kb_folder. Works for firm-library folders and
@@ -35,7 +36,7 @@ export default function KbFolderFiles({ folder }) {
       .select('*')
       .eq('folder_id', folder.id)
       .order('created_at', { ascending: false })
-    if (error) toast.error(error.message)
+    if (error) toast.error(humanError(error, 'Could not load files'))
     setFiles(data || [])
     setLoading(false)
   }
@@ -78,7 +79,7 @@ export default function KbFolderFiles({ folder }) {
       await deleteKbFile(row)
       setFiles(prev => prev.filter(f => f.id !== row.id))
     } catch (err) {
-      toast.error(err.message)
+      toast.error(humanError(err, 'Could not delete file'))
     }
   }
 

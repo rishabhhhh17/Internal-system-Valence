@@ -10,6 +10,7 @@ import KbFolderTree from '../components/KbFolderTree.jsx'
 import KbNoteEditor from '../components/KbNoteEditor.jsx'
 import KbFolderFiles from '../components/KbFolderFiles.jsx'
 import { useToast } from '../components/Toast.jsx'
+import { humanError } from '../lib/userError.js'
 
 // Three-pane layout — mandate picker (left), folder tree (middle), notes
 // (right). Selection is reflected in the URL so links into a specific
@@ -185,7 +186,7 @@ export function MandatesPanel() {
       return
     }
     const { data, error } = await supabase.from('kb_notes').insert(draft).select().single()
-    if (error) return toast.error(error.message)
+    if (error) return toast.error(humanError(error, 'Could not create note'))
     setNotes(prev => [data, ...prev])
     setSelectedNote(data)
   }

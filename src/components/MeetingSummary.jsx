@@ -5,6 +5,7 @@ import Modal from './Modal.jsx'
 import { summariseMeeting, isGeminiConfigured } from '../lib/gemini.js'
 import { supabase, isSupabaseConfigured } from '../lib/supabase.js'
 import { logActivity } from '../lib/activity.js'
+import { humanError } from '../lib/userError.js'
 import { useToast } from './Toast.jsx'
 
 export default function MeetingSummary({ open, onClose, meeting, deals = [] }) {
@@ -38,7 +39,7 @@ export default function MeetingSummary({ open, onClose, meeting, deals = [] }) {
       r.action_items = (r.action_items || []).map(a => ({ ...a, _selected: true }))
       setResult(r)
     } catch (e) {
-      toast.error(e.message || 'Summary failed')
+      toast.error(humanError(e, 'Could not generate summary'))
     } finally {
       setLoading(false)
     }
@@ -71,7 +72,7 @@ export default function MeetingSummary({ open, onClose, meeting, deals = [] }) {
       toast.success(`${selectedActions.length} task${selectedActions.length === 1 ? '' : 's'} created${dealId ? ' and note logged' : ''}.`)
       onClose?.()
     } catch (e) {
-      toast.error(e.message || 'Save failed')
+      toast.error(humanError(e, 'Could not save meeting'))
     } finally {
       setSaving(false)
     }

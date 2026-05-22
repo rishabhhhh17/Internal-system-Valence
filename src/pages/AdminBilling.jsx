@@ -10,6 +10,7 @@ import {
 } from '../lib/billing.js'
 import { getActiveOrgSeat, setActiveOrgSeat } from '../lib/aiMeter.js'
 import { useToast } from '../components/Toast.jsx'
+import { humanError } from '../lib/userError.js'
 
 // Internal admin view — what every customer is burning. Shows actions,
 // tokens, dollar cost we incurred, current cycle invoice, storage flags.
@@ -110,7 +111,7 @@ export default function AdminBilling() {
       toast.success(`Created ${org.name} · 2 seats · acting as them now.`)
       await load()
     } catch (err) {
-      toast.error(err?.message || 'Seed failed')
+      toast.error(humanError(err, 'Could not seed firm'))
     } finally {
       setSeeding(false)
     }

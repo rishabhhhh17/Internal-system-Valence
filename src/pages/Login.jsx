@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Sparkles, ArrowRight, Shield } from 'lucide-react'
 import { signInWithGoogle } from '../lib/google.js'
+import { humanError } from '../lib/userError.js'
 import Logo from '../components/Logo.jsx'
 
 export default function Login() {
@@ -10,7 +11,14 @@ export default function Login() {
   async function connect() {
     setErr(null); setBusy(true)
     try { await signInWithGoogle() }
-    catch (e) { setErr(e.message || 'Sign-in failed'); setBusy(false) }
+    catch (e) {
+      // Raw Supabase OAuth errors look like "Invalid redirect URI: ..."
+      // — meaningful to Supabase staff, gibberish to the prospect on the
+      // very first screen of the demo. Route through humanError() so
+      // they see a friendly fallback instead.
+      setErr(humanError(e, 'Sign-in failed — try again'))
+      setBusy(false)
+    }
   }
 
   return (

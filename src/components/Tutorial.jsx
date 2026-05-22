@@ -151,6 +151,7 @@ export default function TutorialButton() {
             : 'border-valence-blue/50 bg-valence-blue-soft text-valence-blue hover:bg-valence-blue-soft/80 animate-attention-glow'
         }`}
         title="Tour the product"
+        aria-label="Tour the product"
         data-tour="topbar-tour-button"
       >
         {/* Expanding ring + pulsing dot — only on first ever visit. Stops the

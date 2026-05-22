@@ -9,6 +9,7 @@ import ConfigBanner from '../components/ConfigBanner.jsx'
 import EmptyState from '../components/EmptyState.jsx'
 import MandateFitVerdict from '../components/MandateFitVerdict.jsx'
 import { useToast } from '../components/Toast.jsx'
+import { humanError } from '../lib/userError.js'
 
 const MODES = [
   { id: 'fund_match',   label: 'Fund-Match',   blurb: 'A client is raising / selling. Rank the universe.' },
@@ -122,7 +123,7 @@ export default function Screener() {
       const { text } = await extractText(file)
       setPdfText(text || '')
     } catch (err) {
-      toast.error(err?.message || 'Could not parse file')
+      toast.error(humanError(err, 'Could not parse file'))
       setPdfText('')
     } finally {
       setParsing(false)
@@ -153,7 +154,7 @@ export default function Screener() {
         })
       }
     } catch (err) {
-      toast.error(err?.message || 'Screener run failed')
+      toast.error(humanError(err, 'Screener run failed'))
     } finally {
       setRunning(false)
     }
@@ -174,7 +175,7 @@ export default function Screener() {
       return
     }
     const { error } = await supabase.from('deal_fund_pings').insert({ deal_id: selectedDealId, fund_id: match.fund_id, status: 'shortlisted' })
-    if (error) return toast.error(error.message)
+    if (error) return toast.error(humanError(error, 'Could not add to shortlist'))
     setPingedFundIds(prev => new Set(prev).add(match.fund_id))
     toast.success(`${match.fund_name} added to shortlist`)
   }

@@ -10,6 +10,7 @@ import EmptyState from '../components/EmptyState.jsx'
 import ViewModeToggle from '../components/ViewModeToggle.jsx'
 import { InlineText, InlineSelect, InlineDate } from '../components/InlineEdit.jsx'
 import { useToast } from '../components/Toast.jsx'
+import { humanError } from '../lib/userError.js'
 
 // Live mandates = Pre-Mandate + Mandate. Origination and Pitching are
 // pre-pipeline (Interactions territory) and the terminal three are after.
@@ -40,7 +41,7 @@ export default function Mandates() {
     setDeals(prev => prev.map(d => d.id === dealId ? { ...d, [field]: value } : d))
     if (!isSupabaseConfigured) return
     const { error } = await supabase.from('deals').update({ [field]: value }).eq('id', dealId)
-    if (error) toast.error(error.message)
+    if (error) toast.error(humanError(error, 'Could not update mandate'))
     // re-pull the row in the background so derived fields (days-in-stage etc.) stay current
     if (field === 'stage') load()
   }

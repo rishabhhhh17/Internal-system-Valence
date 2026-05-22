@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Plus, Mail, Phone, Trash2, User2, Building2 } from 'lucide-react'
 import { supabase, isSupabaseConfigured } from '../lib/supabase.js'
 import { logActivity } from '../lib/activity.js'
+import { humanError } from '../lib/userError.js'
 import { useToast } from './Toast.jsx'
 import { useConfirm } from './ConfirmDialog.jsx'
 import WikilinkTextarea from './WikilinkTextarea.jsx'
@@ -25,7 +26,7 @@ export default function Contacts({ dealId, onOpenComposer }) {
   async function load() {
     setLoading(true)
     const { data, error } = await supabase.from('contacts').select('*').eq('deal_id', dealId).order('created_at', { ascending: true })
-    if (error) toast.error(error.message)
+    if (error) toast.error(humanError(error, 'Could not load counterparties'))
     setContacts(data || [])
     setLoading(false)
   }
@@ -36,7 +37,7 @@ export default function Contacts({ dealId, onOpenComposer }) {
       setAdding(false); return
     }
     const { data, error } = await supabase.from('contacts').insert({ deal_id: dealId, ...form }).select().single()
-    if (error) return toast.error(error.message)
+    if (error) return toast.error(humanError(error, 'Could not add counterparty'))
     await logActivity({ dealId, kind: 'contact_added', body: `${form.name}${form.company ? ' (' + form.company + ')' : ''}` })
     setContacts(prev => [...prev, data])
     setAdding(false)
@@ -50,7 +51,7 @@ export default function Contacts({ dealId, onOpenComposer }) {
       setContacts(prev => prev.filter(x => x.id !== c.id)); return
     }
     const { error } = await supabase.from('contacts').delete().eq('id', c.id)
-    if (error) return toast.error(error.message)
+    if (error) return toast.error(humanError(error, 'Could not remove counterparty'))
     setContacts(prev => prev.filter(x => x.id !== c.id))
     toast.success(`${c.name} removed.`)
   }
