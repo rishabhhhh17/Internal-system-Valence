@@ -4,6 +4,7 @@ import { format, parseISO } from 'date-fns'
 import {
   Plus, Search, Briefcase, FileText, ExternalLink, Edit3, Trash2,
   Filter as FilterIcon, Circle, Table as TableIcon, LayoutGrid, TrendingUp,
+  GanttChartSquare,
   Mail, Users as UsersIcon, FolderOpen, Activity as ActivityIcon, Sparkles, Info, Download,
   ListChecks, MessageSquare, UserCircle, Building2, Settings2
 } from 'lucide-react'
@@ -19,6 +20,7 @@ import Drawer from '../components/Drawer.jsx'
 import Modal from '../components/Modal.jsx'
 import EmptyState from '../components/EmptyState.jsx'
 import DealKanban from '../components/DealKanban.jsx'
+import DealGantt from '../components/DealGantt.jsx'
 import FileVault from '../components/FileVault.jsx'
 import Contacts from '../components/Contacts.jsx'
 import WikilinkTextarea from '../components/WikilinkTextarea.jsx'
@@ -48,6 +50,13 @@ import { useConfirm } from '../components/ConfirmDialog.jsx'
 import { useCurrency } from '../hooks/useCurrency.jsx'
 
 const NDA = ['Signed', 'Pending', 'Not Required']
+
+// Stages that count as a "live mandate" — i.e. firm is actively
+// engaged. The old /mandates page filtered to this set; we honour
+// the same shape when navigated to /deals?filter=live.
+const LIVE_MANDATE_STAGES = new Set([
+  'Mandate', 'Preparation', 'Marketing', 'Diligence', 'Negotiation', 'Closing'
+])
 
 // New deal-type taxonomy. A mandate can be Transaction, Advisory, or both.
 // Transaction requires a sub-type (fundraise / m_and_a / exit).
@@ -100,7 +109,12 @@ export default function Deals() {
   const [fTopType, setFTopType] = useState('All')   // 'All' | 'transaction' | 'advisory'
   const [fSubtype, setFSubtype] = useState('All')   // 'All' | 'fundraise' | 'm_and_a' | 'exit'
   const [fNda, setFNda]     = useState('All')
-  const [view, setView]     = useState('board') // 'board' | 'table'
+  // Live-mandate macro filter. Either 'all' (show every deal) or 'live'
+  // (restrict to LIVE_MANDATE_STAGES). Toggled by the segmented control
+  // beside the search box, and pre-set when the user lands via
+  // /deals?filter=live (i.e. coming from the retired /mandates URL).
+  const [fLive, setFLive]   = useState(params.get('filter') === 'live' ? 'live' : 'all')
+  const [view, setView]     = useState('board') // 'board' | 'table' | 'gantt'
 
   const [drawer, setDrawer] = useState(null)
   // Keyboard-focused row on the Table view (separate from open drawer so
@@ -193,6 +207,7 @@ export default function Deals() {
     const needle = q.trim().toLowerCase()
     return deals.filter(d => {
       const types = Array.isArray(d.deal_types) ? d.deal_types : []
+      if (fLive === 'live'   && !LIVE_MANDATE_STAGES.has(d.stage)) return false
       if (fStage !== 'All'   && d.stage !== fStage) return false
       if (fTopType !== 'All' && !types.includes(fTopType)) return false
       if (fSubtype !== 'All' && d.deal_subtype !== fSubtype) return false
@@ -205,7 +220,7 @@ export default function Deals() {
         || (d.acquisition_brief || '').toLowerCase().includes(needle)
         || (d.engagement_brief || '').toLowerCase().includes(needle)
     })
-  }, [deals, q, fStage, fTopType, fSubtype, fNda])
+  }, [deals, q, fStage, fTopType, fSubtype, fNda, fLive])
 
   const metrics = useMemo(() => {
     const active      = deals.filter(d => !stageMeta(d.stage).terminal)
@@ -319,8 +334,10 @@ export default function Deals() {
       <ConfigBanner />
 
       <div>
-        <p className="vl-eyebrow-ink">Deal Logger</p>
-        <h1 className="mt-2 font-display text-feature font-bold text-valence-text">Every live conversation.</h1>
+        <p className="vl-eyebrow-ink">Deal Status</p>
+        <h1 className="mt-2 font-display text-feature font-bold text-valence-text">
+          {fLive === 'live' ? 'Live mandates' : 'Every deal in the pipeline'}
+        </h1>
       </div>
 
       {/* Pipeline counters — operational, not money */}
@@ -348,6 +365,19 @@ export default function Deals() {
           <FilterPill label="Subtype" value={fSubtype} onChange={setFSubtype} options={['fundraise', 'm_and_a', 'exit']} />
           <FilterPill label="NDA"     value={fNda}     onChange={setFNda}     options={NDA} />
 
+          {/* All / Live macro filter. Replaces the standalone Live Mandates
+              page — same set of stages, just toggled here. */}
+          <div className="flex items-center rounded-lg border border-valence-border bg-valence-surface p-0.5">
+            <button onClick={() => setFLive('all')}
+              className={`inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-semibold transition ${fLive === 'all' ? 'bg-valence-blue-soft text-valence-text' : 'text-valence-muted hover:text-valence-text'}`}>
+              All deals
+            </button>
+            <button onClick={() => setFLive('live')}
+              className={`inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-semibold transition ${fLive === 'live' ? 'bg-valence-blue-soft text-valence-text' : 'text-valence-muted hover:text-valence-text'}`}>
+              Live mandates
+            </button>
+          </div>
+
           <div data-tour="deals-view-toggle" className="flex items-center rounded-lg border border-valence-border bg-valence-surface p-0.5">
             <button onClick={() => setView('board')}
               className={`inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-semibold transition ${view === 'board' ? 'bg-valence-blue-soft text-valence-text' : 'text-valence-muted hover:text-valence-text'}`}>
@@ -356,6 +386,10 @@ export default function Deals() {
             <button onClick={() => setView('table')}
               className={`inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-semibold transition ${view === 'table' ? 'bg-valence-blue-soft text-valence-text' : 'text-valence-muted hover:text-valence-text'}`}>
               <TableIcon className="h-3.5 w-3.5" /> Table
+            </button>
+            <button onClick={() => setView('gantt')}
+              className={`inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-semibold transition ${view === 'gantt' ? 'bg-valence-blue-soft text-valence-text' : 'text-valence-muted hover:text-valence-text'}`}>
+              <GanttChartSquare className="h-3.5 w-3.5" /> Gantt
             </button>
           </div>
 
@@ -401,6 +435,8 @@ export default function Deals() {
         />
       ) : view === 'board' ? (
         <DealKanban deals={filtered} onOpen={setDrawer} onStageChange={changeStage} />
+      ) : view === 'gantt' ? (
+        <DealGantt deals={filtered} onOpen={setDrawer} />
       ) : (
         <DealTable deals={filtered} onOpen={setDrawer} focusedId={focusedDealId} onFocus={setFocusedDealId} />
       )}
