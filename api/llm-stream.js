@@ -33,8 +33,17 @@ const DEFAULTS = {
 // next model in the list takes over. Keeps a streaming AI panel from
 // dying with "[ERROR] Gemini 429" mid-demo when the primary model's
 // per-minute pool is exhausted.
+// Walks across DIFFERENT Gemini models when one returns 429/5xx. Each
+// model name maps to its own free-tier quota bucket on Google's side,
+// so chaining 4 buys ~4x the per-minute headroom without paid billing.
+// Order is cheapest → fanciest so the cheap ones absorb most traffic.
 const FALLBACK_CHAINS = {
-  gemini: ['gemini-2.5-flash-lite', 'gemini-2.0-flash-lite']
+  gemini: [
+    'gemini-2.5-flash-lite',
+    'gemini-2.0-flash-lite',
+    'gemini-1.5-flash-8b',
+    'gemini-1.5-flash'
+  ]
 }
 
 export default async function handler(req, res) {
