@@ -191,6 +191,11 @@ export default function App() {
   // problem and the page itself does the right thing per seat state.
   const onboardingRoutes = ['/welcome', '/onboarding', '/join', '/complete-profile']
   if (session && hasSeat && profileComplete && onboardingRoutes.includes(pathname)) {
+    // First time the user hits /welcome this browser session, remember it
+    // so we don't redirect them back here every navigation in the auth
+    // gate below. Set on render rather than effect so the latch is in
+    // place by the time the next pathname change re-runs the gate.
+    try { sessionStorage.setItem('valence.welcome.shown', '1') } catch {}
     return (
       <Routes>
         <Route path="/welcome"          element={<Welcome />} />
@@ -199,6 +204,24 @@ export default function App() {
         <Route path="/complete-profile" element={<CompleteProfile />} />
       </Routes>
     )
+  }
+
+  // FIRST-LOAD WELCOME LANDING
+  // If a seated user lands at "/" without having visited /welcome yet
+  // this browser session, redirect them to /welcome once. Once they've
+  // clicked "Continue to your firm" → /, the sessionStorage flag is set
+  // (above) and this redirect is a no-op for the rest of the session.
+  //
+  // Why this matters: the OAuth-callback redirect to /welcome only fires
+  // on a fresh sign-in. Users with a persistent Supabase session from
+  // before this code landed would keep going straight to / and miss the
+  // Welcome screen entirely. This adds a session-scoped second chance.
+  if (session && hasSeat && profileComplete && pathname === '/') {
+    let welcomeShown = false
+    try { welcomeShown = sessionStorage.getItem('valence.welcome.shown') === '1' } catch {}
+    if (!welcomeShown) {
+      return <Navigate to="/welcome" replace />
+    }
   }
 
   return (
