@@ -52,6 +52,8 @@ export default function InteractionDrawer({ open, onClose, existing, onSubmit })
   const [people, setPeople] = useState([])
   const [personQuery, setPersonQuery] = useState('')
   const [creatingPerson, setCreatingPerson] = useState(false)
+  // Double-submit guard — see PersonDrawer for the rationale.
+  const [submitting, setSubmitting] = useState(false)
 
   useEffect(() => {
     if (!open) return
@@ -140,8 +142,9 @@ export default function InteractionDrawer({ open, onClose, existing, onSubmit })
     }
   }
 
-  function submit(e) {
+  async function submit(e) {
     e.preventDefault()
+    if (submitting) return
     if (!form.counterparty_name.trim()) return
     const payload = {
       interaction_purpose: form.interaction_purpose,
@@ -164,7 +167,12 @@ export default function InteractionDrawer({ open, onClose, existing, onSubmit })
       transcribed_at: form.transcript?.trim() ? new Date().toISOString() : null,
       external_ref: form.external_ref || null
     }
-    onSubmit?.(payload, existing?.id)
+    setSubmitting(true)
+    try {
+      await Promise.resolve(onSubmit?.(payload, existing?.id))
+    } finally {
+      setSubmitting(false)
+    }
   }
 
   return (
@@ -174,8 +182,10 @@ export default function InteractionDrawer({ open, onClose, existing, onSubmit })
       title={existing ? `Edit interaction · ${existing.counterparty_name}` : 'Log a new interaction'}
       footer={
         <div className="flex items-center justify-end gap-3">
-          <button type="button" onClick={onClose} className="vl-btn-secondary">Cancel</button>
-          <button type="submit" form="interaction-form" className="vl-btn-primary">{existing ? 'Save changes' : 'Log interaction'}</button>
+          <button type="button" onClick={onClose} disabled={submitting} className="vl-btn-secondary">Cancel</button>
+          <button type="submit" form="interaction-form" disabled={submitting} className="vl-btn-primary">
+            {submitting ? 'Saving…' : (existing ? 'Save changes' : 'Log interaction')}
+          </button>
         </div>
       }
     >

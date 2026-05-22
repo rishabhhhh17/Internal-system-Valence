@@ -37,6 +37,8 @@ export default function FundDrawer({ open, onClose, existing, onSubmit, onRename
   const [contacts, setContacts] = useState([])
   const [pings, setPings] = useState([])
   const [peopleAtFund, setPeopleAtFund] = useState([])
+  // Save-button double-click guard — see PersonDrawer for the rationale.
+  const [submitting, setSubmitting] = useState(false)
 
   useEffect(() => {
     if (!open) return
@@ -79,8 +81,9 @@ export default function FundDrawer({ open, onClose, existing, onSubmit, onRename
 
   function update(patch) { setForm(f => ({ ...f, ...patch })) }
 
-  function submit(e) {
+  async function submit(e) {
     e.preventDefault()
+    if (submitting) return
     if (!form.name.trim()) return
     const payload = {
       name: form.name.trim(),
@@ -98,7 +101,12 @@ export default function FundDrawer({ open, onClose, existing, onSubmit, onRename
       last_touched_at: form.last_touched_at || null,
       notes: form.notes.trim() || null
     }
-    onSubmit?.(payload, existing?.id)
+    setSubmitting(true)
+    try {
+      await Promise.resolve(onSubmit?.(payload, existing?.id))
+    } finally {
+      setSubmitting(false)
+    }
   }
 
   return (
@@ -118,8 +126,10 @@ export default function FundDrawer({ open, onClose, existing, onSubmit, onRename
       footer={
         tab === 'overview' || tab === 'notes' ? (
           <div className="flex items-center justify-end gap-3">
-            <button type="button" onClick={onClose} className="vl-btn-secondary">Cancel</button>
-            <button type="submit" form="fund-form" className="vl-btn-primary">{existing ? 'Save changes' : 'Save fund'}</button>
+            <button type="button" onClick={onClose} disabled={submitting} className="vl-btn-secondary">Cancel</button>
+            <button type="submit" form="fund-form" disabled={submitting} className="vl-btn-primary">
+              {submitting ? 'Saving…' : (existing ? 'Save changes' : 'Save fund')}
+            </button>
           </div>
         ) : null
       }
