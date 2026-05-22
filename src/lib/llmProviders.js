@@ -65,7 +65,12 @@ export const PROVIDERS = Object.freeze([
     keyHelpUrl: 'https://aistudio.google.com/apikey',
     keyPlaceholder: 'AIza…',
     keyPrefix: 'AIza',
-    defaultModel: 'gemini-2.0-flash',
+    // Default model: gemini-2.5-flash. Free-tier daily quota on
+    // gemini-2.0-flash is tight and exhausts quickly under demo load;
+    // 2.5-flash has a separate, larger quota pool plus modestly better
+    // quality at similar cost. If the customer wants the older 2.0
+    // model they can still pick it from the models[] list below.
+    defaultModel: 'gemini-2.5-flash',
     models: [
       {
         id: 'gemini-2.0-flash',
