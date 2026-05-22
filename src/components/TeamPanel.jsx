@@ -29,7 +29,11 @@ export default function TeamPanel() {
   const [newEmail, setNewEmail] = useState('')
   const [copied, setCopied] = useState(null)
 
-  const isAdmin = seat?.role === 'admin'
+  // Per product direction: the firm reads as a flat membership. Any
+  // active seat can issue/revoke invites — the server enforces tenant
+  // isolation, not role gates. We keep the role chip as a visual marker
+  // only, no behaviour hangs off it any more.
+  const isAdmin = true
 
   async function load() {
     if (!isSupabaseConfigured || !org?.id) { setLoading(false); return }
@@ -56,7 +60,6 @@ export default function TeamPanel() {
   useEffect(() => { load() }, [org?.id])
 
   async function generate() {
-    if (!isAdmin) { toast.error('Only admins can issue invites.'); return }
     setGenerating(true)
     try {
       const { data, error } = await supabase.rpc('create_invite', {
@@ -74,11 +77,10 @@ export default function TeamPanel() {
     }
   }
 
-  // Retire an open invite — admin-only, single confirm. Calls the
-  // revoke_invite RPC which collapses the expiry to now() so the code
-  // stops being valid. Row is kept for audit.
+  // Retire an open invite. Single confirm. Calls the revoke_invite RPC
+  // which collapses the expiry to now() so the code stops being valid.
+  // Row is kept for audit. Any seat in the org can do this.
   async function revoke(invite) {
-    if (!isAdmin) { toast.error('Only admins can revoke invites.'); return }
     if (!confirm(`Revoke invite ${invite.code}? Anyone who hasn't used it yet won't be able to.`)) return
     try {
       const { error } = await supabase.rpc('revoke_invite', { p_invite_id: invite.id })
