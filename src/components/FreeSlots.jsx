@@ -5,6 +5,7 @@ import Modal from './Modal.jsx'
 import { openGmailCompose, createCalendarEvent, GoogleAuthExpired, signInWithGoogle } from '../lib/google.js'
 import { draftMeetingMessage, isGeminiConfigured } from '../lib/gemini.js'
 import { useToast } from './Toast.jsx'
+import { firmDisplayName } from '../lib/firmIdentity.js'
 
 export default function FreeSlots({ slots, connected, onSent }) {
   const [pick, setPick] = useState(null)
@@ -200,5 +201,5 @@ I hope you're well. Could we lock in ${when} for "${title}"? Happy to adjust if 
 Looking forward to the conversation.
 
 Best,
-Valence Growth Partners`
+${firmDisplayName('our team')}`
 }

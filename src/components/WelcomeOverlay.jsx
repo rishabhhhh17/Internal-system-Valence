@@ -200,9 +200,8 @@ export default function WelcomeOverlay() {
             </button>
           </div>
 
-          <div className="border-t border-valence-border px-7 py-3 flex items-center justify-between text-[11px] text-valence-subtle">
-            <span>Loading sample data inserts ~50 rows into your Supabase. Reset any time from the topbar.</span>
-            <span>Built by Rishabh · <a className="text-valence-blue hover:underline" href="mailto:rishabh@valencegrowth.com">rishabh@valencegrowth.com</a></span>
+          <div className="border-t border-valence-border px-7 py-3 text-[11px] text-valence-subtle">
+            <span>Loading sample data inserts ~50 rows into your workspace. Reset any time from the topbar.</span>
           </div>
         </div>
       </div>

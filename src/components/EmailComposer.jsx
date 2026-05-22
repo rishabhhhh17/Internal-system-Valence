@@ -6,6 +6,7 @@ import { openGmailCompose } from '../lib/google.js'
 import { logActivity } from '../lib/activity.js'
 import { useToast } from './Toast.jsx'
 import { humanError } from '../lib/userError.js'
+import { firmDisplayName } from '../lib/firmIdentity.js'
 
 export default function EmailComposer({ open, onClose, deal, contact }) {
   const toast = useToast()
@@ -172,15 +173,20 @@ function defaultSubject(scenario, deal) {
 }
 
 function fallbackBody(scenario, deal, contact) {
+  // Sender identity is pulled from the workspace setting `firmName` so
+  // templates render in the current tenant's voice. Hardcoding the
+  // original tenant name leaked through to other firms' AI surfaces and
+  // looked like a single-tenant product.
   const first = (contact?.name || '').split(' ')[0] || 'there'
   const name = deal?.client_name || 'the mandate'
+  const firm = firmDisplayName('our firm')
   const map = {
-    intro:           `Hi ${first},\n\nIntroducing myself from Valence Growth Partners — we're advising on ${name}. I'd welcome a short call to walk you through the opportunity and gauge your appetite. Could we find 20 minutes in the next week?\n\nBest,\nValence Growth Partners`,
-    followup:        `Hi ${first},\n\nJust a quick follow-up on ${name}. Happy to share additional materials or take any questions. Let me know what would be most useful on your end.\n\nBest,\nValence Growth Partners`,
-    status:          `Hi ${first},\n\nA short update on ${name}: we're currently in ${deal?.stage || 'the next phase'} and expect to revert with further materials shortly. Please let me know if anything specific would help frame your view.\n\nBest,\nValence Growth Partners`,
-    decline:         `Hi ${first},\n\nThank you for the engagement on ${name}. On balance we'll be stepping back from active discussions at this stage, but we'd welcome the chance to reconnect as the situation evolves.\n\nBest,\nValence Growth Partners`,
-    propose_meeting: `Hi ${first},\n\nWould you have 30 minutes this week to walk through ${name}? I can send across a couple of times that work on our side — just let me know what suits you.\n\nBest,\nValence Growth Partners`,
-    nda_request:     `Hi ${first},\n\nAhead of sharing materials on ${name}, could we put our mutual NDA in place? I'll send across the Valence standard this morning for your review — happy to mark up if your firm prefers its own template.\n\nBest,\nValence Growth Partners`
+    intro:           `Hi ${first},\n\nIntroducing myself from ${firm} — we're advising on ${name}. I'd welcome a short call to walk you through the opportunity and gauge your appetite. Could we find 20 minutes in the next week?\n\nBest,\n${firm}`,
+    followup:        `Hi ${first},\n\nJust a quick follow-up on ${name}. Happy to share additional materials or take any questions. Let me know what would be most useful on your end.\n\nBest,\n${firm}`,
+    status:          `Hi ${first},\n\nA short update on ${name}: we're currently in ${deal?.stage || 'the next phase'} and expect to revert with further materials shortly. Please let me know if anything specific would help frame your view.\n\nBest,\n${firm}`,
+    decline:         `Hi ${first},\n\nThank you for the engagement on ${name}. On balance we'll be stepping back from active discussions at this stage, but we'd welcome the chance to reconnect as the situation evolves.\n\nBest,\n${firm}`,
+    propose_meeting: `Hi ${first},\n\nWould you have 30 minutes this week to walk through ${name}? I can send across a couple of times that work on our side — just let me know what suits you.\n\nBest,\n${firm}`,
+    nda_request:     `Hi ${first},\n\nAhead of sharing materials on ${name}, could we put our mutual NDA in place? I'll send across our standard this morning for your review — happy to mark up if your firm prefers its own template.\n\nBest,\n${firm}`
   }
   return map[scenario] || map.intro
 }

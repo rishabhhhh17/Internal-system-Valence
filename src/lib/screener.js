@@ -84,7 +84,7 @@ function buildFundMatchPrompt({ deal, heuristic, mode, audience, topN }) {
     exit:      `Rank the most likely ${audience.plural} (sponsors who buy LP / secondary positions). Large PE, sovereign wealth, and family offices with secondary appetite dominate. Sector exposure + ticket fit matter; warmth is a tiebreaker.`
   })[mode]
 
-  return `You are a senior associate at Valence Growth Partners. ${intent}
+  return `You are a senior associate at an investment-advisory firm. ${intent}
 
 ${dealBlock}
 
@@ -142,9 +142,9 @@ export async function screenMandateFit({ teaserText, criteria }) {
     return heuristicMandateFit({ teaserText, criteria })
   }
 
-  const prompt = `You are a Managing Partner at Valence Growth Partners deciding whether to pursue an inbound mandate. Read the teaser below, score it against our standing criteria, and return JSON only.
+  const prompt = `You are a Managing Partner at an investment-advisory firm deciding whether to pursue an inbound mandate. Read the teaser below, score it against our standing criteria, and return JSON only.
 
-Valence's standing mandate criteria:
+Our standing mandate criteria:
 ${profile}
 
 Inbound teaser:

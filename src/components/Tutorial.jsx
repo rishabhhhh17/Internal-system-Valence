@@ -232,9 +232,8 @@ function TourMenu({ onPick, onClose }) {
           />
         </div>
 
-        <div className="border-t border-valence-border px-6 py-3 flex items-center justify-between text-[11px] text-valence-subtle">
+        <div className="border-t border-valence-border px-6 py-3 text-[11px] text-valence-subtle">
           <span>Press <span className="vl-kbd">Esc</span> any time to exit a tour.</span>
-          <span>Built by Rishabh — questions: <a className="text-valence-blue hover:underline" href="mailto:rishabh@valencegrowth.com">rishabh@valencegrowth.com</a></span>
         </div>
       </div>
     </div>
