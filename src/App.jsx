@@ -43,7 +43,7 @@ import { startAiMeter } from './lib/aiMeter.js'
 export default function App() {
   const { pathname } = useLocation()
   const { session, loading, authUnavailable } = useAuth()
-  const { seat, hasSeat, loading: seatLoading } = useSeat()
+  const { seat, org, hasSeat, loading: seatLoading } = useSeat()
   const profileComplete = Boolean(seat?.profile_completed_at)
   const firmName = useWorkspaceSetting(WORKSPACE_KEYS.firmName)
   const browserTitleOverride = useWorkspaceSetting(WORKSPACE_KEYS.browserTitle)
@@ -52,10 +52,21 @@ export default function App() {
 
   // Apply firm-customizable chrome: browser title + density data attribute.
   // Effect runs on every read so live edits in /settings reflect immediately.
+  // Title resolution order:
+  //   1. Explicit /settings → Workspace → Browser tab title override (if set)
+  //   2. The tenant's actual org.name (so "Pinnacle Advisory" not "ValenceOS")
+  //   3. effectiveBrowserTitle() fallback — used for signed-out / unseated states
   useEffect(() => {
     if (typeof document === 'undefined') return
-    document.title = effectiveBrowserTitle()
-  }, [firmName, browserTitleOverride])
+    const override = browserTitleOverride && String(browserTitleOverride).trim()
+    if (override) {
+      document.title = override
+    } else if (org?.name) {
+      document.title = org.name
+    } else {
+      document.title = effectiveBrowserTitle()
+    }
+  }, [firmName, browserTitleOverride, org?.name])
 
   // Start the AI meter once per app lifetime. It listens for Gemini
   // usage events and records billable ai_actions rows when there's an
