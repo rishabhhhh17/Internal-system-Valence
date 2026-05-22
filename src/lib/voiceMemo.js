@@ -56,7 +56,7 @@ export async function transcribeAndSummarise(file, { context = '' } = {}) {
   // forwards our exact body verbatim — and so the server key is what
   // actually authenticates the call, not anything baked into client JS.
   const json = await llmCallRaw({
-    url: '/models/gemini-2.0-flash:generateContent',
+    url: '/models/gemini-2.5-flash:generateContent',
     body: {
       contents: [{
         parts: [
