@@ -56,13 +56,18 @@ function readUserGeminiKey() {
 // and every AI surface would silently skip — even though the proxy
 // could in fact serve the call.
 const _initialUserKey = readUserGeminiKey()
-const _geminiIsManaged = (() => {
-  try { return isAnyProviderConfigured('gemini') && !_initialUserKey }
-  catch { return false }
-})()
+// HARDWIRED: Gemini is always available on these deploys because the
+// server-side /api/llm proxy holds GEMINI_API_KEY. Any client-side
+// gate that returned false here was a bug — the call would have
+// succeeded if the client had tried it. We tried a "managed mode"
+// flag that read isProviderConfigured() at module load, but that
+// state got clobbered by setGeminiKey('') which fires on logout /
+// key-clear. Simpler and correct: trust the proxy, treat Gemini as
+// always-configured client-side, let the server's 401/503 be the
+// authoritative "not configured" signal if it ever happens.
 export let geminiKey = _initialUserKey || null
-export let isGeminiConfigured = Boolean(geminiKey) || _geminiIsManaged
-export let geminiKeySource = _initialUserKey ? 'user' : (_geminiIsManaged ? 'managed' : 'none')
+export let isGeminiConfigured = true
+export let geminiKeySource = _initialUserKey ? 'user' : 'managed'
 
 export function getGeminiKey() { return geminiKey }
 export function getGeminiKeySource() { return geminiKeySource }
@@ -78,8 +83,11 @@ export function setGeminiKey(key) {
     return false
   }
   geminiKey = trimmed || null
-  isGeminiConfigured = Boolean(geminiKey)
-  geminiKeySource = trimmed ? 'user' : 'none'
+  // isGeminiConfigured stays true regardless — see the hardwired init.
+  // The user setting/clearing their personal key only affects whether
+  // calls go through their BYO header or the server's managed key.
+  isGeminiConfigured = true
+  geminiKeySource = trimmed ? 'user' : 'managed'
   // Keep the multi-provider registry's Gemini slot in sync so a user who
   // updates Gemini via the legacy panel doesn't have to re-pick it.
   try { setProviderApiKey('gemini', trimmed) } catch { /* SSR / blocked */ }
