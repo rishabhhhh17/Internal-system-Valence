@@ -63,8 +63,18 @@ const PRICING = {
   custom_openai: { /* customer's deployment — we don't know their cost */ }
 }
 
+// Per-provider fallback chains for transient upstream failures (429, 503,
+// 5xx). When the proxy hits a rate-limit on the primary model, retry once
+// with the next model in the chain. Keeps live customers from seeing
+// "AI not configured" mid-call when one model's free-tier pool is
+// momentarily exhausted. Ordered strongest-to-cheapest so we degrade
+// gracefully rather than escalate.
+const FALLBACK_CHAINS = {
+  gemini: ['gemini-2.5-flash-lite', 'gemini-2.0-flash-lite']
+}
+
 const DEFAULTS = {
-  gemini:             { model: 'gemini-2.0-flash' },
+  gemini:             { model: 'gemini-2.5-flash-lite' },
   openai:             { model: 'gpt-4o-mini' },
   anthropic:          { model: 'claude-3-5-haiku-latest' },
   vercel_ai_gateway:  { model: 'anthropic/claude-3-5-haiku' },
@@ -115,32 +125,58 @@ export default async function handler(req, res) {
   const maxTokens   = typeof body.maxOutputTokens === 'number' ? body.maxOutputTokens : 320
   const baseUrl     = String(req.headers['x-llm-base-url'] || '').trim() || null
 
+  // Build the model attempt-chain. First entry = requested model. Then
+  // walk the provider's FALLBACK_CHAINS (skipping the requested model so
+  // we don't retry the same one). Stop at the first call that succeeds.
+  // Transient failure = HTTP 429 or 5xx from upstream; everything else
+  // (auth, malformed prompt, etc) returns immediately so the user gets
+  // the real error.
+  const attemptChain = [model]
+  for (const m of FALLBACK_CHAINS[providerId] || []) {
+    if (m !== model) attemptChain.push(m)
+  }
+  const TRANSIENT = (s) => s === 429 || (s >= 500 && s < 600)
+
   try {
-    let dispatched
-    switch (providerId) {
-      case 'gemini':            dispatched = await callGemini({ apiKey, model, prompt, temperature, maxTokens, rawPassthrough: body }); break
-      case 'openai':            dispatched = await callOpenAI({ apiKey, model, prompt, temperature, maxTokens, baseUrl: null }); break
-      case 'anthropic':         dispatched = await callAnthropic({ apiKey, model, prompt, temperature, maxTokens }); break
-      case 'vercel_ai_gateway': dispatched = await callVercelGateway({ apiKey, model, prompt, temperature, maxTokens }); break
-      case 'custom_openai':     dispatched = await callOpenAI({ apiKey, model, prompt, temperature, maxTokens, baseUrl }); break
-      default:                  return res.status(400).json({ error: `Unsupported provider ${providerId}` })
+    let dispatched, attemptedModel
+    for (let i = 0; i < attemptChain.length; i++) {
+      attemptedModel = attemptChain[i]
+      switch (providerId) {
+        case 'gemini':            dispatched = await callGemini({ apiKey, model: attemptedModel, prompt, temperature, maxTokens, rawPassthrough: body }); break
+        case 'openai':            dispatched = await callOpenAI({ apiKey, model: attemptedModel, prompt, temperature, maxTokens, baseUrl: null }); break
+        case 'anthropic':         dispatched = await callAnthropic({ apiKey, model: attemptedModel, prompt, temperature, maxTokens }); break
+        case 'vercel_ai_gateway': dispatched = await callVercelGateway({ apiKey, model: attemptedModel, prompt, temperature, maxTokens }); break
+        case 'custom_openai':     dispatched = await callOpenAI({ apiKey, model: attemptedModel, prompt, temperature, maxTokens, baseUrl }); break
+        default:                  return res.status(400).json({ error: `Unsupported provider ${providerId}` })
+      }
+      if (dispatched.ok) break
+      // Don't fall through on permanent errors (auth, bad input, etc.)
+      if (!TRANSIENT(dispatched.status)) break
+      // Last attempt — out of fallbacks
+      if (i === attemptChain.length - 1) break
+      // else: loop and try the next model in the chain
     }
     if (!dispatched.ok) {
       return res.status(dispatched.status || 502).json({ error: dispatched.error || 'Upstream call failed' })
     }
+    // For accounting / logging, set `model` to whatever we ended up actually
+    // calling so the response (and downstream usage metering) reports truth.
+    const effectiveModel = attemptedModel
     // keySource records whether the customer is paying the upstream
     // provider directly (BYO) or paying us (managed). When BYO,
     // customerCostUsd is zero — we don't double-bill. When managed,
     // customerCostUsd is what their invoice line will be for this call.
     const keySource = userKey ? 'byo' : 'managed'
-    const usage = computeUsage(providerId, model, dispatched.usage, keySource)
+    const usage = computeUsage(providerId, effectiveModel, dispatched.usage, keySource)
     return res.status(200).json({
       data: {
         text: dispatched.text,
         raw: dispatched.raw || null
       },
       provider: providerId,
-      model,
+      model: effectiveModel,
+      requestedModel: model,
+      fellBack: effectiveModel !== model,
       keySource,
       usage
     })
