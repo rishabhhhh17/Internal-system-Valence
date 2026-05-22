@@ -102,21 +102,17 @@ export default function Team() {
         </p>
       </div>
 
-      {/* Filters */}
+      {/* Filters — role filter intentionally hidden along with the role
+          labels; firm treats everyone as equal members. Just a search box. */}
       {headerCount > 0 && (
         <div className="vl-card p-3">
-          <div className="flex flex-wrap items-center gap-3">
-            <div className="flex flex-1 min-w-[240px] items-center gap-2 rounded-lg border border-valence-border bg-valence-surface px-3 py-2">
-              <Search className="h-3.5 w-3.5 text-valence-subtle" />
-              <input
-                value={q} onChange={e => setQ(e.target.value)}
-                placeholder="Search by name, title or email…"
-                className="flex-1 bg-transparent text-sm text-valence-text placeholder:text-valence-subtle outline-none"
-              />
-            </div>
-            {roleOptions.length > 1 && (
-              <Select value={roleFilter} onChange={setRoleFilter} label="Role" options={['All', ...roleOptions]} />
-            )}
+          <div className="flex flex-1 min-w-[240px] items-center gap-2 rounded-lg border border-valence-border bg-valence-surface px-3 py-2">
+            <Search className="h-3.5 w-3.5 text-valence-subtle" />
+            <input
+              value={q} onChange={e => setQ(e.target.value)}
+              placeholder="Search by name, title or email…"
+              className="flex-1 bg-transparent text-sm text-valence-text placeholder:text-valence-subtle outline-none"
+            />
           </div>
         </div>
       )}
@@ -167,13 +163,16 @@ function PersonCard({ person, isYou }) {
               </span>
             )}
           </div>
+          {/* Display the user-typed job title (Managing Partner / Analyst /
+              Intern / whatever they wrote). The technical seat role
+              (admin / partner / analyst / observer) used to render here
+              as a secondary line — pulled it because the firm treats
+              everyone as equal members, with the title field being the
+              only differentiator. The technical role still gates server-
+              side actions (e.g. create_invite requires admin) but isn't
+              surfaced as a status label in the UI. */}
           {person.title && (
             <p className="mt-0.5 text-xs text-valence-muted truncate">{person.title}</p>
-          )}
-          {person.role && (
-            <p className="mt-1 inline-flex items-center gap-1 text-[10px] uppercase tracking-[0.08em] text-valence-subtle font-semibold">
-              {roleLabel(person.role)}
-            </p>
           )}
         </div>
       </div>
