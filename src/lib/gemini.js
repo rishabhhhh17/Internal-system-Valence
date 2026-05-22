@@ -46,14 +46,23 @@ function readUserGeminiKey() {
 // API key wired through that variable would be lifted out by anyone
 // with DevTools. The proxy endpoints /api/llm + /api/gemini hold the
 // server-side GEMINI_API_KEY (no VITE_ prefix), and per-user BYO keys
-// live in localStorage. The old `envGeminiKey` fallback is therefore
-// gone — `isGeminiConfigured` now reflects "user provided their own
-// key" only. Server-side configuration is detected by the API proxy
-// returning a 200 from a probe rather than by importing it client-side.
+// live in localStorage.
+//
+// `isGeminiConfigured` now reflects EITHER condition:
+//   - user has supplied their own BYO key, OR
+//   - the Gemini provider is in `managed` mode (server holds the key).
+// Without the managed fallback, a demo deploy with a server-side
+// GEMINI_API_KEY but no user key would have `isGeminiConfigured=false`
+// and every AI surface would silently skip — even though the proxy
+// could in fact serve the call.
 const _initialUserKey = readUserGeminiKey()
+const _geminiIsManaged = (() => {
+  try { return isAnyProviderConfigured('gemini') && !_initialUserKey }
+  catch { return false }
+})()
 export let geminiKey = _initialUserKey || null
-export let isGeminiConfigured = Boolean(geminiKey)
-export let geminiKeySource = _initialUserKey ? 'user' : 'none'
+export let isGeminiConfigured = Boolean(geminiKey) || _geminiIsManaged
+export let geminiKeySource = _initialUserKey ? 'user' : (_geminiIsManaged ? 'managed' : 'none')
 
 export function getGeminiKey() { return geminiKey }
 export function getGeminiKeySource() { return geminiKeySource }
