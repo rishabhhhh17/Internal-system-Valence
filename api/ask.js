@@ -140,7 +140,15 @@ export default async function handler(req, res) {
       }
 
       // No function call — model returned its final text.
-      const text = parts.map(p => p.text || '').join('')
+      let text = parts.map(p => p.text || '').join('')
+      // Fallback message: if the model returned no text (empty parts,
+      // safety-blocked, ran out of tokens, etc.) emit a graceful "no
+      // result" line instead of streaming nothing. Without this the
+      // <Message> component renders an invisible empty bubble and the
+      // user sees their question with no assistant response.
+      if (!text.trim()) {
+        text = "I couldn't find anything matching that in your CRM data. Try a different query, or add the relevant people / deals to the system first."
+      }
       // Stream the text in small chunks so the UI feels alive even on
       // a one-shot response.
       const chunkSize = 24
@@ -151,6 +159,9 @@ export default async function handler(req, res) {
       break
     }
     if (turn >= MAX_TOOL_TURNS) {
+      // Same fallback for the "hit the tool-loop ceiling without ever
+      // producing text" case — without a chunk the UI is silent.
+      send('chunk', { text: "I searched but couldn't put together a complete answer from the available CRM data. Try narrowing the question." })
       send('done', { turns: turn, note: 'max tool turns reached' })
     }
   } catch (err) {
