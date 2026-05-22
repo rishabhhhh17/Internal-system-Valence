@@ -70,7 +70,12 @@ const PRICING = {
 // momentarily exhausted. Ordered strongest-to-cheapest so we degrade
 // gracefully rather than escalate.
 const FALLBACK_CHAINS = {
-  gemini: ['gemini-2.5-flash-lite', 'gemini-2.0-flash-lite']
+  gemini: [
+    'gemini-2.5-flash-lite',
+    'gemini-2.0-flash-lite',
+    'gemini-1.5-flash-8b',
+    'gemini-1.5-flash'
+  ]
 }
 
 const DEFAULTS = {
