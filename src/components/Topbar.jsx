@@ -130,20 +130,35 @@ export default function Topbar() {
 // invisible; preview branches show a small coloured pill next to the
 // page title. Removes the "am I on production or on rishabh-testing?"
 // guessing problem when the URL is hidden under a long subdomain.
-// "Reset demo" — only renders on demo deploys (VITE_DEMO_MODE='true').
-// One click: signs the current user out + clears every valence.* key
-// in this origin's localStorage, then reloads. The next render shows
-// Login fresh, the way a prospect opening the URL for the first time
-// would see it.
+// "Reset demo" — internal dev-only affordance on demo deploys.
+// Gated by BOTH:
+//   1. VITE_DEMO_MODE='true' at build time (only set on valenceos-demo)
+//   2. ?dev=1 in the URL query string at view time
 //
-// SCOPE: localStorage is per-origin in browsers. Clicking this on the
-// demo deploy only touches the demo's storage — production and
-// rishabh-testing sessions on other Vercel subdomains are untouched.
-// Safe to click as a pre-send "QA the fresh-visitor flow" check.
+// The query-string gate hides the button from the prospect entirely.
+// Dev bookmarks `valenceos-demo.vercel.app/?dev=1` to see the button;
+// the URL shared with the prospect is the plain hostname → clean topbar.
+// localStorage latch so the dev only has to hit ?dev=1 once per browser.
 function DemoResetButton() {
-  const isDemo = import.meta.env.VITE_DEMO_MODE === 'true'
+  const isDemoBuild = import.meta.env.VITE_DEMO_MODE === 'true'
   const [busy, setBusy] = useState(false)
-  if (!isDemo) return null
+  const [devUnlocked, setDevUnlocked] = useState(false)
+
+  useEffect(() => {
+    if (!isDemoBuild || typeof window === 'undefined') return
+    const params = new URLSearchParams(window.location.search)
+    const fromQuery = params.get('dev') === '1'
+    let fromStorage = false
+    try { fromStorage = window.localStorage.getItem('valence.demo.dev') === '1' } catch {}
+    if (fromQuery) {
+      try { window.localStorage.setItem('valence.demo.dev', '1') } catch {}
+      setDevUnlocked(true)
+    } else if (fromStorage) {
+      setDevUnlocked(true)
+    }
+  }, [isDemoBuild])
+
+  if (!isDemoBuild || !devUnlocked) return null
 
   async function reset() {
     if (busy) return
