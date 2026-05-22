@@ -198,7 +198,7 @@ async function gemini(prompt, {
   let body
   if (responseMimeType && providerId === 'gemini') {
     body = {
-      url: `/models/${modelId || 'gemini-2.5-flash'}:generateContent`,
+      url: `/models/${modelId || 'gemini-2.5-flash-lite'}:generateContent`,
       body: {
         contents: [{ parts: [{ text: prompt }] }],
         generationConfig: { temperature, maxOutputTokens, responseMimeType }

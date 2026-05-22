@@ -65,12 +65,15 @@ export const PROVIDERS = Object.freeze([
     keyHelpUrl: 'https://aistudio.google.com/apikey',
     keyPlaceholder: 'AIza…',
     keyPrefix: 'AIza',
-    // Default model: gemini-2.5-flash. Free-tier daily quota on
-    // gemini-2.0-flash is tight and exhausts quickly under demo load;
-    // 2.5-flash has a separate, larger quota pool plus modestly better
-    // quality at similar cost. If the customer wants the older 2.0
-    // model they can still pick it from the models[] list below.
-    defaultModel: 'gemini-2.5-flash',
+    // Default model: gemini-2.5-flash-lite. Free-tier per-minute quota
+    // on gemini-2.5-flash + gemini-2.0-flash exhausts quickly under
+    // demo load. flash-lite has the largest free-tier pool and similar
+    // quality for the kinds of calls this app makes (Today summary,
+    // deal brief, fund-match JSON). The proxy ALSO has an automatic
+    // fallback chain — if even flash-lite hits 429, it retries with
+    // 2.0-flash-lite before surfacing the error. The customer can
+    // still pick a heavier model from the models[] list.
+    defaultModel: 'gemini-2.5-flash-lite',
     models: [
       {
         id: 'gemini-2.0-flash',
