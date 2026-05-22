@@ -45,7 +45,7 @@ export async function transcribeAndSummarise(file, { context = '' } = {}) {
   const mimeType = file.type || 'audio/webm'
 
   const prompt = [
-    'You are a senior associate at Valence Growth Partners. Transcribe the attached audio, then write a tight 3-sentence summary of what was discussed.',
+    'You are a senior associate at an investment-advisory firm. Transcribe the attached audio, then write a tight 3-sentence summary of what was discussed.',
     context ? `Context: ${context}` : '',
     'Return JSON only, with this exact shape: {"transcript": "...", "summary": "..."}'
   ].filter(Boolean).join('\n\n')

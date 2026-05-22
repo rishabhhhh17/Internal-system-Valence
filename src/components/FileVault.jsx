@@ -4,6 +4,7 @@ import { format } from 'date-fns'
 import { supabase, isSupabaseConfigured, checkDealFilesBucket, resetBucketStatus } from '../lib/supabase.js'
 import { uploadDealFile, publicUrlFor, deleteDealFile, formatBytes } from '../lib/storage.js'
 import { logActivity } from '../lib/activity.js'
+import { humanError } from '../lib/userError.js'
 import { useToast } from './Toast.jsx'
 import { useConfirm } from './ConfirmDialog.jsx'
 
@@ -30,7 +31,7 @@ export default function FileVault({ dealId }) {
     setLoading(true)
     const { data, error } = await supabase
       .from('deal_files').select('*').eq('deal_id', dealId).order('created_at', { ascending: false })
-    if (error) toast.error(error.message)
+    if (error) toast.error(humanError(error, 'Could not load files'))
     setFiles(data || [])
     setLoading(false)
   }
@@ -51,7 +52,7 @@ export default function FileVault({ dealId }) {
       setFiles(f => [row, ...f])
       toast.success(`Uploaded ${file.name}`)
     } catch (err) {
-      toast.error(err.message || 'Upload failed')
+      toast.error(humanError(err, 'Could not upload file'))
     } finally {
       setUploading(false)
     }
@@ -70,7 +71,7 @@ export default function FileVault({ dealId }) {
     const { error } = await supabase.from('deal_files').update({ watermark_enabled: next }).eq('id', f.id)
     if (error) {
       setFiles(prev => prev.map(x => x.id === f.id ? { ...x, watermark_enabled: !next } : x))
-      toast.error(error.message)
+      toast.error(humanError(error, 'Could not update watermark'))
     } else {
       toast.success(next ? 'Watermark on when shared' : 'Watermark off')
     }
@@ -84,7 +85,7 @@ export default function FileVault({ dealId }) {
       setFiles(prev => prev.filter(x => x.id !== f.id))
       toast.success('File deleted.')
     } catch (err) {
-      toast.error(err.message || 'Delete failed')
+      toast.error(humanError(err, 'Could not delete file'))
     }
   }
 

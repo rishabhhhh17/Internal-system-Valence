@@ -199,16 +199,19 @@
   }
 
   /* ============ BUTTONS ============
-     The signature CTA on valencegrowth.com is an UPPERCASE pill with a
-     right-arrow that glides on hover. We mirror that pattern here. */
+     Sentence case, rounded-lg, normal tracking. The old uppercase pill
+     treatment matched the marketing site but read as consumer-SaaS in
+     an IB pipeline tool. This style aligns the in-app buttons with how
+     Bloomberg / Capital IQ / Affinity render their primary actions —
+     clear hierarchy without shouting. */
   .vl-btn-primary {
-    @apply inline-flex items-center justify-center gap-2.5 rounded-full bg-valence-ink px-5 py-3 text-xs font-semibold uppercase tracking-[0.14em] text-white transition-all duration-200 hover:bg-valence-ink-soft focus:outline-none focus:ring-2 focus:ring-valence-blue-ring disabled:opacity-50 disabled:cursor-not-allowed;
+    @apply inline-flex items-center justify-center gap-2 rounded-lg bg-valence-ink px-4 py-2.5 text-sm font-semibold text-white transition-colors duration-150 hover:bg-valence-ink-soft focus:outline-none focus:ring-2 focus:ring-valence-blue-ring disabled:opacity-50 disabled:cursor-not-allowed;
   }
   .vl-btn-accent {
-    @apply inline-flex items-center justify-center gap-2.5 rounded-full bg-valence-blue px-5 py-3 text-xs font-semibold uppercase tracking-[0.14em] text-white transition-all duration-200 hover:bg-valence-blue-hover focus:outline-none focus:ring-2 focus:ring-valence-blue-ring disabled:opacity-50 disabled:cursor-not-allowed;
+    @apply inline-flex items-center justify-center gap-2 rounded-lg bg-valence-blue px-4 py-2.5 text-sm font-semibold text-white transition-colors duration-150 hover:bg-valence-blue-hover focus:outline-none focus:ring-2 focus:ring-valence-blue-ring disabled:opacity-50 disabled:cursor-not-allowed;
   }
   .vl-btn-secondary {
-    @apply inline-flex items-center justify-center gap-2.5 rounded-full border border-valence-ink bg-valence-elevated px-5 py-3 text-xs font-semibold uppercase tracking-[0.14em] text-valence-text transition-all duration-200 hover:bg-valence-ink hover:text-white;
+    @apply inline-flex items-center justify-center gap-2 rounded-lg border border-valence-border bg-valence-elevated px-4 py-2.5 text-sm font-semibold text-valence-text transition-colors duration-150 hover:border-valence-ink/40 hover:bg-valence-surface focus:outline-none focus:ring-2 focus:ring-valence-blue-ring;
   }
   .vl-btn-ghost {
     @apply inline-flex items-center justify-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-valence-muted transition hover:bg-valence-surface hover:text-valence-text;
@@ -220,6 +223,14 @@
   }
   .vl-btn-secondary-sm {
     @apply inline-flex items-center justify-center gap-2 rounded-lg border border-valence-border bg-valence-elevated px-3.5 py-2 text-sm font-semibold text-valence-text transition hover:border-valence-ink/30 hover:bg-valence-surface;
+  }
+
+  /* Square icon-only button — 36×36, used in the topbar (sidebar toggle,
+     bell, etc). Extracted so the topbar doesn't reinvent the same block
+     three times. Pass `position: relative` if you need an absolute child
+     like the unread-count pip. */
+  .vl-icon-btn {
+    @apply inline-flex h-9 w-9 items-center justify-center rounded-lg border border-valence-border bg-valence-elevated text-valence-muted transition hover:text-valence-text hover:border-valence-ink/30 focus:outline-none focus:ring-2 focus:ring-valence-blue-ring disabled:opacity-50 disabled:cursor-not-allowed;
   }
 
   /* ============ CHIPS ============ */

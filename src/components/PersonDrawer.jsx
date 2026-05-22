@@ -34,6 +34,11 @@ export default function PersonDrawer({ open, onClose, existing, onSubmit, onRena
   const [companies, setCompanies] = useState([])
   const [interactions, setInteractions] = useState([])
   const [deals, setDeals] = useState([])
+  // Double-submit guard: a partner accidentally clicks Save twice (touch
+  // mishit, slow network, etc) and the parent fires insert() twice →
+  // two people rows with identical content. The submitting state
+  // disables the Save button + the form so the second click is inert.
+  const [submitting, setSubmitting] = useState(false)
 
   useEffect(() => {
     if (!open) return
@@ -76,8 +81,9 @@ export default function PersonDrawer({ open, onClose, existing, onSubmit, onRena
 
   function update(patch) { setForm(f => ({ ...f, ...patch })) }
 
-  function submit(e) {
+  async function submit(e) {
     e.preventDefault()
+    if (submitting) return  // second click while first is in flight — ignore
     if (!form.full_name.trim()) return
     const payload = {
       full_name: form.full_name.trim(),
@@ -99,7 +105,14 @@ export default function PersonDrawer({ open, onClose, existing, onSubmit, onRena
       tags: parseTags(form.tags),
       last_touched_at: form.last_touched_at || null
     }
-    onSubmit?.(payload, existing?.id)
+    setSubmitting(true)
+    try {
+      // Parent onSubmit may be sync or async; await unconditionally so
+      // either shape gives us a single observable settle point.
+      await Promise.resolve(onSubmit?.(payload, existing?.id))
+    } finally {
+      setSubmitting(false)
+    }
   }
 
   return (
@@ -120,8 +133,10 @@ export default function PersonDrawer({ open, onClose, existing, onSubmit, onRena
       footer={
         tab === 'overview' ? (
           <div className="flex items-center justify-end gap-3">
-            <button type="button" onClick={onClose} className="vl-btn-secondary">Cancel</button>
-            <button type="submit" form="person-form" className="vl-btn-primary">{existing ? 'Save changes' : 'Save person'}</button>
+            <button type="button" onClick={onClose} disabled={submitting} className="vl-btn-secondary">Cancel</button>
+            <button type="submit" form="person-form" disabled={submitting} className="vl-btn-primary">
+              {submitting ? 'Saving…' : (existing ? 'Save changes' : 'Save person')}
+            </button>
           </div>
         ) : null
       }

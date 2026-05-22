@@ -4,7 +4,9 @@ import { supabase, isSupabaseConfigured } from '../lib/supabase.js'
 import { generateCIM, parseCIM, CIM_SECTIONS } from '../lib/cim.js'
 import { isGeminiConfigured } from '../lib/gemini.js'
 import { logActivity } from '../lib/activity.js'
+import { humanError } from '../lib/userError.js'
 import { useToast } from './Toast.jsx'
+import { firmDisplayName } from '../lib/firmIdentity.js'
 
 export default function CIMGenerator({ deal }) {
   const toast = useToast()
@@ -59,7 +61,7 @@ export default function CIMGenerator({ deal }) {
       if (error) throw error
       toast.success('CIM draft saved to the deal.')
     } catch (e) {
-      toast.error(e.message || 'Save failed')
+      toast.error(humanError(e, 'Could not save CIM draft'))
     } finally {
       setSaving(false)
     }
@@ -94,7 +96,7 @@ export default function CIMGenerator({ deal }) {
 </style></head>
 <body>
   <header>
-    <div class="sub">Confidential — Valence Growth Partners · CIM draft</div>
+    <div class="sub">Confidential — ${safe(firmDisplayName('your firm'))} · CIM draft</div>
     <h1>${safe(deal?.client_name || 'Untitled Mandate')}</h1>
     <div class="sub" style="margin-top:6px;">${safe(deal?.deal_type || '')} · ${safe(deal?.side || '')} · ${safe(deal?.sector || '')}</div>
   </header>

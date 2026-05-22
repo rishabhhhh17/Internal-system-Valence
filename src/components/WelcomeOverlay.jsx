@@ -5,6 +5,7 @@ import { Sparkles, Compass, ArrowRight, Loader2, Database, X, Check, Building2, 
 import { supabase, isSupabaseConfigured } from '../lib/supabase.js'
 import { seedSampleFirm } from '../lib/demoSeed.js'
 import { useToast } from './Toast.jsx'
+import { humanError } from '../lib/userError.js'
 import { PITCH_MODE } from '../lib/featureFlags.js'
 
 // ------------------------------------------------------------------------------
@@ -82,7 +83,7 @@ export default function WelcomeOverlay() {
         window.location.reload()
       }, 900)
     } catch (err) {
-      toast.error(err?.message || 'Sample load failed — try the SQL pack')
+      toast.error(humanError(err, 'Could not load sample — try the SQL pack'))
       setBusy(false)
     }
   }
@@ -200,9 +201,8 @@ export default function WelcomeOverlay() {
             </button>
           </div>
 
-          <div className="border-t border-valence-border px-7 py-3 flex items-center justify-between text-[11px] text-valence-subtle">
-            <span>Loading sample data inserts ~50 rows into your Supabase. Reset any time from the topbar.</span>
-            <span>Built by Rishabh · <a className="text-valence-blue hover:underline" href="mailto:rishabh@valencegrowth.com">rishabh@valencegrowth.com</a></span>
+          <div className="border-t border-valence-border px-7 py-3 text-[11px] text-valence-subtle">
+            <span>Loading sample data inserts ~50 rows into your workspace. Reset any time from the topbar.</span>
           </div>
         </div>
       </div>

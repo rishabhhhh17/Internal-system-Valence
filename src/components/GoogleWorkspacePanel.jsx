@@ -3,6 +3,7 @@ import { Calendar, FolderOpen, Mail, Check, RefreshCw, LogOut, ShieldAlert } fro
 import { signInWithGoogle, signOut } from '../lib/google.js'
 import { useAuth } from '../hooks/useAuth.js'
 import { useToast } from './Toast.jsx'
+import { humanError } from '../lib/userError.js'
 import { isSupabaseConfigured } from '../lib/supabase.js'
 
 // Settings → Integrations panel. Replaces the per-scope detail that used
@@ -26,13 +27,13 @@ export default function GoogleWorkspacePanel() {
   async function connect() {
     setBusy(true)
     try { await signInWithGoogle() }
-    catch (e) { toast.error(e?.message || 'Could not start Google sign-in'); setBusy(false) }
+    catch (e) { toast.error(humanError(e, 'Could not start Google sign-in')); setBusy(false) }
   }
 
   async function disconnect() {
     setBusy(true)
     try { await signOut(); toast.success('Signed out.') }
-    catch (e) { toast.error(e?.message || 'Sign-out failed') }
+    catch (e) { toast.error(humanError(e, 'Could not sign out')) }
     finally { setBusy(false) }
   }
 

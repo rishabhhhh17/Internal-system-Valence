@@ -23,7 +23,7 @@ import { supabase, isSupabaseConfigured } from './supabase.js'
 // flat — one array of entities — so the UI can show one row per item
 // regardless of kind.
 function buildPrompt(text, hint) {
-  return `You are reading a document for an investment-advisory firm (Valence Growth Partners). Identify every distinct ENTITY that should land in their CRM / pipeline. Be conservative — only include entities you can support with concrete evidence in the text. Never invent names, numbers, or relationships.
+  return `You are reading a document for an investment-advisory firm. Identify every distinct ENTITY that should land in their CRM / pipeline. Be conservative — only include entities you can support with concrete evidence in the text. Never invent names, numbers, or relationships.
 
 Return STRICT JSON with this exact shape:
 {

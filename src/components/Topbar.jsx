@@ -60,7 +60,7 @@ export default function Topbar() {
           onClick={toggleSidebar}
           aria-label={sidebarCollapsed ? 'Show sidebar' : 'Hide sidebar'}
           title={sidebarCollapsed ? 'Show sidebar' : 'Hide sidebar'}
-          className="hidden lg:inline-flex h-9 w-9 items-center justify-center rounded-lg border border-valence-border bg-valence-elevated text-valence-muted hover:text-valence-text hover:border-valence-ink/30 transition shrink-0"
+          className="hidden lg:inline-flex vl-icon-btn shrink-0"
         >
           {sidebarCollapsed ? <PanelLeftOpen className="h-4 w-4" /> : <PanelLeftClose className="h-4 w-4" />}
         </button>
@@ -73,8 +73,9 @@ export default function Topbar() {
           </div>
         )}
 
-        <div className="min-w-0 flex-1">
+        <div className="min-w-0 flex-1 flex items-center gap-2">
           <h1 className="truncate text-[15px] font-semibold tracking-tight text-valence-text">{meta.title}</h1>
+          <BranchBadge />
         </div>
 
         <div className="relative">
@@ -91,8 +92,9 @@ export default function Topbar() {
 
         <button
           onClick={() => setNotifOpen(true)}
-          className="relative grid h-9 w-9 place-items-center rounded-lg border border-valence-border bg-valence-elevated text-valence-muted hover:text-valence-text hover:border-valence-ink/30 transition"
+          className="relative vl-icon-btn"
           aria-label={notifs.unread > 0 ? `${notifs.unread} unread notifications` : 'Notifications'}
+          title="Notifications"
         >
           <Bell className="h-4 w-4" />
           {notifs.unread > 0 && (
@@ -117,5 +119,29 @@ export default function Topbar() {
         {...notifs}
       />
     </>
+  )
+}
+
+// Visible branch indicator — renders only on non-main deploys so the
+// developer can confirm at a glance which Vercel preview is live in
+// the tab. Production (`main`) and local dev (no branch env) stay
+// invisible; preview branches show a small coloured pill next to the
+// page title. Removes the "am I on production or on rishabh-testing?"
+// guessing problem when the URL is hidden under a long subdomain.
+function BranchBadge() {
+  const branch = import.meta.env.VITE_BRANCH
+  if (!branch || branch === 'main') return null
+  const isTesting = branch === 'rishabh-testing'
+  return (
+    <span
+      title={`Deployed from branch: ${branch}`}
+      className={`shrink-0 inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.1em] ${
+        isTesting
+          ? 'border-valence-warning/50 bg-valence-warning/15 text-valence-warning'
+          : 'border-valence-border bg-valence-elevated text-valence-muted'
+      }`}
+    >
+      {isTesting ? '⚠ Testing' : branch}
+    </span>
   )
 }

@@ -1,7 +1,16 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 
+// Vercel injects VERCEL_GIT_COMMIT_REF at build time (e.g. 'main',
+// 'rishabh-testing'). Surface it to the client as import.meta.env so
+// the topbar can show which branch a deploy is serving — useful when
+// the dev needs to confirm they're on the testing lane and not on prod.
+const branch = process.env.VERCEL_GIT_COMMIT_REF || process.env.VITE_BRANCH || ''
+
 export default defineConfig({
+  define: {
+    'import.meta.env.VITE_BRANCH': JSON.stringify(branch)
+  },
   plugins: [react()],
   server: {
     port: 5173,

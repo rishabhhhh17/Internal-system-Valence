@@ -1,35 +1,65 @@
 // Settings registry — drives both the /settings page rail and any in-app
-// links that deep-link to a specific section. Order here = order in the UI.
+// links that deep-link to a specific section. Sections are split into two
+// tiers ('simple' / 'advanced'). The rail renders two grouped lists with
+// eyebrow headers — Simple is what a new partner touches in the first
+// week (firm identity, teammates, look-and-feel); Advanced is for the
+// admin doing the deeper setup (investment thesis, AI provider keys,
+// bulk data import).
+//
+// Investment criteria used to live inside the Workspace section as a
+// secondary card. Prospects taking their first look at /settings would
+// see the scoring panel and bounce — too much firm-specific config
+// before they'd even decided to start using the product. Now it's its
+// own Advanced section, out of the first-impression path.
 export const SETTINGS_SECTIONS = [
+  // ---------- SIMPLE ----------
   {
     id: 'workspace',
+    tier: 'simple',
     label: 'Workspace',
-    description: 'Firm name, logo, brand color, currency, default scoring criteria.'
+    description: 'Firm name, logo, brand color, currency, and browser title.'
   },
   {
     id: 'team',
+    tier: 'simple',
     label: 'Team',
     description: 'Members of your firm + invite codes for new partners.'
   },
   {
+    id: 'appearance',
+    tier: 'simple',
+    label: 'Appearance',
+    description: 'Theme, density, sidebar position.'
+  },
+  // ---------- ADVANCED ----------
+  {
+    id: 'scoring',
+    tier: 'advanced',
+    label: 'Investment criteria',
+    description: 'Define the deal types, sectors, ticket sizes, and geographies your firm is actively screening for. AI surfaces use this to score inbound mandates.'
+  },
+  {
     id: 'integrations',
+    tier: 'advanced',
     label: 'Integrations',
     description: 'AI provider, meeting recorder, Google Workspace.'
   },
   {
     id: 'data',
+    tier: 'advanced',
     label: 'Data',
     description: 'AI-assisted import, CSV upload, drag-to-attach on People, sample data.'
-  },
-  {
-    id: 'appearance',
-    label: 'Appearance',
-    description: 'Theme, density, sidebar position.'
   }
 ]
 
 export function findSection(id) {
   return SETTINGS_SECTIONS.find(s => s.id === id) || SETTINGS_SECTIONS[0]
+}
+
+// Convenience selectors used by the Settings page rail to render two
+// grouped lists. Order within each tier matches array order above.
+export function sectionsByTier(tier) {
+  return SETTINGS_SECTIONS.filter(s => s.tier === tier)
 }
 
 // ============ MEETING RECORDER INTEGRATION ============

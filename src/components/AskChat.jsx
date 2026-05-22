@@ -8,6 +8,7 @@ import { askWithStreaming } from '../lib/rag.js'
 import { isGeminiConfigured } from '../lib/gemini.js'
 import { filePublicUrl } from '../lib/knowledge.js'
 import { supabase, isSupabaseConfigured } from '../lib/supabase.js'
+import { humanError } from '../lib/userError.js'
 import { useToast } from './Toast.jsx'
 
 // Suggested prompts are IB-flavoured on purpose — partners shouldn't have to
@@ -56,7 +57,7 @@ export default function AskChat() {
         onError:   (err) => update({ streaming: false, error: true, text: err.message })
       })
     } catch (err) {
-      if (!err.message.includes('not configured')) toast.error(err.message)
+      if (!err.message.includes('not configured')) toast.error(humanError(err, 'Could not run query'))
     } finally {
       setStreaming(false)
     }

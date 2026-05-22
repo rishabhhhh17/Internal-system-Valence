@@ -17,6 +17,7 @@ import { supabase, isSupabaseConfigured } from '../lib/supabase.js'
 import { useAuth } from '../hooks/useAuth.js'
 import { useSeat } from '../hooks/useSeat.js'
 import { useToast } from '../components/Toast.jsx'
+import { humanError } from '../lib/userError.js'
 import Logo from '../components/Logo.jsx'
 
 export default function CompleteProfile() {
@@ -53,7 +54,7 @@ export default function CompleteProfile() {
       if (!skipped) toast.success('Profile saved.')
       navigate('/', { replace: true })
     } catch (err) {
-      toast.error(err?.message || 'Could not save profile')
+      toast.error(humanError(err, 'Could not save profile'))
     } finally {
       setBusy(false)
     }

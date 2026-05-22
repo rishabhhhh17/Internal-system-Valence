@@ -4,6 +4,7 @@ import { Settings as SettingsIcon, Video, Check } from 'lucide-react'
 import {
   SETTINGS_SECTIONS,
   findSection,
+  sectionsByTier,
   MEETING_TOOLS,
   getAvailableMeetingTools,
   getMeetingTool,
@@ -148,9 +149,19 @@ function DataSection() {
 }
 
 function WorkspaceSection() {
+  // ScoringCriteriaPanel used to be inlined here. It moved to its own
+  // Advanced section ('scoring' / "Investment criteria") so prospects
+  // don't see thesis-level config on their first /settings open.
   return (
     <div className="space-y-4">
       <WorkspacePreferencesPanel />
+    </div>
+  )
+}
+
+function ScoringSection() {
+  return (
+    <div className="space-y-4">
       <ScoringCriteriaPanel />
     </div>
   )
@@ -162,6 +173,8 @@ function SectionBody({ id }) {
       return <WorkspaceSection />
     case 'team':
       return <TeamPanel />
+    case 'scoring':
+      return <ScoringSection />
     case 'integrations':
       return <IntegrationsSection />
     case 'data':
@@ -207,35 +220,74 @@ export default function Settings() {
         </div>
       </header>
 
-      <div className="grid grid-cols-1 lg:grid-cols-[220px_minmax(0,1fr)] gap-6">
-        <nav className="vl-card p-2 h-fit">
-          {SETTINGS_SECTIONS.map(s => {
-            const isActive = s.id === active
-            return (
-              <button
-                key={s.id}
-                type="button"
-                onClick={() => selectSection(s.id)}
-                className={`w-full text-left rounded-lg px-3 py-2.5 text-sm font-medium transition ${
-                  isActive
-                    ? 'bg-valence-ink text-white'
-                    : 'text-valence-muted hover:bg-valence-surface hover:text-valence-text'
-                }`}
-              >
-                {s.label}
-              </button>
-            )
-          })}
+      <div className="grid grid-cols-1 lg:grid-cols-[240px_minmax(0,1fr)] gap-6">
+        <nav className="vl-card p-2 h-fit space-y-2">
+          <NavGroup
+            heading="Simple"
+            sublabel="Day-to-day"
+            sections={sectionsByTier('simple')}
+            active={active}
+            onSelect={selectSection}
+          />
+          <div className="h-px bg-valence-border/60 mx-2" />
+          <NavGroup
+            heading="Advanced"
+            sublabel="Admin setup"
+            sections={sectionsByTier('advanced')}
+            active={active}
+            onSelect={selectSection}
+          />
         </nav>
 
         <section className="space-y-3">
-          <div>
-            <h2 className="text-base font-semibold text-valence-text">{current.label}</h2>
-            <p className="text-sm text-valence-muted mt-0.5">{current.description}</p>
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <h2 className="text-base font-semibold text-valence-text">{current.label}</h2>
+              <p className="text-sm text-valence-muted mt-0.5">{current.description}</p>
+            </div>
+            {current.tier === 'advanced' && (
+              <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-valence-warning bg-valence-warning/10 border border-valence-warning/30 rounded-full px-2 py-0.5">
+                Advanced
+              </span>
+            )}
           </div>
           <SectionBody id={current.id} />
         </section>
       </div>
+    </div>
+  )
+}
+
+// Grouped rail. The heading is small + uppercase so the rail still
+// reads as one navigation rather than two competing menus, and the
+// active row stays prominent enough that the section split doesn't
+// fight for attention with the section content.
+function NavGroup({ heading, sublabel, sections, active, onSelect }) {
+  return (
+    <div>
+      <div className="px-3 pt-1 pb-1.5 flex items-baseline gap-2">
+        <p className="vl-eyebrow text-valence-subtle">{heading}</p>
+        {sublabel && (
+          <span className="text-[10px] text-valence-faint">· {sublabel}</span>
+        )}
+      </div>
+      {sections.map(s => {
+        const isActive = s.id === active
+        return (
+          <button
+            key={s.id}
+            type="button"
+            onClick={() => onSelect(s.id)}
+            className={`w-full text-left rounded-lg px-3 py-2.5 text-sm font-medium transition ${
+              isActive
+                ? 'bg-valence-ink text-white'
+                : 'text-valence-muted hover:bg-valence-surface hover:text-valence-text'
+            }`}
+          >
+            {s.label}
+          </button>
+        )
+      })}
     </div>
   )
 }

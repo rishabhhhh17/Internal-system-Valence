@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { LogOut, Settings as SettingsIcon } from 'lucide-react'
 import { signInWithGoogle, signOut } from '../lib/google.js'
 import { useAuth } from '../hooks/useAuth.js'
+import { humanError } from '../lib/userError.js'
 import { useToast } from './Toast.jsx'
 
 export default function GoogleButton() {
@@ -24,7 +25,7 @@ export default function GoogleButton() {
     try {
       await signInWithGoogle()
     } catch (e) {
-      toast.error(e.message || 'Could not start Google sign-in')
+      toast.error(humanError(e, 'Could not start Google sign-in'))
       setBusy(false)
     }
   }
@@ -32,7 +33,7 @@ export default function GoogleButton() {
   async function disconnect() {
     setBusy(true)
     try { await signOut(); toast.success('Signed out.') }
-    catch (e) { toast.error(e.message) }
+    catch (e) { toast.error(humanError(e, 'Could not sign out')) }
     finally { setBusy(false); setOpen(false) }
   }
 
@@ -57,8 +58,8 @@ export default function GoogleButton() {
         <Avatar profile={profile} />
         <span className="hidden md:inline text-xs font-semibold text-valence-text max-w-[140px] truncate">{profile.name}</span>
         {googleConnected
-          ? <span className="h-1.5 w-1.5 rounded-full bg-valence-success shadow-[0_0_6px_#34d399]" title="Google connected" />
-          : <span className="h-1.5 w-1.5 rounded-full bg-valence-warning" title="Google session expired" />
+          ? <span role="img" aria-label="Google connected" className="h-1.5 w-1.5 rounded-full bg-valence-success shadow-[0_0_6px_#34d399]" title="Google connected" />
+          : <span role="img" aria-label="Google session expired" className="h-1.5 w-1.5 rounded-full bg-valence-warning" title="Google session expired" />
         }
       </button>
 

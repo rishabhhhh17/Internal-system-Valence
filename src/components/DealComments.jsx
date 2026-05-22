@@ -3,6 +3,7 @@ import { formatDistanceToNow } from 'date-fns'
 import { Send, Loader2, MessageSquare } from 'lucide-react'
 import { supabase, isSupabaseConfigured, subscribeTable } from '../lib/supabase.js'
 import { useAuth } from '../hooks/useAuth.js'
+import { humanError } from '../lib/userError.js'
 import { useToast } from './Toast.jsx'
 import WikilinkTextarea from './WikilinkTextarea.jsx'
 import WikilinkText from './WikilinkText.jsx'
@@ -27,7 +28,7 @@ export default function DealComments({ deal }) {
     const { data, error } = await supabase
       .from('deal_comments').select('*').eq('deal_id', deal.id)
       .order('created_at', { ascending: true })
-    if (error) toast.error(error.message)
+    if (error) toast.error(humanError(error, 'Could not load comments'))
     setRows(data || [])
     setLoading(false)
   }
@@ -46,7 +47,7 @@ export default function DealComments({ deal }) {
     const { data, error } = await supabase.from('deal_comments').insert({
       deal_id: deal.id, author, body: text, mentions
     }).select().single()
-    if (error) { toast.error(error.message); setSubmitting(false); return }
+    if (error) { toast.error(humanError(error, 'Could not post comment')); setSubmitting(false); return }
     setRows(prev => [...prev, data])
     setBody(''); setSubmitting(false)
   }

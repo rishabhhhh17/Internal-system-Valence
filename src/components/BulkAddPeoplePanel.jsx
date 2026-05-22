@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Users, Loader2, Check, AlertTriangle, Building2 } from 'lucide-react'
 import { supabase, isSupabaseConfigured } from '../lib/supabase.js'
+import { humanError } from '../lib/userError.js'
 import {
   parseBulkPeople,
   buildInsertableBulk,
@@ -80,7 +81,7 @@ export default function BulkAddPeoplePanel({
       setText('')
       onAfterImport?.()
     } catch (err) {
-      toast.error(err?.message || 'Bulk add failed')
+      toast.error(humanError(err, 'Bulk add failed'))
     } finally {
       setBusy(false)
     }

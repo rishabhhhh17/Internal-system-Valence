@@ -6,6 +6,7 @@ import ConfigBanner from '../components/ConfigBanner.jsx'
 import EmptyState from '../components/EmptyState.jsx'
 import MandateFitVerdict from '../components/MandateFitVerdict.jsx'
 import { useToast } from '../components/Toast.jsx'
+import { humanError } from '../lib/userError.js'
 
 const STATUSES = ['new', 'reviewed', 'converted', 'passed', 'spam']
 
@@ -37,7 +38,7 @@ export default function InboxIntake() {
       return
     }
     const { error } = await supabase.from('intake_submissions').update({ status }).eq('id', row.id)
-    if (error) return toast.error(error.message)
+    if (error) return toast.error(humanError(error, 'Could not update intake'))
     setRows(prev => prev.map(r => r.id === row.id ? { ...r, status } : r))
     toast.success(`Marked ${status}`)
   }

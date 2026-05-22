@@ -4,6 +4,7 @@ import { format } from 'date-fns'
 import { supabase, isSupabaseConfigured } from '../lib/supabase.js'
 import { STAGE_CHECKLISTS, progress } from '../lib/checklists.js'
 import { useAuth } from '../hooks/useAuth.js'
+import { humanError } from '../lib/userError.js'
 import { useToast } from './Toast.jsx'
 import { useConfirm } from './ConfirmDialog.jsx'
 
@@ -99,7 +100,7 @@ export default function StageGate({ deal, onChanged }) {
     const existing = rowByKey[itemKey]
     if (existing) {
       const { error } = await supabase.from('deal_checklist').delete().eq('id', existing.id)
-      if (error) return toast.error(error.message)
+      if (error) return toast.error(humanError(error, 'Could not uncheck item'))
       setItems(prev => prev.filter(i => i.id !== existing.id))
     } else {
       const { data, error } = await supabase.from('deal_checklist').insert({
@@ -110,7 +111,7 @@ export default function StageGate({ deal, onChanged }) {
         done_by:  profile?.email || null,
         done_at:  new Date().toISOString()
       }).select().single()
-      if (error) return toast.error(error.message)
+      if (error) return toast.error(humanError(error, 'Could not check item'))
       setItems(prev => [...prev, data])
     }
     onChanged?.()
@@ -123,7 +124,7 @@ export default function StageGate({ deal, onChanged }) {
       ? { done: true,  done_by: profile?.email || null, done_at: new Date().toISOString() }
       : { done: false, done_by: null,                   done_at: null }
     const { data, error } = await supabase.from('deal_checklist').update(patch).eq('id', row.id).select().single()
-    if (error) return toast.error(error.message)
+    if (error) return toast.error(humanError(error, 'Could not update item'))
     setItems(prev => prev.map(i => i.id === row.id ? data : i))
     onChanged?.()
   }
@@ -151,7 +152,7 @@ export default function StageGate({ deal, onChanged }) {
       setAddLabel(''); setAddRequired(false); setAddOpen(false)
       onChanged?.()
     } catch (err) {
-      toast.error(err?.message || 'Could not add item')
+      toast.error(humanError(err, 'Could not add item'))
     } finally {
       setAdding(false)
     }
@@ -166,7 +167,7 @@ export default function StageGate({ deal, onChanged }) {
     })
     if (!ok) return
     const { error } = await supabase.from('deal_checklist').delete().eq('id', row.id)
-    if (error) return toast.error(error.message)
+    if (error) return toast.error(humanError(error, 'Could not delete item'))
     setItems(prev => prev.filter(i => i.id !== row.id))
     onChanged?.()
   }

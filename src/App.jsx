@@ -176,33 +176,52 @@ export default function App() {
     } // end if (!authUnavailable)
   } // end if (isSupabaseConfigured)
 
-  // Session + seat + completed profile (or auth unavailable) — render
-  // the main app. If a signed-in seated user lands on any onboarding
-  // route, send them home — they're past those steps.
+  // Session + seat + completed profile — seated users can browse the
+  // onboarding cluster freely. /welcome is always allowed (it renders
+  // a "Welcome back · Continue to your firm" hero for seated users).
+  // /onboarding and /join still let admins preview the screens — those
+  // forms refuse server-side with the "user already belongs to a team"
+  // blocking card so nothing duplicates.
   //
-  // Preview escape hatch (?preview=1): admins / devs may want to look at
-  // the onboarding screens to QA the copy, screenshot them, or train
-  // a teammate on what they'll see. Without this, the only way to view
-  // /welcome with an already-seated account is to sign out — which is
-  // hostile to anyone iterating on these pages.
-  const isPreview = typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('preview') === '1'
+  // History: this used to redirect seated users straight from /welcome
+  // → /, which made the onboarding flow invisible to anyone testing
+  // with their own seat. The ?preview=1 escape hatch worked but was
+  // hidden — partners kept hitting / and asking "where is Welcome?".
+  // Letting Welcome render unconditionally fixes the visibility
+  // problem and the page itself does the right thing per seat state.
   const onboardingRoutes = ['/welcome', '/onboarding', '/join', '/complete-profile']
   if (session && hasSeat && profileComplete && onboardingRoutes.includes(pathname)) {
-    if (isPreview) {
-      // Render the onboarding routes anyway so an admin can preview them.
-      // Note: Start/Join from this preview state would still hit the
-      // "user already belongs to a team" guard server-side (PR #154
-      // surfaces that with an explicit yellow card).
-      return (
-        <Routes>
-          <Route path="/welcome"          element={<Welcome />} />
-          <Route path="/onboarding"       element={<Onboarding />} />
-          <Route path="/join"             element={<JoinTeam />} />
-          <Route path="/complete-profile" element={<CompleteProfile />} />
-        </Routes>
-      )
+    // First time the user hits /welcome this browser session, remember it
+    // so we don't redirect them back here every navigation in the auth
+    // gate below. Set on render rather than effect so the latch is in
+    // place by the time the next pathname change re-runs the gate.
+    try { sessionStorage.setItem('valence.welcome.shown', '1') } catch {}
+    return (
+      <Routes>
+        <Route path="/welcome"          element={<Welcome />} />
+        <Route path="/onboarding"       element={<Onboarding />} />
+        <Route path="/join"             element={<JoinTeam />} />
+        <Route path="/complete-profile" element={<CompleteProfile />} />
+      </Routes>
+    )
+  }
+
+  // FIRST-LOAD WELCOME LANDING
+  // If a seated user lands at "/" without having visited /welcome yet
+  // this browser session, redirect them to /welcome once. Once they've
+  // clicked "Continue to your firm" → /, the sessionStorage flag is set
+  // (above) and this redirect is a no-op for the rest of the session.
+  //
+  // Why this matters: the OAuth-callback redirect to /welcome only fires
+  // on a fresh sign-in. Users with a persistent Supabase session from
+  // before this code landed would keep going straight to / and miss the
+  // Welcome screen entirely. This adds a session-scoped second chance.
+  if (session && hasSeat && profileComplete && pathname === '/') {
+    let welcomeShown = false
+    try { welcomeShown = sessionStorage.getItem('valence.welcome.shown') === '1' } catch {}
+    if (!welcomeShown) {
+      return <Navigate to="/welcome" replace />
     }
-    return <Navigate to="/" replace />
   }
 
   return (

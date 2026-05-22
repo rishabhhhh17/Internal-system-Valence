@@ -8,6 +8,7 @@ import { listDriveFiles, GoogleAuthExpired, signInWithGoogle } from '../lib/goog
 import { useAuth } from '../hooks/useAuth.js'
 import { formatBytes } from '../lib/storage.js'
 import { useToast } from '../components/Toast.jsx'
+import { humanError } from '../lib/userError.js'
 import ConfigBanner from '../components/ConfigBanner.jsx'
 import EmptyState from '../components/EmptyState.jsx'
 
@@ -59,7 +60,7 @@ export default function Drive() {
               Private to you — the files in your Google Drive, searchable from here.
               Firm-shared files live in <a href="/knowledge/shared" className="font-semibold text-valence-blue hover:text-valence-blue-hover">Knowledge</a>.
             </p>
-            <button onClick={() => signInWithGoogle().catch(e => toast.error(e.message))} className="mt-8 vl-btn-accent">
+            <button onClick={() => signInWithGoogle().catch(e => toast.error(humanError(e, 'Could not start Google sign-in')))} className="mt-8 vl-btn-accent">
               <Sparkles className="h-4 w-4" /> Connect Google
             </button>
           </div>

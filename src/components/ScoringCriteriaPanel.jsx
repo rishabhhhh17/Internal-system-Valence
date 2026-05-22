@@ -7,6 +7,7 @@ import {
   validateCriteria
 } from '../lib/fit.js'
 import { isSupabaseConfigured } from '../lib/supabase.js'
+import { humanError } from '../lib/userError.js'
 import { useToast } from './Toast.jsx'
 
 function ChipEditor({ label, values, onChange, placeholder, tone = 'neutral' }) {
@@ -100,7 +101,7 @@ export default function ScoringCriteriaPanel() {
       setTimeout(() => setSavedFlash(false), 1500)
       toast.success('Criteria updated.')
     } catch (e) {
-      toast.error(e?.message || 'Save failed')
+      toast.error(humanError(e, 'Could not save criteria'))
     } finally {
       setSaving(false)
     }

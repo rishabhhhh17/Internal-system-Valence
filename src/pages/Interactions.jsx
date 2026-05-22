@@ -13,6 +13,7 @@ import EmptyState from '../components/EmptyState.jsx'
 import InteractionDrawer from '../components/InteractionDrawer.jsx'
 import ViewModeToggle from '../components/ViewModeToggle.jsx'
 import { useToast } from '../components/Toast.jsx'
+import { humanError } from '../lib/userError.js'
 import WikilinkText from '../components/WikilinkText.jsx'
 
 export default function Interactions() {
@@ -69,11 +70,11 @@ export default function Interactions() {
     }
     if (existingId) {
       const { error } = await supabase.from('interactions').update(payload).eq('id', existingId)
-      if (error) return toast.error(error.message)
+      if (error) return toast.error(humanError(error, 'Could not update interaction'))
       toast.success('Interaction updated')
     } else {
       const { error } = await supabase.from('interactions').insert(payload)
-      if (error) return toast.error(error.message)
+      if (error) return toast.error(humanError(error, 'Could not log interaction'))
       toast.success('Interaction logged')
     }
     setDrawer(null)

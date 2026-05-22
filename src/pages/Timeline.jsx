@@ -251,17 +251,22 @@ function StatCard({ icon, label, value, tone = 'ink' }) {
 }
 
 function FilterRow({ label, value, onChange, options }) {
+  // IB-grade filter chips: monochrome, outline-only. Active state uses
+  // an inverted ink fill instead of a saturated blue tint so the row
+  // reads as a control surface, not decoration.
   return (
-    <div className="flex flex-wrap items-center gap-2">
-      <span className="vl-eyebrow-ink inline-flex items-center gap-1.5"><Filter className="h-3 w-3" /> {label}</span>
+    <div className="flex flex-wrap items-center gap-1.5">
+      <span className="text-[10px] font-semibold uppercase tracking-[0.12em] text-valence-subtle inline-flex items-center gap-1.5 mr-1">
+        <Filter className="h-3 w-3" /> {label}
+      </span>
       {options.map(o => (
         <button
           key={o}
           onClick={() => onChange(o)}
-          className={`rounded-full border px-2.5 py-1 text-[11px] font-semibold transition ${
+          className={`rounded-md border px-2 py-0.5 text-[11px] font-medium transition ${
             value === o
-              ? 'border-valence-blue/40 bg-valence-blue-soft text-valence-text'
-              : 'border-valence-border bg-valence-elevated text-valence-muted hover:text-valence-text'
+              ? 'border-valence-ink bg-valence-ink text-white'
+              : 'border-valence-border bg-valence-elevated text-valence-muted hover:border-valence-ink/30 hover:text-valence-text'
           }`}
         >{o}</button>
       ))}

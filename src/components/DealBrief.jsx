@@ -6,6 +6,7 @@ import {
 import { supabase, isSupabaseConfigured } from '../lib/supabase.js'
 import { generateDealBrief, isGeminiConfigured } from '../lib/gemini.js'
 import { logActivity } from '../lib/activity.js'
+import { firmDisplayName } from '../lib/firmIdentity.js'
 
 // Polished AI Brief for the Deal drawer.
 //
@@ -106,7 +107,7 @@ export default function DealBrief({ deal }) {
 </style></head>
 <body>
   <header>
-    <div class="sub">Valence Growth Partners · Internal brief</div>
+    <div class="sub">${escape(firmDisplayName('Your firm'))} · Internal brief</div>
     <h1>${safeTitle}</h1>
     <div class="chips">
       <span>${escape(deal.deal_type || '')}</span>

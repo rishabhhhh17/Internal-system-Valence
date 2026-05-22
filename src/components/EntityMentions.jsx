@@ -4,6 +4,7 @@ import { format, formatDistanceToNowStrict } from 'date-fns'
 import { FileText, FolderTree, ArrowUpRight, Plus, X, Loader2, Calendar, MessageSquare } from 'lucide-react'
 import { supabase, isSupabaseConfigured } from '../lib/supabase.js'
 import { createQuickNoteForEntity } from '../lib/kb.js'
+import { humanError } from '../lib/userError.js'
 import { useToast } from './Toast.jsx'
 import WikilinkTextarea from './WikilinkTextarea.jsx'
 
@@ -116,7 +117,7 @@ export default function EntityMentions({ entityType, entityId, entityName }) {
       setComposerOpen(false); setDraftTitle(''); setDraftBody('')
       setReloadKey(k => k + 1)
     } catch (err) {
-      toast.error(err?.message || 'Could not save the note')
+      toast.error(humanError(err, 'Could not save the note'))
     } finally {
       setSaving(false)
     }

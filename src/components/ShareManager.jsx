@@ -5,6 +5,7 @@ import Modal from './Modal.jsx'
 import { createShare, listShares, revokeShare, deleteShare, shareUrl, listAccess } from '../lib/shares.js'
 import { supabase, isSupabaseConfigured } from '../lib/supabase.js'
 import { useAuth } from '../hooks/useAuth.js'
+import { humanError } from '../lib/userError.js'
 import { useToast } from './Toast.jsx'
 import { useConfirm } from './ConfirmDialog.jsx'
 
@@ -32,7 +33,7 @@ export default function ShareManager({ deal }) {
       setShares(s)
       setFiles(f.data || [])
     } catch (e) {
-      toast.error(e.message)
+      toast.error(humanError(e, 'Could not load shares'))
     } finally {
       setLoading(false)
     }
@@ -59,7 +60,7 @@ export default function ShareManager({ deal }) {
         toast.info('Link copied to clipboard.')
       } catch {}
     } catch (e) {
-      toast.error(e.message || 'Could not create share.')
+      toast.error(humanError(e, 'Could not create share'))
     }
   }
 
@@ -70,7 +71,7 @@ export default function ShareManager({ deal }) {
       await revokeShare(s.id)
       setShares(prev => prev.map(x => x.id === s.id ? { ...x, revoked: true } : x))
       toast.success('Revoked.')
-    } catch (e) { toast.error(e.message) }
+    } catch (e) { toast.error(humanError(e, 'Could not revoke share')) }
   }
 
   async function handleDelete(s) {
@@ -80,7 +81,7 @@ export default function ShareManager({ deal }) {
       await deleteShare(s.id)
       setShares(prev => prev.filter(x => x.id !== s.id))
       toast.success('Deleted.')
-    } catch (e) { toast.error(e.message) }
+    } catch (e) { toast.error(humanError(e, 'Could not delete share')) }
   }
 
   async function viewLog(s) {
@@ -88,7 +89,7 @@ export default function ShareManager({ deal }) {
     try {
       const data = await listAccess(s.id)
       setAccess(data)
-    } catch (e) { toast.error(e.message) }
+    } catch (e) { toast.error(humanError(e, 'Could not load access log')) }
   }
 
   return (

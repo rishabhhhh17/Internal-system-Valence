@@ -9,6 +9,7 @@ import {
   summarizeMapping
 } from '../lib/csvImport.js'
 import { supabase, isSupabaseConfigured } from '../lib/supabase.js'
+import { humanError } from '../lib/userError.js'
 import { useToast } from './Toast.jsx'
 
 const PREVIEW_ROWS = 5
@@ -45,7 +46,7 @@ export default function CsvContactImport() {
       setParsed({ headers, rows })
       setMapping(inferMapping(headers))
     } catch (err) {
-      toast.error(err?.message || 'Could not read file')
+      toast.error(humanError(err, 'Could not read file'))
     }
   }
 
@@ -94,7 +95,7 @@ export default function CsvContactImport() {
       )
       reset()
     } catch (err) {
-      toast.error(err?.message || 'Import failed')
+      toast.error(humanError(err, 'Could not import contacts'))
     } finally {
       setImporting(false)
     }

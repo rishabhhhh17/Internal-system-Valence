@@ -151,6 +151,7 @@ export default function TutorialButton() {
             : 'border-valence-blue/50 bg-valence-blue-soft text-valence-blue hover:bg-valence-blue-soft/80 animate-attention-glow'
         }`}
         title="Tour the product"
+        aria-label="Tour the product"
         data-tour="topbar-tour-button"
       >
         {/* Expanding ring + pulsing dot — only on first ever visit. Stops the
@@ -232,9 +233,8 @@ function TourMenu({ onPick, onClose }) {
           />
         </div>
 
-        <div className="border-t border-valence-border px-6 py-3 flex items-center justify-between text-[11px] text-valence-subtle">
+        <div className="border-t border-valence-border px-6 py-3 text-[11px] text-valence-subtle">
           <span>Press <span className="vl-kbd">Esc</span> any time to exit a tour.</span>
-          <span>Built by Rishabh — questions: <a className="text-valence-blue hover:underline" href="mailto:rishabh@valencegrowth.com">rishabh@valencegrowth.com</a></span>
         </div>
       </div>
     </div>

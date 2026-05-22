@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { ChevronRight, Folder, FolderOpen, FilePlus, Plus, Pencil, Trash2, Sparkles, Loader2, Library } from 'lucide-react'
 import { supabase, isSupabaseConfigured } from '../lib/supabase.js'
 import { spawnMandateFolders, defaultTemplateFor } from '../lib/kb.js'
+import { humanError } from '../lib/userError.js'
 import { useToast } from './Toast.jsx'
 
 // Folder browser. Two scopes:
@@ -43,7 +44,7 @@ export default function KbFolderTree({ mandate, mandateId, scope = 'mandate', se
     const { data, error } = isFirm
       ? await query.is('mandate_id', null)
       : await query.eq('mandate_id', effectiveMandateId)
-    if (error) toast.error(error.message)
+    if (error) toast.error(humanError(error, 'Could not load folders'))
     const rows = data || []
     setFolders(rows)
     // Expand the root (mandate scope) or every top-level firm folder (firm scope) by default.
@@ -100,7 +101,7 @@ export default function KbFolderTree({ mandate, mandateId, scope = 'mandate', se
       await load(true)
       toast.success('Default folders ready')
     } catch (err) {
-      toast.error(err?.message || 'Could not set up default folders')
+      toast.error(humanError(err, 'Could not set up default folders'))
     } finally {
       setSpawning(false)
     }
@@ -146,7 +147,7 @@ export default function KbFolderTree({ mandate, mandateId, scope = 'mandate', se
       sort_order: 999
     }).select().single()
     setCreateValue(''); setCreatingUnder(null)
-    if (error) return toast.error(error.message)
+    if (error) return toast.error(humanError(error, 'Could not create folder'))
     setFolders(prev => [...prev, data])
     setExpanded(prev => new Set(prev).add(parent.id))
   }
@@ -171,7 +172,7 @@ export default function KbFolderTree({ mandate, mandateId, scope = 'mandate', se
       sort_order: 999
     }).select().single()
     setTopValue(''); setCreatingTop(false)
-    if (error) return toast.error(error.message)
+    if (error) return toast.error(humanError(error, 'Could not create folder'))
     setFolders(prev => [...prev, data])
     setExpanded(prev => new Set(prev).add(data.id))
     onSelect?.(data)
@@ -185,7 +186,7 @@ export default function KbFolderTree({ mandate, mandateId, scope = 'mandate', se
     if (!isSupabaseConfigured) return
     const { error } = await supabase.from('kb_folders').update({ name: next }).eq('id', folder.id)
     if (error) {
-      toast.error(error.message)
+      toast.error(humanError(error, 'Could not rename folder'))
       load()  // reconcile from server
     }
   }
@@ -198,7 +199,7 @@ export default function KbFolderTree({ mandate, mandateId, scope = 'mandate', se
       return
     }
     const { error } = await supabase.from('kb_folders').delete().eq('id', folder.id)
-    if (error) return toast.error(error.message)
+    if (error) return toast.error(humanError(error, 'Could not delete folder'))
     setFolders(prev => prev.filter(f => f.id !== folder.id))
   }
 

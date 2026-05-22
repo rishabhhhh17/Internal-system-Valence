@@ -22,6 +22,7 @@ import FreeSlots from '../components/FreeSlots.jsx'
 import MeetingSummary from '../components/MeetingSummary.jsx'
 import { useToast } from '../components/Toast.jsx'
 import { useConfirm } from '../components/ConfirmDialog.jsx'
+import { humanError } from '../lib/userError.js'
 
 const todayISO = () => format(new Date(), 'yyyy-MM-dd')
 
@@ -201,7 +202,7 @@ export default function Planner() {
       setMeetings(prev => [...prev, created])
     } else {
       const { data, error } = await supabase.from('meetings').insert(payload).select().single()
-      if (error) { toast.error(error.message); return }
+      if (error) { toast.error(humanError(error, 'Could not save meeting')); return }
       created = data
       if (payload.deal_id) {
         await logActivity({ dealId: payload.deal_id, kind: 'meeting', body: `${payload.title} — ${payload.date} ${payload.time?.slice(0,5)} with ${payload.attendee_name}` })
@@ -224,7 +225,7 @@ export default function Planner() {
         loadGoogleEvents()
       } catch (e) {
         if (e instanceof GoogleAuthExpired) toast.error('Google session expired — reconnect to sync meetings.')
-        else toast.error('Calendar sync failed: ' + (e.message || ''))
+        else toast.error('Calendar sync failed: ' + humanError(e, 'unknown error'))
       }
     }
 
@@ -255,7 +256,7 @@ export default function Planner() {
       try { await toggleGoogleTask(task) }
       catch (e) {
         setGTasks(prev => prev.map(t => t.id === task.id ? { ...t, completed: !next } : t))
-        toast.error(e?.message || 'Could not update Google task')
+        toast.error(humanError(e, 'Could not update Google task'))
       }
       return
     }
@@ -263,7 +264,7 @@ export default function Planner() {
       setTasks(prev => prev.map(t => t.id === task.id ? { ...t, completed: next } : t)); return
     }
     const { error } = await supabase.from('tasks').update({ completed: next }).eq('id', task.id)
-    if (error) toast.error(error.message)
+    if (error) toast.error(humanError(error, 'Could not update task'))
   }
 
   async function addTask(e) {
@@ -279,7 +280,7 @@ export default function Planner() {
         setGTasks(prev => [created, ...prev])
         toast.success('Task added to Google Tasks.')
       } catch (e) {
-        toast.error(e?.message || 'Could not add to Google Tasks')
+        toast.error(humanError(e, 'Could not add to Google Tasks'))
         return
       }
       setNewTask(''); setNewDue(todayISO())
@@ -290,7 +291,7 @@ export default function Planner() {
       setTasks(prev => [{ id: `local-${Date.now()}`, ...payload }, ...prev])
     } else {
       const { error } = await supabase.from('tasks').insert(payload)
-      if (error) { toast.error(error.message); return }
+      if (error) { toast.error(humanError(error, 'Could not add task')); return }
       toast.success('Task added.')
     }
     setNewTask(''); setNewDue(todayISO())
@@ -304,7 +305,7 @@ export default function Planner() {
       try { await deleteGoogleTask(task) }
       catch (e) {
         loadGoogleTasks()  // refetch on failure so UI reconciles
-        toast.error(e?.message || 'Could not delete Google task')
+        toast.error(humanError(e, 'Could not delete Google task'))
       }
       return
     }
@@ -312,7 +313,7 @@ export default function Planner() {
       setTasks(prev => prev.filter(t => t.id !== task.id)); return
     }
     const { error } = await supabase.from('tasks').delete().eq('id', task.id)
-    if (error) return toast.error(error.message)
+    if (error) return toast.error(humanError(error, 'Could not delete task'))
   }
 
   return (
@@ -377,7 +378,7 @@ export default function Planner() {
           <p className="flex-1 text-[12px] text-valence-muted">
             Connect Google to surface your live calendar and send meeting invites from here.
           </p>
-          <button onClick={() => signInWithGoogle().catch(e => toast.error(e.message))} className="vl-btn-ghost shrink-0 text-[11px]">
+          <button onClick={() => signInWithGoogle().catch(e => toast.error(humanError(e, 'Could not start Google sign-in')))} className="vl-btn-ghost shrink-0 text-[11px]">
             Connect Google
           </button>
         </div>
@@ -813,7 +814,7 @@ function DraftedMessage({ drafted, googleConnected, onClose }) {
       toast.success('Opened in Gmail to send.')
       onClose()
     } catch (err) {
-      toast.error(err?.message || 'Could not open Gmail')
+      toast.error(humanError(err, 'Could not open Gmail'))
     } finally {
       setSending(false)
     }

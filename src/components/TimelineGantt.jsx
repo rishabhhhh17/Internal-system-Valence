@@ -2,28 +2,30 @@ import { useMemo, useRef, useEffect, useState } from 'react'
 import { format, parseISO, differenceInCalendarDays, addDays, startOfMonth, addMonths } from 'date-fns'
 import { Flag, Info } from 'lucide-react'
 
-// Per-sector palette. Each row gets the colour of the mandate's sector so a
-// partner can scan the timeline and tell at a glance what kind of business
-// is happening when. Past/current/future is encoded by gradient depth, ring
-// glow, and dash respectively — never by hue.
+// Per-sector palette. IB-grade treatment: bars are uniformly slate /
+// neutral. Sector identity shows only via a thin 3-px coloured left rail
+// on the row + a coloured dot on the meta pills + a coloured dot on the
+// legend. Hue does NOT bleed across the body of the bar — that's what
+// made the page read as a Kanban board ("candy chips") instead of a
+// professional firm pipeline.
 //
-// Each entry pairs a soft 50-shade background with a 100-shade gradient end
-// so the bars feel like glassy chips rather than flat fills, and a vivid
-// 500-shade accent for the row's left rail and current-stage glow.
+// `accent` (Tailwind bg-) is the only saturated colour each sector
+// surfaces. `dot` is a hex equivalent used inside hex-only contexts
+// (kept lightweight — no second palette to maintain).
 const SECTOR_PALETTE = {
-  Healthcare:     { from: 'from-emerald-50',  to: 'to-emerald-100',  border: 'border-emerald-300',  text: 'text-emerald-900',  glow: 'shadow-emerald-200/60',  accent: 'bg-emerald-500',  ring: 'ring-emerald-400/60'  },
-  Fintech:        { from: 'from-violet-50',   to: 'to-violet-100',   border: 'border-violet-300',   text: 'text-violet-900',   glow: 'shadow-violet-200/60',   accent: 'bg-violet-500',   ring: 'ring-violet-400/60'   },
-  Consumer:       { from: 'from-amber-50',    to: 'to-amber-100',    border: 'border-amber-300',    text: 'text-amber-900',    glow: 'shadow-amber-200/60',    accent: 'bg-amber-500',    ring: 'ring-amber-400/60'    },
-  Infrastructure: { from: 'from-slate-50',    to: 'to-slate-100',    border: 'border-slate-300',    text: 'text-slate-800',    glow: 'shadow-slate-200/60',    accent: 'bg-slate-500',    ring: 'ring-slate-400/60'    },
-  Renewables:     { from: 'from-lime-50',     to: 'to-lime-100',     border: 'border-lime-300',     text: 'text-lime-900',     glow: 'shadow-lime-200/60',     accent: 'bg-lime-500',     ring: 'ring-lime-400/60'     },
-  Logistics:      { from: 'from-orange-50',   to: 'to-orange-100',   border: 'border-orange-300',   text: 'text-orange-900',   glow: 'shadow-orange-200/60',   accent: 'bg-orange-500',   ring: 'ring-orange-400/60'   },
-  'Real Estate':  { from: 'from-rose-50',     to: 'to-rose-100',     border: 'border-rose-300',     text: 'text-rose-900',     glow: 'shadow-rose-200/60',     accent: 'bg-rose-500',     ring: 'ring-rose-400/60'     },
-  EdTech:         { from: 'from-cyan-50',     to: 'to-cyan-100',     border: 'border-cyan-300',     text: 'text-cyan-900',     glow: 'shadow-cyan-200/60',     accent: 'bg-cyan-500',     ring: 'ring-cyan-400/60'     },
-  Mobility:       { from: 'from-indigo-50',   to: 'to-indigo-100',   border: 'border-indigo-300',   text: 'text-indigo-900',   glow: 'shadow-indigo-200/60',   accent: 'bg-indigo-500',   ring: 'ring-indigo-400/60'   },
-  Hospitality:    { from: 'from-fuchsia-50',  to: 'to-fuchsia-100',  border: 'border-fuchsia-300',  text: 'text-fuchsia-900',  glow: 'shadow-fuchsia-200/60',  accent: 'bg-fuchsia-500',  ring: 'ring-fuchsia-400/60'  },
-  Media:          { from: 'from-pink-50',     to: 'to-pink-100',     border: 'border-pink-300',     text: 'text-pink-900',     glow: 'shadow-pink-200/60',     accent: 'bg-pink-500',     ring: 'ring-pink-400/60'     }
+  Healthcare:     { accent: 'bg-emerald-600',  dot: '#059669' },
+  Fintech:        { accent: 'bg-violet-600',   dot: '#7c3aed' },
+  Consumer:       { accent: 'bg-amber-600',    dot: '#d97706' },
+  Infrastructure: { accent: 'bg-slate-500',    dot: '#64748b' },
+  Renewables:     { accent: 'bg-lime-600',     dot: '#65a30d' },
+  Logistics:      { accent: 'bg-orange-600',   dot: '#ea580c' },
+  'Real Estate':  { accent: 'bg-rose-600',     dot: '#e11d48' },
+  EdTech:         { accent: 'bg-cyan-700',     dot: '#0e7490' },
+  Mobility:       { accent: 'bg-indigo-600',   dot: '#4f46e5' },
+  Hospitality:    { accent: 'bg-fuchsia-600',  dot: '#c026d3' },
+  Media:          { accent: 'bg-pink-600',     dot: '#db2777' }
 }
-const SECTOR_FALLBACK = { from: 'from-blue-50', to: 'to-blue-100', border: 'border-blue-300', text: 'text-blue-900', glow: 'shadow-blue-200/60', accent: 'bg-blue-500', ring: 'ring-blue-400/60' }
+const SECTOR_FALLBACK = { accent: 'bg-slate-500', dot: '#64748b' }
 
 function paletteFor(deal) {
   return SECTOR_PALETTE[deal?.sector] || SECTOR_FALLBACK
@@ -216,12 +218,21 @@ export default function TimelineGantt({ deals, activities, zoom = 'months', onOp
                   key={deal.id}
                   className={`group relative h-14 border-b border-valence-border/60 px-4 py-2 transition-colors hover:bg-valence-surface/60 ${idx % 2 === 1 ? 'bg-valence-surface/20' : ''}`}
                 >
-                  <span className={`absolute left-0 top-2 bottom-2 w-[3px] rounded-r-full ${p.accent} shadow-[0_0_8px_currentColor] opacity-80 group-hover:opacity-100 transition-opacity`} aria-hidden />
+                  <span className={`absolute left-0 top-2 bottom-2 w-[3px] rounded-r-full ${p.accent} opacity-90 group-hover:opacity-100 transition-opacity`} aria-hidden />
                   <button onClick={() => onOpenDeal?.(deal)} className="w-full text-left pl-2">
                     <p className="truncate text-sm font-semibold text-valence-text">{deal.client_name}</p>
-                    <div className="mt-0.5 flex flex-wrap items-center gap-1.5 text-[10px] text-valence-muted">
-                      {deal.sector && <span className={`rounded bg-gradient-to-br ${p.from} ${p.to} ${p.border} ${p.text} border px-1.5 py-0 font-semibold`}>{deal.sector}</span>}
-                      {deal.side && <span className="rounded bg-valence-surface border border-valence-border px-1.5 py-0">{normalizeSide(deal.side)}</span>}
+                    <div className="mt-0.5 flex flex-wrap items-center gap-2 text-[10px] text-valence-muted">
+                      {deal.sector && (
+                        <span className="inline-flex items-center gap-1 text-[10px] uppercase tracking-[0.06em] text-valence-muted">
+                          <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: p.dot }} />
+                          {deal.sector}
+                        </span>
+                      )}
+                      {deal.side && (
+                        <span className="text-[10px] uppercase tracking-[0.06em] text-valence-subtle">
+                          {normalizeSide(deal.side)}
+                        </span>
+                      )}
                       {deal.lead_owner && <span className="text-valence-subtle truncate">{deal.lead_owner}</span>}
                     </div>
                   </button>
@@ -326,18 +337,21 @@ export default function TimelineGantt({ deals, activities, zoom = 'months', onOp
   )
 }
 
-function segmentClass(seg, palette) {
-  const p = palette || SECTOR_FALLBACK
+function segmentClass(seg /* , palette */) {
+  // All bars share one neutral palette. Past/current/future is encoded
+  // by tone + ring, not hue — colour identity comes from the row's left
+  // rail (sector accent). Makes the page read as a finance pipeline,
+  // not a Kanban board.
   if (seg.kind === 'past') {
-    // Past — softer gradient + slight desaturation. No ring; reads as history.
-    return `bg-gradient-to-br ${p.from} ${p.to} ${p.text} opacity-75 shadow-sm`
+    return 'bg-slate-100 text-slate-700 border border-slate-200 shadow-sm'
   }
   if (seg.kind === 'current') {
-    // Current — vivid gradient + glow ring + lift. The visual centre of the chart.
-    return `bg-gradient-to-br ${p.from} ${p.to} ${p.text} ring-2 ${p.ring} shadow-md ${p.glow}`
+    // Current is the visual centre of the chart — slight elevation, a
+    // subtle inner ring in the firm blue.
+    return 'bg-white text-slate-900 border border-slate-300 ring-1 ring-valence-blue/30 shadow-md'
   }
-  // Future — outlined chip, dashed, low chroma. Reads as projection.
-  return `bg-valence-elevated border border-dashed ${p.border} ${p.text} opacity-90`
+  // Future — outlined, dashed, low chroma. Reads as projection.
+  return 'bg-valence-elevated border border-dashed border-slate-300 text-slate-500'
 }
 
 function normalizeSide(side) {
@@ -362,9 +376,11 @@ function LegendBar({ rows }) {
         <>
           {sectors.map(s => {
             const p = SECTOR_PALETTE[s] || SECTOR_FALLBACK
+            // Outline-only chip with a coloured dot. Reads as a data-viz
+            // legend marker, not a marketing pill.
             return (
-              <span key={s} className={`inline-flex items-center gap-1.5 rounded-full border ${p.border} bg-gradient-to-br ${p.from} ${p.to} ${p.text} px-2.5 py-0.5 text-[10px] font-semibold shadow-sm`}>
-                <span className={`h-1.5 w-1.5 rounded-full ${p.accent}`} />{s}
+              <span key={s} className="inline-flex items-center gap-1.5 rounded-full border border-valence-border bg-valence-elevated px-2.5 py-0.5 text-[10px] font-medium text-valence-muted">
+                <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: p.dot }} />{s}
               </span>
             )
           })}

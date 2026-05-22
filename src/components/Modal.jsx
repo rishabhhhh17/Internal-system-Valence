@@ -1,7 +1,11 @@
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 import { X } from 'lucide-react'
+import { useFocusTrap } from '../hooks/useFocusTrap.js'
 
 export default function Modal({ open, onClose, title, description, children, size = 'md' }) {
+  const panelRef = useRef(null)
+  useFocusTrap(panelRef, open)
+
   useEffect(() => {
     if (!open) return
     const onKey = (e) => { if (e.key === 'Escape') onClose?.() }
@@ -18,9 +22,9 @@ export default function Modal({ open, onClose, title, description, children, siz
   const widths = { sm: 'max-w-md', md: 'max-w-lg', lg: 'max-w-2xl', xl: 'max-w-3xl' }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 animate-fade-in">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 animate-fade-in" role="dialog" aria-modal="true">
       <div className="absolute inset-0 vl-glass-overlay" onClick={onClose} />
-      <div className={`relative z-10 w-full ${widths[size]} animate-slide-up vl-glass max-h-[85vh] overflow-hidden flex flex-col`}>
+      <div ref={panelRef} className={`relative z-10 w-full ${widths[size]} animate-slide-up vl-glass max-h-[85vh] overflow-hidden flex flex-col`}>
         <div className="flex items-start justify-between border-b border-valence-border px-6 py-4 shrink-0">
           <div>
             <h2 className="text-base font-semibold tracking-tight text-valence-text">{title}</h2>

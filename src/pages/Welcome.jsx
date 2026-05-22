@@ -1,31 +1,28 @@
-// Welcome — post-sign-in landing for a freshly authenticated user who
-// doesn't yet have a seat. Two paths:
+// Welcome — first screen any authenticated user lands on. Two states:
 //
-//   1. Start a team   → /onboarding         (creates a new org, becomes admin)
-//   2. Join a team    → /join               (enters an invite code, claims a seat)
+//   1. SEATED user (already belongs to a firm)
+//        → big "Continue to your firm" CTA + small "Or browse the
+//          onboarding flow" section below so admins can preview the
+//          Start / Join screens without signing out.
 //
-// Visual treatment is intentionally restrained — this is an executive
-// decision point ("are you setting up a firm or joining one?"), not a
-// sign-up form. Big confident headline, two clearly differentiated
-// cards (primary visually heavier than secondary), one row of feature
-// pills below to set context, security trust line, clean footer.
+//   2. SEATLESS user (just signed up, no firm yet)
+//        → primary "Start a team" + secondary "Join a team" cards.
+//          Same paths the original onboarding flow always offered.
 //
-// "Use a different account" sits in the top-right header — replaces the
-// bare "Sign out" so the account-switch path is explicit. Pairs with
-// the prompt:select_account fix in lib/google.js — sign out, sign back
-// in, real account picker comes up.
+// Welcome is REACHABLE to seated users by design. App.jsx used to redirect
+// seated users from /welcome → / which made the onboarding flow effectively
+// invisible to anyone testing with their own account. Now /welcome renders
+// unconditionally and decides what to show based on seat state — partners
+// can always come back here, click "Continue to your firm" → /, or QA the
+// onboarding cards.
 //
-// Preview mode (?preview=1): a seated admin can land here for QA via the
-// App.jsx escape hatch. Without this file knowing about it, clicking
-// "Start a team" navigates to /onboarding (no query string), App.jsx
-// sees a seated user on an onboarding route without preview, and
-// instantly redirects back to /. Looks like "Start a team is broken."
-// Fix: detect preview mode, forward ?preview=1 through to the next
-// route, and surface a banner so the admin understands they're seated.
-import { Link, useSearchParams } from 'react-router-dom'
+// "Use a different account" stays in the header so the account-switch
+// path is always one click away.
+
+import { Link } from 'react-router-dom'
 import {
   Building2, KeyRound, ArrowRight, Shield, MessageSquare, CalendarDays,
-  Briefcase, BookOpen, Sparkles, Users, Eye
+  Briefcase, BookOpen, Sparkles, Users, Eye, Home
 } from 'lucide-react'
 import { useAuth } from '../hooks/useAuth.js'
 import { useSeat } from '../hooks/useSeat.js'
@@ -44,17 +41,11 @@ const FEATURES = [
 export default function Welcome() {
   const { profile, loading } = useAuth()
   const { hasSeat, org } = useSeat()
-  const [params] = useSearchParams()
-  const isPreview = params.get('preview') === '1'
   const firstName = (profile?.name || '').split(' ')[0]
-  // Forward ?preview=1 to the next route so a seated admin testing the
-  // flow doesn't get bounced straight back to / on click.
-  const previewSuffix = isPreview ? '?preview=1' : ''
 
   async function switchAccount() {
-    // signOut() clears Supabase session + every valence.* localStorage key
-    // (see PR #141). Browser redirects to Login automatically on the next
-    // App.jsx render because !session → render <Login/>.
+    // signOut() clears Supabase session + every valence.* localStorage key.
+    // Browser redirects to Login automatically on the next App.jsx render.
     try { await signOut() } catch { /* swallowed — render will route */ }
   }
 
@@ -82,65 +73,124 @@ export default function Welcome() {
         </header>
 
         <main className="flex-1 px-8 pt-12 pb-16 lg:px-14 lg:pt-20">
-          {/* Hero block — big confident headline */}
-          <section className="max-w-3xl">
-            <p className="vl-eyebrow-ink mb-4">
-              {firstName ? `Welcome, ${firstName}` : loading ? 'Loading…' : 'Welcome'}
-            </p>
-            <h1 className="font-display text-display font-bold text-valence-text leading-[1.05]">
-              The operating layer
-              <br />
-              for the firm.
-            </h1>
-            <p className="mt-6 max-w-xl text-base leading-relaxed text-valence-muted">
-              Every deal, every relationship, every interaction — one workspace your team
-              actually uses. Pick how you'd like to start.
-            </p>
-          </section>
 
-          {/* Preview-mode banner — only shown when a seated admin opens
-              this screen via ?preview=1. Sets expectations up front so
-              they don't think "Start a team" is broken when it correctly
-              refuses (they already have a seat in a workspace). */}
-          {isPreview && hasSeat && (
-            <section className="mt-10 max-w-3xl">
-              <div className="flex items-start gap-3 rounded-xl border border-valence-warning/40 bg-valence-warning/10 px-4 py-3.5">
-                <Eye className="h-4 w-4 text-valence-warning shrink-0 mt-0.5" />
-                <div className="text-xs leading-relaxed">
-                  <p className="font-semibold text-valence-text">Preview mode — you already have a seat{org?.name ? ` in ${org.name}` : ''}.</p>
-                  <p className="text-valence-muted mt-1">
-                    You can browse the onboarding screens to QA the copy, but submitting
-                    “Start a team” or “Join a team” will fail with “user already belongs to a team.”
-                    To do a real first-time sign-in,{' '}
-                    <button onClick={switchAccount} className="text-valence-blue hover:underline">
-                      sign out
-                    </button>{' '}
-                    and sign back in with a different Google account that isn't seated yet.
+          {hasSeat ? (
+            // ============================================================
+            // SEATED — user already belongs to a firm. Prominent "continue"
+            // CTA. Onboarding cards still rendered below for admin preview.
+            // ============================================================
+            <>
+              <section className="max-w-3xl">
+                <p className="vl-eyebrow-ink mb-4">
+                  {firstName ? `Welcome back, ${firstName}` : loading ? 'Loading…' : 'Welcome back'}
+                </p>
+                <h1 className="font-display text-display font-bold text-valence-text leading-[1.05]">
+                  {org?.name ? <>You're in <span className="text-valence-blue">{org.name}</span>.</> : "You're signed in."}
+                </h1>
+                <p className="mt-6 max-w-xl text-base leading-relaxed text-valence-muted">
+                  Your workspace is ready. Pick up where you left off, or browse the
+                  setup screens below to walk through what a new teammate would see.
+                </p>
+              </section>
+
+              {/* PRIMARY CTA — continue to the dashboard */}
+              <section className="mt-10 max-w-2xl">
+                <Link
+                  to="/"
+                  className="group flex items-center justify-between gap-6 rounded-2xl border border-valence-blue/40 bg-gradient-to-br from-valence-blue-soft/70 to-valence-elevated p-6 transition hover:border-valence-blue hover:shadow-valence"
+                >
+                  <div className="flex items-start gap-4">
+                    <div className="rounded-xl bg-valence-blue p-3 text-white shadow-lg shadow-valence-blue/20">
+                      <Home className="h-5 w-5" />
+                    </div>
+                    <div>
+                      <p className="vl-eyebrow-ink text-valence-blue-deep">Dashboard</p>
+                      <h3 className="mt-1 text-xl font-bold text-valence-text leading-tight">
+                        Continue to {org?.name || 'your firm'}
+                      </h3>
+                      <p className="mt-1.5 text-sm text-valence-muted leading-relaxed">
+                        Today's note, priorities, meetings, AI Ask, the full pipeline.
+                      </p>
+                    </div>
+                  </div>
+                  <ArrowRight className="h-5 w-5 text-valence-blue opacity-60 group-hover:opacity-100 group-hover:translate-x-1 transition shrink-0" />
+                </Link>
+              </section>
+
+              {/* SECONDARY — preview the onboarding flow. Admins QAing
+                  the screens can still click Start / Join; the forms
+                  refuse server-side with the existing yellow blocking
+                  card ("user already belongs to a team"). */}
+              <section className="mt-14 max-w-4xl">
+                <div className="flex items-start gap-3 rounded-xl border border-valence-border bg-valence-elevated/40 px-4 py-3 mb-5">
+                  <Eye className="h-4 w-4 text-valence-muted shrink-0 mt-0.5" />
+                  <p className="text-xs text-valence-muted leading-relaxed">
+                    <span className="font-semibold text-valence-text">Onboarding preview.</span>{' '}
+                    These are the screens a brand-new partner sees on their first sign-in. You're
+                    already seated, so submitting either card will refuse — sign out to do a
+                    real first-time run.
                   </p>
                 </div>
-              </div>
-            </section>
+
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <PrimaryChoice
+                    to="/onboarding"
+                    icon={Building2}
+                    eyebrow="New firm"
+                    title="Start a team"
+                    body="Create a fresh workspace. You become the admin and invite the rest of the firm after onboarding."
+                  />
+                  <SecondaryChoice
+                    to="/join"
+                    icon={KeyRound}
+                    eyebrow="Have an invite"
+                    title="Join a team"
+                    body="Paste the 8-character code your firm's admin sent you."
+                  />
+                </div>
+              </section>
+            </>
+          ) : (
+            // ============================================================
+            // SEATLESS — first-time user. Show the canonical onboarding
+            // decision: Start a team OR Join a team.
+            // ============================================================
+            <>
+              <section className="max-w-3xl">
+                <p className="vl-eyebrow-ink mb-4">
+                  {firstName ? `Welcome, ${firstName}` : loading ? 'Loading…' : 'Welcome'}
+                </p>
+                <h1 className="font-display text-display font-bold text-valence-text leading-[1.05]">
+                  The operating layer
+                  <br />
+                  for the firm.
+                </h1>
+                <p className="mt-6 max-w-xl text-base leading-relaxed text-valence-muted">
+                  Every deal, every relationship, every interaction — one workspace your team
+                  actually uses. Pick how you'd like to start.
+                </p>
+              </section>
+
+              <section className="mt-12 grid gap-4 sm:grid-cols-2 max-w-4xl">
+                <PrimaryChoice
+                  to="/onboarding"
+                  icon={Building2}
+                  eyebrow="New firm"
+                  title="Start a team"
+                  body="Create a fresh workspace. You become the admin and invite the rest of the firm after onboarding."
+                />
+                <SecondaryChoice
+                  to="/join"
+                  icon={KeyRound}
+                  eyebrow="Have an invite"
+                  title="Join a team"
+                  body="Paste the 8-character code your firm's admin sent you."
+                />
+              </section>
+            </>
           )}
 
-          {/* Two choice cards — primary (start) heavier than secondary (join) */}
-          <section className="mt-12 grid gap-4 sm:grid-cols-2 max-w-4xl">
-            <PrimaryChoice
-              to={`/onboarding${previewSuffix}`}
-              icon={Building2}
-              eyebrow="New firm"
-              title="Start a team"
-              body="Create a fresh workspace. You become the admin and invite the rest of the firm after onboarding."
-            />
-            <SecondaryChoice
-              to={`/join${previewSuffix}`}
-              icon={KeyRound}
-              eyebrow="Have an invite"
-              title="Join a team"
-              body="Paste the 8-character code your firm's admin sent you."
-            />
-          </section>
-
-          {/* Feature pills — small, glanceable, replaces the paragraph blob */}
+          {/* Feature pills — small, glanceable, same for both states. */}
           <section className="mt-16 max-w-4xl">
             <p className="vl-eyebrow text-valence-muted mb-4">What you unlock</p>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">

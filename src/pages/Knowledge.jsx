@@ -24,6 +24,7 @@ import { WikilinkTextarea, WikilinkContent, useWikilinkEntities } from '../compo
 import { stripWikilinkTokens } from '../lib/kb.js'
 import { useToast } from '../components/Toast.jsx'
 import { useConfirm } from '../components/ConfirmDialog.jsx'
+import { humanError } from '../lib/userError.js'
 import { Bot } from 'lucide-react'
 import { MandatesPanel } from './KnowledgeMandates.jsx'
 
@@ -291,7 +292,7 @@ function SearchPortal({ onSelectTab }) {
           </p>
 
           <div className="mt-8 flex items-center gap-3 rounded-xl border border-valence-border bg-valence-elevated px-4 py-3 focus-within:border-valence-blue focus-within:ring-2 focus-within:ring-valence-blue-ring transition shadow-valence">
-            <Search className="h-4 w-4 text-valence-blue" />
+            <Search className="h-3.5 w-3.5 text-valence-subtle" />
             <input
               value={q} onChange={e => setQ(e.target.value)} autoFocus
               placeholder={mode === 'hybrid'
@@ -444,7 +445,7 @@ function Documents() {
     setLoading(true)
     if (!isSupabaseConfigured) { setDocs([]); setLoading(false); return }
     const { data, error } = await supabase.from('documents').select('*').order('created_at', { ascending: false })
-    if (error) toast.error(error.message)
+    if (error) toast.error(humanError(error, 'Could not load memos'))
     setDocs(data || [])
     setLoading(false)
   }
@@ -465,7 +466,7 @@ function Documents() {
 
   async function saveDoc(payload) {
     const { error } = await supabase.from('documents').insert(payload)
-    if (error) return toast.error(error.message)
+    if (error) return toast.error(humanError(error, 'Could not publish memo'))
     setModal(false); load(); toast.success('Memo published.')
   }
 
@@ -473,7 +474,7 @@ function Documents() {
     const ok = await confirm({ title: 'Delete memo?', body: `"${doc.title}" will be removed.`, destructive: true, confirmLabel: 'Delete' })
     if (!ok) return
     const { error } = await supabase.from('documents').delete().eq('id', doc.id)
-    if (error) return toast.error(error.message)
+    if (error) return toast.error(humanError(error, 'Could not delete memo'))
     load(); setOpen(null); toast.success('Memo deleted.')
   }
 
@@ -482,7 +483,7 @@ function Documents() {
       <div className="vl-card p-4">
         <div className="flex flex-wrap items-center gap-3">
           <div className="flex flex-1 min-w-[240px] items-center gap-2 rounded-lg border border-valence-border bg-valence-surface px-3 py-2">
-            <Search className="h-4 w-4 text-valence-blue" />
+            <Search className="h-3.5 w-3.5 text-valence-subtle" />
             <input value={q} onChange={e => setQ(e.target.value)} placeholder="Filter memos…" className="flex-1 bg-transparent text-sm text-valence-text placeholder:text-valence-subtle outline-none" />
           </div>
           <Select label="Sector" value={sector} onChange={setSector} options={['All', ...sectors]} />
@@ -561,7 +562,7 @@ function FilesSection() {
     setLoading(true)
     if (!isSupabaseConfigured) { setFiles([]); setLoading(false); return }
     const { data, error } = await supabase.from('knowledge_files').select('*').order('created_at', { ascending: false })
-    if (error) toast.error(error.message)
+    if (error) toast.error(humanError(error, 'Could not load files'))
     setFiles(data || [])
     setLoading(false)
   }
@@ -583,7 +584,7 @@ function FilesSection() {
       await deleteKnowledgeFile(f)
       toast.success('File deleted.')
       load()
-    } catch (e) { toast.error(e.message) }
+    } catch (e) { toast.error(humanError(e, 'Could not delete file')) }
   }
 
   return (
@@ -681,7 +682,7 @@ function Comps() {
     setLoading(true)
     if (!isSupabaseConfigured) { setComps([]); setLoading(false); return }
     const { data, error } = await supabase.from('comps').select('*').order('year', { ascending: false })
-    if (error) toast.error(error.message)
+    if (error) toast.error(humanError(error, 'Could not load comps'))
     setComps(data || [])
     setLoading(false)
   }
@@ -699,14 +700,14 @@ function Comps() {
 
   async function saveComp(payload) {
     const { error } = await supabase.from('comps').insert(payload)
-    if (error) return toast.error(error.message)
+    if (error) return toast.error(humanError(error, 'Could not add comp'))
     setModal(false); load(); toast.success('Comp added.')
   }
   async function deleteComp(c) {
     const ok = await confirm({ title: 'Delete this comp?', body: `${c.target} will be removed.`, destructive: true, confirmLabel: 'Delete' })
     if (!ok) return
     const { error } = await supabase.from('comps').delete().eq('id', c.id)
-    if (error) return toast.error(error.message)
+    if (error) return toast.error(humanError(error, 'Could not delete comp'))
     load(); toast.success('Comp deleted.')
   }
 
