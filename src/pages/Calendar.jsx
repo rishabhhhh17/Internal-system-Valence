@@ -7,8 +7,7 @@ import {
   DEFAULT_WORKING_HOURS, CALENDAR_COLOR_PALETTE,
   findCommonFreeSlots, groupBusyByCalendar, layoutDayColumn, colorClassesFor,
   attendeesWithPersonas,
-  syncAllGoogleCalendars,
-  DEMO_TEAM_CALENDARS, DEMO_CALENDAR_EVENTS
+  syncAllGoogleCalendars
 } from '../lib/calendar.js'
 import { signInWithGoogle, signOut, GoogleAuthExpired, createCalendarEvent, listCalendarsAccessible } from '../lib/google.js'
 import { useAuth } from '../hooks/useAuth.js'
@@ -71,7 +70,9 @@ export default function Calendar() {
   async function load() {
     setLoading(true); setLoadError(null)
     if (!isSupabaseConfigured) {
-      setCalendars(DEMO_TEAM_CALENDARS); setEvents(DEMO_CALENDAR_EVENTS); setPeople([]); setLoading(false); return
+      // No fake-data fallback any more — a tenant with nothing configured
+      // gets a clean empty state rather than VGP demo names/events.
+      setCalendars([]); setEvents([]); setPeople([]); setLoading(false); return
     }
     try {
       const [c, e, p] = await Promise.all([
@@ -79,12 +80,10 @@ export default function Calendar() {
         supabase.from('calendar_events').select('*').order('starts_at'),
         supabase.from('people').select('id, full_name, email, role, company')
       ])
-      const cs = c.data?.length ? c.data : DEMO_TEAM_CALENDARS
-      const es = e.data?.length ? e.data : DEMO_CALENDAR_EVENTS
-      setCalendars(cs); setEvents(es); setPeople(p.data || [])
+      setCalendars(c.data || []); setEvents(e.data || []); setPeople(p.data || [])
     } catch (err) {
       setLoadError(err?.message || 'Couldn\'t load calendars.')
-      setCalendars(DEMO_TEAM_CALENDARS); setEvents(DEMO_CALENDAR_EVENTS); setPeople([])
+      setCalendars([]); setEvents([]); setPeople([])
     } finally { setLoading(false) }
   }
 
