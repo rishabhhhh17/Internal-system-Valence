@@ -287,8 +287,14 @@ export async function llmStream(prompt, {
   const userApiKey = cfg?.apiKey || (providerId === 'gemini' && geminiKeySource === 'user' ? geminiKey : null)
   const baseUrl    = cfg?.baseUrl || null
 
+  // Same fix as the non-streaming gemini() above: Gemini is managed by
+  // the server proxy (/api/llm-stream holds GEMINI_API_KEY), so a missing
+  // client-side key is NOT a "not configured" condition — the call would
+  // succeed if we let it through. This twin was missed when gemini()
+  // got patched and was the cause of Knowledge → Ask throwing
+  // "Google Gemini API key not configured" on a fresh demo deploy.
   const okToCall = providerId === 'gemini'
-    ? Boolean(userApiKey || geminiKey)
+    ? true   // server-managed fallback is always available
     : Boolean(userApiKey)
   if (!okToCall) {
     throw new Error(`${cfg?.provider?.label || providerId} API key not configured`)
