@@ -13,13 +13,17 @@ function buildPrompt({ question, chunks, history = [] }) {
     .map(m => `${m.role === 'user' ? 'Q' : 'A'}: ${m.text}`)
     .join('\n')
 
-  return `You are the knowledge assistant for Valence Growth Partners, a global investment advisory firm based in Mumbai and London. Answer the user's question using ONLY the context below. Write like a senior associate briefing a partner — crisp, pragmatic, factual.
+  // De-bluffed: dropped the "senior associate briefing a partner — crisp,
+  // pragmatic, factual" framing in favour of explicit no-filler rules.
+  return `Answer the question using ONLY the context below.
 
 Rules:
-- Cite sources inline using the [N] markers that match the numbered context items.
-- If the answer is not supported by the context, say so plainly in one sentence. Do not guess.
-- Plain paragraphs. No headings, no bullet lists, no emojis, no markdown.
-- Keep the answer under 180 words unless the question demands more.
+- Cite sources inline using the [N] markers matching the numbered context items.
+- If the answer is not in the context, reply "Not in the knowledge base." — nothing more.
+- Plain paragraphs only. No headings, bullets, emojis, markdown.
+- No filler: no "Great question", no "Based on the documents...", no "I'd be happy to...". Start with the fact.
+- No tone adjectives ("crucial", "comprehensive", "robust") unless they appear in the context.
+- Under 150 words unless the question forces more.
 
 CONTEXT:
 ${context || '(no matching documents)'}

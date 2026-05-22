@@ -348,8 +348,8 @@ export default function DailyNote() {
         <Card icon={ArrowUpRight} title="Quick actions" subtitle="Log fast, write later">
           <div className="grid grid-cols-2 gap-2">
             <ActionLink to="/interactions" icon={MessageSquare} label="Log interaction" />
-            <ActionLink to="/deals" icon={Briefcase} label="Open Deal Logger" />
-            <ActionLink to="/mandates" icon={Handshake} label="Live Mandates" />
+            <ActionLink to="/deals" icon={Briefcase} label="Deal Status" />
+            <ActionLink to="/deals?filter=live" icon={Handshake} label="Live mandates" />
             <ActionLink to="/planner" icon={Calendar} label="Day Planner" />
           </div>
         </Card>

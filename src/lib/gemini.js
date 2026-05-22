@@ -412,30 +412,35 @@ export async function llmCallRaw({ url, body, actionType = null } = {}) {
 }
 
 export async function generateDaySummary({ meetings, tasks, dateLabel }) {
-  const prompt = `You are the personal assistant for a senior professional at Valence Growth Partners, a global investment advisory firm. Write a short, confident summary of their day ahead — tight, 3 to 4 sentences maximum. No bullet lists, no emojis, no headings. Keep it professional and calm, the voice of a discreet chief-of-staff. Mention the most important meeting first and how many tasks are open.
+  // De-bluffed prompt: was a flowery "discreet chief-of-staff" voice
+  // brief that invented adjectives and tone. Now strictly factual — 2
+  // sentences max, state what's actually on the schedule, no filler.
+  const prompt = `Write a 1-2 sentence factual summary of this day. State the count of meetings and tasks. Name the first meeting only if there is one. No adjectives, no tone words ("calm", "important", "key"), no filler phrases. No bullets, no headings, no emojis.
 
 Date: ${dateLabel}
-
-Meetings today (${meetings.length}):
-${meetings.map(m => `- ${m.time} · ${m.title} with ${m.attendee_name} (${m.status})`).join('\n') || '- none'}
-
+Meetings (${meetings.length}):
+${meetings.map(m => `- ${m.time} · ${m.title} with ${m.attendee_name}`).join('\n') || '- none'}
 Open tasks (${tasks.filter(t => !t.completed).length}):
 ${tasks.filter(t => !t.completed).map(t => `- ${t.title}`).join('\n') || '- none'}
 
-Write the summary now.`
-  return gemini(prompt, { temperature: 0.55, maxOutputTokens: 260, actionType: 'day_summary' })
+Summary:`
+  return gemini(prompt, { temperature: 0.2, maxOutputTokens: 120, actionType: 'day_summary' })
 }
 
 export async function draftMeetingMessage({ title, date, time, attendeeName }) {
-  const prompt = `You are the personal assistant for a senior advisor at Valence Growth Partners, a global investment advisory firm based in Mumbai and London. Draft a short, professional email message proposing a meeting to the opposing partner. The tone should be warm but precise — the voice of a discreet chief-of-staff. No placeholders like [Your Name], no subject line, no greeting boilerplate other than "Hi {first name},". Keep it 3 to 5 sentences. Do not mention that an AI wrote it.
+  // De-bluffed: was a "warm but precise, voice of a discreet chief-of-
+  // staff" prompt that produced flowery emails. Now plain professional
+  // language only. No invented adjectives, no "wonderful to connect"
+  // openers, no "I look forward" closer.
+  const prompt = `Draft a 2-3 sentence meeting-request email. Plain, direct, professional. No filler ("hope you're well", "wonderful to", "look forward to"). No subject line. Start with "Hi {first name}," and end with the proposed time and a single closing question. No placeholders.
 
-Meeting title: ${title}
-Proposed date: ${date}
-Proposed time: ${time}
-Attendee: ${attendeeName}
+Meeting: ${title}
+Date: ${date}
+Time: ${time}
+Recipient: ${attendeeName}
 
-Write the message now.`
-  return gemini(prompt, { temperature: 0.6, maxOutputTokens: 320, actionType: 'meeting_message' })
+Message:`
+  return gemini(prompt, { temperature: 0.3, maxOutputTokens: 220, actionType: 'meeting_message' })
 }
 
 // ============ DEAL BRIEFER ============
@@ -459,16 +464,20 @@ export async function generateDealBrief({ deal, contacts = [], files = [], activ
     deal.fee_success_pct    ? `${deal.fee_success_pct}% success fee` : null
   ].filter(Boolean).join(' + ') || 'Fee structure TBD'
 
-  const prompt = `You are a senior associate at Valence Growth Partners preparing an internal one-pager on a live mandate, the kind a partner would scan five minutes before walking into a meeting. Tone: crisp, pragmatic, investment-banking-grade. No emojis, no markdown, no bullet markers in prose — the renderer styles structure from the section labels.
+  // De-bluffed: was a flowery "crisp, pragmatic, investment-banking-grade"
+  // brief that invented thesis/risk specifics not present in the data. Now
+  // strict: only restate what's in the data block. If a section has no
+  // supporting data, write "Not enough data logged yet." for that section.
+  const prompt = `Write an internal one-pager on this mandate using ONLY facts in the data block below. Do not invent thesis points, risks, or counterparty details not directly stated. If a section lacks supporting data, write exactly "Not enough data logged yet." for it.
 
-Produce four short labelled sections in this exact order, each 2–3 sentences:
+Four sections in this order, plain prose, no bullets, no emojis, no markdown. Each section 1-3 sentences. Start each with the label in caps followed by a colon:
 
-THESIS — what's the core opportunity here. Why is this mandate worth running. The "why now" angle.
-COUNTERPARTIES — who's on the other side that matters. Name names, note temperature where you can.
-RISKS — what could derail this. Be specific: counterparty risk, structuring risk, market timing, founder dynamics.
-NEXT MOVES — 2 concrete actions for this week. Verb-led ("Send teaser to X by Friday", "Schedule pitch with Y"). Numbered 1. / 2.
+THESIS:
+COUNTERPARTIES:
+RISKS:
+NEXT MOVES:
 
-Use plain labels "THESIS:", "COUNTERPARTIES:", "RISKS:", "NEXT MOVES:" at the start of each paragraph. Keep the whole brief under 220 words.
+No filler phrases ("crucial", "leverage", "going forward", "in today's market"). No adjectives unless they're in the data. Under 180 words total.
 
 Live data:
 
@@ -494,22 +503,26 @@ Write the brief now.`
 }
 
 // ============ EMAIL SCENARIOS ============
+// De-bluffed instruction blocks: stripped tone words ("warm", "diplomatic",
+// "polite") and emotion verbs ("nudging", "burning"). Each scenario now
+// states the structural intent only — what the email's job is — without
+// dictating a vibe. The model's default voice is fine.
 const EMAIL_SCENARIOS = {
   intro: {
     label: 'Introduction',
-    instruction: 'a warm, specific introduction email to this counterparty to initiate the relationship and reference the mandate context. Request a brief exploratory call.'
+    instruction: 'an introduction email referencing the mandate context and asking for a 20-minute exploratory call.'
   },
   followup: {
     label: 'Follow-up',
-    instruction: 'a polite follow-up email nudging for a response or next step. Reference the most recent activity if relevant. Be concise, never pushy.'
+    instruction: 'a short follow-up asking whether the recipient has had a chance to look at the previous message. Reference the most recent logged activity if available.'
   },
   status: {
     label: 'Status update',
-    instruction: 'a short status update to the counterparty reflecting where the mandate currently stands and the immediate next step. Professional and transparent.'
+    instruction: 'a status update stating where the mandate currently stands and the immediate next step.'
   },
   decline: {
-    label: 'Polite decline',
-    instruction: 'a diplomatic decline message — declining or pausing engagement without burning the relationship. Leave the door open for the future.'
+    label: 'Decline',
+    instruction: 'a decline message stating the firm is not pursuing this opportunity at present. One sentence only.'
   },
   propose_meeting: {
     label: 'Propose meeting',
@@ -586,9 +599,11 @@ ${text.slice(0, 9000)}`
 export async function draftEmail({ scenario, deal, contact }) {
   const spec = EMAIL_SCENARIOS[scenario] || EMAIL_SCENARIOS.intro
   const first = (contact?.name || '').split(' ')[0] || 'there'
-  const prompt = `You are the chief-of-staff for a senior advisor at Valence Growth Partners, a global investment advisory firm based in Mumbai and London. Draft ${spec.instruction}
+  // De-bluffed: dropped the "chief-of-staff, warm but precise" framing.
+  // The model produces plain email copy now, no tone direction at all.
+  const prompt = `Draft ${spec.instruction}
 
-The tone is professional, warm but precise. No emojis, no placeholders like [Your Name]. Start directly with "Hi ${first}," and sign off simply with "Best, Valence Growth Partners". Keep the body to 3–6 short sentences. Do not mention that an AI wrote it.
+Plain professional language. No filler ("hope you're well", "trust this finds you well", "look forward to"). No adjectives unless they're in the context. No emojis. No placeholders. Start "Hi ${first}," and sign off "Best, Valence Growth Partners". 2-4 sentences.
 
 Context:
 - Mandate: ${deal.client_name} — ${deal.deal_type} (${deal.side || 'Advisory'})
