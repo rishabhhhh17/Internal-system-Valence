@@ -36,6 +36,11 @@ export default function DailyNote() {
   const [meetings, setMeetings]   = useState([])
   const [prepMeeting, setPrepMeeting] = useState(null) // meeting object → opens MeetingPrepCard
   const [meetingsSource, setMeetingsSource] = useState('local') // 'local' | 'google'
+  // When Google API call fails, set an actionable "Reconnect Google" hint
+  // on the Today's meetings card so the partner knows the empty state is
+  // a session problem, not "I have no meetings". Cleared on next successful
+  // listTodayEvents.
+  const [googleStaleHint, setGoogleStaleHint] = useState(false)
   const [note, setNote]           = useState(null)         // { id, body }
   const [body, setBody]           = useState('')
   const [saving, setSaving]       = useState(false)
@@ -101,9 +106,18 @@ export default function DailyNote() {
           }))
         setMeetings(mapped)
         setMeetingsSource('google')
+        setGoogleStaleHint(false)
       } catch (err) {
-        if (err instanceof GoogleAuthExpired) console.warn('Google session expired; keeping local meetings')
-        else console.warn('Google calendar fetch failed', err)
+        if (err instanceof GoogleAuthExpired) {
+          // Surface this to the user — silent fail makes the empty card
+          // read like "you have no meetings" rather than "your session
+          // expired, click Reconnect". Empty meetings array left intact
+          // so the card still renders the actionable hint below it.
+          console.warn('Google session expired; surfacing Reconnect hint')
+          setGoogleStaleHint(true)
+        } else {
+          console.warn('Google calendar fetch failed', err)
+        }
       }
     })()
     return () => { cancelled = true }
@@ -245,6 +259,14 @@ export default function DailyNote() {
         <Card tour="today-meetings" icon={Calendar} title="Today's meetings" subtitle={meetingsSource === 'google' ? 'From your Google Calendar' : 'From your calendar'}>
           {!ready ? (
             <SkeletonRows count={3} />
+          ) : googleStaleHint ? (
+            <div className="rounded-lg border border-valence-warning/40 bg-valence-warning/10 px-4 py-3 text-xs leading-relaxed">
+              <p className="font-semibold text-valence-text">Google session expired.</p>
+              <p className="text-valence-muted mt-0.5">
+                Your Calendar scope needs to be re-granted to see today's events.{' '}
+                <Link to="/settings?section=integrations" className="text-valence-blue hover:underline font-semibold">Reconnect Google →</Link>
+              </p>
+            </div>
           ) : meetings.length === 0 ? (
             <Empty>No meetings on the board today.</Empty>
           ) : (
