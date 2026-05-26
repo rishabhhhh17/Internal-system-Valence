@@ -21,6 +21,8 @@ import Modal from '../components/Modal.jsx'
 import EmptyState from '../components/EmptyState.jsx'
 import DealKanban from '../components/DealKanban.jsx'
 import DealGantt from '../components/DealGantt.jsx'
+import CompanyFundMatcher from '../components/CompanyFundMatcher.jsx'
+import { useFeatureFlag } from '../hooks/useFeatureFlag.js'
 import FileVault from '../components/FileVault.jsx'
 import Contacts from '../components/Contacts.jsx'
 import WikilinkTextarea from '../components/WikilinkTextarea.jsx'
@@ -645,6 +647,10 @@ function DealOverview({ deal }) {
   const isTransaction = types.includes('transaction')
   const isAdvisory    = types.includes('advisory')
 
+  // The Company⇄Fund matcher is gated on the feature flag. Default-on
+  // for IB orgs, off for PE/VC unless the user toggled it in Settings.
+  const showMatcher = useFeatureFlag('company_fund_matcher')
+
   return (
     <div className="space-y-5">
       {/* Progress bar */}
@@ -719,6 +725,11 @@ function DealOverview({ deal }) {
           {deal.notes ? <WikilinkText>{deal.notes}</WikilinkText> : <span className="text-valence-subtle">No notes yet.</span>}
         </p>
       </div>
+
+      {/* IB-curated tool. Gated on the company_fund_matcher feature flag.
+          Default-on for IB orgs; hidden everywhere else unless the user
+          flipped it in Settings → Advanced → Features. */}
+      {showMatcher && <CompanyFundMatcher mode="deal_to_funds" deal={deal} />}
     </div>
   )
 }

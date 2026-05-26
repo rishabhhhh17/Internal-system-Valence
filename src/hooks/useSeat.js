@@ -36,7 +36,7 @@ export function useSeat() {
       // RLS allows the user to read their own seat (seats_self_read).
       let { data, error: err } = await supabase
         .from('seats')
-        .select('id, org_id, user_id, email, full_name, title, phone, role, active, added_at, billable_from, profile_completed_at, orgs:org_id ( id, name, plan, cycle_anchor_day )')
+        .select('id, org_id, user_id, email, full_name, title, phone, role, active, added_at, billable_from, profile_completed_at, orgs:org_id ( id, name, plan, cycle_anchor_day, firm_type, feature_flags )')
         .eq('user_id', userId)
         .eq('active', true)
         .limit(1)
@@ -55,7 +55,7 @@ export function useSeat() {
             // Re-query the seat row we just created so the UI gets the full shape.
             const refetch = await supabase
               .from('seats')
-              .select('id, org_id, user_id, email, full_name, title, phone, role, active, added_at, billable_from, orgs:org_id ( id, name, plan, cycle_anchor_day )')
+              .select('id, org_id, user_id, email, full_name, title, phone, role, active, added_at, billable_from, orgs:org_id ( id, name, plan, cycle_anchor_day, firm_type, feature_flags )')
               .eq('user_id', userId)
               .eq('active', true)
               .limit(1)
