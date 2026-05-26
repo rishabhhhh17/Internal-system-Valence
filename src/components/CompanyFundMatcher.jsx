@@ -33,7 +33,7 @@
 // Hidden when the feature flag is off — the parent component should
 // useFeatureFlag('company_fund_matcher') and skip rendering.
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Sparkles, ArrowRight, Loader2, RefreshCw, Briefcase, User } from 'lucide-react'
 import { supabase, isSupabaseConfigured } from '../lib/supabase.js'
 import { llmCall } from '../lib/gemini.js'
@@ -182,6 +182,13 @@ export default function CompanyFundMatcher({ mode = 'deal_to_funds', deal = null
 
   const anchor = mode === 'deal_to_funds' ? deal : fund
 
+  // Race guard. If the user opens deal A, then quickly switches the
+  // drawer to deal B, two loads are in flight; whichever resolves last
+  // would otherwise win and we'd show B's score against A (or vice
+  // versa). Bumping a generation counter and bailing on stale resolves
+  // makes the latest request always win.
+  const reqGen = useRef(0)
+
   async function load(opts = {}) {
     if (!isSupabaseConfigured) { setLoading(false); return }
     if (!anchor)               { setLoading(false); return }
@@ -189,6 +196,9 @@ export default function CompanyFundMatcher({ mode = 'deal_to_funds', deal = null
     if (isRefresh) setRefreshing(true)
     else           setLoading(true)
     setError(null)
+
+    const myGen = ++reqGen.current
+    const stillFresh = () => reqGen.current === myGen
 
     try {
       if (mode === 'deal_to_funds') {
@@ -210,8 +220,10 @@ export default function CompanyFundMatcher({ mode = 'deal_to_funds', deal = null
           .filter(c => c.score > 0)
           .sort((a, b) => b.score - a.score)
           .slice(0, 10)
+        if (!stillFresh()) return
         setCandidates(scored)
         const r = await generateRationale({ deal, candidates: scored, mode })
+        if (!stillFresh()) return
         setRationale(r)
       } else {
         // mode === 'fund_to_deals'
@@ -221,20 +233,48 @@ export default function CompanyFundMatcher({ mode = 'deal_to_funds', deal = null
           .limit(200)
         if (err) throw err
         const scored = (data || [])
-          .map(d => ({ person: { id: d.id, full_name: d.client_name, company: d.sector, role: d.stage, sector_tags: d.sector ? [d.sector] : [], geography_tags: d.geography ? [d.geography] : [] }, deal: d, ...scoreDealForFund(fund, { sector: d.sector, sector_tags: d.sector ? [d.sector] : [], geography_tags: d.geography ? [d.geography] : [] }) }))
+          .map(d => {
+            // Pass the FULL deal object to the scorer so geography +
+            // city/country are picked up. Earlier version stripped the
+            // deal down to {sector, sector_tags, geography_tags} which
+            // dropped d.geography on the floor — geo score always 0.
+            const result = scoreDealForFund(fund, d)
+            // For the render path we wrap each row in a `person`-shaped
+            // object because the list component reads c.person.full_name
+            // / c.person.company. Keep the original deal under c.deal so
+            // onOpenDeal works.
+            return {
+              person: {
+                id:             d.id,
+                full_name:      d.client_name,
+                company:        d.sector || '—',
+                role:           d.stage,
+                sector_tags:    d.sector ? [d.sector] : [],
+                geography_tags: d.geography ? [d.geography] : []
+              },
+              deal:    d,
+              score:   result.score,
+              reasons: result.reasons
+            }
+          })
           .filter(c => c.score > 0)
           .sort((a, b) => b.score - a.score)
           .slice(0, 10)
+        if (!stillFresh()) return
         setCandidates(scored)
         const r = await generateRationale({ fund, candidates: scored, mode })
+        if (!stillFresh()) return
         setRationale(r)
       }
     } catch (e) {
+      if (!stillFresh()) return
       setError(e?.message || 'Could not load matches.')
       setCandidates([])
     } finally {
-      setLoading(false)
-      setRefreshing(false)
+      if (stillFresh()) {
+        setLoading(false)
+        setRefreshing(false)
+      }
     }
   }
 
