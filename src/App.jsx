@@ -34,6 +34,7 @@ import Welcome from './pages/Welcome.jsx'
 import JoinTeam from './pages/JoinTeam.jsx'
 import Import from './pages/Import.jsx'
 import CompleteProfile from './pages/CompleteProfile.jsx'
+import FirmTypePicker from './pages/FirmTypePicker.jsx'
 import RelationshipTimeline from './pages/RelationshipTimeline.jsx'
 import { useAuth } from './hooks/useAuth.js'
 import { useSeat } from './hooks/useSeat.js'
@@ -183,6 +184,22 @@ export default function App() {
       return (
         <Routes>
           <Route path="/complete-profile" element={<CompleteProfile />} />
+        </Routes>
+      )
+    }
+
+    // FIRM-TYPE ONBOARDING GATE
+    // The org needs a firm_type (ib / pe / vc) so the feature registry
+    // can curate the right toggles. Any seated user whose org has
+    // firm_type IS NULL gets bounced to the one-step picker. Once set,
+    // useSeat refreshes and this gate falls through.
+    if (hasSeat && profileComplete && org && !org.firm_type) {
+      if (pathname !== '/onboarding/firm-type') {
+        return <Navigate to="/onboarding/firm-type" replace />
+      }
+      return (
+        <Routes>
+          <Route path="/onboarding/firm-type" element={<FirmTypePicker />} />
         </Routes>
       )
     }

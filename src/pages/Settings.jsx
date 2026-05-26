@@ -20,6 +20,7 @@ import ScoringCriteriaPanel from '../components/ScoringCriteriaPanel.jsx'
 import BulkAddPeoplePanel from '../components/BulkAddPeoplePanel.jsx'
 import WorkspacePreferencesPanel from '../components/WorkspacePreferencesPanel.jsx'
 import AppearancePanel from '../components/AppearancePanel.jsx'
+import FeatureFlagsPanel from '../components/FeatureFlagsPanel.jsx'
 
 function ComingSoon({ label }) {
   return (
@@ -181,6 +182,8 @@ function SectionBody({ id }) {
       return <DataSection />
     case 'appearance':
       return <AppearancePanel />
+    case 'features':
+      return <FeatureFlagsPanel />
     default:
       return null
   }

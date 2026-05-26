@@ -49,6 +49,12 @@ export const SETTINGS_SECTIONS = [
     tier: 'advanced',
     label: 'Data',
     description: 'AI-assisted import, CSV upload, drag-to-attach on People, sample data.'
+  },
+  {
+    id: 'features',
+    tier: 'advanced',
+    label: 'Features',
+    description: 'Turn individual features on or off for your firm. Sensible defaults are picked from your firm type (IB / PE / VC); override anything here.'
   }
 ]
 
