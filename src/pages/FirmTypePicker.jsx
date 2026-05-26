@@ -9,6 +9,7 @@
 // one click. After save, useSeat refreshes and App.jsx routes back to /.
 
 import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { Building2, Briefcase, Rocket, ArrowRight, Loader2 } from 'lucide-react'
 import { supabase, isSupabaseConfigured } from '../lib/supabase.js'
 import { useSeat } from '../hooks/useSeat.js'
@@ -25,6 +26,7 @@ const ICONS = {
 
 export default function FirmTypePicker() {
   const { org, refresh } = useSeat()
+  const navigate = useNavigate()
   const toast = useToast()
   const [busy, setBusy] = useState(null)   // 'ib' | 'pe' | 'vc' | null
 
@@ -38,7 +40,11 @@ export default function FirmTypePicker() {
       const { error } = await supabase.rpc('set_org_firm_type', { p_firm_type: firmType })
       if (error) throw error
       await refresh()
-      // App.jsx will route us back to / now that firm_type is set.
+      // Explicit redirect home. The App.jsx gate STOPS firing for this
+      // url the moment firm_type is set, but the main Layout's <Routes>
+      // doesn't register /onboarding/firm-type — without this navigate
+      // the user would land on a blank screen between gates.
+      navigate('/', { replace: true })
     } catch (e) {
       toast.error(humanError(e, 'Could not save your firm type — try again.'))
     } finally {
