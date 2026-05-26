@@ -104,21 +104,34 @@ export default function FeatureFlagsPanel() {
                 const recommended = defaultFlagFor(f.id, firmType)
                 const overridden  = explicit !== undefined && explicit !== recommended
                 const saving      = savingId === f.id
+                // planned = registered in the catalogue but the actual
+                // implementation hasn't shipped yet. Toggle is disabled
+                // and a "Coming soon" chip replaces the on/off switch.
+                const planned     = !!f.planned
 
                 return (
                   <div key={f.id}
-                       className="flex items-start gap-3 rounded-lg border border-valence-border bg-valence-surface/50 px-3.5 py-3">
+                       className={`flex items-start gap-3 rounded-lg border border-valence-border px-3.5 py-3 ${
+                         planned ? 'bg-valence-surface/30' : 'bg-valence-surface/50'
+                       }`}>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
-                        <span className="text-sm font-semibold text-valence-text">{f.label}</span>
-                        {recommended && (
+                        <span className={`text-sm font-semibold ${planned ? 'text-valence-muted' : 'text-valence-text'}`}>
+                          {f.label}
+                        </span>
+                        {recommended && !planned && (
                           <span className="text-[10px] font-semibold uppercase tracking-[0.1em] bg-valence-blue-soft text-valence-blue-deep rounded px-1.5 py-0.5">
                             Recommended
                           </span>
                         )}
-                        {overridden && (
+                        {overridden && !planned && (
                           <span className="text-[10px] font-semibold uppercase tracking-[0.1em] bg-valence-faint text-valence-muted rounded px-1.5 py-0.5">
                             Override
+                          </span>
+                        )}
+                        {planned && (
+                          <span className="text-[10px] font-semibold uppercase tracking-[0.1em] bg-valence-faint text-valence-muted rounded px-1.5 py-0.5">
+                            Coming soon
                           </span>
                         )}
                       </div>
@@ -126,11 +139,17 @@ export default function FeatureFlagsPanel() {
                       <p className="mt-0.5 text-[10px] text-valence-subtle">{f.surface}</p>
                     </div>
 
-                    <Toggle
-                      checked={effective}
-                      busy={saving}
-                      onChange={(nextOn) => toggle(f.id, nextOn)}
-                    />
+                    {planned ? (
+                      <span className="text-[10px] font-medium text-valence-subtle whitespace-nowrap">
+                        Planned for your firm
+                      </span>
+                    ) : (
+                      <Toggle
+                        checked={effective}
+                        busy={saving}
+                        onChange={(nextOn) => toggle(f.id, nextOn)}
+                      />
+                    )}
                   </div>
                 )
               })}
