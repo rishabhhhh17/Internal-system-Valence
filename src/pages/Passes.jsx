@@ -72,13 +72,17 @@ export default function Passes() {
   }
 
   const stats = useMemo(() => {
-    const totalThisYear = rows.filter(r => r.passed_at?.startsWith(String(new Date().getFullYear()))).length
-    const outperformed  = rows.filter(r => r.outcome === 'outperformed' || r.outcome === 'unicorn').length
+    // All three metrics live on the same denominator (rows from this year)
+    // so the partner sees a coherent picture instead of "5 passes this year,
+    // 2 outperformed all-time" which conflates time windows.
+    const yearPrefix = String(new Date().getFullYear())
+    const thisYear   = rows.filter(r => r.passed_at?.startsWith(yearPrefix))
+    const outperformed = thisYear.filter(r => r.outcome === 'outperformed' || r.outcome === 'unicorn').length
     const reasonsMap = {}
-    for (const r of rows) reasonsMap[r.reason] = (reasonsMap[r.reason] || 0) + 1
+    for (const r of thisYear) reasonsMap[r.reason] = (reasonsMap[r.reason] || 0) + 1
     const topReason = Object.entries(reasonsMap).sort((a, b) => b[1] - a[1])[0]
     return {
-      totalThisYear,
+      totalThisYear: thisYear.length,
       outperformed,
       topReason: topReason ? `${topReason[0].replace('_',' ')} (${topReason[1]})` : '—'
     }

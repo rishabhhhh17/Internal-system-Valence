@@ -278,7 +278,11 @@ export default function CompanyFundMatcher({ mode = 'deal_to_funds', deal = null
     }
   }
 
-  useEffect(() => { load() /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [anchor?.id])
+  // Re-run on EITHER the anchor or the mode changing — a stale render
+  // could otherwise show deal_to_funds output for a fund_to_deals view
+  // (or vice versa) on the rare case where the parent swaps mode but
+  // keeps an anchor with the same id.
+  useEffect(() => { load() /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [anchor?.id, mode])
 
   const heading = mode === 'deal_to_funds'
     ? 'Funds that fit this mandate'

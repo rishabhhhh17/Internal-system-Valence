@@ -216,11 +216,15 @@ function Verdict({ result }) {
 }
 
 function CriterionRow({ item }) {
-  const icon = item.verdict === 'pass' || item.verdict === 'no'
+  // Verdict comes from the prompt schema: 'match' | 'partial' | 'no' | 'unsure'.
+  // Keep 'pass' as a legacy alias for 'no' (in case any cached response uses
+  // the old vocabulary).
+  const v = item.verdict
+  const icon = (v === 'no' || v === 'pass')
     ? <X className="h-3.5 w-3.5 text-valence-danger" />
-    : item.verdict === 'partial' || item.verdict === 'unsure'
-    ? <AlertTriangle className="h-3.5 w-3.5 text-valence-warning" />
-    : <Check className="h-3.5 w-3.5 text-valence-success" />
+    : (v === 'partial' || v === 'unsure')
+      ? <AlertTriangle className="h-3.5 w-3.5 text-valence-warning" />
+      : <Check className="h-3.5 w-3.5 text-valence-success" />
   return (
     <div className="flex items-start gap-2.5 rounded-lg border border-valence-border bg-valence-surface/40 px-3 py-2.5">
       <span className="mt-0.5 shrink-0">{icon}</span>

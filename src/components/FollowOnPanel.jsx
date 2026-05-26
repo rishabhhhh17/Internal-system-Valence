@@ -27,6 +27,10 @@ export default function FollowOnPanel({ portcoId, portcoName }) {
 
   async function load() {
     if (!isSupabaseConfigured || !portcoId) { setLoading(false); return }
+    // Set loading at the top of every call (not just first render) so a
+    // portcoId change shows the spinner instead of the previous portco's
+    // rows during the fetch.
+    setLoading(true)
     try {
       const { data, error } = await supabase.from('follow_on_signals')
         .select('*').eq('portco_id', portcoId).order('signal_date', { ascending: false })

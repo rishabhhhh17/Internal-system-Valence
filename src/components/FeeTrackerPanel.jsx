@@ -26,10 +26,15 @@ export default function FeeTrackerPanel({ deal }) {
   const [successPct, setSuccessPct] = useState(deal.fee_success_pct ?? '')
   const [saving, setSaving]       = useState(false)
 
+  // Re-sync the local form fields whenever the deal prop changes — both
+  // when switching deals (deal.id) AND when the same deal's fee fields
+  // change after a save (subscribeTable in the parent refreshes the
+  // deal row). Without this second case, the `dirty` flag could re-fire
+  // after a successful save because the local state lags the prop.
   useEffect(() => {
     setRetainer(deal.fee_retainer_usd ?? '')
     setSuccessPct(deal.fee_success_pct ?? '')
-  }, [deal.id])
+  }, [deal.id, deal.fee_retainer_usd, deal.fee_success_pct])
 
   // Ticket — for fundraise/M&A use the deal's primary size signal.
   const ticketUsdM = deal.ticket_size_usd_m
