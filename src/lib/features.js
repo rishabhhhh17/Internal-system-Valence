@@ -45,6 +45,13 @@ export const FIRM_TYPES = [
 
 // Every feature in the system. Group them lightly so the Settings UI can
 // section them — `category` is purely cosmetic.
+//
+// `planned: true` marks features whose UX is registered but the
+// implementation hasn't shipped yet. The Settings → Features panel
+// renders these with a "Coming soon" badge and the toggle is disabled.
+// Why bother registering them now: it surfaces the roadmap to the
+// partner the moment they pick a firm type, so they see what's around
+// the corner. Removing `planned` is what flips the feature live.
 export const FEATURES = [
   // ── Pipeline surfaces ──────────────────────────────────────────────
   {
@@ -71,7 +78,7 @@ export const FEATURES = [
     category: 'Pipeline',
     default_for: ['ib', 'pe', 'vc'],
   },
-  // ── Curated AI tools ───────────────────────────────────────────────
+  // ── AI tools — already built ───────────────────────────────────────
   {
     id: 'company_fund_matcher',
     label: 'Match company ⇄ fund',
@@ -83,26 +90,37 @@ export const FEATURES = [
   {
     id: 'thesis_fit_checker',
     label: 'Thesis-fit checker',
-    description: 'Paste a company / deck → fits / partial / no, with reasoning against your stated criteria.',
-    surface: 'Quick Screener',
+    description: 'Paste a company → Strong / Partial / No-fit against your stated thesis, with per-criterion reasoning.',
+    surface: 'Sidebar · /screen',
     category: 'AI tools',
     default_for: ['vc', 'pe'],
-  },
-  {
-    id: 'portfolio_tracker',
-    label: 'Portfolio company tracker',
-    description: 'Track active portfolio cos: ownership %, board seats, last update, next review.',
-    surface: 'Sidebar · /portfolio',
-    category: 'AI tools',
-    default_for: ['pe', 'vc'],
   },
   {
     id: 'cim_drafter',
     label: 'CIM / teaser drafter',
     description: 'Generate sell-side teaser + CIM drafts grounded in the deal\'s data room.',
+    surface: 'Deal detail · CIM tab',
+    category: 'AI tools',
+    default_for: ['ib'],
+  },
+  // ── AI tools — planned (showing roadmap) ───────────────────────────
+  {
+    id: 'target_list_builder',
+    label: 'Target list builder',
+    description: 'Given a sell-side mandate, AI suggests 50 strategic acquirers with sector fit + relationship warmth.',
     surface: 'Deal detail',
     category: 'AI tools',
     default_for: ['ib'],
+    planned: true,
+  },
+  {
+    id: 'deck_summariser',
+    label: 'Deck summariser',
+    description: 'Paste a pitch deck or one-pager → AI extracts company, sector, stage, ARR, ask. Files straight into CRM.',
+    surface: 'Sidebar · /import',
+    category: 'AI tools',
+    default_for: ['vc', 'pe'],
+    planned: true,
   },
   // ── Relationship surfaces ──────────────────────────────────────────
   {
@@ -145,6 +163,108 @@ export const FEATURES = [
     surface: 'Sidebar · /inbox/intake',
     category: 'Workflow',
     default_for: ['ib'],
+  },
+  // ── PE-specific (planned) ──────────────────────────────────────────
+  {
+    id: 'portfolio_tracker',
+    label: 'Portfolio company tracker',
+    description: 'Companies you own: ownership %, board seats, last update, next review.',
+    surface: 'Sidebar · /portfolio',
+    category: 'PE',
+    default_for: ['pe', 'vc'],
+    planned: true,
+  },
+  {
+    id: 'diligence_workstreams',
+    label: 'Diligence workstreams',
+    description: 'Per-deal grid: commercial / financial / legal / operational. Status, owner, providers, document links.',
+    surface: 'Deal detail',
+    category: 'PE',
+    default_for: ['pe'],
+    planned: true,
+  },
+  {
+    id: 'value_creation_plan',
+    label: '100-day & value-creation plan',
+    description: 'Track post-close milestones, hires, board priorities, exit readiness.',
+    surface: 'Portfolio company detail',
+    category: 'PE',
+    default_for: ['pe'],
+    planned: true,
+  },
+  {
+    id: 'lp_reporting',
+    label: 'LP reporting pack',
+    description: 'Auto-generated quarterly LP letter draft: DPI, TVPI, IRR, portco updates.',
+    surface: 'Sidebar · /lp-pack',
+    category: 'PE',
+    default_for: ['pe'],
+    planned: true,
+  },
+  // ── VC-specific (planned) ──────────────────────────────────────────
+  {
+    id: 'pass_tracker',
+    label: 'Pass tracker',
+    description: 'Log why you passed on each deal. Pattern-mines reasons across the year for sourcing learning.',
+    surface: 'Sidebar · /passes',
+    category: 'VC',
+    default_for: ['vc'],
+    planned: true,
+  },
+  {
+    id: 'follow_on_tracker',
+    label: 'Follow-on tracker',
+    description: 'Portfolio cos signalling a new round. Pro-rata math, board-seat triggers, syndicate alignment.',
+    surface: 'Portfolio detail',
+    category: 'VC',
+    default_for: ['vc'],
+    planned: true,
+  },
+  {
+    id: 'anti_portfolio',
+    label: 'Anti-portfolio',
+    description: 'Deals you passed on that became outsized winners. Cheap learning, painful reading.',
+    surface: 'Sidebar · /passes',
+    category: 'VC',
+    default_for: ['vc'],
+    planned: true,
+  },
+  // ── IB-specific (planned) ──────────────────────────────────────────
+  {
+    id: 'fee_tracker',
+    label: 'Mandate fee tracker',
+    description: 'Retainer + success-fee structure per mandate. Forecast vs invoiced, by partner.',
+    surface: 'Deal detail · Financials',
+    category: 'IB',
+    default_for: ['ib'],
+    planned: true,
+  },
+  {
+    id: 'bake_off_mode',
+    label: 'Bake-off mode',
+    description: 'When VGP is one of several advisors pitching. Track the bake-off, competitors, decision date.',
+    surface: 'Deal detail',
+    category: 'IB',
+    default_for: ['ib'],
+    planned: true,
+  },
+  {
+    id: 'ic_memo',
+    label: 'IC memo generator',
+    description: 'One-click IC memo from a mandate brief: investment rationale, financials, risks, asks.',
+    surface: 'Deal detail',
+    category: 'IB',
+    default_for: ['ib', 'pe'],
+    planned: true,
+  },
+  {
+    id: 'closing_checklist',
+    label: 'Closing checklist',
+    description: 'Stage-aware to-dos: signing pack, escrow, regulatory, comms, fee invoice.',
+    surface: 'Deal detail · Gate tab',
+    category: 'IB',
+    default_for: ['ib'],
+    planned: true,
   },
 ]
 

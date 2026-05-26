@@ -3,32 +3,32 @@ import { NavLink } from 'react-router-dom'
 import { LayoutDashboard, Briefcase, BookOpen, CalendarDays, CalendarRange, Users, BarChart3, MessageSquare, Handshake, GanttChartSquare, Building2, Sparkles, Inbox, UserCircle, Settings as SettingsIcon, Wallet, Upload } from 'lucide-react'
 import Logo from './Logo.jsx'
 import { supabase, isSupabaseConfigured, subscribeTable } from '../lib/supabase.js'
+import { useAllFeatureFlags } from '../hooks/useFeatureFlag.js'
 
 const TERMINAL_STAGES  = new Set(['Closed', 'Lost', 'On Hold'])
 const LIVE_MANDATE_STAGES = new Set(['Mandate', 'Preparation', 'Marketing', 'Diligence', 'Negotiation', 'Closing'])
 
+// Each entry can carry an optional `featureId` — when present, the nav
+// item only renders when useAllFeatureFlags()[featureId] is true. Items
+// without a featureId always show (Today, Knowledge, Team Calendar etc.
+// are universal). This is how a VC ends up with a different sidebar
+// than an IB without forking the navigation file.
 const nav = [
   { to: '/',             label: 'Today',        icon: LayoutDashboard },
-  // Was two entries — "Deal Logger" + "Live Mandates" — collapsed into a
-  // single "Deal Status" page with an internal All/Live filter + Gantt/Table
-  // toggle. The live-mandates badge stays on the new entry so partners
-  // still see the active-mandates count at a glance.
-  { to: '/deals',        label: 'Deal Status',  icon: Briefcase,     badgeKey: 'liveMandates' },
-  { to: '/timeline',     label: 'Timeline',     icon: GanttChartSquare },
-  { to: '/interactions', label: 'Interactions', icon: MessageSquare, badgeKey: 'pendingFollowUps', section: 'Relationships' },
-  { to: '/people',       label: 'People',       icon: UserCircle,                                section: 'Relationships' },
-  { to: '/funds',        label: 'Firm',         icon: Building2,                                 section: 'Relationships' },
-  // Quick Screener (investor ranking) hidden from nav for now — route
-  // still resolves so any saved deeplink keeps working.
-  // { to: '/screen',       label: 'Quick Screener',icon: Sparkles,                                 section: 'AI' },
-  { to: '/import',       label: 'Import',       icon: Upload,                                    section: 'AI' },
-  { to: '/inbox/intake', label: 'Intake inbox', icon: Inbox,        badgeKey: 'newIntakes',     section: 'AI' },
+  { to: '/deals',        label: 'Deal Status',  icon: Briefcase,     badgeKey: 'liveMandates', featureId: 'deal_status' },
+  { to: '/timeline',     label: 'Timeline',     icon: GanttChartSquare,                       featureId: 'timeline' },
+  { to: '/screen',       label: 'Thesis-Fit',   icon: Sparkles,                               featureId: 'thesis_fit_checker' },
+  { to: '/interactions', label: 'Interactions', icon: MessageSquare, badgeKey: 'pendingFollowUps', section: 'Relationships', featureId: 'interactions_feed' },
+  { to: '/people',       label: 'People',       icon: UserCircle,                             section: 'Relationships', featureId: 'people_crm' },
+  { to: '/funds',        label: 'Firm',         icon: Building2,                              section: 'Relationships' },
+  { to: '/import',       label: 'Import',       icon: Upload,                                 section: 'AI' },
+  { to: '/inbox/intake', label: 'Intake inbox', icon: Inbox,        badgeKey: 'newIntakes',   section: 'AI', featureId: 'intake_inbox' },
   // Internal-only — what every customer is burning. Hidden once we ship
   // a proper role gate; for now the partner is the only one running this build.
-  { to: '/admin/billing', label: 'Billing · admin', icon: Wallet,                                section: 'Admin' },
+  { to: '/admin/billing', label: 'Billing · admin', icon: Wallet,                             section: 'Admin' },
   { to: '/knowledge',    label: 'Knowledge',    icon: BookOpen },
-  { to: '/planner',      label: 'Day Planner',  icon: CalendarDays,  badgeKey: 'todayMeetings' },
-  { to: '/calendar',     label: 'Team Calendar',icon: CalendarRange },
+  { to: '/planner',      label: 'Day Planner',  icon: CalendarDays,  badgeKey: 'todayMeetings', featureId: 'day_planner' },
+  { to: '/calendar',     label: 'Team Calendar',icon: CalendarRange,                          featureId: 'team_calendar' },
   // Firm pulse lives as a small topbar icon now — surfaced near the
   // notifications bell rather than in the main nav, since it's a glance-
   // at-it surface, not a destination partners come back to daily.
@@ -82,6 +82,16 @@ function useSidebarCounts() {
 
 export default function Sidebar() {
   const counts = useSidebarCounts()
+  // Per-org feature flags, keyed by feature id. Used below to filter
+  // nav items so a VC ends up with a genuinely different sidebar
+  // than an IB without forking this file.
+  const flags  = useAllFeatureFlags()
+  const visibleNav = nav.filter(item => {
+    if (!item.featureId) return true
+    // Default to true if the flag hasn't resolved yet (e.g. mid-load)
+    // so we don't strip nav out from under the user during a refresh.
+    return flags[item.featureId] !== false
+  })
 
   return (
     <aside className="hidden lg:flex lg:sticky lg:top-0 lg:h-screen lg:w-64 shrink-0 flex-col border-r border-valence-border vl-glass-side">
@@ -90,7 +100,7 @@ export default function Sidebar() {
       </div>
 
       <nav className="flex-1 px-3 py-6 space-y-0.5 overflow-y-auto">
-        {groupNav(nav).map(([sectionLabel, items], gi) => (
+        {groupNav(visibleNav).map(([sectionLabel, items], gi) => (
           <div key={sectionLabel} className={gi === 0 ? '' : 'pt-4'}>
             <div className="px-3 pb-3 vl-eyebrow-ink">{sectionLabel}</div>
             {items.map(({ to, label, icon: Icon, badgeKey }) => {

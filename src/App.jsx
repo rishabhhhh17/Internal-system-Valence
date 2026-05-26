@@ -10,6 +10,7 @@ import Timeline from './pages/Timeline.jsx'
 import Funds from './pages/Funds.jsx'
 import People from './pages/People.jsx'
 import Screener from './pages/Screener.jsx'
+import ThesisFit from './pages/ThesisFit.jsx'
 import Intake from './pages/Intake.jsx'
 import IntakeThanks from './pages/IntakeThanks.jsx'
 import InboxIntake from './pages/InboxIntake.jsx'
@@ -266,7 +267,11 @@ export default function App() {
         <Route path="/timeline" element={<Timeline />} />
         <Route path="/funds" element={<Funds />} />
         <Route path="/people" element={<People />} />
-        <Route path="/screen" element={<Screener />} />
+        {/* /screen is now the Thesis-Fit Checker (VC/PE curated tool).
+            The old Screener (IB investor-ranking) is kept as a legacy
+            route at /screen/legacy for the few existing deep-links. */}
+        <Route path="/screen"        element={<ThesisFit />} />
+        <Route path="/screen/legacy" element={<Screener />} />
         <Route path="/inbox/intake" element={<InboxIntake />} />
         <Route path="/interactions" element={<Interactions />} />
         <Route path="/knowledge" element={<KnowledgeLanding />} />
