@@ -22,6 +22,12 @@ import EmptyState from '../components/EmptyState.jsx'
 import DealKanban from '../components/DealKanban.jsx'
 import DealGantt from '../components/DealGantt.jsx'
 import CompanyFundMatcher from '../components/CompanyFundMatcher.jsx'
+import TargetListPanel from '../components/TargetListPanel.jsx'
+import BakeOffPanel from '../components/BakeOffPanel.jsx'
+import FeeTrackerPanel from '../components/FeeTrackerPanel.jsx'
+import ICMemoPanel from '../components/ICMemoPanel.jsx'
+import ClosingChecklistPanel from '../components/ClosingChecklistPanel.jsx'
+import DiligencePanel from '../components/DiligencePanel.jsx'
 import { useFeatureFlag } from '../hooks/useFeatureFlag.js'
 import FileVault from '../components/FileVault.jsx'
 import Contacts from '../components/Contacts.jsx'
@@ -647,9 +653,15 @@ function DealOverview({ deal }) {
   const isTransaction = types.includes('transaction')
   const isAdvisory    = types.includes('advisory')
 
-  // The Company⇄Fund matcher is gated on the feature flag. Default-on
-  // for IB orgs, off for PE/VC unless the user toggled it in Settings.
-  const showMatcher = useFeatureFlag('company_fund_matcher')
+  // Per-firm-type tools — every one gated on its own flag so the
+  // Overview tab is composed differently for IB / PE / VC.
+  const showMatcher    = useFeatureFlag('company_fund_matcher')
+  const showTargets    = useFeatureFlag('target_list_builder')
+  const showBakeOff    = useFeatureFlag('bake_off_mode')
+  const showFees       = useFeatureFlag('fee_tracker')
+  const showICMemo     = useFeatureFlag('ic_memo')
+  const showChecklist  = useFeatureFlag('closing_checklist')
+  const showDiligence  = useFeatureFlag('diligence_workstreams')
 
   return (
     <div className="space-y-5">
@@ -726,10 +738,17 @@ function DealOverview({ deal }) {
         </p>
       </div>
 
-      {/* IB-curated tool. Gated on the company_fund_matcher feature flag.
-          Default-on for IB orgs; hidden everywhere else unless the user
-          flipped it in Settings → Advanced → Features. */}
-      {showMatcher && <CompanyFundMatcher mode="deal_to_funds" deal={deal} />}
+      {/* Per-firm-type curated panels. Each one is gated on its own
+          feature flag so the Overview tab composes itself for the
+          firm's profile — IB sees execution tools, PE sees diligence,
+          VC sees less of this clutter and more of /screen + /portfolio. */}
+      {showMatcher    && <CompanyFundMatcher mode="deal_to_funds" deal={deal} />}
+      {showTargets    && <TargetListPanel    deal={deal} />}
+      {showFees       && <FeeTrackerPanel    deal={deal} />}
+      {showBakeOff    && <BakeOffPanel       deal={deal} />}
+      {showDiligence  && <DiligencePanel     deal={deal} />}
+      {showICMemo     && <ICMemoPanel        deal={deal} />}
+      {showChecklist  && <ClosingChecklistPanel deal={deal} />}
     </div>
   )
 }

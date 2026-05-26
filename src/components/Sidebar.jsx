@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { NavLink } from 'react-router-dom'
-import { LayoutDashboard, Briefcase, BookOpen, CalendarDays, CalendarRange, Users, BarChart3, MessageSquare, Handshake, GanttChartSquare, Building2, Sparkles, Inbox, UserCircle, Settings as SettingsIcon, Wallet, Upload } from 'lucide-react'
+import { LayoutDashboard, Briefcase, BookOpen, CalendarDays, CalendarRange, Users, BarChart3, MessageSquare, Handshake, GanttChartSquare, Building2, Sparkles, Inbox, UserCircle, Settings as SettingsIcon, Wallet, Upload, XCircle, FileText, FileUp } from 'lucide-react'
 import Logo from './Logo.jsx'
 import { supabase, isSupabaseConfigured, subscribeTable } from '../lib/supabase.js'
 import { useAllFeatureFlags } from '../hooks/useFeatureFlag.js'
@@ -18,10 +18,14 @@ const nav = [
   { to: '/deals',        label: 'Deal Status',  icon: Briefcase,     badgeKey: 'liveMandates', featureId: 'deal_status' },
   { to: '/timeline',     label: 'Timeline',     icon: GanttChartSquare,                       featureId: 'timeline' },
   { to: '/screen',       label: 'Thesis-Fit',   icon: Sparkles,                               featureId: 'thesis_fit_checker' },
+  { to: '/portfolio',    label: 'Portfolio',    icon: Building2,                              featureId: 'portfolio_tracker' },
+  { to: '/passes',       label: 'Passes',       icon: XCircle,                                featureId: 'pass_tracker' },
+  { to: '/lp-pack',      label: 'LP Pack',      icon: FileText,                               featureId: 'lp_reporting' },
   { to: '/interactions', label: 'Interactions', icon: MessageSquare, badgeKey: 'pendingFollowUps', section: 'Relationships', featureId: 'interactions_feed' },
   { to: '/people',       label: 'People',       icon: UserCircle,                             section: 'Relationships', featureId: 'people_crm' },
   { to: '/funds',        label: 'Firm',         icon: Building2,                              section: 'Relationships' },
   { to: '/import',       label: 'Import',       icon: Upload,                                 section: 'AI' },
+  { to: '/deck',         label: 'Deck Summary', icon: FileUp,                                 section: 'AI', featureId: 'deck_summariser' },
   { to: '/inbox/intake', label: 'Intake inbox', icon: Inbox,        badgeKey: 'newIntakes',   section: 'AI', featureId: 'intake_inbox' },
   // Internal-only — what every customer is burning. Hidden once we ship
   // a proper role gate; for now the partner is the only one running this build.

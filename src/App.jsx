@@ -11,6 +11,10 @@ import Funds from './pages/Funds.jsx'
 import People from './pages/People.jsx'
 import Screener from './pages/Screener.jsx'
 import ThesisFit from './pages/ThesisFit.jsx'
+import Portfolio from './pages/Portfolio.jsx'
+import Passes from './pages/Passes.jsx'
+import LPPack from './pages/LPPack.jsx'
+import DeckSummariser from './pages/DeckSummariser.jsx'
 import Intake from './pages/Intake.jsx'
 import IntakeThanks from './pages/IntakeThanks.jsx'
 import InboxIntake from './pages/InboxIntake.jsx'
@@ -272,6 +276,14 @@ export default function App() {
             route at /screen/legacy for the few existing deep-links. */}
         <Route path="/screen"        element={<ThesisFit />} />
         <Route path="/screen/legacy" element={<Screener />} />
+        {/* New per-firm-type tools — sidebar entries are gated by
+            feature flag but the routes resolve for any seated user
+            so saved deep-links + the Settings → Features explainer
+            stay clickable. */}
+        <Route path="/portfolio" element={<Portfolio />} />
+        <Route path="/passes"    element={<Passes />} />
+        <Route path="/lp-pack"   element={<LPPack />} />
+        <Route path="/deck"      element={<DeckSummariser />} />
         <Route path="/inbox/intake" element={<InboxIntake />} />
         <Route path="/interactions" element={<Interactions />} />
         <Route path="/knowledge" element={<KnowledgeLanding />} />
