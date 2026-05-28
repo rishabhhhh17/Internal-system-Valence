@@ -31,40 +31,49 @@ export function useSeat() {
       setSeat(null); setOrg(null); setLoading(false); return
     }
     setLoading(true); setError(null)
+
+    // The query we run multiple times: own row from seats, joined to orgs.
+    // Wrapped in a fn because we may retry once after RLS cache lag.
+    const seatQuery = () => supabase
+      .from('seats')
+      .select('id, org_id, user_id, email, full_name, title, phone, role, active, added_at, billable_from, profile_completed_at, orgs:org_id ( id, name, plan, cycle_anchor_day )')
+      .eq('user_id', userId)
+      .eq('active', true)
+      .limit(1)
+      .maybeSingle()
+
     try {
-      // Pull the active seat for this auth user, joining the org row.
-      // RLS allows the user to read their own seat (seats_self_read).
-      let { data, error: err } = await supabase
-        .from('seats')
-        .select('id, org_id, user_id, email, full_name, title, phone, role, active, added_at, billable_from, profile_completed_at, orgs:org_id ( id, name, plan, cycle_anchor_day )')
-        .eq('user_id', userId)
-        .eq('active', true)
-        .limit(1)
-        .maybeSingle()
+      // First attempt.
+      let { data, error: err } = await seatQuery()
       if (err) throw err
 
-      // No seat? Give the trusted-domain auto-claim a shot — if the
-      // signed-in user's email matches the allow-list (currently
-      // @valencegrowth.com), the RPC silently creates a seat in the
-      // Valence team and we re-fetch. Returns null for other domains,
-      // in which case the caller (App.jsx) routes them to /welcome.
+      // No seat yet? Try the trusted-domain auto-claim — RPC creates a
+      // seat for @valencegrowth.com emails. Returns null for other
+      // domains; caller (App.jsx) routes those users to /welcome.
       if (!data) {
         try {
           const { data: claimedOrgId, error: claimErr } = await supabase.rpc('auto_claim_seat_for_domain')
           if (!claimErr && claimedOrgId) {
-            // Re-query the seat row we just created so the UI gets the full shape.
-            const refetch = await supabase
-              .from('seats')
-              .select('id, org_id, user_id, email, full_name, title, phone, role, active, added_at, billable_from, orgs:org_id ( id, name, plan, cycle_anchor_day )')
-              .eq('user_id', userId)
-              .eq('active', true)
-              .limit(1)
-              .maybeSingle()
+            // Auto-claim just inserted a row; re-fetch the full shape.
+            const refetch = await seatQuery()
             if (refetch.data) data = refetch.data
           }
         } catch {
-          // Auto-claim failures are non-fatal — fall through to /welcome.
+          // Auto-claim failures are non-fatal.
         }
+      }
+
+      // ── RLS cache lag retry ────────────────────────────────────────
+      // Supabase's PostgREST caches RLS policy evaluation for ~1s. When
+      // the caller is `refresh()` immediately after start_team /
+      // join_team / auto_claim succeeded, the JUST-inserted row may
+      // still be invisible to the cached evaluator. One delayed retry
+      // catches the common case without spamming the API. Skip when
+      // we already have data — only retry on the null path.
+      if (!data) {
+        await new Promise(r => setTimeout(r, 500))
+        const retry = await seatQuery()
+        if (!retry.error && retry.data) data = retry.data
       }
 
       if (!data) {

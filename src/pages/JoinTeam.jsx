@@ -68,7 +68,7 @@ export default function JoinTeam() {
       } catch {
         if (!cancelled) setPreviewState('invalid')
       }
-    }, 250)
+    }, 400)
     return () => { cancelled = true; clearTimeout(t) }
   }, [code])
 
