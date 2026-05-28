@@ -55,19 +55,36 @@ export default function AgingReport() {
         // client-side because Supabase's nested-select on a 1-to-many
         // relation returns the parent twice if we ask for it via the
         // foreign-table shortcut.
-        const [dealsRes, historyRes] = await Promise.all([
+        // Deals + paginated history fetch. PostgREST defaults to a 1000-
+        // row cap; a firm with years of stage transitions blows past
+        // that on a single SELECT, making "Total Days" + "Stage
+        // Breakdown" silently understated. Page explicitly.
+        async function fetchAllHistory() {
+          const PAGE = 1000
+          const out = []
+          for (let from = 0; ; from += PAGE) {
+            const { data, error } = await supabase
+              .from('deal_stage_history')
+              .select('deal_id, stage, entered_at, exited_at')
+              .order('entered_at', { ascending: true })
+              .range(from, from + PAGE - 1)
+            if (error || !data || data.length === 0) break
+            out.push(...data)
+            if (data.length < PAGE) break
+            if (out.length > 50000) break   // safety cap; surface as a separate issue if we ever hit it
+          }
+          return out
+        }
+
+        const [dealsRes, rawHist] = await Promise.all([
           supabase
             .from('deals')
             .select('id, client_name, stage, sector, deal_types, lead_owner, created_at'),
-          supabase
-            .from('deal_stage_history')
-            .select('deal_id, stage, entered_at, exited_at')
-            .order('entered_at', { ascending: true })
+          fetchAllHistory()
         ])
         if (cancelled) return
 
-        const deals    = dealsRes?.data    || []
-        const rawHist  = historyRes?.data  || []
+        const deals = dealsRes?.data || []
 
         // Compute days_in_stage client-side. Generated column was dropped
         // from the migration because Postgres rejects volatile (now())

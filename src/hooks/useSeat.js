@@ -47,6 +47,11 @@ export function useSeat() {
       let { data, error: err } = await seatQuery()
       if (err) throw err
 
+      // Track whether auto-claim actually fired so we only pay the
+      // RLS-cache retry cost on the race-prone path, not on every
+      // genuinely-seatless cold load.
+      let autoClaimSucceeded = false
+
       // No seat yet? Try the trusted-domain auto-claim — RPC creates a
       // seat for @valencegrowth.com emails. Returns null for other
       // domains; caller (App.jsx) routes those users to /welcome.
@@ -54,6 +59,7 @@ export function useSeat() {
         try {
           const { data: claimedOrgId, error: claimErr } = await supabase.rpc('auto_claim_seat_for_domain')
           if (!claimErr && claimedOrgId) {
+            autoClaimSucceeded = true
             // Auto-claim just inserted a row; re-fetch the full shape.
             const refetch = await seatQuery()
             if (refetch.data) data = refetch.data
@@ -64,13 +70,12 @@ export function useSeat() {
       }
 
       // ── RLS cache lag retry ────────────────────────────────────────
-      // Supabase's PostgREST caches RLS policy evaluation for ~1s. When
-      // the caller is `refresh()` immediately after start_team /
-      // join_team / auto_claim succeeded, the JUST-inserted row may
-      // still be invisible to the cached evaluator. One delayed retry
-      // catches the common case without spamming the API. Skip when
-      // we already have data — only retry on the null path.
-      if (!data) {
+      // Only retry on the race path: we just did a server-side write
+      // (auto_claim_seat_for_domain returned an org_id) but the row
+      // isn't yet visible to the cached RLS evaluator. Skipping this
+      // when the user is genuinely seatless saves every first-time
+      // non-Valence-domain user a 500ms wait before /welcome renders.
+      if (!data && autoClaimSucceeded) {
         await new Promise(r => setTimeout(r, 500))
         const retry = await seatQuery()
         if (!retry.error && retry.data) data = retry.data

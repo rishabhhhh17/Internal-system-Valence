@@ -72,9 +72,14 @@ function SuggestionList({ items, command }) {
   )
 }
 
-// Cache of teammates fetched on first mention open. Cleared if the page
-// reloads. Avoids re-fetching the same list every keystroke.
+// Cache invalidates on every auth state change so signing out + back in
+// as a different user (or in a different org) doesn't leak the previous
+// session's teammates into the mention popup. Subscribed once at module
+// load — supabase-js handles re-subscription on its own.
 let teammatesCache = null
+if (typeof window !== 'undefined' && supabase?.auth?.onAuthStateChange) {
+  supabase.auth.onAuthStateChange(() => { teammatesCache = null })
+}
 async function fetchTeammates() {
   if (teammatesCache) return teammatesCache
   if (!isSupabaseConfigured) return []
@@ -105,7 +110,8 @@ export default function MentionEditor({ value, onChange, onSubmit, placeholder =
   useEffect(() => { submitRef.current = onSubmit }, [onSubmit])
 
   // Normalise the `value` prop: pass through TipTap JSON if it's an
-  // object, otherwise treat as plain text seed.
+  // object, otherwise treat as plain text seed. Captured at first mount;
+  // see the useEffect below for the controlled-re-sync path.
   const initialContent = useMemo(() => {
     if (value && typeof value === 'object') return value
     if (typeof value === 'string' && value.trim()) return value
@@ -203,6 +209,19 @@ export default function MentionEditor({ value, onChange, onSubmit, placeholder =
 
   // Cleanup on unmount.
   useEffect(() => () => editor?.destroy(), [editor])
+
+  // Controlled re-sync: when the parent passes a fresh `value` (e.g. user
+  // navigated between two KB notes that share this editor instance), push
+  // the new content in without losing the user's caret if they're mid-
+  // type. Equality check on JSON.stringify is cheap — the doc is small.
+  useEffect(() => {
+    if (!editor || !value) return
+    const incoming = typeof value === 'object' ? value : null
+    if (!incoming) return
+    const current = editor.getJSON()
+    if (JSON.stringify(current) === JSON.stringify(incoming)) return
+    editor.commands.setContent(incoming, false)   // false = don't fire onUpdate
+  }, [value, editor])
 
   return <EditorContent editor={editor} />
 }
