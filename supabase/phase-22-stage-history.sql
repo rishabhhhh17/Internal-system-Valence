@@ -22,14 +22,12 @@ create table if not exists public.deal_stage_history (
   stage         text not null,                 -- text mirror of deals.stage; no FK because deals.stage is itself text
   entered_at    timestamptz not null default now(),
   exited_at     timestamptz,                   -- NULL while the deal is currently in this stage
-  moved_by      uuid references auth.users(id) on delete set null,
-  -- Generated column: days the deal spent in this stage. Live row counts
-  -- against now(); closed rows count against exited_at. Stored so the
-  -- aging query can sort on it server-side without recomputing.
-  days_in_stage integer generated always as (
-    extract(day from (coalesce(exited_at, now()) - entered_at))::integer
-  ) stored
+  moved_by      uuid references auth.users(id) on delete set null
 );
+-- Note: tried GENERATED ALWAYS AS (... now() ...) for days_in_stage —
+-- Postgres rejects it (generated expressions must be immutable, now() is
+-- volatile). Computing days client-side from entered_at/exited_at is
+-- cheap and avoids a view. AgingReport.jsx does it inline.
 
 create index if not exists deal_stage_history_deal_idx
   on public.deal_stage_history (deal_id, entered_at desc);

@@ -61,13 +61,25 @@ export default function AgingReport() {
             .select('id, client_name, stage, sector, deal_types, lead_owner, created_at'),
           supabase
             .from('deal_stage_history')
-            .select('deal_id, stage, entered_at, exited_at, days_in_stage')
+            .select('deal_id, stage, entered_at, exited_at')
             .order('entered_at', { ascending: true })
         ])
         if (cancelled) return
 
         const deals    = dealsRes?.data    || []
-        const history  = historyRes?.data  || []
+        const rawHist  = historyRes?.data  || []
+
+        // Compute days_in_stage client-side. Generated column was dropped
+        // from the migration because Postgres rejects volatile (now())
+        // expressions in GENERATED ALWAYS AS. Cheap to compute here.
+        const MS_PER_DAY = 24 * 60 * 60 * 1000
+        const daysBetween = (a, b) => Math.max(0, Math.floor((b - a) / MS_PER_DAY))
+        const nowMs = Date.now()
+        const history = rawHist.map(h => ({
+          ...h,
+          days_in_stage: daysBetween(new Date(h.entered_at).getTime(),
+                                     h.exited_at ? new Date(h.exited_at).getTime() : nowMs)
+        }))
 
         // Index history by deal so we can compute totals + the current
         // (open) row per deal in one pass.
