@@ -41,6 +41,11 @@ export default function NotificationsPage() {
   const [hasMore, setHasMore]   = useState(true)
   const [isLoading, setLoading] = useState(false)
   const sentinelRef = useRef(null)
+  // fetchToken increments on tab change. Any in-flight fetch checks the
+  // token before applying its result and bails if stale — kills the
+  // duplicate-fetch + race-condition pattern the IntersectionObserver
+  // hits when tab+page change in the same render.
+  const fetchTokenRef = useRef(0)
 
   const tabCfg = useMemo(() => TABS.find(t => t.id === tab) || TABS[0], [tab])
 
@@ -49,6 +54,7 @@ export default function NotificationsPage() {
   // ruins the point of pagination on a big notifications history.
   const fetchPage = useCallback(async (pageIndex, append) => {
     if (!isSupabaseConfigured || !userId) return
+    const myToken = ++fetchTokenRef.current
     setLoading(true)
     try {
       let q = supabase
@@ -60,11 +66,13 @@ export default function NotificationsPage() {
       if (tabCfg.types) q = q.in('type', tabCfg.types)
       if (tabCfg.onlyUnread) q = q.eq('is_read', false)
       const { data } = await q
+      // Abandon stale fetch — a newer one already started.
+      if (myToken !== fetchTokenRef.current) return
       const next = data || []
       setHasMore(next.length === PAGE_SIZE)
       setRows(prev => append ? [...prev, ...next] : next)
     } finally {
-      setLoading(false)
+      if (myToken === fetchTokenRef.current) setLoading(false)
     }
   }, [userId, tabCfg.types, tabCfg.onlyUnread])
 

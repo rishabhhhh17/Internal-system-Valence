@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { formatDistanceToNow } from 'date-fns'
 import { Send, Loader2, MessageSquare } from 'lucide-react'
-import { supabase, isSupabaseConfigured, subscribeTable } from '../lib/supabase.js'
+import { supabase, isSupabaseConfigured } from '../lib/supabase.js'
 import { useAuth } from '../hooks/useAuth.js'
 import { humanError } from '../lib/userError.js'
 import { useToast } from './Toast.jsx'
@@ -26,7 +26,19 @@ export default function DealComments({ deal }) {
     if (!deal?.id) return
     if (!isSupabaseConfigured) { setRows([]); setLoading(false); return }
     load()
-    return subscribeTable('deal_comments', load)
+    // Was subscribeTable('deal_comments', load) which fires `load()` on
+    // EVERY comment INSERT across the entire org — opening one deal's
+    // drawer would refetch this deal's comments anytime someone, anywhere,
+    // posted on a different deal. Scope the subscription to THIS deal.
+    const channel = supabase
+      .channel(`deal_comments:${deal.id}`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'deal_comments', filter: `deal_id=eq.${deal.id}` },
+        () => load()
+      )
+      .subscribe()
+    return () => { try { supabase.removeChannel(channel) } catch {} }
   }, [deal?.id])
 
   async function load() {
