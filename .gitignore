@@ -7,3 +7,6 @@ dist
 .env.*.local
 *.log
 .vercel
+
+# Per-feature git worktrees used by Claude Code sessions
+.claude/worktrees/

@@ -1,14 +1,30 @@
 import { useMemo, useRef, useState } from 'react'
-import { Briefcase, MoreHorizontal } from 'lucide-react'
-import { STAGES, STAGE_IDS, stageToneClasses } from '../lib/stages.js'
+import { MoreHorizontal, MoveRight } from 'lucide-react'
+import { STAGES, STAGE_IDS } from '../lib/stages.js'
+import { useCurrency } from '../hooks/useCurrency.jsx'
+
+// Soft column-background tint per stage tone — inspired by the DealVisor
+// marketing-site pipeline aesthetic. Glance-able sense of funnel position
+// without forcing the user to read the stage label.
+function columnBgForTone(tone) {
+  switch (tone) {
+    case 'slate':       return 'bg-amber-50/40 dark:bg-amber-500/5'
+    case 'blue':        return 'bg-violet-50/50 dark:bg-violet-500/5'
+    case 'blue-strong': return 'bg-indigo-50/60 dark:bg-indigo-500/10'
+    case 'success':     return 'bg-emerald-50/60 dark:bg-emerald-500/10'
+    case 'warning':     return 'bg-amber-50/70 dark:bg-amber-500/10'
+    case 'danger':      return 'bg-rose-50/50 dark:bg-rose-500/10'
+    default:            return 'bg-valence-surface'
+  }
+}
 
 export default function DealKanban({ deals, onOpen, onStageChange }) {
   const [draggingId, setDraggingId] = useState(null)
   const [overStage, setOverStage]   = useState(null)
   const [stageMenu, setStageMenu]   = useState(null) // dealId for mobile stage picker
 
-  // Build per-stage buckets. Any deal with an unknown stage gets safely bucketed
-  // into 'Origination' so the funnel never silently loses cards.
+  // Build per-stage buckets. Any deal with an unknown stage gets safely
+  // bucketed into 'Origination' so the funnel never silently loses cards.
   const byStage = useMemo(() => {
     const g = Object.fromEntries(STAGES.map(s => [s.id, []]))
     for (const d of deals) {
@@ -18,12 +34,27 @@ export default function DealKanban({ deals, onOpen, onStageChange }) {
     return g
   }, [deals])
 
+  const totalCount  = deals.length
+  const stagesShown = STAGES.length
+
   return (
     <div className="vl-card p-4">
+      {/* Compact summary + drag hint — replaces the multi-line Legend.
+          Stage descriptions still live in tooltips on each column header. */}
+      <div className="flex items-center justify-between gap-3 mb-4">
+        <p className="text-sm text-valence-muted">
+          <span className="font-semibold text-valence-text tabular-nums">{totalCount}</span> mandate{totalCount === 1 ? '' : 's'} across <span className="font-semibold text-valence-text tabular-nums">{stagesShown}</span> stages
+        </p>
+        <span className="hidden sm:inline-flex items-center gap-1.5 rounded-full border border-valence-border bg-valence-elevated px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-valence-subtle">
+          <MoveRight className="h-3 w-3" /> Drag to advance
+        </span>
+      </div>
+
       <div className="flex gap-3 overflow-x-auto pb-2 -mx-1 px-1 snap-x">
         {STAGES.map(stage => {
-          const items = byStage[stage.id] || []
+          const items  = byStage[stage.id] || []
           const isOver = overStage === stage.id
+          const colBg  = columnBgForTone(stage.tone)
           return (
             <div
               key={stage.id}
@@ -35,25 +66,25 @@ export default function DealKanban({ deals, onOpen, onStageChange }) {
                 const id = e.dataTransfer.getData('text/deal-id')
                 if (id && onStageChange) onStageChange(id, stage.id)
               }}
-              className={`shrink-0 snap-start w-[268px] rounded-xl border transition ${
+              className={`shrink-0 snap-start w-[244px] rounded-xl border transition ${
                 isOver
-                  ? 'border-valence-blue bg-valence-blue-soft'
-                  : 'border-valence-border bg-valence-surface'
+                  ? 'border-valence-blue bg-valence-blue-soft ring-2 ring-valence-blue/30'
+                  : `border-valence-border ${colBg}`
               }`}
             >
-              <div className="flex items-center justify-between px-3 py-2.5 border-b border-valence-border">
+              <div className="flex items-center justify-between px-3 py-2 border-b border-valence-border/60">
                 <div className="flex items-center gap-2 min-w-0">
                   <span className={`h-1.5 w-1.5 rounded-full shrink-0 ${dotForTone(stage.tone)}`} />
-                  <p className="text-[11px] font-semibold uppercase tracking-wider text-valence-text truncate" title={stage.desc}>{stage.id}</p>
+                  <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-valence-text truncate" title={stage.desc}>{stage.id}</p>
                 </div>
-                <span className="rounded-md border border-valence-border bg-valence-elevated px-1.5 py-0.5 text-[10px] font-semibold tabular-nums text-valence-muted">
+                <span className="rounded-md border border-valence-border bg-valence-elevated px-1.5 py-0 text-[10px] font-semibold tabular-nums text-valence-muted">
                   {items.length}
                 </span>
               </div>
 
-              <div className="p-2 space-y-2 min-h-[72px]" title={stage.desc}>
+              <div className="p-1.5 space-y-1.5 min-h-[60px]" title={stage.desc}>
                 {items.length === 0 ? (
-                  <p className="px-2 py-3 text-[11px] text-valence-subtle leading-relaxed">{stage.desc}</p>
+                  <p className="px-2 py-2 text-[10px] text-valence-subtle leading-relaxed italic">Empty</p>
                 ) : items.map(d => (
                   <Card
                     key={d.id}
@@ -77,6 +108,14 @@ export default function DealKanban({ deals, onOpen, onStageChange }) {
 
 function Card({ deal: d, onOpen, onStageChange, setDraggingId, setOverStage, openMenu, setOpenMenu }) {
   const ref = useRef(null)
+  const { money } = useCurrency()
+  // EV signal — prefer ticket_size, then any of the type-specific
+  // value fields the schema carries. Cards stay minimal: name + value.
+  const ev = d.ticket_size_usd_m
+    ?? d.target_raise_usd_m
+    ?? d.target_valuation_usd_m
+    ?? d.target_exit_usd_m
+    ?? null
   return (
     <article
       ref={ref}
@@ -94,38 +133,23 @@ function Card({ deal: d, onOpen, onStageChange, setDraggingId, setOverStage, ope
         if (e.target.closest('[data-menu-trigger]')) return
         onOpen?.(d)
       }}
-      className="group relative cursor-pointer rounded-lg border border-valence-border bg-valence-elevated p-3 transition hover:border-valence-ink/20 hover:shadow-valence active:opacity-60"
+      className="group relative cursor-pointer rounded-lg border border-valence-border/60 bg-valence-elevated px-3 py-2 transition hover:border-valence-ink/30 hover:shadow-sm active:opacity-60"
     >
       <div className="flex items-start gap-2">
-        <div className="grid h-7 w-7 place-items-center rounded-md bg-valence-blue-soft ring-1 ring-valence-blue/20 shrink-0">
-          <Briefcase className="h-3.5 w-3.5 text-valence-blue" />
+        <div className="flex-1 min-w-0">
+          <p className="truncate text-[13px] font-semibold text-valence-text">{d.client_name}</p>
+          {ev != null && (
+            <p className="mt-0.5 text-[11px] text-valence-muted tabular-nums">{money(ev)}</p>
+          )}
         </div>
-        <p className="flex-1 min-w-0 truncate text-[13px] font-semibold text-valence-text">{d.client_name}</p>
         <button
           data-menu-trigger
           onClick={(e) => { e.stopPropagation(); setOpenMenu(!openMenu) }}
-          className="-mr-1 -mt-1 grid h-6 w-6 place-items-center rounded text-valence-muted hover:bg-valence-surface hover:text-valence-text lg:opacity-0 lg:group-hover:opacity-100 transition"
+          className="-mr-1 -mt-1 grid h-5 w-5 place-items-center rounded text-valence-subtle hover:bg-valence-surface hover:text-valence-text lg:opacity-0 lg:group-hover:opacity-100 transition shrink-0"
           aria-label="Move stage"
         >
-          <MoreHorizontal className="h-3.5 w-3.5" />
+          <MoreHorizontal className="h-3 w-3" />
         </button>
-      </div>
-      <div className="mt-2 flex flex-wrap items-center gap-1.5 text-[10px]">
-        {(Array.isArray(d.deal_types) ? d.deal_types : []).map(t => (
-          <span key={t} className="inline-flex items-center rounded-md border border-valence-border bg-valence-surface px-1.5 py-0.5 font-semibold text-valence-muted capitalize">
-            {t === 'm_and_a' ? 'M&A' : t}
-          </span>
-        ))}
-        {d.deal_subtype && d.deal_types?.includes('transaction') && (
-          <span className="inline-flex items-center rounded-md border border-valence-blue/30 bg-valence-blue-soft px-1.5 py-0.5 font-semibold text-valence-blue">
-            {d.deal_subtype === 'm_and_a' ? 'M&A' : d.deal_subtype.replace(/_/g, ' ')}
-          </span>
-        )}
-        {d.sector && (
-          <span className="inline-flex items-center rounded-md border border-valence-border bg-valence-surface px-1.5 py-0.5 font-semibold text-valence-muted truncate max-w-[110px]">
-            {d.sector}
-          </span>
-        )}
       </div>
 
       {openMenu && (
