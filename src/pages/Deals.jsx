@@ -42,6 +42,7 @@ import StageGate from '../components/StageGate.jsx'
 import DealTeam from '../components/DealTeam.jsx'
 import DealComments from '../components/DealComments.jsx'
 import ConflictBanner from '../components/ConflictBanner.jsx'
+import SimilarDealsBanner from '../components/SimilarDealsBanner.jsx'
 import InlineEditableText from '../components/InlineEditableText.jsx'
 import { useToast } from '../components/Toast.jsx'
 import { useConfirm } from '../components/ConfirmDialog.jsx'
@@ -782,6 +783,7 @@ function DealTable({ deals, onOpen, focusedId = null, onFocus = () => {} }) {
 function DealForm({ initial, onSubmit, onCancel }) {
   const [form, setForm] = useState({
     client_name:                  initial?.client_name        || '',
+    website:                      initial?.website            || '',
     stage:                        initial?.stage              || 'Origination',
     nda_status:                   initial?.nda_status         || 'Pending',
     sector:                       initial?.sector             || '',
@@ -824,6 +826,7 @@ function DealForm({ initial, onSubmit, onCancel }) {
 
     const payload = {
       client_name:        form.client_name.trim(),
+      website:            txt(form.website),
       stage:              form.stage,
       nda_status:         form.nda_status,
       sector:             txt(form.sector),
@@ -853,12 +856,27 @@ function DealForm({ initial, onSubmit, onCancel }) {
   return (
     <form onSubmit={handleSubmit} className="space-y-5">
       {!initial && <ConflictBanner clientName={form.client_name} sector={form.sector} />}
+      {/* SimilarDealsBanner only runs on new-deal creation (no `initial`).
+          Surfaces existing deals with similar name OR exact website match
+          via the find_similar_deals RPC, so the user doesn't unwittingly
+          create a duplicate. Advisory only — no hard block. */}
+      {!initial && (
+        <SimilarDealsBanner
+          clientName={form.client_name}
+          website={form.website}
+          onUseExisting={onCancel}
+        />
+      )}
 
       {/* Universal block */}
       <div className="grid grid-cols-2 gap-4">
         <div className="col-span-2">
           <label className="vl-label">Client / company name</label>
           <input value={form.client_name} onChange={e => set('client_name', e.target.value)} className="vl-input" placeholder="e.g. HoV Mushrooms" required autoFocus />
+        </div>
+        <div className="col-span-2">
+          <label className="vl-label">Website <span className="text-valence-subtle font-normal">(optional — helps catch duplicates)</span></label>
+          <input value={form.website} onChange={e => set('website', e.target.value)} className="vl-input" placeholder="e.g. hovmushrooms.com" />
         </div>
         <div>
           <label className="vl-label">Stage</label>
