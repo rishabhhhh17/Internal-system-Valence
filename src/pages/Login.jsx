@@ -1,12 +1,18 @@
 import { useState } from 'react'
-import { Sparkles, ArrowRight, Shield } from 'lucide-react'
+import { Sparkles, ArrowRight, AlertTriangle } from 'lucide-react'
 import { signInWithGoogle } from '../lib/google.js'
 import { humanError } from '../lib/userError.js'
+import { useAuth } from '../hooks/useAuth.js'
 import Logo from '../components/Logo.jsx'
 
 export default function Login() {
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState(null)
+  // authUnavailable flips to true when useAuth's getSession timeout fires.
+  // Before, that just dumped the user back to Login with no explanation —
+  // "click Continue with Google" again and again hoping the next try sticks.
+  // Surfacing it lets them know the sign-in actually started but stalled.
+  const { authUnavailable } = useAuth()
 
   async function connect() {
     setErr(null); setBusy(true)
@@ -57,14 +63,22 @@ export default function Login() {
                   {busy ? 'Connecting…' : 'Continue with Google'}
                   <ArrowRight className="h-4 w-4" />
                 </button>
-                <span className="inline-flex items-center gap-1.5 text-xs text-valence-muted">
-                  <Shield className="h-3.5 w-3.5" />
-                  Your firm's data stays isolated — RLS at every query.
-                </span>
               </div>
               {err && (
                 <p className="mt-6 rounded-lg border border-valence-danger/30 bg-valence-danger/5 px-4 py-2.5 text-xs text-valence-danger">
                   {err}
+                </p>
+              )}
+              {/* Surfaces the otherwise-silent useAuth timeout state.
+                  Without this, a slow OAuth callback dumps the user back
+                  here with no explanation — they assume "Continue with
+                  Google" didn't work and keep clicking. */}
+              {authUnavailable && !err && (
+                <p className="mt-6 inline-flex items-start gap-2 rounded-lg border border-valence-warning/30 bg-valence-warning/10 px-4 py-2.5 text-xs text-valence-warning">
+                  <AlertTriangle className="h-3.5 w-3.5 mt-0.5 shrink-0" />
+                  <span>
+                    Sign-in took longer than expected. Click <strong>Continue with Google</strong> again — if it still stalls, refresh the page and retry.
+                  </span>
                 </p>
               )}
             </div>
@@ -74,7 +88,6 @@ export default function Login() {
               <Item title="Deal Logger" body="Every mandate across Origination → Closed, with stage-gate checklists and deal-team economics." />
               <Item title="Knowledge" body="Ask plain-English questions. Memos, files, and comps indexed and cited." />
               <Item title="Day Planner" body="Your real Google Calendar, free-slot meeting proposals, and drafted follow-ups." />
-              <Item title="Audit-grade" body="Every action stamped with your identity. RLS scopes every query to authenticated users only." />
             </div>
           </div>
         </main>

@@ -20,7 +20,11 @@ export default function JoinTeam() {
   const [params] = useSearchParams()
   const toast = useToast()
   const { profile } = useAuth()
-  const { refresh: refreshSeat } = useSeat()
+  // hasSeat lets us pre-block the submit. Same reasoning as Onboarding.jsx:
+  // join_team() would 4xx with "user already belongs to a team" and we'd
+  // show the yellow card, but disabling the button up front avoids the
+  // user typing an invite code only to learn they couldn't have used it.
+  const { refresh: refreshSeat, hasSeat } = useSeat()
   const isPreview = params.get('preview') === '1'
   const previewSuffix = isPreview ? '?preview=1' : ''
   // Scroll the blocking-error card into view when it appears — same fix
@@ -68,7 +72,7 @@ export default function JoinTeam() {
       } catch {
         if (!cancelled) setPreviewState('invalid')
       }
-    }, 250)
+    }, 400)
     return () => { cancelled = true; clearTimeout(t) }
   }, [code])
 
@@ -241,7 +245,7 @@ export default function JoinTeam() {
               </Link>
               <button
                 onClick={submit}
-                disabled={busy || code.length !== 8 || !fullName.trim() || previewState === 'invalid'}
+                disabled={busy || code.length !== 8 || !fullName.trim() || previewState === 'invalid' || hasSeat}
                 className="vl-btn-primary"
               >
                 {busy

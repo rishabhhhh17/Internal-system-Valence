@@ -44,6 +44,14 @@ export default function Welcome() {
   const firstName = (profile?.name || '').split(' ')[0]
 
   async function switchAccount() {
+    // Confirm before signing out — this button is small and right next to
+    // the user's email, easy to click by accident. There's no undo (a
+    // re-sign-in is another OAuth round-trip), so the prompt is worth
+    // the small friction.
+    const ok = window.confirm(
+      'Sign out and use a different Google account?\n\nThis will end your current session.'
+    )
+    if (!ok) return
     // signOut() clears Supabase session + every valence.* localStorage key.
     // Browser redirects to Login automatically on the next App.jsx render.
     try { await signOut() } catch { /* swallowed — render will route */ }
