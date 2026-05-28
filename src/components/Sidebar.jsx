@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react'
-import { NavLink } from 'react-router-dom'
-import { LayoutDashboard, Briefcase, BookOpen, CalendarDays, CalendarRange, Users, BarChart3, MessageSquare, Handshake, GanttChartSquare, Building2, Sparkles, Inbox, UserCircle, Settings as SettingsIcon, Wallet, Upload } from 'lucide-react'
+import { NavLink, useSearchParams } from 'react-router-dom'
+import { LayoutDashboard, Briefcase, BookOpen, CalendarDays, CalendarRange, Users, BarChart3, MessageSquare, Handshake, GanttChartSquare, Building2, Sparkles, Inbox, UserCircle, Settings as SettingsIcon, Wallet, Upload, ChevronDown, ChevronRight, Eye, Trash2, Plus } from 'lucide-react'
 import Logo from './Logo.jsx'
 import { supabase, isSupabaseConfigured, subscribeTable } from '../lib/supabase.js'
+import { useSavedViews, filtersFromUrl } from '../hooks/useSavedViews.js'
+import SaveViewDialog from './SaveViewDialog.jsx'
 
 const TERMINAL_STAGES  = new Set(['Closed', 'Lost', 'On Hold'])
 const LIVE_MANDATE_STAGES = new Set(['Mandate', 'Preparation', 'Marketing', 'Diligence', 'Negotiation', 'Closing'])
@@ -126,6 +128,11 @@ export default function Sidebar() {
             })}
           </div>
         ))}
+
+        {/* Saved Views — appended after the main nav so it doesn't intrude
+            on the canonical IA. Stays collapsed by default to keep the
+            sidebar quiet for users who don't use views. */}
+        <SavedViewsSection />
       </nav>
 
       {/* Sidebar footer — minimal status pip + offices. Drops the marketing
@@ -158,4 +165,125 @@ export default function Sidebar() {
       </div>
     </aside>
   )
+}
+
+// ============ Saved Views section ============
+// Lists My Views + Team Views. Clicking a view navigates to /deals with
+// that view's filters applied via useSavedViews().applyView(). Both
+// sub-groups collapse independently — saved state lives in localStorage
+// so the user's preference sticks across reloads.
+function SavedViewsSection() {
+  const { myViews, teamViews, applyView, deleteView } = useSavedViews()
+  const [searchParams] = useSearchParams()
+  const [myOpen, setMyOpen]     = useState(() => readBool('valence.sidebar.myViews.open', true))
+  const [teamOpen, setTeamOpen] = useState(() => readBool('valence.sidebar.teamViews.open', true))
+  const [saveOpen, setSaveOpen] = useState(false)
+
+  // Pull current filters from the URL when the user clicks "+ New view" —
+  // that way the dialog pre-populates the chips for whatever pipeline
+  // view they're looking at right now. If they're on Today or another
+  // non-pipeline page, the dialog will warn them about empty filters.
+  const currentFilters = filtersFromUrl(searchParams)
+
+  // Keep the section always visible. Even with zero views, the "+ New
+  // view" button is the discovery affordance — without it, nobody finds
+  // the feature.
+  return (
+    <div className="pt-4">
+      <div className="px-3 pb-3 flex items-center justify-between">
+        <span className="vl-eyebrow-ink">Saved views</span>
+        <button
+          onClick={() => setSaveOpen(true)}
+          className="inline-flex items-center gap-1 rounded text-[10px] font-semibold uppercase tracking-[0.14em] text-valence-blue hover:text-valence-blue-hover transition"
+          title="Save current filters as a view"
+        >
+          <Plus className="h-3 w-3" /> New
+        </button>
+      </div>
+
+      {myViews.length > 0 && (
+        <ViewGroup
+          label="My views"
+          open={myOpen}
+          onToggle={() => { const next = !myOpen; setMyOpen(next); writeBool('valence.sidebar.myViews.open', next) }}
+          views={myViews}
+          onApply={(v) => applyView(v)}
+          onDelete={(v) => { if (confirm(`Delete view “${v.name}”?`)) deleteView(v.id) }}
+          showDelete
+        />
+      )}
+
+      {teamViews.length > 0 && (
+        <ViewGroup
+          label="Team views"
+          open={teamOpen}
+          onToggle={() => { const next = !teamOpen; setTeamOpen(next); writeBool('valence.sidebar.teamViews.open', next) }}
+          views={teamViews}
+          onApply={(v) => applyView(v)}
+        />
+      )}
+
+      {myViews.length === 0 && teamViews.length === 0 && (
+        <p className="px-3 text-[11px] text-valence-subtle italic">
+          No views yet — apply filters on Deal Logger, then click <span className="text-valence-blue font-semibold">+ New</span>.
+        </p>
+      )}
+
+      <SaveViewDialog
+        open={saveOpen}
+        onClose={() => setSaveOpen(false)}
+        currentFilters={currentFilters}
+      />
+    </div>
+  )
+}
+
+function ViewGroup({ label, open, onToggle, views, onApply, onDelete, showDelete }) {
+  return (
+    <div className="space-y-0.5">
+      <button
+        onClick={onToggle}
+        className="w-full flex items-center gap-1.5 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-valence-subtle hover:text-valence-text transition"
+      >
+        {open ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
+        {label}
+        <span className="ml-1 text-valence-border">·</span>
+        <span className="tabular-nums text-valence-muted">{views.length}</span>
+      </button>
+
+      {open && views.map(v => (
+        <div key={v.id} className="group flex items-center gap-1 pr-2">
+          <button
+            onClick={() => onApply(v)}
+            className="flex-1 min-w-0 flex items-center gap-2 rounded-lg px-3 py-1.5 text-sm text-valence-muted hover:bg-valence-surface hover:text-valence-text transition"
+            title={v.name}
+          >
+            <span className="text-sm shrink-0">{v.emoji || <Eye className="h-3.5 w-3.5 text-valence-subtle inline" />}</span>
+            <span className="flex-1 truncate text-left tracking-tight">{v.name}</span>
+          </button>
+          {showDelete && onDelete && (
+            <button
+              onClick={() => onDelete(v)}
+              className="opacity-0 group-hover:opacity-100 transition grid h-6 w-6 place-items-center rounded hover:bg-valence-danger/10 text-valence-subtle hover:text-valence-danger"
+              title="Delete view"
+              aria-label="Delete view"
+            >
+              <Trash2 className="h-3 w-3" />
+            </button>
+          )}
+        </div>
+      ))}
+    </div>
+  )
+}
+
+function readBool(key, fallback) {
+  try {
+    const v = window.localStorage?.getItem(key)
+    if (v === null || v === undefined) return fallback
+    return v === '1'
+  } catch { return fallback }
+}
+function writeBool(key, value) {
+  try { window.localStorage?.setItem(key, value ? '1' : '0') } catch {}
 }
