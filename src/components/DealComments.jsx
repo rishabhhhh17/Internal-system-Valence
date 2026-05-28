@@ -1,19 +1,25 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { formatDistanceToNow } from 'date-fns'
 import { Send, Loader2, MessageSquare } from 'lucide-react'
 import { supabase, isSupabaseConfigured, subscribeTable } from '../lib/supabase.js'
 import { useAuth } from '../hooks/useAuth.js'
 import { humanError } from '../lib/userError.js'
 import { useToast } from './Toast.jsx'
-import WikilinkTextarea from './WikilinkTextarea.jsx'
 import WikilinkText from './WikilinkText.jsx'
+import MentionEditor from './MentionEditor.jsx'
+import { notifyMentions } from '../lib/notifications.js'
 
 export default function DealComments({ deal }) {
   const toast = useToast()
-  const { profile } = useAuth()
+  const { session, profile } = useAuth()
   const [rows, setRows] = useState([])
   const [loading, setLoading] = useState(true)
-  const [body, setBody] = useState('')
+  // editorPayload holds the latest { json, text, mentionedUserIds } from
+  // MentionEditor's onChange. Submit reads from this ref + an
+  // editor-internal counter (key) so we can "reset" the editor after
+  // post by re-mounting it with a new key.
+  const editorPayload = useRef({ json: null, text: '', mentionedUserIds: [] })
+  const [editorKey, setEditorKey] = useState(0)
   const [submitting, setSubmitting] = useState(false)
 
   useEffect(() => {
@@ -33,23 +39,50 @@ export default function DealComments({ deal }) {
     setLoading(false)
   }
 
-  async function post(e) {
-    e.preventDefault()
-    const text = body.trim()
-    if (!text) return
+  // Submit handler used by both the form's Send button and MentionEditor's
+  // Cmd+Enter. Reads the editor's latest payload from the ref so we don't
+  // race the editor's onChange when Send is clicked rapidly.
+  async function post(payloadOverride) {
+    const payload = payloadOverride || editorPayload.current
+    const text = (payload.text || '').trim()
+    if (!text || submitting) return
     setSubmitting(true)
     const author = profile?.name || profile?.email || 'Anonymous'
-    const mentions = Array.from(text.matchAll(/@(\w+)/g)).map(m => m[1])
+    const meId   = session?.user?.id || null
     if (!isSupabaseConfigured) {
-      setRows(prev => [...prev, { id: `local-${Date.now()}`, deal_id: deal.id, author, body: text, mentions, created_at: new Date().toISOString() }])
-      setBody(''); setSubmitting(false); return
+      setRows(prev => [...prev, { id: `local-${Date.now()}`, deal_id: deal.id, author, body: text, content_json: payload.json, mentioned_users: payload.mentionedUserIds, created_at: new Date().toISOString() }])
+      setEditorKey(k => k + 1)   // reset editor
+      editorPayload.current = { json: null, text: '', mentionedUserIds: [] }
+      setSubmitting(false); return
     }
     const { data, error } = await supabase.from('deal_comments').insert({
-      deal_id: deal.id, author, body: text, mentions
+      deal_id: deal.id,
+      author,
+      body: text,
+      content_json:    payload.json,
+      mentioned_users: payload.mentionedUserIds
     }).select().single()
     if (error) { toast.error(humanError(error, 'Could not post comment')); setSubmitting(false); return }
+
     setRows(prev => [...prev, data])
-    setBody(''); setSubmitting(false)
+
+    // Fire @mention notifications for every tagged teammate. Helper
+    // handles self-mention filtering + dedupe + silent failure (we
+    // never want a notification hiccup to break a comment post).
+    if (payload.mentionedUserIds?.length && meId) {
+      notifyMentions({
+        mentionedUserIds: payload.mentionedUserIds,
+        actor:            { id: meId, name: profile?.name, email: profile?.email },
+        target:           { kind: 'deal_comment', id: data.id },
+        dealId:           deal.id,
+        snippet:          text,
+        link:             `/deals?open=${deal.id}#comment-${data.id}`
+      })
+    }
+
+    setEditorKey(k => k + 1)
+    editorPayload.current = { json: null, text: '', mentionedUserIds: [] }
+    setSubmitting(false)
   }
 
   return (
@@ -93,18 +126,24 @@ export default function DealComments({ deal }) {
         </ol>
       )}
 
-      <form onSubmit={post} className="flex items-start gap-2">
-        <WikilinkTextarea
-          value={body}
-          onChange={setBody}
-          onKeyDown={e => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); post(e) } }}
-          placeholder="Leave a note for the team… (⌘↵ to send) · Type [[ to link people / funds / mandates"
-          className="vl-input min-h-[72px] resize-y flex-1"
-        />
-        <button type="submit" disabled={!body.trim() || submitting} className="vl-btn-primary-sm shrink-0">
+      <div className="flex items-start gap-2">
+        <div className="flex-1 min-w-0">
+          <MentionEditor
+            key={editorKey}
+            onChange={(payload) => { editorPayload.current = payload }}
+            onSubmit={(payload) => post(payload)}
+            placeholder="Leave a note for the team… (⌘↵ to send) · Type @ to tag a teammate"
+          />
+        </div>
+        <button
+          type="button"
+          onClick={() => post()}
+          disabled={submitting}
+          className="vl-btn-primary-sm shrink-0"
+        >
           {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
         </button>
-      </form>
+      </div>
     </div>
   )
 }
