@@ -174,7 +174,15 @@ function DemoResetButton() {
       // signOut already strips localStorage in this origin only; reload
       // so the next render starts from Login with no in-memory state.
       window.location.replace('/')
-    } catch {
+    } catch (err) {
+      // Audit found this path silently swallowed errors. Surface a toast
+      // so a dev clicking Reset on a broken auth state at least knows
+      // the sign-out half didn't happen and they should reload manually.
+      if (typeof window !== 'undefined' && window.alert) {
+        // No useToast in this scope; window.alert is the lowest common
+        // denominator and matches the click-confirm vibe.
+        window.alert(`Sign-out failed: ${err?.message || 'unknown error'}. Try reloading the page.`)
+      }
       setBusy(false)
     }
   }

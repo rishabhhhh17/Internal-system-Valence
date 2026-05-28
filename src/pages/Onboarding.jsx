@@ -62,7 +62,11 @@ export default function Onboarding() {
   // bounces the user right back to /welcome — looked like an infinite
   // "fill the form, end up at the same screen" loop. Same fix that
   // CompleteProfile.jsx has been doing since day one.
-  const { refresh: refreshSeat } = useSeat()
+  // hasSeat lets us pre-block the form for users who already belong to a
+  // firm. Submitting would 4xx anyway with "user already belongs to a
+  // team" (we have a yellow card for it), but disabling the button up
+  // front avoids the form-fill-then-reject jank.
+  const { refresh: refreshSeat, hasSeat } = useSeat()
 
   const [step, setStep]         = useState(1) // 1 = firm, 2 = profile
   const [firmName, setFirmName] = useState('')
@@ -294,10 +298,10 @@ export default function Onboarding() {
                   </button>
                   <button
                     onClick={submit}
-                    disabled={busy || !fullName.trim()}
+                    disabled={busy || !fullName.trim() || hasSeat}
                     className="vl-btn-primary"
                   >
-                    {busy ? <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Creating firm…</> : <><Check className="h-3.5 w-3.5" /> Create firm</>}
+                    {busy ? <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Creating firm…</> : hasSeat ? <>Already on a team</> : <><Check className="h-3.5 w-3.5" /> Create firm</>}
                   </button>
                 </div>
               </div>

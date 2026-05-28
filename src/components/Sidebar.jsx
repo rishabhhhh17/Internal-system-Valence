@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { NavLink, useSearchParams } from 'react-router-dom'
-import { LayoutDashboard, Briefcase, BookOpen, CalendarDays, CalendarRange, Users, BarChart3, MessageSquare, Handshake, GanttChartSquare, Building2, Sparkles, Inbox, UserCircle, Settings as SettingsIcon, Wallet, Upload, ChevronDown, ChevronRight, Eye, Trash2, Plus } from 'lucide-react'
+import { LayoutDashboard, Briefcase, BookOpen, CalendarDays, CalendarRange, Users, BarChart3, MessageSquare, Handshake, GanttChartSquare, Building2, Sparkles, Inbox, UserCircle, Settings as SettingsIcon, Wallet, Upload, ChevronDown, ChevronRight, Eye, Trash2, Plus, Clock } from 'lucide-react'
 import Logo from './Logo.jsx'
 import { supabase, isSupabaseConfigured, subscribeTable } from '../lib/supabase.js'
 import { useSavedViews, filtersFromUrl } from '../hooks/useSavedViews.js'
@@ -32,6 +32,7 @@ const nav = [
   // notifications bell rather than in the main nav, since it's a glance-
   // at-it surface, not a destination partners come back to daily.
   { to: '/analytics',    label: 'Analytics',    icon: BarChart3 },
+  { to: '/reports/aging',label: 'Aging Report', icon: Clock,        section: 'Reports' },
   { to: '/team',         label: 'Team',         icon: Users }
 ]
 

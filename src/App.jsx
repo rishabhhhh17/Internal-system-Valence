@@ -21,6 +21,7 @@ import Team from './pages/Team.jsx'
 import Analytics from './pages/Analytics.jsx'
 import Feed from './pages/Feed.jsx'
 import NotificationsPage from './pages/NotificationsPage.jsx'
+import AgingReport from './pages/AgingReport.jsx'
 import Share from './pages/Share.jsx'
 import Login from './pages/Login.jsx'
 import FitPreview from './pages/FitPreview.jsx'
@@ -261,6 +262,7 @@ export default function App() {
         <Route path="/feed" element={<Feed />} />
         <Route path="/team" element={<Team />} />
         <Route path="/notifications" element={<NotificationsPage />} />
+        <Route path="/reports/aging" element={<AgingReport />} />
         <Route path="/import" element={<Import />} />
         <Route path="/timeline/:valenceId/:externalId" element={<RelationshipTimeline />} />
         <Route path="/settings" element={<Settings />} />
