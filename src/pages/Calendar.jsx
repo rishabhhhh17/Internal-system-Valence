@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { format, addDays, addWeeks, addMonths, startOfMonth, endOfMonth, isSameDay, isSameMonth, differenceInMinutes, isAfter } from 'date-fns'
 import { CalendarDays, ChevronLeft, ChevronRight, Plus, Users, Clock, MapPin, Sparkles, ExternalLink, Globe, X, RefreshCw, LogOut, AlertTriangle } from 'lucide-react'
 import { supabase, isSupabaseConfigured } from '../lib/supabase.js'
+import { railClass as ctyRail, COUNTERPARTY_LEGEND } from '../lib/counterpartyColors.js'
 import {
   weekStart, weekEnd, addMinutes,
   DEFAULT_WORKING_HOURS, CALENDAR_COLOR_PALETTE,
@@ -709,7 +710,7 @@ function DayColumn({ date, events, calendars, calendarsById, onEventClick, onSta
                 if (overlapping.length > 0) onStackClick?.([ev, ...overlapping], rect)
                 else onEventClick(ev, rect)
               }}
-              className={`absolute rounded-md border px-1.5 py-1 text-left leading-snug transition shadow-sm ${cls}`}
+              className={`absolute rounded-md border px-1.5 py-1 text-left leading-snug transition shadow-sm ${cls} ${ctyRail(ev.counterparty_type)}`}
               style={{
                 top: startMin + 1,
                 height: heightPx - 2,
@@ -891,7 +892,7 @@ function MonthView({ anchor, events, calendarsById, onEventClick }) {
                     <li key={ev.id}>
                       <button
                         onClick={(e) => onEventClick(ev, e.currentTarget.getBoundingClientRect())}
-                        className={`w-full truncate rounded border px-1.5 py-0.5 text-left text-[10px] leading-tight ${cls}`}
+                        className={`w-full truncate rounded border px-1.5 py-0.5 text-left text-[10px] leading-tight ${cls} ${ctyRail(ev.counterparty_type)}`}
                         title={ev.title}
                       >
                         {format(new Date(ev.starts_at), 'HH:mm')} {ev.title}
