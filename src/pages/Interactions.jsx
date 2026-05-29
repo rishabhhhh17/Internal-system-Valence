@@ -7,6 +7,7 @@ import {
   PURPOSES, CONTEXT_GROUPS, DEMO_INTERACTIONS, purposeLabel, typeLabel, outcomeLabel, outcomeTone
 } from '../lib/interactions.js'
 import { toCSV, downloadCSV, timestampedFilename } from '../lib/csvExport.js'
+import { railClass as ctyRail, chipClass as ctyChip, labelFor as ctyLabel } from '../lib/counterpartyColors.js'
 import { useViewMode } from '../hooks/useViewMode.jsx'
 import ConfigBanner from '../components/ConfigBanner.jsx'
 import EmptyState from '../components/EmptyState.jsx'
@@ -225,9 +226,13 @@ function InteractionRow({ row, onOpen, onConvert, isDetailed = true }) {
   const ago = row.created_at ? formatDistanceToNowStrict(new Date(row.created_at), { addSuffix: true }) : ''
   const due = row.follow_up_date ? format(parseISO(row.follow_up_date), 'd MMM') : null
   const overdue = row.follow_up_date ? differenceInCalendarDays(parseISO(row.follow_up_date), new Date()) < 0 : false
+  // Phase 26 — counterparty-type accent on the left rail + chip on the
+  // metadata row. Lets the partner skim a list and pattern-match against
+  // founder vs investor density at a glance.
+  const railCls = ctyRail(row.counterparty_type)
   return (
     <li className="group">
-      <div className="flex items-start gap-4 px-5 py-4 hover:bg-valence-surface transition">
+      <div className={`flex items-start gap-4 px-5 py-4 hover:bg-valence-surface transition ${railCls}`}>
         <button onClick={onOpen} className="flex-1 min-w-0 text-left">
           <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
             <p className="text-sm font-semibold text-valence-text">{row.counterparty_name}</p>
@@ -235,6 +240,11 @@ function InteractionRow({ row, onOpen, onConvert, isDetailed = true }) {
             {row.counterparty_role && <p className="text-xs text-valence-subtle">· {row.counterparty_role}</p>}
           </div>
           <div className="mt-1.5 flex flex-wrap items-center gap-2 text-[11px] text-valence-muted">
+            {row.counterparty_type && (
+              <span className={`inline-flex items-center rounded-full border px-2 py-0.5 font-semibold ${ctyChip(row.counterparty_type)}`}>
+                {ctyLabel(row.counterparty_type)}
+              </span>
+            )}
             <span className="inline-flex items-center gap-1 rounded-full border border-valence-border bg-valence-elevated px-2 py-0.5 font-semibold text-valence-text">
               {purposeLabel(row.interaction_purpose)}
             </span>

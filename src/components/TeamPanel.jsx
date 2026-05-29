@@ -11,18 +11,20 @@
 // link (https://<host>/join?code=<CODE>), and an expiry date. Once
 // claimed, the row shows who claimed it and when.
 
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Users, Plus, Copy, Check, Loader2, Mail, Link as LinkIcon, Clock, X } from 'lucide-react'
 import { supabase, isSupabaseConfigured } from '../lib/supabase.js'
 import { useSeat } from '../hooks/useSeat.js'
 import { useToast } from './Toast.jsx'
 import { humanError } from '../lib/userError.js'
+import { barFillClass as ctyBarFill, COUNTERPARTY_LEGEND, labelFor as ctyLabel } from '../lib/counterpartyColors.js'
 
 export default function TeamPanel() {
   const { seat, org } = useSeat()
   const toast = useToast()
   const [members, setMembers] = useState([])
   const [invites, setInvites] = useState([])
+  const [interactions, setInteractions] = useState([]) // raw rows for distribution
   const [loading, setLoading] = useState(true)
   const [generating, setGenerating] = useState(false)
   const [newRole, setNewRole] = useState('analyst')
@@ -35,7 +37,7 @@ export default function TeamPanel() {
     if (!isSupabaseConfigured || !org?.id) { setLoading(false); return }
     setLoading(true)
     try {
-      const [seatsRes, invitesRes] = await Promise.all([
+      const [seatsRes, invitesRes, interactionsRes] = await Promise.all([
         supabase.from('seats')
           .select('id, full_name, email, title, role, active, added_at, user_id')
           .eq('org_id', org.id)
@@ -43,16 +45,42 @@ export default function TeamPanel() {
         supabase.from('org_invites')
           .select('id, code, email, role, created_at, expires_at, claimed_at, claimed_by')
           .eq('org_id', org.id)
-          .order('created_at', { ascending: false })
+          .order('created_at', { ascending: false }),
+        // Phase 26 — fetch interactions for the team-distribution bar.
+        // lead_owner is free-form text matching seat.full_name, so we
+        // aggregate client-side. counterparty_type is the bucket.
+        supabase.from('interactions')
+          .select('lead_owner, counterparty_type')
+          .not('lead_owner', 'is', null)
       ])
       setMembers(seatsRes.data || [])
       setInvites(invitesRes.data || [])
+      setInteractions(interactionsRes.data || [])
     } catch (e) {
       toast.error(humanError(e, 'Could not load your team'))
     } finally {
       setLoading(false)
     }
   }
+
+  // Aggregate interactions by lead_owner (lowercased for case-insensitive
+  // match against members.full_name). Each entry: { founder, investor,
+  // general, total }.
+  const distByOwner = useMemo(() => {
+    const m = new Map()
+    for (const r of interactions) {
+      const owner = (r.lead_owner || '').toLowerCase().trim()
+      if (!owner) continue
+      const t = r.counterparty_type
+      if (!m.has(owner)) m.set(owner, { founder: 0, investor: 0, general: 0, total: 0 })
+      const e = m.get(owner)
+      if (t === 'founder' || t === 'investor' || t === 'general') {
+        e[t] += 1
+        e.total += 1
+      }
+    }
+    return m
+  }, [interactions])
   useEffect(() => { load() }, [org?.id])
 
   async function generate() {
@@ -130,28 +158,33 @@ export default function TeamPanel() {
           <p className="text-xs text-valence-muted">No members yet — you're solo.</p>
         ) : (
           <ul className="divide-y divide-valence-border/60 rounded-lg border border-valence-border">
-            {members.map(m => (
-              <li key={m.id} className="px-4 py-2.5 flex items-center justify-between gap-3 text-sm">
-                <div className="min-w-0">
-                  <p className="font-medium text-valence-text">{m.full_name || m.email || 'Unnamed'}</p>
-                  <p className="text-[11px] text-valence-muted">
-                    {m.title || '—'} {m.email ? `· ${m.email}` : ''}
-                  </p>
-                </div>
-                <div className="flex items-center gap-2 shrink-0">
-                  {m.role && (
-                    <span className={`text-[10px] font-semibold uppercase tracking-[0.1em] rounded px-1.5 py-0.5 ${
-                      m.role === 'admin'   ? 'bg-valence-blue-soft text-valence-blue-deep' :
-                      m.role === 'partner' ? 'bg-valence-success/10 text-valence-success' :
-                                             'bg-valence-surface text-valence-muted'
-                    }`}>
-                      {m.role}
-                    </span>
+            {members.map(m => {
+              // Phase 26 — pull the founder/investor/general split for this
+              // member from the aggregated distribution. Lets the partner
+              // see at a glance "everyone's only meeting founders — who's
+              // talking to LPs?" without clicking into anyone's calendar.
+              const dist = distByOwner.get((m.full_name || '').toLowerCase()) || { founder: 0, investor: 0, general: 0, total: 0 }
+              return (
+                <li key={m.id} className="px-4 py-3 text-sm">
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="font-medium text-valence-text">{m.full_name || m.email || 'Unnamed'}</p>
+                      <p className="text-[11px] text-valence-muted">
+                        {m.title || '—'} {m.email ? `· ${m.email}` : ''}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      {!m.active && <span className="text-[10px] text-valence-subtle">inactive</span>}
+                    </div>
+                  </div>
+                  {dist.total > 0 ? (
+                    <DistributionBar dist={dist} />
+                  ) : (
+                    <p className="mt-2 text-[10px] text-valence-subtle italic">No tagged interactions yet.</p>
                   )}
-                  {!m.active && <span className="text-[10px] text-valence-subtle">inactive</span>}
-                </div>
-              </li>
-            ))}
+                </li>
+              )
+            })}
           </ul>
         )}
       </div>
@@ -272,4 +305,29 @@ function formatDate(iso) {
   if (!iso) return ''
   const d = new Date(iso)
   return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
+}
+
+// Per-member stacked horizontal bar — founder / investor / general split.
+// Width of each segment is proportional to the count; absolute counts
+// shown as tabular numerals on the right so the partner can read both
+// the relative balance AND the volume without hovering.
+function DistributionBar({ dist }) {
+  const { founder, investor, general, total } = dist
+  if (!total) return null
+  const pct = (n) => (n / total) * 100
+  return (
+    <div className="mt-2 space-y-1">
+      <div className="flex h-1.5 w-full overflow-hidden rounded-full bg-valence-surface">
+        {founder  > 0 && <div className={ctyBarFill('founder')}  style={{ width: `${pct(founder)}%`  }} title={`Founder: ${founder}`} />}
+        {investor > 0 && <div className={ctyBarFill('investor')} style={{ width: `${pct(investor)}%` }} title={`Investor: ${investor}`} />}
+        {general  > 0 && <div className={ctyBarFill('general')}  style={{ width: `${pct(general)}%`  }} title={`General: ${general}`} />}
+      </div>
+      <div className="flex items-center gap-3 text-[10px] text-valence-muted tabular-nums">
+        {founder  > 0 && <span><span className="inline-block h-1.5 w-1.5 rounded-full bg-emerald-500 mr-1 align-middle" />{founder}</span>}
+        {investor > 0 && <span><span className="inline-block h-1.5 w-1.5 rounded-full bg-indigo-500  mr-1 align-middle" />{investor}</span>}
+        {general  > 0 && <span><span className="inline-block h-1.5 w-1.5 rounded-full bg-slate-400   mr-1 align-middle" />{general}</span>}
+        <span className="text-valence-subtle">· {total} total</span>
+      </div>
+    </div>
+  )
 }
