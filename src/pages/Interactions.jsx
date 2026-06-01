@@ -149,13 +149,18 @@ export default function Interactions() {
         if (isMode) {
           if (r.mandate_link_mode !== mandateFilter) return false
         } else {
-          // Specific deal UUID — match either deal_id or self-mode rows
-          // whose company matches that deal's client_name.
+          // Specific deal UUID — match if the deal appears anywhere in the
+          // interaction's links: the primary deal_id, the multi-mandate
+          // deal_ids[] array (Phase 5), OR a self-mode row whose company
+          // matches the deal's client_name. This is the "multiple linkages"
+          // behaviour — a multi-mandate chat shows under EVERY mandate it
+          // touched.
           const d = deals.find(x => x.id === mandateFilter)
           const isOnDeal = r.deal_id === mandateFilter
+          const isInDealIds = Array.isArray(r.deal_ids) && r.deal_ids.includes(mandateFilter)
           const isSelfMatch = r.mandate_link_mode === 'self' && d
             && (r.counterparty_company || '').toLowerCase().trim() === (d.client_name || '').toLowerCase().trim()
-          if (!isOnDeal && !isSelfMatch) return false
+          if (!isOnDeal && !isInDealIds && !isSelfMatch) return false
         }
       }
       if (needsFollowUp) {

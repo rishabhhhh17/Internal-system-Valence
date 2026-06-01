@@ -74,6 +74,9 @@ const BLANK = {
   //   'multi'    → spans multiple mandates
   //   'specific' → linked to one specific deal (deal_id required)
   mandate_link_mode: 'general',
+  // Phase 5 — multi-mandate linkage. Array of deal ids this interaction
+  // touches. Single-element for self/specific; many for multi.
+  deal_ids: [],
   // Outcome stays in payload (DB column is nullable) but UI no longer
   // surfaces it. Was always 'in_progress' for 1 in 500 actually-mandated
   // — net signal was zero, net annoyance was high.
@@ -221,10 +224,11 @@ export default function InteractionDrawer({ open, onClose, existing, onSubmit })
     //              silently saving deal_id=null — otherwise the Activity
     //              tab on the deal misses the row.
     //   specific : use form.deal_id directly. Reject if blank.
-    //   general  : deal_id null
-    //   multi    : deal_id null
-    let resolvedDealId = null
-    let resolvedMode   = form.mandate_link_mode || 'general'
+    //   general  : no links
+    //   multi    : deal_ids = every ticked mandate; deal_id = first
+    let resolvedDealId  = null
+    let resolvedDealIds = []          // Phase 5 — multi-mandate linkage
+    let resolvedMode    = form.mandate_link_mode || 'general'
     if (resolvedMode === 'self') {
       const co = form.counterparty_company?.trim().toLowerCase()
       if (!co) {
@@ -236,13 +240,23 @@ export default function InteractionDrawer({ open, onClose, existing, onSubmit })
         toast.error(`No active mandate matches "${form.counterparty_company}". Use Specific to pick one, or General.`)
         return
       }
-      resolvedDealId = match.id
+      resolvedDealId  = match.id
+      resolvedDealIds = [match.id]
     } else if (resolvedMode === 'specific') {
       if (!form.deal_id) {
         toast.error('Pick a mandate from the dropdown.')
         return
       }
-      resolvedDealId = form.deal_id
+      resolvedDealId  = form.deal_id
+      resolvedDealIds = [form.deal_id]
+    } else if (resolvedMode === 'multi') {
+      const ids = (form.deal_ids || []).filter(Boolean)
+      if (ids.length < 2) {
+        toast.error('Multi-mandate needs at least two mandates ticked. Use Specific for one, or General for none.')
+        return
+      }
+      resolvedDealIds = ids
+      resolvedDealId  = ids[0]   // primary link so the Deal Activity tab still shows it
     }
     const payload = {
       // Legacy column. New rows leave it null — the redesign uses
@@ -282,6 +296,7 @@ export default function InteractionDrawer({ open, onClose, existing, onSubmit })
       // Existing rows keep their original source; new rows tag 'manual'.
       source: existing?.source || 'manual',
       deal_id: resolvedDealId,
+      deal_ids: resolvedDealIds.length ? resolvedDealIds : null,
       // Phase 3.7 — transcript / audio
       transcript: form.transcript?.trim() || null,
       transcript_summary: form.transcript_summary?.trim() || null,
@@ -544,6 +559,13 @@ function MoreOptions({ form, update, deals, defaultOpen }) {
   // active-mandate list. When 'self', the deal_id is resolved on submit
   // by matching counterparty_company to deal.client_name.
   const showDealPicker = form.mandate_link_mode === 'specific'
+  const showMultiPicker = form.mandate_link_mode === 'multi'
+  const selectedDealIds = form.deal_ids || []
+  function toggleMultiDeal(id) {
+    const set = new Set(selectedDealIds)
+    if (set.has(id)) set.delete(id); else set.add(id)
+    update({ deal_ids: Array.from(set) })
+  }
   return (
     <div className="rounded-xl border border-valence-border bg-valence-surface/40">
       <button
@@ -584,6 +606,25 @@ function MoreOptions({ form, update, deals, defaultOpen }) {
                 <option value="">— Pick a mandate —</option>
                 {deals.map(d => <option key={d.id} value={d.id}>{d.client_name} · {d.stage}</option>)}
               </select>
+            )}
+            {/* Multi-mandate — tick every mandate this interaction touched.
+                Each gets a row in deal_ids[], so filtering /interactions by
+                ANY of them surfaces this row (the "multiple linkages" ask). */}
+            {showMultiPicker && (
+              <div className="mt-2 rounded-lg border border-valence-border bg-valence-elevated p-2 space-y-1 max-h-48 overflow-y-auto">
+                {deals.length === 0 && <p className="px-1 py-1 text-[11px] text-valence-subtle">No active mandates.</p>}
+                {deals.map(d => {
+                  const on = selectedDealIds.includes(d.id)
+                  return (
+                    <label key={d.id} className="flex items-center gap-2 rounded-md px-2 py-1.5 text-xs hover:bg-valence-surface cursor-pointer">
+                      <input type="checkbox" checked={on} onChange={() => toggleMultiDeal(d.id)} className="h-3.5 w-3.5 rounded border-valence-border text-valence-blue" />
+                      <span className="text-valence-text">{d.client_name}</span>
+                      <span className="text-valence-subtle">· {d.stage}</span>
+                    </label>
+                  )
+                })}
+                <p className="px-1 pt-1 text-[10px] text-valence-subtle">{selectedDealIds.length} mandate{selectedDealIds.length === 1 ? '' : 's'} selected.</p>
+              </div>
             )}
           </div>
 
@@ -839,6 +880,7 @@ function normalize(row) {
     takeaways:  row.takeaways  || (!row.context && !row.next_steps ? (row.notes || '') : ''),
     next_steps: row.next_steps || '',
     mandate_link_mode: row.mandate_link_mode || 'general',
+    deal_ids: Array.isArray(row.deal_ids) ? row.deal_ids : (row.deal_id ? [row.deal_id] : []),
     origination: row.origination || null,
     is_complete: !!row.is_complete
   }
