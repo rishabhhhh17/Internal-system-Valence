@@ -48,12 +48,19 @@ export default function Interactions() {
 
   useEffect(() => { load() }, [])
 
-  // When ?open=<id> is present and rows have loaded, open that drawer.
+  // When ?open=<id> is present and rows have loaded, open that drawer ONCE.
+  // Strip the param the moment we open — otherwise any later `rows` change
+  // (realtime tick, save→load) re-fires this effect and reopens a drawer
+  // the user already dismissed.
   useEffect(() => {
     const openId = searchParams.get('open')
     if (!openId || rows.length === 0) return
     const row = rows.find(r => String(r.id) === String(openId))
-    if (row) setDrawer({ row })
+    if (row) {
+      setDrawer({ row })
+      searchParams.delete('open')
+      setSearchParams(searchParams, { replace: true })
+    }
   }, [searchParams, rows])
 
   // Pull active mandates for the filter dropdown's per-deal options.

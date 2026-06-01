@@ -260,12 +260,13 @@ export default function DailyNote() {
     // occurred_at so this only bites legacy or AI-imported rows, but
     // it's worth being strict.
     const latestByKey = new Map()
+    const latestRowByKey = new Map()   // most-recent interaction row per counterparty
     for (const i of interactions) {
       if (!i.occurred_at) continue
       const key = (i.counterparty_company || '').toLowerCase().trim() + '|' + normalizeName(i.counterparty_name)
       const t = new Date(i.occurred_at)
       const prev = latestByKey.get(key)
-      if (!prev || t > prev) latestByKey.set(key, t)
+      if (!prev || t > prev) { latestByKey.set(key, t); latestRowByKey.set(key, i) }
     }
     // Backlog = overdue deadlines that aren't ticked complete. The
     // partner's mental model is deadline-driven and oldest-first, so the
@@ -295,6 +296,12 @@ export default function DailyNote() {
       if (!prev || dueDays > prev.dueDays) backlogByKey.set(key, { row: i, dueDays })
     }
     for (const { row: i, dueDays } of backlogByKey.values()) {
+      // The peek card should show the LATEST meeting's notes for this
+      // counterparty (what came out of the last conversation), not the
+      // overdue-deadline row's — which may predate the most recent touch
+      // and be blank. The priority itself still sorts/labels by deadline.
+      const pkey = (i.counterparty_company || '').toLowerCase().trim() + '|' + normalizeName(i.counterparty_name)
+      const latestRow = latestRowByKey.get(pkey) || i
       priorities.push({
         id: `int-${i.id}`,
         // > 30 days past deadline = high; fresher = warn.
@@ -311,10 +318,10 @@ export default function DailyNote() {
         peek: {
           name:    i.counterparty_name,
           company: i.counterparty_company,
-          when:    i.occurred_at,
-          context: i.context,
-          takeaways: i.takeaways,
-          next_steps: i.next_steps,
+          when:    latestRow.occurred_at,
+          context: latestRow.context,
+          takeaways: latestRow.takeaways,
+          next_steps: latestRow.next_steps,
           cty: i.counterparty_type || null
         },
         // Deep-link to the full interaction drawer (used by the card's
