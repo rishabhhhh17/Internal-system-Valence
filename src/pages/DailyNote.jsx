@@ -81,7 +81,7 @@ export default function DailyNote() {
         // would still light up even when the same person was re-engaged
         // last month. Order desc + cap at 5000 to stay deterministic.
         supabase.from('interactions')
-          .select('id, counterparty_name, counterparty_company, counterparty_type, follow_up_date, outcome, deal_id, lead_owner, occurred_at, created_at')
+          .select('id, counterparty_name, counterparty_company, counterparty_type, follow_up_date, outcome, deal_id, lead_owner, occurred_at, created_at, is_complete')
           .order('occurred_at', { ascending: false, nullsFirst: false })
           .limit(5000),
         supabase.from('meetings').select('id, title, attendee_name, date, time').eq('date', dateIso).order('time')
@@ -261,6 +261,8 @@ export default function DailyNote() {
     for (const i of interactions) {
       const dueIso = i.follow_up_date ? String(i.follow_up_date).slice(0, 10) : null
       if (!dueIso) continue
+      // Phase 3 — Complete? ticked = explicitly off the backlog.
+      if (i.is_complete) continue
       const due  = parseISO(dueIso)
       const dueDays = differenceInCalendarDays(today, due)
       if (dueDays < 0) continue // not yet due

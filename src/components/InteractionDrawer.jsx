@@ -25,9 +25,36 @@ const TRANSCRIPT_SOURCES = [
   { id: 'voice_memo', label: 'Voice memo',    icon: Mic,      blurb: 'Audio → transcript via Gemini' }
 ]
 
+// Type dropdown now consolidates the original 14-option taxonomy into the
+// six options the partner actually picks. The DB constraint still permits
+// the long list, but the UI exposes only these six — mapping back to the
+// closest DB-enum value on save. Free-form Outcome and Referral
+// Touchpoint were dropped from the form entirely (Outcome was always
+// 'in_progress', and Referral Touchpoint was 99% noise per the partner).
+const SIMPLE_TYPES = [
+  { id: 'video_call',    label: 'Online'    /* Google Meet / Zoom / Teams */ },
+  { id: 'pitch_meeting', label: 'Office'    /* in-person at VGP office */ },
+  { id: 'site_visit',    label: 'Outside'   /* in-person elsewhere */ },
+  { id: 'phone_call',    label: 'Call'      /* phone */ },
+  { id: 'whatsapp',      label: 'WhatsApp' },
+  { id: 'email_thread',  label: 'Email' }
+]
+
+// Origination — was free text "Outbound"/"Inbound" in the partner's
+// sheet, now an enum dropdown. Backfilled from notes on Phase 3 import.
+const ORIGINATIONS = [
+  { id: 'inbound',  label: 'Inbound'  },
+  { id: 'outbound', label: 'Outbound' },
+  { id: 'referral', label: 'Referral' },
+  { id: 'intro',    label: 'Intro'    }
+]
+
 const BLANK = {
+  // Kept for backwards-compat — used to map to the old PURPOSES dropdown,
+  // now invisible. Default kept so existing rows that haven't been
+  // migrated still validate against the old min_payload check.
   interaction_purpose: 'pitch_for_mandate',
-  type: 'intro_call',
+  type: 'pitch_meeting',
   // Phase 26 — sets the colour rail on Interactions / Calendar / Team
   // distribution. Default null so the partner picks; auto-derives via
   // person.tags or fund-match if they leave it null (server-side
@@ -37,10 +64,29 @@ const BLANK = {
   counterparty_name: '',         // free-text fallback if person_id unset
   counterparty_company: '',
   counterparty_role: '',
-  outcome: 'to_followup',
+  // Phase 3 redesign — Associated Mandate. Replaces the old purpose +
+  // linked-deal pair with one mode-aware picker.
+  //   'self'     → talking to the mandate company about themselves
+  //                (deal_id auto-resolved by company match)
+  //   'general'  → no mandate context, first-time or networking
+  //   'multi'    → spans multiple mandates
+  //   'specific' → linked to one specific deal (deal_id required)
+  mandate_link_mode: 'general',
+  // Outcome stays in payload (DB column is nullable) but UI no longer
+  // surfaces it. Was always 'in_progress' for 1 in 500 actually-mandated
+  // — net signal was zero, net annoyance was high.
+  outcome: null,
   notes: '',
   follow_up_date: '',
+  // Phase 3 redesign — Complete? checkbox drives backlog. If a
+  // follow-up date is set and is_complete=false, the priority widget
+  // surfaces it; once ticked, it disappears.
+  is_complete: false,
+  // POC at the firm. Now a dropdown of active seats instead of a free
+  // text Typeahead — the firm already knows its own people.
   lead_owner: '',
+  // Origination dropdown (Inbound / Outbound / Referral / Intro).
+  origination: null,
   deal_id: '',
   // Phase 3.7 — transcript / audio fields
   transcript: '',
@@ -56,6 +102,7 @@ export default function InteractionDrawer({ open, onClose, existing, onSubmit })
   const [form, setForm] = useState(BLANK)
   const [deals, setDeals] = useState([])
   const [people, setPeople] = useState([])
+  const [seats, setSeats] = useState([])
   const [personQuery, setPersonQuery] = useState('')
   const [creatingPerson, setCreatingPerson] = useState(false)
   // Double-submit guard — see PersonDrawer for the rationale.
@@ -75,12 +122,15 @@ export default function InteractionDrawer({ open, onClose, existing, onSubmit })
       return
     }
     ;(async () => {
-      const [d, p] = await Promise.all([
+      const [d, p, s] = await Promise.all([
         supabase.from('deals').select('id, client_name, stage').order('created_at', { ascending: false }).limit(200),
-        supabase.from('people').select('id, full_name, role, company').order('full_name').limit(500)
+        supabase.from('people').select('id, full_name, role, company').order('full_name').limit(500),
+        // Phase 3 redesign — POC dropdown is populated from active seats.
+        supabase.from('seats').select('id, full_name, email').eq('active', true).order('added_at', { ascending: true })
       ])
       setDeals(d.data || [])
       setPeople(p.data || [])
+      setSeats(s.data || [])
     })()
   }, [open])
 
@@ -152,19 +202,39 @@ export default function InteractionDrawer({ open, onClose, existing, onSubmit })
     e.preventDefault()
     if (submitting) return
     if (!form.counterparty_name.trim()) return
+    // Phase 3 redesign — resolve Associated Mandate mode → deal_id.
+    //   self     : look up the deal where client_name matches the company
+    //   specific : use form.deal_id directly
+    //   general  : deal_id null
+    //   multi    : deal_id null + mandate_link_mode='multi' (UI surfaces
+    //              the "spans multiple mandates" chip later when we
+    //              build that view)
+    let resolvedDealId = null
+    if (form.mandate_link_mode === 'self' && form.counterparty_company) {
+      const match = deals.find(
+        d => d.client_name?.toLowerCase().trim() === form.counterparty_company.toLowerCase().trim()
+      )
+      resolvedDealId = match?.id || null
+    } else if (form.mandate_link_mode === 'specific') {
+      resolvedDealId = form.deal_id || null
+    }
     const payload = {
-      interaction_purpose: form.interaction_purpose,
+      interaction_purpose: form.interaction_purpose, // legacy column, kept for the min_payload check
       type: form.type,
       person_id: form.person_id || null,
       counterparty_name: form.counterparty_name.trim(),
       counterparty_company: form.counterparty_company.trim() || null,
       counterparty_role: form.counterparty_role.trim() || null,
       counterparty_type: form.counterparty_type || null,
-      outcome: form.outcome,
+      // outcome dropped from UI; keep column null on new rows.
+      outcome: form.outcome || null,
       notes: form.notes.trim() || null,
       follow_up_date: form.follow_up_date || null,
+      is_complete: !!form.is_complete,
       lead_owner: form.lead_owner.trim() || null,
-      deal_id: form.deal_id || null,
+      mandate_link_mode: form.mandate_link_mode || 'general',
+      origination: form.origination || null,
+      deal_id: resolvedDealId,
       // Phase 3.7 — transcript / audio
       transcript: form.transcript?.trim() || null,
       transcript_summary: form.transcript_summary?.trim() || null,
@@ -299,34 +369,23 @@ export default function InteractionDrawer({ open, onClose, existing, onSubmit })
             </div>
           </div>
           <div>
-            <label className="vl-label">Lead owner</label>
-            {/* Autocomplete against historical lead_owner values across both
-                interactions and deals — the partner shouldn't have to remember
-                exact spelling, the firm already has the list. */}
-            <Typeahead
-              value={form.lead_owner}
-              onChange={v => update({ lead_owner: v })}
-              placeholder="Neha Jain"
+            <label className="vl-label">POC at the firm</label>
+            {/* Phase 3 redesign — dropdown of active seats. Removes the
+                spelling-anxiety problem (no more "Kartik" vs "Karthik")
+                and means the per-member distribution bar lights up
+                deterministically. Free-text fallback kept for the
+                edge case where a partner needs to log on behalf of
+                someone who isn't seated yet. */}
+            <select
               className="vl-input mt-1.5 bg-valence-elevated"
-              minChars={1}
-              fetcher={async q => {
-                if (!isSupabaseConfigured) return []
-                const [{ data: a }, { data: b }] = await Promise.all([
-                  supabase.from('interactions').select('lead_owner').ilike('lead_owner', `%${q}%`).not('lead_owner', 'is', null).limit(50),
-                  supabase.from('deals').select('lead_owner').ilike('lead_owner', `%${q}%`).not('lead_owner', 'is', null).limit(50)
-                ])
-                const seen = new Set()
-                const out = []
-                for (const row of [...(a || []), ...(b || [])]) {
-                  const v = (row.lead_owner || '').trim()
-                  if (!v || seen.has(v.toLowerCase())) continue
-                  seen.add(v.toLowerCase())
-                  out.push({ id: `lead-${v}`, label: v, sub: 'Team', type: null })
-                }
-                return out.slice(0, 8)
-              }}
-              onPick={s => update({ lead_owner: s.label })}
-            />
+              value={form.lead_owner}
+              onChange={e => update({ lead_owner: e.target.value })}
+            >
+              <option value="">— Pick a teammate —</option>
+              {seats.map(s => (
+                <option key={s.id} value={s.full_name}>{s.full_name}</option>
+              ))}
+            </select>
           </div>
         </div>
 
@@ -385,8 +444,6 @@ export default function InteractionDrawer({ open, onClose, existing, onSubmit })
           form={form}
           update={update}
           deals={deals}
-          allowedOutcomes={allowedOutcomes}
-          purposeBlurb={purposeBlurb}
           defaultOpen={!!existing}
         />
       </form>
@@ -399,8 +456,13 @@ export default function InteractionDrawer({ open, onClose, existing, onSubmit })
 // state, just hidden by default. Partner can capture an interaction with
 // {Person, Type, Notes} in <10 seconds without seeing this section at all.
 // ============================================================================
-function MoreOptions({ form, update, deals, allowedOutcomes, purposeBlurb, defaultOpen }) {
+function MoreOptions({ form, update, deals, defaultOpen }) {
   const [open, setOpen] = useState(defaultOpen)
+  // Phase 3 redesign — Associated Mandate is its own dropdown with four
+  // semantic modes. When 'specific', a second dropdown surfaces the
+  // active-mandate list. When 'self', the deal_id is resolved on submit
+  // by matching counterparty_company to deal.client_name.
+  const showDealPicker = form.mandate_link_mode === 'specific'
   return (
     <div className="rounded-xl border border-valence-border bg-valence-surface/40">
       <button
@@ -413,42 +475,49 @@ function MoreOptions({ form, update, deals, allowedOutcomes, purposeBlurb, defau
           {open ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
           More options
         </span>
-        <span className="text-[10px] text-valence-subtle">Purpose · type · outcome · follow-up · linked deal · transcript</span>
+        <span className="text-[10px] text-valence-subtle">Mandate · type · origination · follow-up · transcript</span>
       </button>
 
       {open && (
         <div className="space-y-5 px-4 pb-5">
+          {/* Associated Mandate — the marquee field. Replaces the old
+              12-option Purpose dropdown + Linked Deal pair. */}
           <div>
-            <label className="vl-label">Purpose</label>
+            <label className="vl-label">Associated Mandate</label>
             <select
               className="vl-input mt-1.5"
-              value={form.interaction_purpose}
-              onChange={e => update({ interaction_purpose: e.target.value })}
+              value={form.mandate_link_mode || 'general'}
+              onChange={e => update({ mandate_link_mode: e.target.value, deal_id: e.target.value === 'specific' ? form.deal_id : '' })}
             >
-              {CONTEXT_GROUPS.map(g => (
-                <optgroup key={g.id} label={g.label}>
-                  {PURPOSES.filter(p => p.group === g.id).map(p => (
-                    <option key={p.id} value={p.id}>{p.label}</option>
-                  ))}
-                </optgroup>
-              ))}
+              <option value="self">Self — talking to a client about themselves</option>
+              <option value="general">General — first-time meet / no agenda</option>
+              <option value="multi">Multi-mandate — spans multiple mandates</option>
+              <option value="specific">Link to a specific mandate…</option>
             </select>
-            {purposeBlurb && (
-              <p className="mt-1.5 text-[11px] text-valence-muted">{purposeBlurb}</p>
+            {showDealPicker && (
+              <select
+                className="vl-input mt-2"
+                value={form.deal_id || ''}
+                onChange={e => update({ deal_id: e.target.value })}
+              >
+                <option value="">— Pick a mandate —</option>
+                {deals.map(d => <option key={d.id} value={d.id}>{d.client_name} · {d.stage}</option>)}
+              </select>
             )}
           </div>
 
           <div className="grid gap-4 sm:grid-cols-2">
             <div>
-              <label className="vl-label">Type</label>
+              <label className="vl-label">Interaction type</label>
               <select className="vl-input mt-1.5" value={form.type} onChange={e => update({ type: e.target.value })}>
-                {TYPES.map(t => <option key={t.id} value={t.id}>{t.label}</option>)}
+                {SIMPLE_TYPES.map(t => <option key={t.id} value={t.id}>{t.label}</option>)}
               </select>
             </div>
             <div>
-              <label className="vl-label">Outcome</label>
-              <select className="vl-input mt-1.5" value={form.outcome} onChange={e => update({ outcome: e.target.value })}>
-                {allowedOutcomes.map(o => <option key={o} value={o}>{outcomeLabel(o)}</option>)}
+              <label className="vl-label">Origination</label>
+              <select className="vl-input mt-1.5" value={form.origination || ''} onChange={e => update({ origination: e.target.value || null })}>
+                <option value="">— Not specified —</option>
+                {ORIGINATIONS.map(o => <option key={o.id} value={o.id}>{o.label}</option>)}
               </select>
             </div>
           </div>
@@ -458,12 +527,19 @@ function MoreOptions({ form, update, deals, allowedOutcomes, purposeBlurb, defau
               <label className="vl-label">Follow-up date</label>
               <input type="date" className="vl-input mt-1.5" value={form.follow_up_date || ''} onChange={e => update({ follow_up_date: e.target.value })} />
             </div>
-            <div>
-              <label className="vl-label">Linked deal <span className="text-valence-subtle">(optional)</span></label>
-              <select className="vl-input mt-1.5" value={form.deal_id || ''} onChange={e => update({ deal_id: e.target.value })}>
-                <option value="">— None —</option>
-                {deals.map(d => <option key={d.id} value={d.id}>{d.client_name} · {d.stage}</option>)}
-              </select>
+            <div className="flex items-end">
+              {/* Complete? checkbox drives backlog logic — same semantics as
+                  the partner's Mastersheet "Complete?" column. Once ticked,
+                  this row stops showing up as overdue on Today. */}
+              <label className="inline-flex items-center gap-2 text-sm text-valence-text">
+                <input
+                  type="checkbox"
+                  className="h-4 w-4 rounded border-valence-border text-valence-blue"
+                  checked={!!form.is_complete}
+                  onChange={e => update({ is_complete: e.target.checked })}
+                />
+                <span>Complete — clears from backlog</span>
+              </label>
             </div>
           </div>
 
