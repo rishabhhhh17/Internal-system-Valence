@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { format, addDays, addWeeks, addMonths, startOfMonth, endOfMonth, isSameDay, isSameMonth, differenceInMinutes, isAfter } from 'date-fns'
 import { CalendarDays, ChevronLeft, ChevronRight, Plus, Users, Clock, MapPin, Sparkles, ExternalLink, Globe, X, RefreshCw, LogOut, AlertTriangle } from 'lucide-react'
 import { supabase, isSupabaseConfigured } from '../lib/supabase.js'
-import { railClass as ctyRail, COUNTERPARTY_LEGEND } from '../lib/counterpartyColors.js'
+import { railClass as ctyRail, chipClass as ctyChip, labelFor as ctyLabel, COUNTERPARTY_LEGEND } from '../lib/counterpartyColors.js'
 import {
   weekStart, weekEnd, addMinutes,
   DEFAULT_WORKING_HOURS, CALENDAR_COLOR_PALETTE,
@@ -956,9 +956,17 @@ function EventPopover({ event, anchor, calendar, people, onClose }) {
       >
         <div className="flex items-start justify-between gap-3 px-5 pt-4 pb-3">
           <div className="min-w-0 flex-1">
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
               <span className={`h-2.5 w-2.5 rounded-full ${cls}`} />
               <p className="text-xs text-valence-muted truncate">{calendar?.name || 'Unknown calendar'}</p>
+              {/* Phase 26 — surface the counterparty-type chip in the
+                  popover so the rail colour on the event chip has an
+                  explanatory label one click away. */}
+              {event.counterparty_type && (
+                <span className={`inline-flex items-center rounded-full border px-1.5 py-0 text-[10px] font-semibold ${ctyChip(event.counterparty_type)}`}>
+                  {ctyLabel(event.counterparty_type)}
+                </span>
+              )}
             </div>
             <h3 className="mt-1 text-base font-semibold text-valence-text">{event.title}</h3>
           </div>
