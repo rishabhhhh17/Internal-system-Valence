@@ -18,6 +18,7 @@ import {
   setApiKey as setProviderApiKey,
   clearApiKey as clearProviderApiKey
 } from './llmProviders.js'
+import { firmDisplayName } from './firmIdentity.js'
 
 const LLM_PROXY_URL        = '/api/llm'
 const LLM_PROXY_STREAM_URL = '/api/llm-stream'
@@ -406,7 +407,7 @@ export async function llmCallRaw({ url, body, actionType = null } = {}) {
 }
 
 export async function generateDaySummary({ meetings, tasks, dateLabel }) {
-  const prompt = `You are the personal assistant for a senior professional at Valence Growth Partners, a global investment advisory firm. Write a short, confident summary of their day ahead — tight, 3 to 4 sentences maximum. No bullet lists, no emojis, no headings. Keep it professional and calm, the voice of a discreet chief-of-staff. Mention the most important meeting first and how many tasks are open.
+  const prompt = `You are the personal assistant for a senior professional at ${firmDisplayName('the firm')}, a global investment advisory firm. Write a short, confident summary of their day ahead — tight, 3 to 4 sentences maximum. No bullet lists, no emojis, no headings. Keep it professional and calm, the voice of a discreet chief-of-staff. Mention the most important meeting first and how many tasks are open.
 
 Date: ${dateLabel}
 
@@ -421,7 +422,7 @@ Write the summary now.`
 }
 
 export async function draftMeetingMessage({ title, date, time, attendeeName }) {
-  const prompt = `You are the personal assistant for a senior advisor at Valence Growth Partners, a global investment advisory firm based in Mumbai and London. Draft a short, professional email message proposing a meeting to the opposing partner. The tone should be warm but precise — the voice of a discreet chief-of-staff. No placeholders like [Your Name], no subject line, no greeting boilerplate other than "Hi {first name},". Keep it 3 to 5 sentences. Do not mention that an AI wrote it.
+  const prompt = `You are the personal assistant for a senior advisor at ${firmDisplayName('the firm')}, a global investment advisory firm based in Mumbai and London. Draft a short, professional email message proposing a meeting to the opposing partner. The tone should be warm but precise — the voice of a discreet chief-of-staff. No placeholders like [Your Name], no subject line, no greeting boilerplate other than "Hi {first name},". Keep it 3 to 5 sentences. Do not mention that an AI wrote it.
 
 Meeting title: ${title}
 Proposed date: ${date}
@@ -453,7 +454,7 @@ export async function generateDealBrief({ deal, contacts = [], files = [], activ
     deal.fee_success_pct    ? `${deal.fee_success_pct}% success fee` : null
   ].filter(Boolean).join(' + ') || 'Fee structure TBD'
 
-  const prompt = `You are a senior associate at Valence Growth Partners preparing an internal one-pager on a live mandate, the kind a partner would scan five minutes before walking into a meeting. Tone: crisp, pragmatic, investment-banking-grade. No emojis, no markdown, no bullet markers in prose — the renderer styles structure from the section labels.
+  const prompt = `You are a senior associate at ${firmDisplayName('the firm')} preparing an internal one-pager on a live mandate, the kind a partner would scan five minutes before walking into a meeting. Tone: crisp, pragmatic, investment-banking-grade. No emojis, no markdown, no bullet markers in prose — the renderer styles structure from the section labels.
 
 Produce four short labelled sections in this exact order, each 2–3 sentences:
 
@@ -519,7 +520,7 @@ export function emailScenarios() { return EMAIL_SCENARIOS }
 
 // ============ MEETING → ACTION ITEMS ============
 export async function summariseMeeting({ title, notes, dateLabel, attendees = [] }) {
-  const prompt = `You are a senior associate at Valence Growth Partners. The user just had a meeting and pasted their raw notes below. Produce a concise, professional summary AND a structured list of action items.
+  const prompt = `You are a senior associate at ${firmDisplayName('the firm')}. The user just had a meeting and pasted their raw notes below. Produce a concise, professional summary AND a structured list of action items.
 
 Return STRICT JSON matching this schema, and nothing else:
 {
@@ -552,7 +553,7 @@ ${notes}`
 
 // ============ TEASER → DEAL FIELDS ============
 export async function extractDealFromTeaser(text) {
-  const prompt = `You are a senior associate at Valence Growth Partners ingesting an external teaser or information memorandum. Extract the fields below from the text and return STRICT JSON only.
+  const prompt = `You are a senior associate at ${firmDisplayName('the firm')} ingesting an external teaser or information memorandum. Extract the fields below from the text and return STRICT JSON only.
 
 Schema (null where unknown):
 {
@@ -580,9 +581,9 @@ ${text.slice(0, 9000)}`
 export async function draftEmail({ scenario, deal, contact }) {
   const spec = EMAIL_SCENARIOS[scenario] || EMAIL_SCENARIOS.intro
   const first = (contact?.name || '').split(' ')[0] || 'there'
-  const prompt = `You are the chief-of-staff for a senior advisor at Valence Growth Partners, a global investment advisory firm based in Mumbai and London. Draft ${spec.instruction}
+  const prompt = `You are the chief-of-staff for a senior advisor at ${firmDisplayName('the firm')}, a global investment advisory firm based in Mumbai and London. Draft ${spec.instruction}
 
-The tone is professional, warm but precise. No emojis, no placeholders like [Your Name]. Start directly with "Hi ${first}," and sign off simply with "Best, Valence Growth Partners". Keep the body to 3–6 short sentences. Do not mention that an AI wrote it.
+The tone is professional, warm but precise. No emojis, no placeholders like [Your Name]. Start directly with "Hi ${first}," and sign off simply with "Best, ${firmDisplayName('the firm')}". Keep the body to 3–6 short sentences. Do not mention that an AI wrote it.
 
 Context:
 - Mandate: ${deal.client_name} — ${deal.deal_type} (${deal.side || 'Advisory'})

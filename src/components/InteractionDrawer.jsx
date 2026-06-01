@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Sparkles, UserCircle, Plus, FileText, Mic, Upload, Wand2, Trash2, Loader2, ExternalLink } from 'lucide-react'
+import { Sparkles, UserCircle, Plus, FileText, Mic, Upload, Wand2, Trash2, Loader2, ExternalLink, ChevronDown, ChevronRight, Briefcase, TrendingUp, Users } from 'lucide-react'
 import Drawer from './Drawer.jsx'
 import { supabase, isSupabaseConfigured } from '../lib/supabase.js'
 import { humanError } from '../lib/userError.js'
@@ -27,6 +27,11 @@ const TRANSCRIPT_SOURCES = [
 const BLANK = {
   interaction_purpose: 'pitch_for_mandate',
   type: 'intro_call',
+  // Phase 26 — sets the colour rail on Interactions / Calendar / Team
+  // distribution. Default null so the partner picks; auto-derives via
+  // person.tags or fund-match if they leave it null (server-side
+  // backfill query still runs for legacy rows).
+  counterparty_type: null,         // 'founder' | 'investor' | 'general' | null
   person_id: '',                 // FK to people; preferred path
   counterparty_name: '',         // free-text fallback if person_id unset
   counterparty_company: '',
@@ -153,6 +158,7 @@ export default function InteractionDrawer({ open, onClose, existing, onSubmit })
       counterparty_name: form.counterparty_name.trim(),
       counterparty_company: form.counterparty_company.trim() || null,
       counterparty_role: form.counterparty_role.trim() || null,
+      counterparty_type: form.counterparty_type || null,
       outcome: form.outcome,
       notes: form.notes.trim() || null,
       follow_up_date: form.follow_up_date || null,
@@ -190,43 +196,6 @@ export default function InteractionDrawer({ open, onClose, existing, onSubmit })
       }
     >
       <form id="interaction-form" onSubmit={submit} className="space-y-5">
-        <div>
-          <label className="vl-label">Context</label>
-          <p className="text-[11px] text-valence-subtle mb-2">What stage of the relationship is this touchpoint?</p>
-          <div className="space-y-3">
-            {CONTEXT_GROUPS.map(g => {
-              const items = PURPOSES.filter(p => p.group === g.id)
-              return (
-                <div key={g.id}>
-                  <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-valence-subtle mb-1.5">{g.label}</p>
-                  <div className="grid grid-cols-2 gap-2">
-                    {items.map(p => (
-                      <button
-                        key={p.id}
-                        type="button"
-                        onClick={() => update({ interaction_purpose: p.id })}
-                        className={`rounded-lg border px-3 py-2 text-left text-xs transition ${
-                          form.interaction_purpose === p.id
-                            ? 'border-valence-blue/40 bg-valence-blue-soft text-valence-text'
-                            : 'border-valence-border bg-valence-elevated text-valence-muted hover:text-valence-text'
-                        }`}
-                      >
-                        <p className="font-semibold">{p.label}</p>
-                        <p className="mt-0.5 text-[11px] leading-snug text-valence-subtle">{p.blurb}</p>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )
-            })}
-          </div>
-          {purposeBlurb && (
-            <p className="mt-2 inline-flex items-center gap-1.5 text-[11px] text-valence-muted">
-              <Sparkles className="h-3 w-3 text-valence-blue" /> Outcomes available: {allowedOutcomes.map(outcomeLabel).join(' · ')}
-            </p>
-          )}
-        </div>
-
         {/* Person picker — typed search → dropdown → Create Person fallback */}
         <div className="rounded-xl border border-valence-border bg-valence-surface p-4 space-y-3">
           <div className="flex items-center justify-between">
@@ -344,43 +313,44 @@ export default function InteractionDrawer({ open, onClose, existing, onSubmit })
           </div>
         </div>
 
-        <div className="grid gap-4 sm:grid-cols-2">
-          <div>
-            <label className="vl-label">Type</label>
-            <select className="vl-input mt-1.5" value={form.type} onChange={e => update({ type: e.target.value })}>
-              {TYPES.map(t => <option key={t.id} value={t.id}>{t.label}</option>)}
-            </select>
-          </div>
-          <div>
-            <label className="vl-label">Outcome</label>
-            <select className="vl-input mt-1.5" value={form.outcome} onChange={e => update({ outcome: e.target.value })}>
-              {allowedOutcomes.map(o => <option key={o} value={o}>{outcomeLabel(o)}</option>)}
-            </select>
-            <p className="mt-1.5 text-[11px] text-valence-muted">Outcomes scoped to {purposeLabel(form.interaction_purpose).toLowerCase()}.</p>
-          </div>
-        </div>
-
-        <div className="grid gap-4 sm:grid-cols-2">
-          <div>
-            <label className="vl-label">Follow-up date</label>
-            <input type="date" className="vl-input mt-1.5" value={form.follow_up_date || ''} onChange={e => update({ follow_up_date: e.target.value })} />
-          </div>
-          <div>
-            <label className="vl-label">Linked deal <span className="text-valence-subtle">(optional)</span></label>
-            <select className="vl-input mt-1.5" value={form.deal_id || ''} onChange={e => update({ deal_id: e.target.value })}>
-              <option value="">— None —</option>
-              {deals.map(d => <option key={d.id} value={d.id}>{d.client_name} · {d.stage}</option>)}
-            </select>
-          </div>
-        </div>
-
+        {/* Counterparty type — the prominent toggle that drives the colour
+            rail across Interactions / Calendar / Team distribution bars.
+            Partner's #1 ask from the Fathom call: "screen time on your
+            phone" for founder vs investor balance — only works if every
+            new interaction gets tagged here. */}
         <div>
-          <label className="vl-label flex items-center gap-2">
-            Notes
-            <span className="text-[10px] font-normal normal-case tracking-normal text-valence-muted">
-              Type <span className="vl-kbd">[[</span> to link people / funds / mandates
-            </span>
-          </label>
+          <label className="vl-label">Who is this with?</label>
+          <div className="mt-1.5 grid grid-cols-3 gap-2">
+            {[
+              { id: 'founder',  label: 'Founder',  blurb: 'Client / company',     icon: Briefcase,  active: 'border-emerald-400 bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300' },
+              { id: 'investor', label: 'Investor', blurb: 'Fund / LP / buyer',    icon: TrendingUp, active: 'border-indigo-400 bg-indigo-50 text-indigo-700 dark:bg-indigo-500/10 dark:text-indigo-300' },
+              { id: 'general',  label: 'Other',    blurb: 'Networking / counsel', icon: Users,      active: 'border-slate-400 bg-slate-100 text-slate-700 dark:bg-slate-500/15 dark:text-slate-200' }
+            ].map(t => {
+              const Icon = t.icon
+              const isOn = form.counterparty_type === t.id
+              return (
+                <button
+                  key={t.id}
+                  type="button"
+                  onClick={() => update({ counterparty_type: isOn ? null : t.id })}
+                  className={`rounded-lg border px-3 py-2 text-left transition ${
+                    isOn ? t.active : 'border-valence-border bg-valence-elevated text-valence-muted hover:text-valence-text'
+                  }`}
+                >
+                  <Icon className="h-3.5 w-3.5" />
+                  <p className="mt-1 text-xs font-semibold">{t.label}</p>
+                  <p className="text-[10px] text-valence-subtle leading-tight">{t.blurb}</p>
+                </button>
+              )
+            })}
+          </div>
+        </div>
+
+        {/* Notes — the main thing. Save button below this is the partner's
+            fast path. Everything else lives behind "More options" so a
+            partner can capture "called Aman, follow up Friday" in 3 fields. */}
+        <div>
+          <label className="vl-label">Notes</label>
           <WikilinkTextarea
             className="vl-input mt-1.5 min-h-[140px] leading-relaxed"
             value={form.notes}
@@ -389,9 +359,101 @@ export default function InteractionDrawer({ open, onClose, existing, onSubmit })
           />
         </div>
 
-        <TranscriptSection form={form} update={update} />
+        {/* "More options" — everything past this point is for a partner
+            who wants the full taxonomy. Default-collapsed so the modal
+            reads as Person → Type → Notes → Save. Auto-opens when editing
+            an existing interaction so all the previously-set fields are
+            visible. */}
+        <MoreOptions
+          form={form}
+          update={update}
+          deals={deals}
+          allowedOutcomes={allowedOutcomes}
+          purposeBlurb={purposeBlurb}
+          defaultOpen={!!existing}
+        />
       </form>
     </Drawer>
+  )
+}
+
+// ============================================================================
+// MoreOptions — progressive disclosure of the advanced fields. Same form
+// state, just hidden by default. Partner can capture an interaction with
+// {Person, Type, Notes} in <10 seconds without seeing this section at all.
+// ============================================================================
+function MoreOptions({ form, update, deals, allowedOutcomes, purposeBlurb, defaultOpen }) {
+  const [open, setOpen] = useState(defaultOpen)
+  return (
+    <div className="rounded-xl border border-valence-border bg-valence-surface/40">
+      <button
+        type="button"
+        onClick={() => setOpen(o => !o)}
+        className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left transition hover:bg-valence-surface"
+        aria-expanded={open}
+      >
+        <span className="inline-flex items-center gap-2 text-xs font-semibold text-valence-text">
+          {open ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
+          More options
+        </span>
+        <span className="text-[10px] text-valence-subtle">Purpose · type · outcome · follow-up · linked deal · transcript</span>
+      </button>
+
+      {open && (
+        <div className="space-y-5 px-4 pb-5">
+          <div>
+            <label className="vl-label">Purpose</label>
+            <select
+              className="vl-input mt-1.5"
+              value={form.interaction_purpose}
+              onChange={e => update({ interaction_purpose: e.target.value })}
+            >
+              {CONTEXT_GROUPS.map(g => (
+                <optgroup key={g.id} label={g.label}>
+                  {PURPOSES.filter(p => p.group === g.id).map(p => (
+                    <option key={p.id} value={p.id}>{p.label}</option>
+                  ))}
+                </optgroup>
+              ))}
+            </select>
+            {purposeBlurb && (
+              <p className="mt-1.5 text-[11px] text-valence-muted">{purposeBlurb}</p>
+            )}
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div>
+              <label className="vl-label">Type</label>
+              <select className="vl-input mt-1.5" value={form.type} onChange={e => update({ type: e.target.value })}>
+                {TYPES.map(t => <option key={t.id} value={t.id}>{t.label}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="vl-label">Outcome</label>
+              <select className="vl-input mt-1.5" value={form.outcome} onChange={e => update({ outcome: e.target.value })}>
+                {allowedOutcomes.map(o => <option key={o} value={o}>{outcomeLabel(o)}</option>)}
+              </select>
+            </div>
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div>
+              <label className="vl-label">Follow-up date</label>
+              <input type="date" className="vl-input mt-1.5" value={form.follow_up_date || ''} onChange={e => update({ follow_up_date: e.target.value })} />
+            </div>
+            <div>
+              <label className="vl-label">Linked deal <span className="text-valence-subtle">(optional)</span></label>
+              <select className="vl-input mt-1.5" value={form.deal_id || ''} onChange={e => update({ deal_id: e.target.value })}>
+                <option value="">— None —</option>
+                {deals.map(d => <option key={d.id} value={d.id}>{d.client_name} · {d.stage}</option>)}
+              </select>
+            </div>
+          </div>
+
+          <TranscriptSection form={form} update={update} />
+        </div>
+      )}
+    </div>
   )
 }
 

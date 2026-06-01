@@ -3,6 +3,7 @@
 // claims to verify, and action items. Plus a tight 3-sentence summary.
 
 import { isGeminiConfigured, llmCall } from './gemini.js'
+import { firmDisplayName } from './firmIdentity.js'
 
 export const TRANSCRIPT_SOURCES = [
   { id: 'otter',     label: 'Otter.ai' },
@@ -35,7 +36,8 @@ export async function extractMeetingIntelligence({ deal, transcript }) {
       summary: 'Gemini key not configured — paste-only mode. The transcript has been saved; extraction is skipped.'
     }
   }
-  const prompt = `You are a senior associate at Valence Growth Partners writing a post-meeting brief on a live mandate. Read the transcript and return JSON only.
+  const firm = firmDisplayName('the firm')
+  const prompt = `You are a senior associate at ${firm} writing a post-meeting brief on a live mandate. Read the transcript and return JSON only.
 
 Mandate context:
 - Client: ${deal?.client_name || '—'}

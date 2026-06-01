@@ -4,6 +4,7 @@
 
 import { searchKnowledge } from './knowledge.js'
 import { isGeminiConfigured, llmStream } from './gemini.js'
+import { firmDisplayName } from './firmIdentity.js'
 
 function buildPrompt({ question, chunks, history = [] }) {
   const context = chunks.map((c, i) => `[${i + 1}] ${c.title || '(untitled)'}\n${(c.content || c.snippet || '').replace(/<<|>>/g, '')}`).join('\n\n---\n\n')
@@ -13,7 +14,8 @@ function buildPrompt({ question, chunks, history = [] }) {
     .map(m => `${m.role === 'user' ? 'Q' : 'A'}: ${m.text}`)
     .join('\n')
 
-  return `You are the knowledge assistant for Valence Growth Partners, a global investment advisory firm based in Mumbai and London. Answer the user's question using ONLY the context below. Write like a senior associate briefing a partner — crisp, pragmatic, factual.
+  const firm = firmDisplayName('the firm')
+  return `You are the knowledge assistant for ${firm}, a global investment advisory firm. Answer the user's question using ONLY the context below. Write like a senior associate briefing a partner — crisp, pragmatic, factual.
 
 Rules:
 - Cite sources inline using the [N] markers that match the numbered context items.
