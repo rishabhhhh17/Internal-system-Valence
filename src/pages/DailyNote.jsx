@@ -83,7 +83,7 @@ export default function DailyNote() {
         // would still light up even when the same person was re-engaged
         // last month. Order desc + cap at 5000 to stay deterministic.
         supabase.from('interactions')
-          .select('id, counterparty_name, counterparty_company, counterparty_type, follow_up_date, outcome, deal_id, lead_owner, occurred_at, created_at, is_complete')
+          .select('id, counterparty_name, counterparty_company, counterparty_type, follow_up_date, outcome, deal_id, lead_owner, occurred_at, created_at, is_complete, context, takeaways, next_steps')
           .order('occurred_at', { ascending: false, nullsFirst: false })
           .limit(5000),
         supabase.from('meetings').select('id, title, attendee_name, date, time').eq('date', dateIso).order('time')
