@@ -194,6 +194,11 @@ export default function NotificationCenter({ open, onClose, items, unread, refre
           const count = (t.types
             ? items.filter(i => t.types.includes(i.type))
             : (t.filter ? items.filter(t.filter) : items)).length
+          // Hide tabs with 0 count UNLESS they're 'All' (always shown as
+          // the home tab) or the currently-active tab (so the user can
+          // see why their filter went empty). Cuts the demo-state from
+          // "6 empty tabs" to just "All".
+          if (count === 0 && t.id !== 'all' && tab !== t.id) return null
           return (
             <button
               key={t.id}

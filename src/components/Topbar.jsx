@@ -8,6 +8,7 @@ import NotificationCenter, { useNotifications } from './NotificationCenter.jsx'
 import Tutorial from './Tutorial.jsx'
 import { useWorkspaceSetting } from '../hooks/useWorkspaceSetting.js'
 import { WORKSPACE_KEYS, setWorkspaceSetting } from '../lib/workspace.js'
+import { useFirmDisplayName } from '../lib/firmIdentity.js'
 import { signOut } from '../lib/google.js'
 
 // Title + subtitle per route. Keep titles in lockstep with the sidebar
@@ -39,7 +40,12 @@ const titles = {
 
 export default function Topbar() {
   const { pathname } = useLocation()
-  const meta = titles[pathname] || { title: 'ValenceOS', sub: '' }
+  // Page-title fallback for unmapped routes uses the firm name from the
+  // workspace setting — defaults to the neutral 'Today' rather than
+  // 'ValenceOS' so a prospect on a non-Valence tenant doesn't see the
+  // dev codename in their topbar.
+  const firmName = useFirmDisplayName('Today')
+  const meta = titles[pathname] || { title: firmName, sub: '' }
 
   const [notifOpen, setNotifOpen] = useState(false)
   const notifs = useNotifications({ live: true })
