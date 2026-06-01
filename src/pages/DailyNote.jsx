@@ -16,6 +16,7 @@ import WikilinkTextarea from '../components/WikilinkTextarea.jsx'
 import WikilinkText from '../components/WikilinkText.jsx'
 import StaleRelationships from '../components/StaleRelationships.jsx'
 import ExtensionStatus from '../components/ExtensionStatus.jsx'
+import { dotClass as ctyDot, labelFor as ctyLabel } from '../lib/counterpartyColors.js'
 
 // The Daily Note replaces the previous Overview page. One row per (user, date)
 // in the daily_notes table. The auto-section is computed every render from
@@ -34,6 +35,8 @@ export default function DailyNote() {
   const [activities, setActivities] = useState([])
   const [interactions, setInteractions] = useState([])
   const [meetings, setMeetings]   = useState([])
+  // 'all' | 'founder' | 'investor' | 'general' — drives the Priorities filter row.
+  const [priorityFilter, setPriorityFilter] = useState('all')
   const [prepMeeting, setPrepMeeting] = useState(null) // meeting object → opens MeetingPrepCard
   const [meetingsSource, setMeetingsSource] = useState('local') // 'local' | 'google'
   // When Google API call fails, set an actionable "Reconnect Google" hint
@@ -71,7 +74,16 @@ export default function DailyNote() {
       const [d, a, i, m] = await Promise.all([
         supabase.from('deals').select('id, client_name, stage, lead_owner, target_close, expected_close_date, deal_types, deal_subtype, updated_at, created_at, nda_status').order('updated_at', { ascending: false }),
         supabase.from('activities').select('deal_id, kind, created_at').order('created_at', { ascending: false }).limit(2000),
-        supabase.from('interactions').select('id, counterparty_name, counterparty_company, follow_up_date, outcome, deal_id, lead_owner').not('follow_up_date', 'is', null).lte('follow_up_date', dateIso),
+        // Pull ALL recent interactions (not just ones with follow_up_date) so
+        // we can compute the latest touch per counterparty. This is what
+        // drives the "X days since last touch" detail line — the old query
+        // only fetched rows with follow_up_date set, so a stale 2024 deadline
+        // would still light up even when the same person was re-engaged
+        // last month. Order desc + cap at 5000 to stay deterministic.
+        supabase.from('interactions')
+          .select('id, counterparty_name, counterparty_company, counterparty_type, follow_up_date, outcome, deal_id, lead_owner, occurred_at, created_at')
+          .order('occurred_at', { ascending: false, nullsFirst: false })
+          .limit(5000),
         supabase.from('meetings').select('id, title, attendee_name, date, time').eq('date', dateIso).order('time')
       ])
       setDeals(d.data || [])
@@ -209,18 +221,63 @@ export default function DailyNote() {
       }
     }
 
-    // Interactions due today or overdue
+    // Interactions due today or overdue.
+    //
+    // OLD LOGIC: a priority lit up for every interaction whose
+    // follow_up_date was past, regardless of whether the same person had
+    // been re-engaged since. Result: Madhvi showed "283 days overdue" from
+    // an Aug 2025 deadline even after we logged a meeting with her last
+    // month. The number was technically correct but completely misleading.
+    //
+    // NEW LOGIC:
+    //   1. Build latestByKey — map of counterparty (name+company) → most
+    //      recent interaction's occurred_at across the org.
+    //   2. Walk interactions in occurred_at DESC order so the first row we
+    //      see per counterparty is the most recent one.
+    //   3. Only emit a priority if THAT row has an overdue follow_up_date,
+    //      AND we haven't already emitted one for this counterparty. This
+    //      collapses N stale follow-ups for the same person into one entry
+    //      anchored on the latest touch.
+    //   4. Detail line shows "Last touch X days ago" — that's the number
+    //      that actually matters: when did we last speak to them.
+    //   5. Severity escalates with days-since-last-touch, not days-overdue.
+    const latestByKey = new Map()
+    for (const i of interactions) {
+      const key = ((i.counterparty_name || '') + '|' + (i.counterparty_company || '')).toLowerCase()
+      const t = new Date(i.occurred_at || i.created_at)
+      const prev = latestByKey.get(key)
+      if (!prev || t > prev) latestByKey.set(key, t)
+    }
+    const seenCounterparty = new Set()
     for (const i of interactions) {
       const dueIso = i.follow_up_date ? String(i.follow_up_date).slice(0, 10) : null
       if (!dueIso) continue
-      const t = parseISO(dueIso)
-      const days = differenceInCalendarDays(today, t)
-      const overdue = days > 0
+      const due  = parseISO(dueIso)
+      const dueDays = differenceInCalendarDays(today, due)
+      if (dueDays < 0) continue // not yet due
+
+      const key = ((i.counterparty_name || '') + '|' + (i.counterparty_company || '')).toLowerCase()
+      if (seenCounterparty.has(key)) continue
+      seenCounterparty.add(key)
+
+      const latest = latestByKey.get(key)
+      if (!latest) continue
+      // If we've spoken to them AFTER the deadline, they're re-engaged.
+      // Drop from priorities — the original deadline is moot now.
+      if (latest > due) continue
+
+      const daysSinceLatest = Math.max(0, differenceInCalendarDays(today, latest))
       priorities.push({
         id: `int-${i.id}`,
-        severity: overdue ? 'high' : 'warn',
+        // Stale > 30 days = high; fresher = warn.
+        severity: daysSinceLatest > 30 ? 'high' : 'warn',
         message: `Follow up · ${i.counterparty_name}${i.counterparty_company ? ' · ' + i.counterparty_company : ''}`,
-        detail: overdue ? `${days} day${days === 1 ? '' : 's'} overdue` : 'Due today',
+        detail: daysSinceLatest === 0
+          ? 'Due today'
+          : `Last touch ${daysSinceLatest} day${daysSinceLatest === 1 ? '' : 's'} ago`,
+        // Phase 26 — carry the counterparty_type so the Priorities card
+        // can filter by founder / investor / general.
+        cty: i.counterparty_type || null,
         to: '/interactions'
       })
     }
@@ -304,23 +361,65 @@ export default function DailyNote() {
           subtitle="Stale mandates · close-window · overdue follow-ups"
           countBadge={auto.priorities.length}
         >
+          {/* Phase 26 filter row — collapse the list down to one counterparty
+              type. Only renders when there are any tagged priorities so it
+              doesn't add visual noise to an inbox-zero day. Stale mandates
+              and close-window items have no counterparty_type so they only
+              show under "All". */}
+          {ready && auto.priorities.some(p => p.cty) && (
+            <div className="mb-3 flex flex-wrap items-center gap-1.5">
+              {['all', 'founder', 'investor', 'general'].map(t => {
+                const count = t === 'all'
+                  ? auto.priorities.length
+                  : auto.priorities.filter(p => p.cty === t).length
+                const active = priorityFilter === t
+                return (
+                  <button
+                    key={t}
+                    onClick={() => setPriorityFilter(t)}
+                    className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-[11px] font-semibold transition ${
+                      active
+                        ? 'border-valence-blue/40 bg-valence-blue-soft text-valence-blue'
+                        : 'border-valence-border bg-valence-surface text-valence-muted hover:text-valence-text'
+                    }`}
+                  >
+                    {t !== 'all' && <span className={`inline-block h-1.5 w-1.5 rounded-full ${ctyDot(t)}`} />}
+                    {t === 'all' ? 'All' : ctyLabel(t)}
+                    <span className="tabular-nums text-[10px] opacity-70">{count}</span>
+                  </button>
+                )
+              })}
+            </div>
+          )}
           {!ready ? (
             <SkeletonRows count={4} />
-          ) : auto.priorities.length === 0 ? (
-            <Empty>Inbox zero. Rare day.</Empty>
-          ) : (
-            <ExpandableList items={auto.priorities} initial={4} kind="priorities">
-              {p => (
-                <li key={p.id} className="flex items-start gap-3 py-2">
-                  <span className={`mt-1.5 h-1.5 w-1.5 rounded-full shrink-0 ${SEV_DOT[p.severity]}`} />
-                  <div className="min-w-0 flex-1">
-                    <Link to={p.to} className="text-sm text-valence-text hover:text-valence-blue">{p.message}</Link>
-                    {p.detail && <p className="mt-0.5 text-[11px] text-valence-muted">{p.detail}</p>}
-                  </div>
-                </li>
-              )}
-            </ExpandableList>
-          )}
+          ) : (() => {
+              // Apply the filter — keep all stale-mandate / close-window
+              // items only when filter is 'all', since those don't carry a
+              // counterparty type.
+              const visible = priorityFilter === 'all'
+                ? auto.priorities
+                : auto.priorities.filter(p => p.cty === priorityFilter)
+              if (visible.length === 0) {
+                return <Empty>{priorityFilter === 'all' ? 'Inbox zero. Rare day.' : 'Nothing in this bucket.'}</Empty>
+              }
+              return (
+                <ExpandableList items={visible} initial={4} kind="priorities">
+                  {p => (
+                    <li key={p.id} className="flex items-start gap-3 py-2">
+                      <span className={`mt-1.5 h-1.5 w-1.5 rounded-full shrink-0 ${SEV_DOT[p.severity]}`} />
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-1.5">
+                          {p.cty && <span className={`inline-block h-1.5 w-1.5 rounded-full ${ctyDot(p.cty)}`} title={ctyLabel(p.cty)} />}
+                          <Link to={p.to} className="text-sm text-valence-text hover:text-valence-blue truncate">{p.message}</Link>
+                        </div>
+                        {p.detail && <p className="mt-0.5 text-[11px] text-valence-muted">{p.detail}</p>}
+                      </div>
+                    </li>
+                  )}
+                </ExpandableList>
+              )
+            })()}
         </Card>
 
         <Card
