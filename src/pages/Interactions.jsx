@@ -3,9 +3,19 @@ import { Link } from 'react-router-dom'
 import { format, formatDistanceToNowStrict, parseISO, differenceInCalendarDays } from 'date-fns'
 import { Plus, Search, Sparkles, ArrowRight, AlertCircle, MessageSquare, Download } from 'lucide-react'
 import { supabase, isSupabaseConfigured, subscribeTable } from '../lib/supabase.js'
-import {
-  PURPOSES, CONTEXT_GROUPS, DEMO_INTERACTIONS, purposeLabel, typeLabel, outcomeLabel, outcomeTone
-} from '../lib/interactions.js'
+import { DEMO_INTERACTIONS, typeLabel } from '../lib/interactions.js'
+
+// Pretty label for the new mandate_link_mode column. Falls back to the
+// legacy Purpose for any row still on the old shape.
+function mandateModeLabel(row) {
+  switch (row.mandate_link_mode) {
+    case 'self':     return 'Self'
+    case 'general':  return 'General'
+    case 'multi':    return 'Multi-mandate'
+    case 'specific': return 'Mandate-linked'
+    default:         return row.interaction_purpose ? 'Legacy' : 'General'
+  }
+}
 import { toCSV, downloadCSV, timestampedFilename } from '../lib/csvExport.js'
 import { railClass as ctyRail, chipClass as ctyChip, labelFor as ctyLabel } from '../lib/counterpartyColors.js'
 import { useViewMode } from '../hooks/useViewMode.jsx'
@@ -23,12 +33,25 @@ export default function Interactions() {
   const [rows, setRows]           = useState([])
   const [loading, setLoading]     = useState(true)
   const [loadError, setLoadError] = useState(null)
-  const [purpose, setPurpose]     = useState('All')
+  // Phase 3 redesign — filter dropdown is now "Associated Mandate" not
+  // Purpose. Values: 'All' | 'self' | 'general' | 'multi' | 'specific'
+  // | '<deal-uuid>'. The latter lets the partner drill into one mandate.
+  const [mandateFilter, setMandateFilter] = useState('All')
+  const [deals, setDeals]                 = useState([])
   const [q, setQ]                 = useState('')
   const [needsFollowUp, setNeedsFollowUp] = useState(false)
   const [drawer, setDrawer] = useState(null)   // null | 'new' | { row }
 
   useEffect(() => { load() }, [])
+  // Pull active mandates for the filter dropdown's per-deal options.
+  useEffect(() => {
+    if (!isSupabaseConfigured) { setDeals([]); return }
+    supabase.from('deals')
+      .select('id, client_name, stage')
+      .not('stage', 'in', '("Closed","Lost","On Hold")')
+      .order('client_name')
+      .then(({ data }) => setDeals(data || []))
+  }, [])
 
   // Live sync — teammate's new interaction shows up here without reload.
   useEffect(() => {
@@ -94,14 +117,14 @@ export default function Interactions() {
       { key: 'counterparty_company',label: 'Company' },
       { key: 'counterparty_role',   label: 'Role' },
       { key: 'interaction_type',    label: 'Type' },
-      { key: 'interaction_purpose', label: 'Purpose' },
-      { key: 'outcome',             label: 'Outcome' },
+      { key: 'mandate_link_mode',   label: 'Mandate' },
+      { key: 'origination',         label: 'Origination' },
       { key: 'follow_up_date',      label: 'Follow-up date' },
       { key: 'lead_owner',          label: 'Owner' },
       { key: 'notes',               label: 'Notes' }
     ]
     const csv = toCSV(filtered, columns)
-    const stem = purpose === 'All' ? 'interactions' : `interactions-${purpose}`
+    const stem = mandateFilter === 'All' ? 'interactions' : `interactions-${mandateFilter.replace(/[^a-z0-9]+/gi, '_')}`
     const ok = downloadCSV(timestampedFilename(stem), csv)
     if (ok) toast.success(`Exported ${filtered.length} interactions.`)
     else toast.error('Download failed.')
@@ -117,9 +140,23 @@ export default function Interactions() {
   const filtered = useMemo(() => {
     const needle = q.trim().toLowerCase()
     return rows.filter(r => {
-      if (purpose !== 'All' && r.interaction_purpose !== purpose) return false
+      if (mandateFilter !== 'All') {
+        const isMode  = ['self', 'general', 'multi', 'specific'].includes(mandateFilter)
+        if (isMode) {
+          if (r.mandate_link_mode !== mandateFilter) return false
+        } else {
+          // Specific deal UUID — match either deal_id or self-mode rows
+          // whose company matches that deal's client_name.
+          const d = deals.find(x => x.id === mandateFilter)
+          const isOnDeal = r.deal_id === mandateFilter
+          const isSelfMatch = r.mandate_link_mode === 'self' && d
+            && (r.counterparty_company || '').toLowerCase().trim() === (d.client_name || '').toLowerCase().trim()
+          if (!isOnDeal && !isSelfMatch) return false
+        }
+      }
       if (needsFollowUp) {
         if (!r.follow_up_date) return false
+        if (r.is_complete) return false
         const due = typeof r.follow_up_date === 'string' ? parseISO(r.follow_up_date) : new Date(r.follow_up_date)
         if (Number.isNaN(due.getTime())) return false
         if (differenceInCalendarDays(due, new Date()) > 0) return false  // not yet due
@@ -128,7 +165,7 @@ export default function Interactions() {
       return [r.counterparty_name, r.counterparty_company, r.counterparty_role, r.notes, r.lead_owner]
         .some(v => (v || '').toLowerCase().includes(needle))
     })
-  }, [rows, purpose, q, needsFollowUp])
+  }, [rows, mandateFilter, deals, q, needsFollowUp])
 
   return (
     <div className="space-y-4">
@@ -155,20 +192,23 @@ export default function Interactions() {
           collapsed into a native select so the page reads at-a-glance. */}
       <div className="flex flex-wrap items-center gap-2">
         <select
-          value={purpose}
-          onChange={e => setPurpose(e.target.value)}
+          value={mandateFilter}
+          onChange={e => setMandateFilter(e.target.value)}
           className="h-8 rounded-md border border-valence-border bg-valence-elevated px-2.5 text-xs font-medium text-valence-text focus:border-valence-blue outline-none"
-          aria-label="Context filter"
+          aria-label="Mandate filter"
         >
-          <option value="All">All contexts</option>
-          {CONTEXT_GROUPS.map(g => {
-            const items = PURPOSES.filter(p => p.group === g.id)
-            return (
-              <optgroup key={g.id} label={g.label}>
-                {items.map(p => <option key={p.id} value={p.id}>{p.label}</option>)}
-              </optgroup>
-            )
-          })}
+          <option value="All">All mandates</option>
+          <optgroup label="By mode">
+            <option value="self">Self — client about themselves</option>
+            <option value="general">General — no mandate link</option>
+            <option value="multi">Multi-mandate</option>
+            <option value="specific">Specific (any linked)</option>
+          </optgroup>
+          {deals.length > 0 && (
+            <optgroup label="Active mandates">
+              {deals.map(d => <option key={d.id} value={d.id}>{d.client_name} · {d.stage}</option>)}
+            </optgroup>
+          )}
         </select>
         <button
           onClick={() => setNeedsFollowUp(v => !v)}
@@ -245,15 +285,26 @@ function InteractionRow({ row, onOpen, onConvert, isDetailed = true }) {
                 {ctyLabel(row.counterparty_type)}
               </span>
             )}
+            {/* Phase 3 redesign — show Mandate mode pill instead of the
+                legacy Purpose pill. Self-mode rows can show the linked
+                mandate name; Specific shows the deal stage. */}
             <span className="inline-flex items-center gap-1 rounded-full border border-valence-border bg-valence-elevated px-2 py-0.5 font-semibold text-valence-text">
-              {purposeLabel(row.interaction_purpose)}
+              {mandateModeLabel(row)}
             </span>
             <span className="text-valence-subtle">·</span>
             <span>{typeLabel(row.type)}</span>
-            <span className="text-valence-subtle">·</span>
-            <span className={`inline-flex items-center rounded-full border px-2 py-0.5 font-semibold ${outcomeTone(row.outcome)}`}>
-              {outcomeLabel(row.outcome)}
-            </span>
+            {row.origination && (
+              <>
+                <span className="text-valence-subtle">·</span>
+                <span className="capitalize">{row.origination}</span>
+              </>
+            )}
+            {row.is_complete && (
+              <>
+                <span className="text-valence-subtle">·</span>
+                <span className="text-valence-success font-semibold">✓ Complete</span>
+              </>
+            )}
             {row.lead_owner && <><span className="text-valence-subtle">·</span><span>{row.lead_owner}</span></>}
             {due && (
               <><span className="text-valence-subtle">·</span>
@@ -270,6 +321,10 @@ function InteractionRow({ row, onOpen, onConvert, isDetailed = true }) {
         </button>
         <div className="flex flex-col items-end gap-2 shrink-0 text-[11px] text-valence-subtle">
           <span>{ago}</span>
+          {/* Convert-to-origination CTA — legacy hook on outcome='converted_to_mandate'.
+              Outcome no longer surfaces on the form; rows still in the
+              legacy state continue to show this. New rows track conversion
+              via the mandate_link_mode change + deal_id set. */}
           {row.outcome === 'converted_to_mandate' && (
             <button onClick={onConvert} className="vl-btn-ghost text-[11px]">
               <Sparkles className="h-3 w-3" /> Convert to origination <ArrowRight className="h-3 w-3" />

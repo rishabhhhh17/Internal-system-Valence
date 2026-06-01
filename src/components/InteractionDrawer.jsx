@@ -3,9 +3,11 @@ import { Sparkles, UserCircle, Plus, FileText, Mic, Upload, Wand2, Trash2, Loade
 import Drawer from './Drawer.jsx'
 import { supabase, isSupabaseConfigured } from '../lib/supabase.js'
 import { humanError } from '../lib/userError.js'
-import {
-  PURPOSES, CONTEXT_GROUPS, TYPES, outcomesForPurpose, outcomeLabel, purposeLabel
-} from '../lib/interactions.js'
+// Phase 3 redesign — PURPOSES / CONTEXT_GROUPS / TYPES / outcomesForPurpose /
+// outcomeLabel / purposeLabel are no longer surfaced in the form. The
+// pages that still read those labels (/interactions, CommandPalette,
+// Feed) import them directly. The form now maps through SIMPLE_TYPES
+// below.
 import { DEMO_PEOPLE } from '../lib/people.js'
 import { extractText } from '../lib/fileParse.js'
 import { transcribeAndSummarise } from '../lib/voiceMemo.js'
@@ -123,7 +125,14 @@ export default function InteractionDrawer({ open, onClose, existing, onSubmit })
     }
     ;(async () => {
       const [d, p, s] = await Promise.all([
-        supabase.from('deals').select('id, client_name, stage').order('created_at', { ascending: false }).limit(200),
+        // Filter to non-terminal stages so the partner doesn't accidentally
+        // link a new interaction to a Closed / Lost mandate. Partner spec:
+        // active mandates only in the picker.
+        supabase.from('deals')
+          .select('id, client_name, stage')
+          .not('stage', 'in', '("Closed","Lost","On Hold")')
+          .order('created_at', { ascending: false })
+          .limit(200),
         supabase.from('people').select('id, full_name, role, company').order('full_name').limit(500),
         // Phase 3 redesign — POC dropdown is populated from active seats.
         supabase.from('seats').select('id, full_name, email').eq('active', true).order('added_at', { ascending: true })
@@ -134,16 +143,12 @@ export default function InteractionDrawer({ open, onClose, existing, onSubmit })
     })()
   }, [open])
 
-  // When the purpose changes, snap the outcome back to the first valid option.
-  useEffect(() => {
-    const allowed = outcomesForPurpose(form.interaction_purpose)
-    if (allowed.length && !allowed.includes(form.outcome)) {
-      setForm(f => ({ ...f, outcome: allowed[0] }))
-    }
-  }, [form.interaction_purpose])
-
-  const allowedOutcomes = useMemo(() => outcomesForPurpose(form.interaction_purpose), [form.interaction_purpose])
-  const purposeBlurb = PURPOSES.find(p => p.id === form.interaction_purpose)?.blurb
+  // Outcome and Purpose dropped from the UI in the Phase 3 redesign. The
+  // old "snap outcome to first valid" effect would silently re-write
+  // outcome='in_progress' on every form mount, even when the row's outcome
+  // was deliberately null. Killing it. Leaving the legacy fields untouched
+  // in `form.interaction_purpose` / `form.outcome` so legacy reads don't
+  // break, but no new row gets stamped with values the user didn't pick.
 
   function update(patch) { setForm(f => ({ ...f, ...patch })) }
 
@@ -203,37 +208,58 @@ export default function InteractionDrawer({ open, onClose, existing, onSubmit })
     if (submitting) return
     if (!form.counterparty_name.trim()) return
     // Phase 3 redesign — resolve Associated Mandate mode → deal_id.
-    //   self     : look up the deal where client_name matches the company
-    //   specific : use form.deal_id directly
+    //   self     : look up the deal where client_name matches the company.
+    //              If nothing matches, FAIL LOUDLY (toast) instead of
+    //              silently saving deal_id=null — otherwise the Activity
+    //              tab on the deal misses the row.
+    //   specific : use form.deal_id directly. Reject if blank.
     //   general  : deal_id null
-    //   multi    : deal_id null + mandate_link_mode='multi' (UI surfaces
-    //              the "spans multiple mandates" chip later when we
-    //              build that view)
+    //   multi    : deal_id null
     let resolvedDealId = null
-    if (form.mandate_link_mode === 'self' && form.counterparty_company) {
-      const match = deals.find(
-        d => d.client_name?.toLowerCase().trim() === form.counterparty_company.toLowerCase().trim()
-      )
-      resolvedDealId = match?.id || null
-    } else if (form.mandate_link_mode === 'specific') {
-      resolvedDealId = form.deal_id || null
+    let resolvedMode   = form.mandate_link_mode || 'general'
+    if (resolvedMode === 'self') {
+      const co = form.counterparty_company?.trim().toLowerCase()
+      if (!co) {
+        toast.error('Pick "Self" only after entering a Company. Or use General / Multi-mandate.')
+        return
+      }
+      const match = deals.find(d => d.client_name?.toLowerCase().trim() === co)
+      if (!match) {
+        toast.error(`No active mandate matches "${form.counterparty_company}". Use Specific to pick one, or General.`)
+        return
+      }
+      resolvedDealId = match.id
+    } else if (resolvedMode === 'specific') {
+      if (!form.deal_id) {
+        toast.error('Pick a mandate from the dropdown.')
+        return
+      }
+      resolvedDealId = form.deal_id
     }
     const payload = {
-      interaction_purpose: form.interaction_purpose, // legacy column, kept for the min_payload check
+      // Legacy column. New rows leave it null — the redesign uses
+      // mandate_link_mode as the real signal. The DB's min_payload check
+      // requires either source OR purpose+type+outcome; we satisfy via
+      // source='manual' below so this can stay null without violating.
+      interaction_purpose: existing?.interaction_purpose || null,
       type: form.type,
       person_id: form.person_id || null,
       counterparty_name: form.counterparty_name.trim(),
       counterparty_company: form.counterparty_company.trim() || null,
       counterparty_role: form.counterparty_role.trim() || null,
       counterparty_type: form.counterparty_type || null,
-      // outcome dropped from UI; keep column null on new rows.
-      outcome: form.outcome || null,
+      // Outcome no longer in UI. Preserve existing rows' value on edit;
+      // null on new rows.
+      outcome: existing?.outcome || null,
       notes: form.notes.trim() || null,
       follow_up_date: form.follow_up_date || null,
       is_complete: !!form.is_complete,
       lead_owner: form.lead_owner.trim() || null,
-      mandate_link_mode: form.mandate_link_mode || 'general',
+      mandate_link_mode: resolvedMode,
       origination: form.origination || null,
+      // Satisfies interactions_min_payload_chk (source OR purpose+type+outcome).
+      // Existing rows keep their original source; new rows tag 'manual'.
+      source: existing?.source || 'manual',
       deal_id: resolvedDealId,
       // Phase 3.7 — transcript / audio
       transcript: form.transcript?.trim() || null,

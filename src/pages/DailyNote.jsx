@@ -250,10 +250,18 @@ export default function DailyNote() {
       return Array.from(new Set(tokens)).sort().join(' ')
     }
 
+    // Build latest-touch map. CRITICAL: only count rows that have a real
+    // `occurred_at`. Falling back to `created_at` looked sensible but it
+    // means freshly-imported rows (where occurred_at was never set)
+    // register as "touched today" — which suppresses every genuine
+    // overdue follow-up below them. The Mastersheet import does write
+    // occurred_at so this only bites legacy or AI-imported rows, but
+    // it's worth being strict.
     const latestByKey = new Map()
     for (const i of interactions) {
+      if (!i.occurred_at) continue
       const key = (i.counterparty_company || '').toLowerCase().trim() + '|' + normalizeName(i.counterparty_name)
-      const t = new Date(i.occurred_at || i.created_at)
+      const t = new Date(i.occurred_at)
       const prev = latestByKey.get(key)
       if (!prev || t > prev) latestByKey.set(key, t)
     }
@@ -272,12 +280,13 @@ export default function DailyNote() {
       seenCounterparty.add(key)
 
       const latest = latestByKey.get(key)
-      if (!latest) continue
-      // If we've spoken to them AFTER the deadline (across any spelling
-      // variant of the name), they're re-engaged. Drop the priority.
-      if (latest > due) continue
+      // If this row has no real occurred_at and no sibling row with one,
+      // anchor on the follow-up date itself so it still surfaces. Better
+      // an overestimate than silent suppression.
+      const anchor = latest || due
+      if (latest && latest > due) continue // re-engaged
 
-      const daysSinceLatest = Math.max(0, differenceInCalendarDays(today, latest))
+      const daysSinceLatest = Math.max(0, differenceInCalendarDays(today, anchor))
       priorities.push({
         id: `int-${i.id}`,
         // Stale > 30 days = high; fresher = warn.
