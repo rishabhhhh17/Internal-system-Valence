@@ -110,18 +110,22 @@ export default function Interactions() {
       toast.error('No rows to export — clear a filter first.')
       return
     }
+    // Column order mirrors the partner's Mastersheet so the export drops
+    // straight back into their format.
     const columns = [
-      { key: 'created_at',          label: 'Logged at' },
-      { key: 'date',                label: 'Date' },
-      { key: 'counterparty_name',   label: 'Counterparty' },
+      { key: 'occurred_at',         label: 'Date' },
+      { key: 'counterparty_name',   label: 'Name' },
       { key: 'counterparty_company',label: 'Company' },
-      { key: 'counterparty_role',   label: 'Role' },
-      { key: 'interaction_type',    label: 'Type' },
-      { key: 'mandate_link_mode',   label: 'Mandate' },
+      { key: 'context',             label: 'Context' },
+      { key: 'mandate_link_mode',   label: 'Associated Mandate' },
+      { key: 'interaction_type',    label: 'Interaction Type' },
       { key: 'origination',         label: 'Origination' },
-      { key: 'follow_up_date',      label: 'Follow-up date' },
-      { key: 'lead_owner',          label: 'Owner' },
-      { key: 'notes',               label: 'Notes' }
+      { key: 'lead_owner',          label: 'VGP POC' },
+      { key: 'takeaways',           label: 'Takeaways' },
+      { key: 'next_steps',          label: 'Next Steps' },
+      { key: 'follow_up_date',      label: 'Deadline' },
+      { key: 'is_complete',         label: 'Complete?' },
+      { key: 'counterparty_role',   label: 'Role' }
     ]
     const csv = toCSV(filtered, columns)
     const stem = mandateFilter === 'All' ? 'interactions' : `interactions-${mandateFilter.replace(/[^a-z0-9]+/gi, '_')}`

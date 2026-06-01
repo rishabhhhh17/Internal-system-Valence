@@ -78,6 +78,14 @@ const BLANK = {
   // surfaces it. Was always 'in_progress' for 1 in 500 actually-mandated
   // — net signal was zero, net annoyance was high.
   outcome: null,
+  // Phase 4 — form mirrors the partner's Mastersheet columns:
+  // Date · Context · Takeaways · Next Steps · Deadline. `notes` is kept
+  // as a composed denormalised blob so legacy reads (Feed, search) still
+  // render, but the three structured columns are the source of truth.
+  occurred_on: '',   // date the interaction happened (→ occurred_at)
+  context: '',       // one-line subject ("Fundraise strategy")
+  takeaways: '',     // what came out of it
+  next_steps: '',    // what to do next
   notes: '',
   follow_up_date: '',
   // Phase 3 redesign — Complete? checkbox drives backlog. If a
@@ -251,7 +259,20 @@ export default function InteractionDrawer({ open, onClose, existing, onSubmit })
       // Outcome no longer in UI. Preserve existing rows' value on edit;
       // null on new rows.
       outcome: existing?.outcome || null,
-      notes: form.notes.trim() || null,
+      // Phase 4 — structured columns mirroring the Mastersheet.
+      context:    form.context?.trim()    || null,
+      takeaways:  form.takeaways?.trim()  || null,
+      next_steps: form.next_steps?.trim() || null,
+      occurred_at: form.occurred_on
+        ? new Date(`${form.occurred_on}T12:00:00Z`).toISOString()
+        : (existing?.occurred_at || new Date().toISOString()),
+      // Composed denormalised blob from the three fields so legacy reads
+      // (Feed, search, AI context) still get a readable summary.
+      notes: [
+        form.context?.trim()    && `Context: ${form.context.trim()}`,
+        form.takeaways?.trim()  && `Takeaways: ${form.takeaways.trim()}`,
+        form.next_steps?.trim() && `Next Steps: ${form.next_steps.trim()}`
+      ].filter(Boolean).join('\n') || form.notes?.trim() || null,
       follow_up_date: form.follow_up_date || null,
       is_complete: !!form.is_complete,
       lead_owner: form.lead_owner.trim() || null,
@@ -448,16 +469,50 @@ export default function InteractionDrawer({ open, onClose, existing, onSubmit })
           </div>
         </div>
 
-        {/* Notes — the main thing. Save button below this is the partner's
-            fast path. Everything else lives behind "More options" so a
-            partner can capture "called Aman, follow up Friday" in 3 fields. */}
+        {/* Phase 4 — mirror the Mastersheet's columns exactly: Date +
+            Context (one-line subject) + Takeaways + Next Steps, the four
+            things the partner fills for every row. The old single "Notes"
+            blob is composed from these on save so legacy reads still work. */}
+        <div className="grid gap-3 sm:grid-cols-2">
+          <div>
+            <label className="vl-label">Date of interaction</label>
+            <input
+              type="date"
+              className="vl-input mt-1.5"
+              value={form.occurred_on || ''}
+              onChange={e => update({ occurred_on: e.target.value })}
+            />
+            <p className="mt-1 text-[10px] text-valence-subtle">When it actually happened — defaults to today.</p>
+          </div>
+          <div>
+            <label className="vl-label">Context</label>
+            <input
+              className="vl-input mt-1.5"
+              value={form.context}
+              onChange={e => update({ context: e.target.value })}
+              placeholder="Fundraise strategy"
+            />
+            <p className="mt-1 text-[10px] text-valence-subtle">One-line subject of the meeting.</p>
+          </div>
+        </div>
+
         <div>
-          <label className="vl-label">Notes</label>
+          <label className="vl-label">Takeaways</label>
           <WikilinkTextarea
-            className="vl-input mt-1.5 min-h-[140px] leading-relaxed"
-            value={form.notes}
-            onChange={v => update({ notes: v })}
-            placeholder="What was discussed, what was agreed, what's the next step…"
+            className="vl-input mt-1.5 min-h-[90px] leading-relaxed"
+            value={form.takeaways}
+            onChange={v => update({ takeaways: v })}
+            placeholder="- What came out of it…"
+          />
+        </div>
+
+        <div>
+          <label className="vl-label">Next steps</label>
+          <WikilinkTextarea
+            className="vl-input mt-1.5 min-h-[70px] leading-relaxed"
+            value={form.next_steps}
+            onChange={v => update({ next_steps: v })}
+            placeholder="- What we do next…"
           />
         </div>
 
@@ -774,6 +829,17 @@ function normalize(row) {
     notes: row.notes || '',
     lead_owner: row.lead_owner || '',
     deal_id: row.deal_id || '',
-    person_id: row.person_id || ''
+    person_id: row.person_id || '',
+    // Phase 4 — structured Mastersheet columns. occurred_at (timestamptz)
+    // → occurred_on (yyyy-mm-dd) for the date input. If the row predates
+    // the split (context/next_steps both null), fall back to showing the
+    // legacy notes blob under Takeaways so nothing is lost on edit.
+    occurred_on: row.occurred_at ? String(row.occurred_at).slice(0, 10) : '',
+    context:    row.context    || '',
+    takeaways:  row.takeaways  || (!row.context && !row.next_steps ? (row.notes || '') : ''),
+    next_steps: row.next_steps || '',
+    mandate_link_mode: row.mandate_link_mode || 'general',
+    origination: row.origination || null,
+    is_complete: !!row.is_complete
   }
 }
