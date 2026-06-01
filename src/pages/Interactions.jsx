@@ -17,7 +17,7 @@ function mandateModeLabel(row) {
   }
 }
 import { toCSV, downloadCSV, timestampedFilename } from '../lib/csvExport.js'
-import { railClass as ctyRail, chipClass as ctyChip, labelFor as ctyLabel } from '../lib/counterpartyColors.js'
+import { railClass as ctyRail, chipClass as ctyChip, labelFor as ctyLabel, dotClass as ctyDot } from '../lib/counterpartyColors.js'
 import { useViewMode } from '../hooks/useViewMode.jsx'
 import ConfigBanner from '../components/ConfigBanner.jsx'
 import EmptyState from '../components/EmptyState.jsx'
@@ -300,6 +300,42 @@ function InteractionRow({ row, onOpen, onConvert, isDetailed = true }) {
   // metadata row. Lets the partner skim a list and pattern-match against
   // founder vs investor density at a glance.
   const railCls = ctyRail(row.counterparty_type)
+  const when = row.occurred_at ? format(new Date(row.occurred_at), 'd MMM') : null
+
+  // SIMPLE view (default) — deliberately sparse so the list is scannable:
+  //   row 1: colour dot · Name · Company        type-chip      date
+  //   row 2: → Next: …  (one clamped line, only if there's a next step)
+  // Everything else (mandate pill, interaction type, origination, owner,
+  // takeaways, context) is hidden here and only shown in Detailed.
+  if (!isDetailed) {
+    return (
+      <li className="group">
+        <button onClick={onOpen} className={`flex w-full items-center gap-3 px-5 py-3 text-left hover:bg-valence-surface transition ${railCls}`}>
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-2 min-w-0">
+              {row.counterparty_type && <span className={`h-1.5 w-1.5 rounded-full shrink-0 ${ctyDot(row.counterparty_type)}`} title={ctyLabel(row.counterparty_type)} />}
+              <p className="text-sm font-semibold text-valence-text truncate">{row.counterparty_name}</p>
+              {row.counterparty_company && <span className="text-xs text-valence-muted truncate shrink-0 max-w-[40%]">· {row.counterparty_company}</span>}
+            </div>
+            {row.next_steps && (
+              <p className="mt-0.5 truncate text-xs text-valence-muted">
+                <span className="font-semibold text-valence-blue">Next: </span>{row.next_steps}
+              </p>
+            )}
+          </div>
+          <div className="shrink-0 text-right">
+            {when && <p className="text-[11px] tabular-nums text-valence-subtle">{when}</p>}
+            {due && overdue && !row.is_complete && (
+              <p className="text-[10px] font-semibold text-valence-danger">overdue</p>
+            )}
+            {row.is_complete && <p className="text-[10px] font-semibold text-valence-success">✓ done</p>}
+          </div>
+        </button>
+      </li>
+    )
+  }
+
+  // DETAILED view — the full record.
   return (
     <li className="group">
       <div className={`flex items-start gap-4 px-5 py-4 hover:bg-valence-surface transition ${railCls}`}>
@@ -315,26 +351,13 @@ function InteractionRow({ row, onOpen, onConvert, isDetailed = true }) {
                 {ctyLabel(row.counterparty_type)}
               </span>
             )}
-            {/* Phase 3 redesign — show Mandate mode pill instead of the
-                legacy Purpose pill. Self-mode rows can show the linked
-                mandate name; Specific shows the deal stage. */}
             <span className="inline-flex items-center gap-1 rounded-full border border-valence-border bg-valence-elevated px-2 py-0.5 font-semibold text-valence-text">
               {mandateModeLabel(row)}
             </span>
             <span className="text-valence-subtle">·</span>
             <span>{typeLabel(row.type)}</span>
-            {row.origination && (
-              <>
-                <span className="text-valence-subtle">·</span>
-                <span className="capitalize">{row.origination}</span>
-              </>
-            )}
-            {row.is_complete && (
-              <>
-                <span className="text-valence-subtle">·</span>
-                <span className="text-valence-success font-semibold">✓ Complete</span>
-              </>
-            )}
+            {row.origination && (<><span className="text-valence-subtle">·</span><span className="capitalize">{row.origination}</span></>)}
+            {row.is_complete && (<><span className="text-valence-subtle">·</span><span className="text-valence-success font-semibold">✓ Complete</span></>)}
             {row.lead_owner && <><span className="text-valence-subtle">·</span><span>{row.lead_owner}</span></>}
             {due && (
               <><span className="text-valence-subtle">·</span>
@@ -343,15 +366,11 @@ function InteractionRow({ row, onOpen, onConvert, isDetailed = true }) {
               </span></>
             )}
           </div>
-          {/* Structured read: Context (subject) + Takeaways muted, and
-              Next steps surfaced in a distinct highlighted line so "what to
-              do next" is scannable down the whole list. Falls back to the
-              legacy notes blob for rows logged before the split. */}
           {(row.context || row.takeaways || row.next_steps) ? (
             <div className="mt-2 space-y-1.5">
               {row.context && <p className="text-xs font-medium text-valence-text">{row.context}</p>}
               {row.takeaways && (
-                <p className={`${isDetailed ? 'line-clamp-3' : 'line-clamp-2'} text-xs leading-relaxed text-valence-muted`}>
+                <p className="line-clamp-3 text-xs leading-relaxed text-valence-muted">
                   <WikilinkText>{row.takeaways}</WikilinkText>
                 </p>
               )}
@@ -366,17 +385,13 @@ function InteractionRow({ row, onOpen, onConvert, isDetailed = true }) {
               )}
             </div>
           ) : row.notes ? (
-            <p className={`mt-2 ${isDetailed ? 'line-clamp-3' : 'line-clamp-2'} text-xs leading-relaxed text-valence-muted`}>
+            <p className="mt-2 line-clamp-3 text-xs leading-relaxed text-valence-muted">
               <WikilinkText>{row.notes}</WikilinkText>
             </p>
           ) : null}
         </button>
         <div className="flex flex-col items-end gap-2 shrink-0 text-[11px] text-valence-subtle">
           <span>{ago}</span>
-          {/* Convert-to-origination CTA — legacy hook on outcome='converted_to_mandate'.
-              Outcome no longer surfaces on the form; rows still in the
-              legacy state continue to show this. New rows track conversion
-              via the mandate_link_mode change + deal_id set. */}
           {row.outcome === 'converted_to_mandate' && (
             <button onClick={onConvert} className="vl-btn-ghost text-[11px]">
               <Sparkles className="h-3 w-3" /> Convert to origination <ArrowRight className="h-3 w-3" />
