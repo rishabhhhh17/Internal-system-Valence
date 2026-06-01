@@ -308,15 +308,18 @@ export default function DailyNote() {
       })
     }
 
-    // Sort backlog-style: oldest stale at the top, then close-window /
-    // stale-mandate items (no sortAge). Within a tie, fall back to
-    // severity. This matches the partner's existing backlog sheet —
-    // longest-overdue gets attention first.
+    // Sort: MOST RECENT first (partner's call) — the freshest overdue
+    // deadline sits at the top so still-warm follow-ups get acted on,
+    // and ancient dead-leads sink to the bottom. Backlog items (with a
+    // sortAge = days past deadline) always rank above stale-mandate /
+    // close-window items (no sortAge); within the backlog, fewer days
+    // overdue = higher.
     const order = { high: 0, warn: 1, info: 2 }
     priorities.sort((a, b) => {
-      const aAge = a.sortAge ?? -1
-      const bAge = b.sortAge ?? -1
-      if (aAge !== bAge) return bAge - aAge
+      const aHas = a.sortAge != null
+      const bHas = b.sortAge != null
+      if (aHas !== bHas) return aHas ? -1 : 1            // backlog before stale/close
+      if (aHas && bHas && a.sortAge !== b.sortAge) return a.sortAge - b.sortAge  // recent first
       return order[a.severity] - order[b.severity]
     })
 
