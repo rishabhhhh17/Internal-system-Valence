@@ -304,7 +304,9 @@ export default function DailyNote() {
         cty: i.counterparty_type || null,
         // sortAge drives oldest-first: larger = more overdue = higher.
         sortAge: dueDays,
-        to: '/interactions'
+        // Deep-link straight to this interaction's drawer, not the
+        // generic list.
+        to: `/interactions?open=${i.id}`
       })
     }
 

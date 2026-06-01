@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import { format, formatDistanceToNowStrict, parseISO, differenceInCalendarDays } from 'date-fns'
 import { Plus, Search, Sparkles, ArrowRight, AlertCircle, MessageSquare, Download } from 'lucide-react'
 import { supabase, isSupabaseConfigured, subscribeTable } from '../lib/supabase.js'
@@ -41,8 +41,21 @@ export default function Interactions() {
   const [q, setQ]                 = useState('')
   const [needsFollowUp, setNeedsFollowUp] = useState(false)
   const [drawer, setDrawer] = useState(null)   // null | 'new' | { row }
+  // Deep-link support: /interactions?open=<id> opens that interaction's
+  // drawer. Today's Priorities rows link here so a click jumps straight
+  // to the interaction instead of the generic list.
+  const [searchParams, setSearchParams] = useSearchParams()
 
   useEffect(() => { load() }, [])
+
+  // When ?open=<id> is present and rows have loaded, open that drawer.
+  useEffect(() => {
+    const openId = searchParams.get('open')
+    if (!openId || rows.length === 0) return
+    const row = rows.find(r => String(r.id) === String(openId))
+    if (row) setDrawer({ row })
+  }, [searchParams, rows])
+
   // Pull active mandates for the filter dropdown's per-deal options.
   useEffect(() => {
     if (!isSupabaseConfigured) { setDeals([]); return }
@@ -263,7 +276,15 @@ export default function Interactions() {
       {/* Drawer */}
       <InteractionDrawer
         open={Boolean(drawer)}
-        onClose={() => setDrawer(null)}
+        onClose={() => {
+          setDrawer(null)
+          // Drop the deep-link param so reopening the list doesn't
+          // immediately re-open the same drawer.
+          if (searchParams.get('open')) {
+            searchParams.delete('open')
+            setSearchParams(searchParams, { replace: true })
+          }
+        }}
         existing={drawer && drawer !== 'new' ? drawer.row : null}
         onSubmit={(payload, id) => save(payload, id)}
       />
