@@ -37,6 +37,8 @@ export default function DailyNote() {
   const [meetings, setMeetings]   = useState([])
   // 'all' | 'founder' | 'investor' | 'general' — drives the Priorities filter row.
   const [priorityFilter, setPriorityFilter] = useState('all')
+  // Lightweight peek card for a tapped priority (takeaways + next steps).
+  const [peek, setPeek] = useState(null)
   const [prepMeeting, setPrepMeeting] = useState(null) // meeting object → opens MeetingPrepCard
   const [meetingsSource, setMeetingsSource] = useState('local') // 'local' | 'google'
   // When Google API call fails, set an actionable "Reconnect Google" hint
@@ -304,8 +306,19 @@ export default function DailyNote() {
         cty: i.counterparty_type || null,
         // sortAge drives oldest-first: larger = more overdue = higher.
         sortAge: dueDays,
-        // Deep-link straight to this interaction's drawer, not the
-        // generic list.
+        // Lightweight peek-card payload — tapping shows takeaways + next
+        // steps inline, not the full edit drawer.
+        peek: {
+          name:    i.counterparty_name,
+          company: i.counterparty_company,
+          when:    i.occurred_at,
+          context: i.context,
+          takeaways: i.takeaways,
+          next_steps: i.next_steps,
+          cty: i.counterparty_type || null
+        },
+        // Deep-link to the full interaction drawer (used by the card's
+        // "Open full interaction" action).
         to: `/interactions?open=${i.id}`
       })
     }
@@ -451,7 +464,17 @@ export default function DailyNote() {
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-1.5">
                           {p.cty && <span className={`inline-block h-1.5 w-1.5 rounded-full ${ctyDot(p.cty)}`} title={ctyLabel(p.cty)} />}
-                          <Link to={p.to} className="text-sm text-valence-text hover:text-valence-blue truncate">{p.message}</Link>
+                          {/* Tap opens a lightweight peek card (takeaways +
+                              next steps) instead of the full edit drawer.
+                              Stale-mandate / close-window items have no peek
+                              payload — they keep the deep-link. */}
+                          {p.peek ? (
+                            <button onClick={() => setPeek(p.peek)} className="text-left text-sm text-valence-text hover:text-valence-blue truncate">
+                              {p.message}
+                            </button>
+                          ) : (
+                            <Link to={p.to} className="text-sm text-valence-text hover:text-valence-blue truncate">{p.message}</Link>
+                          )}
                         </div>
                         {p.detail && <p className="mt-0.5 text-[11px] text-valence-muted">{p.detail}</p>}
                       </div>
@@ -534,6 +557,52 @@ export default function DailyNote() {
       {prepMeeting && (
         <MeetingPrepCard meeting={prepMeeting} onClose={() => setPrepMeeting(null)} />
       )}
+
+      {/* Priority peek card — quick read of takeaways + next steps for a
+          tapped follow-up, no heavy edit drawer. */}
+      {peek && <PriorityPeek peek={peek} onClose={() => setPeek(null)} />}
+    </div>
+  )
+}
+
+// Lightweight read-only card shown when a Priority row is tapped. Surfaces
+// the two things the partner actually wants mid-day — what came out of the
+// last meeting and what to do next — without the full edit drawer.
+function PriorityPeek({ peek, onClose }) {
+  const when = peek.when ? format(new Date(peek.when), 'd MMM yyyy') : null
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" role="dialog" aria-modal="true">
+      <div className="absolute inset-0 bg-black/30 backdrop-blur-sm animate-fade-in" onClick={onClose} />
+      <div className="relative w-full max-w-md rounded-2xl border border-valence-border bg-valence-elevated shadow-2xl animate-slide-up">
+        <div className="flex items-start justify-between gap-3 border-b border-valence-border/60 px-5 py-4">
+          <div className="min-w-0">
+            <div className="flex items-center gap-1.5">
+              {peek.cty && <span className={`inline-block h-2 w-2 rounded-full ${ctyDot(peek.cty)}`} title={ctyLabel(peek.cty)} />}
+              <p className="font-semibold text-valence-text truncate">{peek.name}</p>
+            </div>
+            <p className="mt-0.5 text-[11px] text-valence-muted">
+              {[peek.company, when].filter(Boolean).join(' · ') || '—'}
+            </p>
+          </div>
+          <button onClick={onClose} className="vl-btn-ghost -mr-2 shrink-0 text-valence-muted" aria-label="Close">✕</button>
+        </div>
+        <div className="px-5 py-4 space-y-4 max-h-[60vh] overflow-y-auto">
+          {peek.context && (
+            <div>
+              <p className="vl-eyebrow-ink mb-1">Context</p>
+              <p className="text-sm text-valence-text">{peek.context}</p>
+            </div>
+          )}
+          <div>
+            <p className="vl-eyebrow-ink mb-1">Takeaways</p>
+            <p className="text-sm text-valence-text whitespace-pre-wrap leading-relaxed">{peek.takeaways?.trim() || '—'}</p>
+          </div>
+          <div className="rounded-lg border border-valence-blue/30 bg-valence-blue-soft/40 px-3 py-2.5">
+            <p className="vl-eyebrow-ink mb-1 text-valence-blue">Next steps</p>
+            <p className="text-sm font-medium text-valence-text whitespace-pre-wrap leading-relaxed">{peek.next_steps?.trim() || '—'}</p>
+          </div>
+        </div>
+      </div>
     </div>
   )
 }

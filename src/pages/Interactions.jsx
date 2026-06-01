@@ -343,11 +343,33 @@ function InteractionRow({ row, onOpen, onConvert, isDetailed = true }) {
               </span></>
             )}
           </div>
-          {row.notes && (
+          {/* Structured read: Context (subject) + Takeaways muted, and
+              Next steps surfaced in a distinct highlighted line so "what to
+              do next" is scannable down the whole list. Falls back to the
+              legacy notes blob for rows logged before the split. */}
+          {(row.context || row.takeaways || row.next_steps) ? (
+            <div className="mt-2 space-y-1.5">
+              {row.context && <p className="text-xs font-medium text-valence-text">{row.context}</p>}
+              {row.takeaways && (
+                <p className={`${isDetailed ? 'line-clamp-3' : 'line-clamp-2'} text-xs leading-relaxed text-valence-muted`}>
+                  <WikilinkText>{row.takeaways}</WikilinkText>
+                </p>
+              )}
+              {row.next_steps && (
+                <div className="flex items-start gap-1.5 rounded-md border border-valence-blue/25 bg-valence-blue-soft/40 px-2 py-1.5">
+                  <ArrowRight className="h-3 w-3 mt-0.5 shrink-0 text-valence-blue" />
+                  <p className="text-xs font-medium leading-relaxed text-valence-text">
+                    <span className="text-valence-blue font-semibold">Next: </span>
+                    <WikilinkText>{row.next_steps}</WikilinkText>
+                  </p>
+                </div>
+              )}
+            </div>
+          ) : row.notes ? (
             <p className={`mt-2 ${isDetailed ? 'line-clamp-3' : 'line-clamp-2'} text-xs leading-relaxed text-valence-muted`}>
               <WikilinkText>{row.notes}</WikilinkText>
             </p>
-          )}
+          ) : null}
         </button>
         <div className="flex flex-col items-end gap-2 shrink-0 text-[11px] text-valence-subtle">
           <span>{ago}</span>
