@@ -57,14 +57,27 @@ export default function Team() {
         // Phase 26 — pulls the founder/investor/general split per member.
         // lead_owner is free-form text matching seat.full_name; aggregate
         // client-side. Same query the Settings → Team panel runs.
+        //
+        // PostgREST silently caps at 1000 rows. Order by recency and lift
+        // the cap to 10000 so growing tenants get a deterministic, mostly-
+        // complete slice instead of an arbitrary 1000. Beyond 10k we'd
+        // move this server-side as an RPC aggregation; flag for when we
+        // see a tenant push past it.
         supabase
           .from('interactions')
           .select('lead_owner, counterparty_type')
           .not('lead_owner', 'is', null)
+          .order('created_at', { ascending: false })
+          .limit(10000)
       ])
       if (!alive) return
       if (seatsRes.error) setError(seatsRes.error.message)
       else setMembers(seatsRes.data || [])
+      // Surface interactions errors instead of swallowing — empty bars
+      // with no console signal made it impossible to diagnose RLS drift.
+      if (interactionsRes.error) {
+        console.error('[team] interactions fetch failed:', interactionsRes.error)
+      }
       setInteractions(interactionsRes.data || [])
       setLoading(false)
     })()

@@ -533,12 +533,17 @@ function DealDrawerBody({ deal, onEdit, onDelete, onComposeEmail }) {
     { id: 'mentions',   label: 'Mentions',       icon: AtSign },
     { id: 'share',      label: 'Share',          icon: ExternalLink }
   ]
-  // Combined for the ref scroll + active-on-overflow detection.
-  const allTabs = [...primaryTabs, ...overflowTabs]
   const activeOverflow = overflowTabs.find(t => t.id === tab)
 
   useEffect(() => {
+    // Skip scroll when the active tab lives in the (collapsed) overflow
+    // menu — its ref is unmounted while the menu is closed, so the
+    // scroll silently no-ops. The 6 primary tabs fit on every viewport
+    // we support, so this loop is now mostly a guard against future
+    // tab growth.
+    if (overflowTabs.some(t => t.id === tab)) return
     tabRefs.current[tab]?.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' })
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tab])
 
   // Close the More menu on outside click. Tracked via a ref on the button
@@ -591,7 +596,10 @@ function DealDrawerBody({ deal, onEdit, onDelete, onComposeEmail }) {
             </button>
             {moreOpen && (
               <div
-                className="absolute right-0 top-full z-20 mt-1 w-52 rounded-lg border border-valence-border bg-valence-elevated shadow-xl p-1"
+                // Drawer body is overflow-y-auto so a long dropdown gets
+                // clipped at short viewports. Cap height + scroll inside
+                // so every overflow tab stays reachable.
+                className="absolute right-0 top-full z-20 mt-1 w-52 rounded-lg border border-valence-border bg-valence-elevated shadow-xl p-1 max-h-[60vh] overflow-y-auto"
                 role="menu"
               >
                 {overflowTabs.map(t => (
