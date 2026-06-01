@@ -5,7 +5,8 @@ import {
   Plus, Search, Briefcase, FileText, ExternalLink, Edit3, Trash2,
   Filter as FilterIcon, Circle, Table as TableIcon, LayoutGrid, TrendingUp,
   Mail, Users as UsersIcon, FolderOpen, Activity as ActivityIcon, Sparkles, Info, Download,
-  ListChecks, MessageSquare, UserCircle, Building2, Settings2
+  ListChecks, MessageSquare, UserCircle, Building2, Settings2,
+  MoreHorizontal, ChevronDown
 } from 'lucide-react'
 import { supabase, isSupabaseConfigured, subscribeTable } from '../lib/supabase.js'
 import { humanError } from '../lib/userError.js'
@@ -495,19 +496,36 @@ export default function Deals() {
 // ============ DRAWER BODY ============
 function DealDrawerBody({ deal, onEdit, onDelete, onComposeEmail }) {
   const [tab, setTab] = useState('overview')
+  const [moreOpen, setMoreOpen] = useState(false)
   const tabRefs = useRef({})
-  const tabs = [
+  const moreBtnRef = useRef(null)
+
+  // Audit reaction: 17 tabs in a scrolling rail was the partner's loudest
+  // gripe about the drawer — "where do I find files?" with the answer being
+  // "scroll the tab strip three times." Splitting into the six tabs that
+  // get used daily + a "More" overflow keeps every surface reachable but
+  // stops drowning the primary actions. Order is opinionated:
+  //   Overview → what is this deal
+  //   Checklist → what's blocking close
+  //   Files     → documents (most-clicked tab in the analytics)
+  //   Counterparties → who's on the other side
+  //   Discussion → team chatter
+  //   Activity → recent moves
+  // Everything else lives behind ▾ More.
+  const primaryTabs = [
     { id: 'overview',   label: 'Overview',       icon: Briefcase },
     { id: 'gate',       label: 'Checklist',      icon: ListChecks },
-    { id: 'team',       label: 'Deal team',      icon: UserCircle },
-    { id: 'financials', label: 'Financials',     icon: TrendingUp },
     { id: 'files',      label: 'Files',          icon: FolderOpen },
     { id: 'contacts',   label: 'Counterparties', icon: UsersIcon },
+    { id: 'comments',   label: 'Discussion',     icon: MessageSquare },
+    { id: 'activity',   label: 'Activity',       icon: ActivityIcon }
+  ]
+  const overflowTabs = [
+    { id: 'team',       label: 'Deal team',      icon: UserCircle },
+    { id: 'financials', label: 'Financials',     icon: TrendingUp },
     { id: 'intros',     label: 'Intros',         icon: Sparkles },
     { id: 'funds',      label: 'Funds',          icon: Building2 },
     { id: 'meeting',    label: 'Meeting intel',  icon: Sparkles },
-    { id: 'activity',   label: 'Activity',       icon: ActivityIcon },
-    { id: 'comments',   label: 'Discussion',     icon: MessageSquare },
     { id: 'similar',    label: 'Similar',        icon: Sparkles },
     { id: 'targets',    label: 'Targets',        icon: UsersIcon },
     { id: 'cim',        label: 'CIM',            icon: FileText },
@@ -515,22 +533,38 @@ function DealDrawerBody({ deal, onEdit, onDelete, onComposeEmail }) {
     { id: 'mentions',   label: 'Mentions',       icon: AtSign },
     { id: 'share',      label: 'Share',          icon: ExternalLink }
   ]
+  // Combined for the ref scroll + active-on-overflow detection.
+  const allTabs = [...primaryTabs, ...overflowTabs]
+  const activeOverflow = overflowTabs.find(t => t.id === tab)
 
   useEffect(() => {
     tabRefs.current[tab]?.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' })
   }, [tab])
+
+  // Close the More menu on outside click. Tracked via a ref on the button
+  // wrapper; click on the menu itself stops propagation so it survives.
+  useEffect(() => {
+    if (!moreOpen) return
+    function onDocClick(e) {
+      if (moreBtnRef.current && !moreBtnRef.current.contains(e.target)) {
+        setMoreOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', onDocClick)
+    return () => document.removeEventListener('mousedown', onDocClick)
+  }, [moreOpen])
 
   return (
     <div className="space-y-5">
       <DealHeader deal={deal} onEdit={onEdit} onDelete={onDelete} onCompose={() => onComposeEmail(null)} />
 
       <div className="relative">
-        <div className="flex items-center gap-1 rounded-lg border border-valence-border bg-valence-surface p-1 overflow-x-auto scrollbar-hide">
-          {tabs.map(t => (
+        <div className="flex items-center gap-1 rounded-lg border border-valence-border bg-valence-surface p-1">
+          {primaryTabs.map(t => (
             <button
               key={t.id}
               ref={el => (tabRefs.current[t.id] = el)}
-              onClick={() => setTab(t.id)}
+              onClick={() => { setTab(t.id); setMoreOpen(false) }}
               className={`inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-semibold transition whitespace-nowrap shrink-0 ${
                 tab === t.id ? 'bg-valence-elevated text-valence-text shadow-sm' : 'text-valence-muted hover:text-valence-text'
               }`}
@@ -538,10 +572,47 @@ function DealDrawerBody({ deal, onEdit, onDelete, onComposeEmail }) {
               <t.icon className="h-3.5 w-3.5" /> {t.label}
             </button>
           ))}
+          {/* More menu — anchor-positioned dropdown of the 11 less-used
+              tabs. Highlights when the active tab lives inside, so the user
+              can tell from the strip alone that they're "in" an overflow
+              tab even when the dropdown is closed. */}
+          <div ref={moreBtnRef} className="relative ml-auto">
+            <button
+              onClick={() => setMoreOpen(o => !o)}
+              className={`inline-flex items-center gap-1 rounded-md px-2.5 py-1.5 text-xs font-semibold transition whitespace-nowrap shrink-0 ${
+                activeOverflow ? 'bg-valence-elevated text-valence-text shadow-sm' : 'text-valence-muted hover:text-valence-text'
+              }`}
+              aria-haspopup="true"
+              aria-expanded={moreOpen}
+            >
+              <MoreHorizontal className="h-3.5 w-3.5" />
+              {activeOverflow ? activeOverflow.label : 'More'}
+              <ChevronDown className={`h-3 w-3 transition ${moreOpen ? 'rotate-180' : ''}`} />
+            </button>
+            {moreOpen && (
+              <div
+                className="absolute right-0 top-full z-20 mt-1 w-52 rounded-lg border border-valence-border bg-valence-elevated shadow-xl p-1"
+                role="menu"
+              >
+                {overflowTabs.map(t => (
+                  <button
+                    key={t.id}
+                    ref={el => (tabRefs.current[t.id] = el)}
+                    onClick={() => { setTab(t.id); setMoreOpen(false) }}
+                    className={`flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-left text-xs font-medium transition ${
+                      tab === t.id
+                        ? 'bg-valence-blue-soft text-valence-blue'
+                        : 'text-valence-text hover:bg-valence-surface'
+                    }`}
+                    role="menuitem"
+                  >
+                    <t.icon className="h-3.5 w-3.5 shrink-0" /> {t.label}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
-        {/* Edge fades so users know the tab list scrolls */}
-        <div className="pointer-events-none absolute inset-y-0 left-0 w-6 bg-gradient-to-r from-valence-elevated to-transparent" aria-hidden />
-        <div className="pointer-events-none absolute inset-y-0 right-0 w-6 bg-gradient-to-l from-valence-elevated to-transparent" aria-hidden />
       </div>
 
       <div>
