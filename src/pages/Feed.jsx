@@ -8,6 +8,10 @@ import {
 import { supabase, isSupabaseConfigured } from '../lib/supabase.js'
 import EmptyState from '../components/EmptyState.jsx'
 import ConfigBanner from '../components/ConfigBanner.jsx'
+// Phase 26 — paint interaction rows with the same founder/investor/general
+// rail used on the Interactions page and Calendar chips. Keeps the scan
+// pattern identical across pages.
+import { railClass as ctyRail, chipClass as ctyChip, labelFor as ctyLabel } from '../lib/counterpartyColors.js'
 
 // Firm-wide activity feed. Streams from five sources in parallel:
 //   * activities          — anything the deal logger / brief generator stamped
@@ -49,7 +53,7 @@ export default function Feed() {
     try {
       const [act, intr, intk, dl, dn] = await Promise.all([
         supabase.from('activities').select('id, deal_id, kind, body, created_at, deals(client_name)').order('created_at', { ascending: false }).limit(40),
-        supabase.from('interactions').select('id, counterparty_name, counterparty_company, type, outcome, notes, deal_id, created_at').order('created_at', { ascending: false }).limit(40),
+        supabase.from('interactions').select('id, counterparty_name, counterparty_company, counterparty_type, type, outcome, notes, deal_id, created_at').order('created_at', { ascending: false }).limit(40),
         supabase.from('intake_submissions').select('id, submitter_name, company_name, sector, status, ai_screener_output, created_at').order('created_at', { ascending: false }).limit(20),
         supabase.from('deals').select('id, client_name, stage, sector, deal_type, created_at, lead_owner').order('created_at', { ascending: false }).limit(15),
         supabase.from('daily_notes').select('user_id, date, body, updated_at').order('updated_at', { ascending: false }).limit(15)
@@ -70,6 +74,8 @@ export default function Feed() {
         body:  i.notes ? trim(i.notes, 200) : `Outcome: ${labelKind(i.outcome)}`,
         to:    i.deal_id ? `/deals?open=${i.deal_id}` : '/interactions',
         at:    i.created_at,
+        // Surfaces the rail colour + counterparty chip on the feed row.
+        cty:   i.counterparty_type || null,
         meta:  { outcome: i.outcome, company: i.counterparty_company }
       })
       for (const s of (intk.data || [])) merged.push({
@@ -187,7 +193,7 @@ function FeedRow({ item }) {
     <li>
       <Link
         to={item.to || '#'}
-        className="group flex items-start gap-3 rounded-xl border border-valence-border bg-valence-elevated px-4 py-3 transition hover:border-valence-border-strong hover:shadow-valence"
+        className={`group flex items-start gap-3 rounded-xl border border-valence-border bg-valence-elevated px-4 py-3 transition hover:border-valence-border-strong hover:shadow-valence ${item.cty ? ctyRail(item.cty) : ''}`}
       >
         <span className={`grid h-9 w-9 shrink-0 place-items-center rounded-lg ${meta.bg} ${meta.color} ring-1 ring-valence-border`}>
           <Icon className="h-4 w-4" />
@@ -199,6 +205,11 @@ function FeedRow({ item }) {
               <span className="inline-flex items-center rounded-full border border-valence-border bg-valence-surface px-1.5 py-0 text-[9.5px] font-semibold uppercase tracking-[0.14em] text-valence-muted">
                 {meta.label}
               </span>
+              {item.cty && (
+                <span className={`inline-flex items-center rounded-full border px-1.5 py-0 text-[9.5px] font-semibold uppercase tracking-[0.14em] ${ctyChip(item.cty)}`}>
+                  {ctyLabel(item.cty)}
+                </span>
+              )}
               {item.meta?.verdict && (
                 <span className={`inline-flex items-center rounded-full px-1.5 py-0 text-[9.5px] font-semibold uppercase tracking-[0.14em] ${
                   item.meta.verdict === 'pursue' ? 'border border-emerald-300/50 bg-emerald-50 text-emerald-700'

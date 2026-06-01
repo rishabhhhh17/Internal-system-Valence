@@ -10,6 +10,7 @@ import WikilinkText from './WikilinkText.jsx'
 import InlineEditableText from './InlineEditableText.jsx'
 import ValenceConnectionsPanel from './ValenceConnectionsPanel.jsx'
 import ValenceTeamProfilePanel from './ValenceTeamProfilePanel.jsx'
+import { typeFromPersonTags, chipClass as ctyChip, labelFor as ctyLabel } from '../lib/counterpartyColors.js'
 
 const TABS = [
   { id: 'overview',    label: 'Overview' },
@@ -123,11 +124,28 @@ export default function PersonDrawer({ open, onClose, existing, onSubmit, onRena
       // place. New-person flow stays static — name comes from the form.
       title={
         existing
-          ? <InlineEditableText
-              value={existing.full_name}
-              onSave={async (next) => { if (onRename) await onRename(existing.id, next) }}
-              disabled={!onRename}
-            />
+          ? (
+            <span className="inline-flex items-center gap-2">
+              <InlineEditableText
+                value={existing.full_name}
+                onSave={async (next) => { if (onRename) await onRename(existing.id, next) }}
+                disabled={!onRename}
+              />
+              {/* Phase 26 — Founder/Investor/General chip next to the
+                  drawer title so the user knows what kind of contact
+                  they're looking at the instant the sheet opens.
+                  Derived from person.tags via the shared helper. */}
+              {(() => {
+                const cty = typeFromPersonTags(existing.tags)
+                if (!cty) return null
+                return (
+                  <span className={`inline-flex items-center rounded-full border px-2 py-0 text-[10px] font-semibold ${ctyChip(cty)}`}>
+                    {ctyLabel(cty)}
+                  </span>
+                )
+              })()}
+            </span>
+          )
           : 'Add person'
       }
       footer={

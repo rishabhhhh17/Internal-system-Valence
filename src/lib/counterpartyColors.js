@@ -63,3 +63,29 @@ export const COUNTERPARTY_LEGEND = COUNTERPARTY_TYPES.map(t => ({
   label:    labelFor(t),
   dotClass: barFillClass(t)
 }))
+
+// Derive a counterparty type from a person.tags array. Same precedence as the
+// Phase 26 backfill SQL: founder/client wins over investor signals, anything
+// else is general. Returns null only when there are no tags at all so a
+// surface that wants to render "unclassified" (instead of slate "general")
+// can distinguish "tagged as miscellaneous" from "we don't know yet."
+export function typeFromPersonTags(tags) {
+  if (!Array.isArray(tags) || tags.length === 0) return null
+  const t = new Set(tags.map(x => String(x).toLowerCase()))
+  if (t.has('founder') || t.has('client'))                                  return 'founder'
+  if (t.has('investor') || t.has('fund') || t.has('lp') ||
+      t.has('fund-principal') || t.has('sovereign'))                        return 'investor'
+  return 'general'
+}
+
+// Tiny coloured dot — for compact surfaces like table rows and card
+// headers where a chip would crowd the layout. Pair with a tooltip
+// (title attribute) so the colour stays self-explanatory.
+export function dotClass(type) {
+  switch (type) {
+    case 'founder':  return 'bg-emerald-500'
+    case 'investor': return 'bg-indigo-500'
+    case 'general':  return 'bg-slate-400'
+    default:         return 'bg-valence-border'
+  }
+}

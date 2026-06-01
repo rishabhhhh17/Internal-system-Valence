@@ -13,6 +13,7 @@ import { isGeminiConfigured } from '../lib/gemini.js'
 import { useToast } from './Toast.jsx'
 import WikilinkTextarea from './WikilinkTextarea.jsx'
 import Typeahead from './Typeahead.jsx'
+import { chipClass as ctyChip, labelFor as ctyLabel } from '../lib/counterpartyColors.js'
 
 // Meeting-tool integration (Read.ai / Otter / Fireflies) is configured
 // in Settings → Integrations on this branch and lights up once a
@@ -185,7 +186,23 @@ export default function InteractionDrawer({ open, onClose, existing, onSubmit })
     <Drawer
       open={open}
       onClose={onClose}
-      title={existing ? `Edit interaction · ${existing.counterparty_name}` : 'Log a new interaction'}
+      title={
+        existing
+          ? (
+            // Phase 26 — chip in the title so reopening an interaction
+            // immediately shows whether it's founder/investor/general,
+            // matching the rail colour shown in the Interactions list.
+            <span className="inline-flex items-center gap-2">
+              <span>Edit interaction · {existing.counterparty_name}</span>
+              {existing.counterparty_type && (
+                <span className={`inline-flex items-center rounded-full border px-2 py-0 text-[10px] font-semibold ${ctyChip(existing.counterparty_type)}`}>
+                  {ctyLabel(existing.counterparty_type)}
+                </span>
+              )}
+            </span>
+          )
+          : 'Log a new interaction'
+      }
       footer={
         <div className="flex items-center justify-end gap-3">
           <button type="button" onClick={onClose} disabled={submitting} className="vl-btn-secondary">Cancel</button>
