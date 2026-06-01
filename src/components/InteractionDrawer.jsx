@@ -590,7 +590,17 @@ function MoreOptions({ form, update, deals, defaultOpen }) {
             <select
               className="vl-input mt-1.5"
               value={form.mandate_link_mode || 'general'}
-              onChange={e => update({ mandate_link_mode: e.target.value, deal_id: e.target.value === 'specific' ? form.deal_id : '' })}
+              onChange={e => {
+                const mode = e.target.value
+                // Reset link state on every mode switch so a stale
+                // deal_id / deal_ids from a previous mode can't leak into
+                // the save (e.g. multi → specific → multi).
+                update({
+                  mandate_link_mode: mode,
+                  deal_id: mode === 'specific' ? form.deal_id : '',
+                  deal_ids: mode === 'multi' ? (form.deal_ids || []) : []
+                })
+              }}
             >
               <option value="self">Self — talking to a client about themselves</option>
               <option value="general">General — first-time meet / no agenda</option>

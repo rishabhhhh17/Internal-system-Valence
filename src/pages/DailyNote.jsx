@@ -265,39 +265,45 @@ export default function DailyNote() {
       const prev = latestByKey.get(key)
       if (!prev || t > prev) latestByKey.set(key, t)
     }
-    const seenCounterparty = new Set()
+    // Backlog = overdue deadlines that aren't ticked complete. The
+    // partner's mental model is deadline-driven and oldest-first, so the
+    // displayed number anchors on the DEADLINE (follow_up_date), not on
+    // the last touch. One entry per counterparty — the MOST overdue
+    // surviving deadline — so a person with several open follow-ups shows
+    // their longest-waiting one (the backlog item that actually matters),
+    // not whichever row happened to be logged most recently.
+    const backlogByKey = new Map()
     for (const i of interactions) {
       const dueIso = i.follow_up_date ? String(i.follow_up_date).slice(0, 10) : null
       if (!dueIso) continue
-      // Phase 3 — Complete? ticked = explicitly off the backlog.
+      // Complete? ticked = explicitly off the backlog.
       if (i.is_complete) continue
       const due  = parseISO(dueIso)
       const dueDays = differenceInCalendarDays(today, due)
       if (dueDays < 0) continue // not yet due
 
       const key = (i.counterparty_company || '').toLowerCase().trim() + '|' + normalizeName(i.counterparty_name)
-      if (seenCounterparty.has(key)) continue
-      seenCounterparty.add(key)
-
       const latest = latestByKey.get(key)
-      // If this row has no real occurred_at and no sibling row with one,
-      // anchor on the follow-up date itself so it still surfaces. Better
-      // an overestimate than silent suppression.
-      const anchor = latest || due
-      if (latest && latest > due) continue // re-engaged
+      // Re-engaged: we've spoken to them (any name-variant) AFTER this
+      // deadline, so the promise is effectively kept — drop it.
+      if (latest && latest > due) continue
 
-      const daysSinceLatest = Math.max(0, differenceInCalendarDays(today, anchor))
+      const prev = backlogByKey.get(key)
+      // Keep the most overdue (largest dueDays = oldest deadline).
+      if (!prev || dueDays > prev.dueDays) backlogByKey.set(key, { row: i, dueDays })
+    }
+    for (const { row: i, dueDays } of backlogByKey.values()) {
       priorities.push({
         id: `int-${i.id}`,
-        // Stale > 30 days = high; fresher = warn.
-        severity: daysSinceLatest > 30 ? 'high' : 'warn',
+        // > 30 days past deadline = high; fresher = warn.
+        severity: dueDays > 30 ? 'high' : 'warn',
         message: `Follow up · ${i.counterparty_name}${i.counterparty_company ? ' · ' + i.counterparty_company : ''}`,
-        detail: daysSinceLatest === 0
+        detail: dueDays === 0
           ? 'Due today'
-          : `Last touch ${daysSinceLatest} day${daysSinceLatest === 1 ? '' : 's'} ago`,
+          : `Follow-up due ${dueDays} day${dueDays === 1 ? '' : 's'} ago`,
         cty: i.counterparty_type || null,
-        // sortAge drives the oldest-first sort below. Larger = staler.
-        sortAge: daysSinceLatest,
+        // sortAge drives oldest-first: larger = more overdue = higher.
+        sortAge: dueDays,
         to: '/interactions'
       })
     }
