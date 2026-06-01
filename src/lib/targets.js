@@ -4,6 +4,7 @@
 import { searchKnowledge } from './knowledge.js'
 import { supabase, isSupabaseConfigured } from './supabase.js'
 import { llmCall } from './gemini.js'
+import { firmDisplayName } from './firmIdentity.js'
 
 // Returns JSON: [{ name, kind: 'Strategic' | 'Financial', rationale, warmth }]
 export async function suggestTargets(deal) {
@@ -29,7 +30,8 @@ export async function suggestTargets(deal) {
       ? 'investors (PE/VC funds and strategic minorities)'
       : 'strategic buyers and financial sponsors'
 
-  const prompt = `You are a senior associate at Valence Growth Partners preparing an outreach shortlist of ${kind} for the mandate below. Return STRICT JSON — no preamble, no trailing commentary. Produce 10-15 entries ranked by fit.
+  const firm = firmDisplayName('the firm')
+  const prompt = `You are a senior associate at ${firm} preparing an outreach shortlist of ${kind} for the mandate below. Return STRICT JSON — no preamble, no trailing commentary. Produce 10-15 entries ranked by fit.
 
 Schema:
 {

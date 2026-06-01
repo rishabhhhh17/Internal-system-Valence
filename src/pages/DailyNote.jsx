@@ -345,18 +345,30 @@ export default function DailyNote() {
           )}
         </Card>
 
-        <Card icon={ArrowUpRight} title="Quick actions" subtitle="Log fast, write later">
-          <div className="grid grid-cols-2 gap-2">
-            <ActionLink to="/interactions" icon={MessageSquare} label="Log interaction" />
-            <ActionLink to="/deals" icon={Briefcase} label="Open Deal Logger" />
-            <ActionLink to="/mandates" icon={Handshake} label="Live Mandates" />
-            <ActionLink to="/planner" icon={Calendar} label="Day Planner" />
+        {/* Quick actions, Stale relationships, and the Chrome-extension
+            install prompt all live behind "More" — the partner explicitly
+            asked for "less is more" on the landing page. Hidden by default;
+            one click reveals everything. */}
+        <details className="rounded-xl border border-valence-border bg-valence-surface/40">
+          <summary className="cursor-pointer list-none flex items-center justify-between gap-3 px-4 py-3 text-xs font-semibold text-valence-muted hover:text-valence-text transition">
+            <span className="inline-flex items-center gap-2"><ArrowUpRight className="h-3.5 w-3.5" /> More on Today</span>
+            <span className="text-[10px] text-valence-subtle">Quick actions · cooling relationships · capture extension</span>
+          </summary>
+          <div className="space-y-3 px-3 pb-3">
+            <Card icon={ArrowUpRight} title="Quick actions" subtitle="Log fast, write later">
+              <div className="grid grid-cols-2 gap-2">
+                <ActionLink to="/interactions" icon={MessageSquare} label="Log interaction" />
+                <ActionLink to="/deals" icon={Briefcase} label="Open Deal Logger" />
+                <ActionLink to="/mandates" icon={Handshake} label="Live Mandates" />
+                <ActionLink to="/planner" icon={Calendar} label="Day Planner" />
+              </div>
+            </Card>
+
+            <StaleRelationships />
+
+            <ExtensionStatus />
           </div>
-        </Card>
-
-        <StaleRelationships />
-
-        <ExtensionStatus />
+        </details>
       </section>
 
       {/* Free-form body */}
@@ -370,7 +382,7 @@ export default function DailyNote() {
         <WikilinkTextarea
           value={body}
           onChange={setBody}
-          placeholder={"What happened? What's on your mind? Type [[ to link a person, fund, or mandate."}
+          placeholder={"What happened? What's on your mind?"}
           className="vl-input min-h-[280px] leading-relaxed bg-valence-elevated"
         />
         <p className="text-[11px] text-valence-subtle">

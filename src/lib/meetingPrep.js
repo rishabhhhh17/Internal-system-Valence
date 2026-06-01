@@ -13,6 +13,7 @@
 
 import { supabase, isSupabaseConfigured } from './supabase.js'
 import { isGeminiConfigured, llmCall } from './gemini.js'
+import { firmDisplayName } from './firmIdentity.js'
 
 /**
  * Build a prep brief for a meeting. Inputs:
@@ -144,7 +145,8 @@ function heuristicSummary({ meeting, people, deals, interactions }) {
 }
 
 async function aiSummary({ meeting, people, deals, interactions }) {
-  const prompt = `You are a senior associate at Valence Growth Partners briefing a partner who walks into a meeting in 60 seconds. Write a tight 2-sentence read on the counterparty: who they are, where the relationship stands, the single thing to lead with. No emojis, no bullets, no headers. Crisp IB tone.
+  const firm = firmDisplayName('the firm')
+  const prompt = `You are a senior associate at ${firm} briefing a partner who walks into a meeting in 60 seconds. Write a tight 2-sentence read on the counterparty: who they are, where the relationship stands, the single thing to lead with. No emojis, no bullets, no headers. Crisp IB tone.
 
 Meeting: "${meeting?.title || ''}" at ${meeting?.time || ''} on ${meeting?.date || ''}.
 
