@@ -5,10 +5,17 @@ import Logo from './Logo.jsx'
 import { supabase, isSupabaseConfigured, subscribeTable } from '../lib/supabase.js'
 import { useSavedViews, filtersFromUrl } from '../hooks/useSavedViews.js'
 import SaveViewDialog from './SaveViewDialog.jsx'
+import { useWorkspaceSetting } from '../hooks/useWorkspaceSetting.js'
 
 const TERMINAL_STAGES  = new Set(['Closed', 'Lost', 'On Hold'])
 const LIVE_MANDATE_STAGES = new Set(['Mandate', 'Preparation', 'Marketing', 'Diligence', 'Negotiation', 'Closing'])
 
+// Items flagged `power` are internal-team / power-user surfaces that
+// clutter the sidebar for a 45-year-old IB partner on the first demo.
+// Hidden by default; revealed when the workspace setting
+// `sidebarShowPowerItems` is on (admin-only toggle in Settings →
+// Appearance). Routes still resolve — only the nav-entry is hidden so
+// existing deeplinks and the command palette keep working.
 const nav = [
   { to: '/',             label: 'Today',        icon: LayoutDashboard },
   { to: '/deals',        label: 'Deal Logger',  icon: Briefcase,     badgeKey: 'activeDeals' },
@@ -17,22 +24,20 @@ const nav = [
   { to: '/interactions', label: 'Interactions', icon: MessageSquare, badgeKey: 'pendingFollowUps', section: 'Relationships' },
   { to: '/people',       label: 'People',       icon: UserCircle,                                section: 'Relationships' },
   { to: '/funds',        label: 'Firm',         icon: Building2,                                 section: 'Relationships' },
-  // Quick Screener (investor ranking) hidden from nav for now — route
-  // still resolves so any saved deeplink keeps working.
-  // { to: '/screen',       label: 'Quick Screener',icon: Sparkles,                                 section: 'AI' },
-  { to: '/import',       label: 'Import',       icon: Upload,                                    section: 'AI' },
+  // Import is a power-user CSV ingest — hidden from the demo nav.
+  { to: '/import',       label: 'Import',       icon: Upload,                                    section: 'AI', power: true },
   { to: '/inbox/intake', label: 'Intake inbox', icon: Inbox,        badgeKey: 'newIntakes',     section: 'AI' },
-  // Internal-only — what every customer is burning. Hidden once we ship
-  // a proper role gate; for now the partner is the only one running this build.
-  { to: '/admin/billing', label: 'Billing · admin', icon: Wallet,                                section: 'Admin' },
+  // Billing · admin — internal cost-tracking dashboard. Always hidden
+  // from partners; route still resolves for the dev team.
+  { to: '/admin/billing', label: 'Billing · admin', icon: Wallet,                                section: 'Admin', power: true },
   { to: '/knowledge',    label: 'Knowledge',    icon: BookOpen },
   { to: '/planner',      label: 'Day Planner',  icon: CalendarDays,  badgeKey: 'todayMeetings' },
   { to: '/calendar',     label: 'Team Calendar',icon: CalendarRange },
-  // Firm pulse lives as a small topbar icon now — surfaced near the
-  // notifications bell rather than in the main nav, since it's a glance-
-  // at-it surface, not a destination partners come back to daily.
   { to: '/analytics',    label: 'Analytics',    icon: BarChart3 },
-  { to: '/reports/aging',label: 'Aging Report', icon: Clock,        section: 'Reports' },
+  // Aging Report is a useful tool but adds a "Reports" section with just
+  // one item for first-time partners. Power-gated; reachable via the
+  // Analytics page once we cross-link.
+  { to: '/reports/aging',label: 'Aging Report', icon: Clock,        section: 'Reports', power: true },
   { to: '/team',         label: 'Team',         icon: Users }
 ]
 
@@ -82,6 +87,12 @@ function useSidebarCounts() {
 
 export default function Sidebar() {
   const counts = useSidebarCounts()
+  // Power-user items (Import, Billing · admin, Aging Report) hidden by
+  // default per pre-demo polish — they were cluttering the sidebar for
+  // a 45-year-old IB partner's first run. Reveal via the workspace
+  // setting `sidebarShowPowerItems` for the dev team.
+  const showPower = useWorkspaceSetting('sidebarShowPowerItems') === 'true'
+  const visibleNav = showPower ? nav : nav.filter(item => !item.power)
 
   return (
     <aside className="hidden lg:flex lg:sticky lg:top-0 lg:h-screen lg:w-64 shrink-0 flex-col border-r border-valence-border vl-glass-side">
@@ -90,7 +101,7 @@ export default function Sidebar() {
       </div>
 
       <nav className="flex-1 px-3 py-6 space-y-0.5 overflow-y-auto">
-        {groupNav(nav).map(([sectionLabel, items], gi) => (
+        {groupNav(visibleNav).map(([sectionLabel, items], gi) => (
           <div key={sectionLabel} className={gi === 0 ? '' : 'pt-4'}>
             <div className="px-3 pb-3 vl-eyebrow-ink">{sectionLabel}</div>
             {items.map(({ to, label, icon: Icon, badgeKey }) => {
