@@ -223,27 +223,36 @@ export default function DailyNote() {
 
     // Interactions due today or overdue.
     //
-    // OLD LOGIC: a priority lit up for every interaction whose
-    // follow_up_date was past, regardless of whether the same person had
-    // been re-engaged since. Result: Madhvi showed "283 days overdue" from
-    // an Aug 2025 deadline even after we logged a meeting with her last
-    // month. The number was technically correct but completely misleading.
+    // BUG CONTEXT: same person logged under different spellings —
+    //   "Madhvi and Satish Datwani"
+    //   "Satish & Madhvi Datwani"
+    //   "Madhvi Datwani, Satish Datwani"
+    // Three rows, one human. The old grouper used raw `name + company`
+    // so each spelling looked like a different person, and the "latest
+    // touch" lookup never connected them. Result: a Friday meeting with
+    // Madhvi never reset the August deadline, and the dashboard kept
+    // showing "283 days overdue" on a re-engaged relationship.
     //
-    // NEW LOGIC:
-    //   1. Build latestByKey — map of counterparty (name+company) → most
-    //      recent interaction's occurred_at across the org.
-    //   2. Walk interactions in occurred_at DESC order so the first row we
-    //      see per counterparty is the most recent one.
-    //   3. Only emit a priority if THAT row has an overdue follow_up_date,
-    //      AND we haven't already emitted one for this counterparty. This
-    //      collapses N stale follow-ups for the same person into one entry
-    //      anchored on the latest touch.
-    //   4. Detail line shows "Last touch X days ago" — that's the number
-    //      that actually matters: when did we last speak to them.
-    //   5. Severity escalates with days-since-last-touch, not days-overdue.
+    // FIX: normalize the name into a token-bag (lower, strip
+    // and/&/,/punct, dedupe, sort, join) so all three spellings collapse
+    // to "datwani madhvi satish". Group by `company|normalizedName` so
+    // distinct people at the same company stay separate.
+    //
+    // SORT: oldest-overdue first — matches the backlog sheet the partner
+    // is used to (longest-waiting at the top), not a severity bucket.
+    function normalizeName(s) {
+      if (!s) return ''
+      const tokens = s.toLowerCase()
+        .replace(/&/g, ' ')
+        .replace(/[^\w\s]/g, ' ')
+        .split(/\s+/)
+        .filter(t => t && t !== 'and' && t !== 'the' && t !== 'of')
+      return Array.from(new Set(tokens)).sort().join(' ')
+    }
+
     const latestByKey = new Map()
     for (const i of interactions) {
-      const key = ((i.counterparty_name || '') + '|' + (i.counterparty_company || '')).toLowerCase()
+      const key = (i.counterparty_company || '').toLowerCase().trim() + '|' + normalizeName(i.counterparty_name)
       const t = new Date(i.occurred_at || i.created_at)
       const prev = latestByKey.get(key)
       if (!prev || t > prev) latestByKey.set(key, t)
@@ -256,14 +265,14 @@ export default function DailyNote() {
       const dueDays = differenceInCalendarDays(today, due)
       if (dueDays < 0) continue // not yet due
 
-      const key = ((i.counterparty_name || '') + '|' + (i.counterparty_company || '')).toLowerCase()
+      const key = (i.counterparty_company || '').toLowerCase().trim() + '|' + normalizeName(i.counterparty_name)
       if (seenCounterparty.has(key)) continue
       seenCounterparty.add(key)
 
       const latest = latestByKey.get(key)
       if (!latest) continue
-      // If we've spoken to them AFTER the deadline, they're re-engaged.
-      // Drop from priorities — the original deadline is moot now.
+      // If we've spoken to them AFTER the deadline (across any spelling
+      // variant of the name), they're re-engaged. Drop the priority.
       if (latest > due) continue
 
       const daysSinceLatest = Math.max(0, differenceInCalendarDays(today, latest))
@@ -275,15 +284,24 @@ export default function DailyNote() {
         detail: daysSinceLatest === 0
           ? 'Due today'
           : `Last touch ${daysSinceLatest} day${daysSinceLatest === 1 ? '' : 's'} ago`,
-        // Phase 26 — carry the counterparty_type so the Priorities card
-        // can filter by founder / investor / general.
         cty: i.counterparty_type || null,
+        // sortAge drives the oldest-first sort below. Larger = staler.
+        sortAge: daysSinceLatest,
         to: '/interactions'
       })
     }
 
+    // Sort backlog-style: oldest stale at the top, then close-window /
+    // stale-mandate items (no sortAge). Within a tie, fall back to
+    // severity. This matches the partner's existing backlog sheet —
+    // longest-overdue gets attention first.
     const order = { high: 0, warn: 1, info: 2 }
-    priorities.sort((a, b) => order[a.severity] - order[b.severity])
+    priorities.sort((a, b) => {
+      const aAge = a.sortAge ?? -1
+      const bAge = b.sortAge ?? -1
+      if (aAge !== bAge) return bAge - aAge
+      return order[a.severity] - order[b.severity]
+    })
 
     // "Waiting on" — mandates whose NDA is still pending (stub for richer
     // parsing once the KB is in place).
