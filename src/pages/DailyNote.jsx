@@ -9,7 +9,7 @@ import MeetingPrepCard from '../components/MeetingPrepCard.jsx'
 import { supabase, isSupabaseConfigured } from '../lib/supabase.js'
 import { useAuth } from '../hooks/useAuth.js'
 import { useSeat } from '../hooks/useSeat.js'
-import { stageMeta } from '../lib/stages.js'
+import { stageMeta, LIVE_MANDATE_STAGES } from '../lib/stages.js'
 import { listTodayEvents, GoogleAuthExpired } from '../lib/google.js'
 import ConfigBanner from '../components/ConfigBanner.jsx'
 import WikilinkTextarea from '../components/WikilinkTextarea.jsx'
@@ -203,10 +203,12 @@ export default function DailyNote() {
       }
     }
 
-    // Mandates with target close inside 30 days
+    // Mandates with target close inside 30 days. Use the same live-stage
+    // set as the Live Mandates page (Pre-Mandate + Mandate) so a near-close
+    // Pre-Mandate deal isn't silently dropped from Today.
     const horizon30 = addDays(today, 30)
     for (const d of deals) {
-      if (d.stage !== 'Mandate') continue
+      if (!LIVE_MANDATE_STAGES.includes(d.stage)) continue
       const iso = d.expected_close_date || d.target_close
       if (!iso) continue
       const t = parseISO(String(iso).slice(0, 10))

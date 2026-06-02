@@ -15,7 +15,7 @@ import { isGeminiConfigured } from '../lib/gemini.js'
 import { useToast } from './Toast.jsx'
 import WikilinkTextarea from './WikilinkTextarea.jsx'
 import Typeahead from './Typeahead.jsx'
-import { chipClass as ctyChip, labelFor as ctyLabel } from '../lib/counterpartyColors.js'
+import { chipClass as ctyChip, labelFor as ctyLabel, typeFromPersonTags } from '../lib/counterpartyColors.js'
 
 // Meeting-tool integration (Read.ai / Otter / Fireflies) is configured
 // in Settings → Integrations on this branch and lights up once a
@@ -144,15 +144,31 @@ export default function InteractionDrawer({ open, onClose, existing, onSubmit })
           .not('stage', 'in', '("Closed","Lost","On Hold")')
           .order('created_at', { ascending: false })
           .limit(200),
-        supabase.from('people').select('id, full_name, role, company').order('full_name').limit(500),
+        supabase.from('people').select('id, full_name, role, company, tags').order('full_name').limit(500),
         // Phase 3 redesign — POC dropdown is populated from active seats.
         supabase.from('seats').select('id, full_name, email').eq('active', true).order('added_at', { ascending: true })
       ])
-      setDeals(d.data || [])
+      let dealOpts = d.data || []
+      // When editing an interaction already linked to a deal that has since
+      // moved to a terminal stage (Closed/Lost/On Hold), that deal is absent
+      // from the active-only list above — which would blank the picker and
+      // silently drop the link on save. Union the row's own linked deal(s)
+      // back in so the existing link is always selectable.
+      const linkedIds = [
+        ...(existing?.deal_id ? [existing.deal_id] : []),
+        ...(Array.isArray(existing?.deal_ids) ? existing.deal_ids : [])
+      ].filter(Boolean)
+      const missing = linkedIds.filter(id => !dealOpts.some(o => o.id === id))
+      if (missing.length) {
+        const { data: extra } = await supabase
+          .from('deals').select('id, client_name, stage').in('id', missing)
+        if (extra?.length) dealOpts = [...extra, ...dealOpts]
+      }
+      setDeals(dealOpts)
       setPeople(p.data || [])
       setSeats(s.data || [])
     })()
-  }, [open])
+  }, [open, existing])
 
   // Outcome and Purpose dropped from the UI in the Phase 3 redesign. The
   // old "snap outcome to first valid" effect would silently re-write
@@ -174,11 +190,17 @@ export default function InteractionDrawer({ open, onClose, existing, onSubmit })
   }, [people, personQuery])
 
   function pickPerson(p) {
+    // Default the counterparty type from the person's CRM tags so People
+    // (which colours from tags) and this interaction agree out of the box.
+    // Only fills when the partner hasn't already chosen a type — never
+    // overrides an explicit pick.
+    const derived = typeFromPersonTags(p.tags)
     update({
       person_id: p.id,
       counterparty_name: p.full_name,
       counterparty_company: p.company || form.counterparty_company,
-      counterparty_role: p.role || form.counterparty_role
+      counterparty_role: p.role || form.counterparty_role,
+      counterparty_type: form.counterparty_type || derived || null
     })
     setPersonQuery('')
   }
