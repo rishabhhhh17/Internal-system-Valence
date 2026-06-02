@@ -71,7 +71,7 @@ export default function Feed() {
         id: `i-${i.id}`,
         source: 'interaction',
         title: `${i.counterparty_name || 'Counterparty'} · ${labelKind(i.type)}`,
-        body:  i.notes ? trim(i.notes, 200) : `Outcome: ${labelKind(i.outcome)}`,
+        body:  i.notes ? trim(i.notes, 200) : (i.outcome ? `Outcome: ${labelKind(i.outcome)}` : ''),
         to:    i.deal_id ? `/deals?open=${i.deal_id}` : '/interactions',
         at:    i.created_at,
         // Surfaces the rail colour + counterparty chip on the feed row.

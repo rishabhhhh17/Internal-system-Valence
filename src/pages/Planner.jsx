@@ -26,6 +26,15 @@ import { humanError } from '../lib/userError.js'
 
 const todayISO = () => format(new Date(), 'yyyy-MM-dd')
 
+// Safe date format — returns '' for empty/invalid dates instead of letting
+// format() throw "Invalid time value" (e.g. a Google all-day event with no
+// start date yields date='').
+function fmtDate(iso, pattern) {
+  if (!iso) return ''
+  const d = parseISO(String(iso))
+  return Number.isNaN(d.getTime()) ? '' : format(d, pattern)
+}
+
 const demoMeetings = [
   { id: 'm1', title: 'Nimbus Health — management update', date: todayISO(), time: '11:00', attendee_name: 'Rohit Bansal',    attendee_email: 'rohit@nimbushealth.com',   status: 'Confirmed', deal_id: null },
   { id: 'm2', title: 'Arclight Capital — thesis review',  date: todayISO(), time: '15:30', attendee_name: "Serena D'Souza",  attendee_email: 'serena@arclightcap.com',   status: 'Proposed',  deal_id: null }
@@ -122,7 +131,9 @@ export default function Planner() {
   // When Google is connected, the real calendar is the source of truth for today.
   const todayFromGoogle = useMemo(() => gEvents.map(ev => googleToRow(ev)), [gEvents])
   const todayFromSupabase = useMemo(
-    () => meetings.filter(m => m.date === today).sort((a, b) => a.time.localeCompare(b.time)),
+    // Null-safe sort — a Supabase meeting row can have time = null, which
+    // would crash .localeCompare and blank the whole panel.
+    () => meetings.filter(m => m.date === today).sort((a, b) => (a.time || '').localeCompare(b.time || '')),
     [meetings, today]
   )
   const todayMeetings = googleConnected ? todayFromGoogle : todayFromSupabase
@@ -671,7 +682,7 @@ function MeetingRow({ meeting, showDate = false, dealName }) {
     <div className="flex items-center gap-4 rounded-lg border border-valence-border bg-valence-surface px-4 py-3 hover:bg-valence-surface transition">
       <div className="w-16 shrink-0 text-right">
         <p className="text-sm font-semibold tabular-nums text-valence-text">{meeting.time?.slice(0,5)}</p>
-        {showDate && <p className="text-[10px] text-valence-subtle">{format(parseISO(meeting.date), 'd MMM')}</p>}
+        {showDate && <p className="text-[10px] text-valence-subtle">{fmtDate(meeting.date, 'd MMM')}</p>}
       </div>
       <div className="h-8 w-px bg-valence-border" />
       <div className="flex-1 min-w-0">
@@ -825,7 +836,7 @@ function DraftedMessage({ drafted, googleConnected, onClose }) {
       <div className="rounded-lg border border-valence-border bg-valence-surface p-4">
         <div className="flex flex-wrap items-center gap-3 text-xs text-valence-muted">
           <span className="vl-chip-blue">{meeting.status}</span>
-          <span className="inline-flex items-center gap-1.5"><CalendarDays className="h-3 w-3" /> {format(parseISO(meeting.date), 'EEE, d MMM yyyy')}</span>
+          <span className="inline-flex items-center gap-1.5"><CalendarDays className="h-3 w-3" /> {fmtDate(meeting.date, 'EEE, d MMM yyyy')}</span>
           <span className="inline-flex items-center gap-1.5"><Clock className="h-3 w-3" /> {meeting.time?.slice(0,5)}</span>
           <span className="inline-flex items-center gap-1.5"><User2 className="h-3 w-3" /> {meeting.attendee_name}</span>
         </div>
