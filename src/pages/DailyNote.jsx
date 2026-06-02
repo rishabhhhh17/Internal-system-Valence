@@ -435,6 +435,10 @@ export default function DailyNote() {
                   ? auto.priorities.length
                   : auto.priorities.filter(p => p.cty === t).length
                 const active = priorityFilter === t
+                // Hide empty buckets (keep All + whatever's currently
+                // selected) so we don't show a clickable chip that leads
+                // to a dead "Nothing in this bucket" view.
+                if (t !== 'all' && count === 0 && !active) return null
                 return (
                   <button
                     key={t}
@@ -578,7 +582,10 @@ export default function DailyNote() {
 // the two things the partner actually wants mid-day — what came out of the
 // last meeting and what to do next — without the full edit drawer.
 function PriorityPeek({ peek, onClose }) {
-  const when = peek.when ? format(new Date(peek.when), 'd MMM yyyy') : null
+  // Guard against a malformed timestamp — new Date('garbage') → Invalid
+  // Date, and format() throws on it, which would crash the whole card.
+  const whenDate = peek.when ? new Date(peek.when) : null
+  const when = whenDate && !Number.isNaN(whenDate.getTime()) ? format(whenDate, 'd MMM yyyy') : null
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4" role="dialog" aria-modal="true">
       <div className="absolute inset-0 bg-black/30 backdrop-blur-sm animate-fade-in" onClick={onClose} />

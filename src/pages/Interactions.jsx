@@ -138,7 +138,7 @@ export default function Interactions() {
       { key: 'counterparty_company',label: 'Company' },
       { key: 'context',             label: 'Context' },
       { key: 'mandate_link_mode',   label: 'Associated Mandate' },
-      { key: 'interaction_type',    label: 'Interaction Type' },
+      { key: 'type',                label: 'Interaction Type' },
       { key: 'origination',         label: 'Origination' },
       { key: 'lead_owner',          label: 'VGP POC' },
       { key: 'takeaways',           label: 'Takeaways' },
