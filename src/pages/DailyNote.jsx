@@ -16,7 +16,7 @@ import WikilinkTextarea from '../components/WikilinkTextarea.jsx'
 import WikilinkText from '../components/WikilinkText.jsx'
 import StaleRelationships from '../components/StaleRelationships.jsx'
 import ExtensionStatus from '../components/ExtensionStatus.jsx'
-import { dotClass as ctyDot, labelFor as ctyLabel } from '../lib/counterpartyColors.js'
+import { dotClass as ctyDot, labelFor as ctyLabel, barFillClass as ctyBar } from '../lib/counterpartyColors.js'
 
 // The Daily Note replaces the previous Overview page. One row per (user, date)
 // in the daily_notes table. The auto-section is computed every render from
@@ -358,6 +358,32 @@ export default function DailyNote() {
     return { priorities, waitingOn }
   }, [deals, activities, interactions, today])
 
+  // KPI strip metrics — the "command center" numbers at the top of Today.
+  // All computed from the data already in memory; no extra fetch.
+  const stats = useMemo(() => {
+    const weekAgo = addDays(today, -7)
+    const liveMandates = deals.filter(d => LIVE_MANDATE_STAGES.includes(d.stage)).length
+    const week = interactions.filter(i => {
+      if (!i.occurred_at) return false
+      const t = new Date(i.occurred_at)
+      return t >= weekAgo && t <= addDays(today, 1)
+    })
+    const split = { founder: 0, investor: 0, general: 0 }
+    for (const i of week) {
+      const t = i.counterparty_type
+      if (t === 'founder' || t === 'investor' || t === 'general') split[t] += 1
+    }
+    const overdue = auto.priorities.filter(p => p.sortAge != null).length
+    return {
+      liveMandates,
+      totalMandates: deals.length,
+      weekTouches: week.length,
+      split,
+      splitTotal: split.founder + split.investor + split.general,
+      overdue
+    }
+  }, [deals, interactions, today, auto.priorities])
+
   return (
     <div className="space-y-8">
       <ConfigBanner />
@@ -372,6 +398,9 @@ export default function DailyNote() {
         </h1>
         <p className="mt-2 text-sm text-valence-muted">{dateLabel}</p>
       </header>
+
+      {/* KPI command-center strip — the numbers that matter at a glance. */}
+      {ready && <StatStrip stats={stats} />}
 
       {/* Auto sections — read-only, regenerated every render */}
       <section className="grid gap-4 lg:grid-cols-2">
@@ -576,6 +605,61 @@ export default function DailyNote() {
       {peek && <PriorityPeek peek={peek} onClose={() => setPeek(null)} />}
     </div>
   )
+}
+
+// ============================================================================
+// StatStrip — the "command center" KPI row at the top of Today. Four tiles:
+// live mandates, touches this week, the founder/investor balance (the
+// partner's headline metric, as a mini stacked bar), and overdue follow-ups.
+// Each tile links to where you'd act on it.
+// ============================================================================
+function StatStrip({ stats }) {
+  const { liveMandates, totalMandates, weekTouches, split, splitTotal, overdue } = stats
+  const pct = n => (splitTotal ? (n / splitTotal) * 100 : 0)
+  return (
+    <section className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+      <StatTile to="/mandates" icon={Handshake} label="Live mandates"
+        value={liveMandates} sub={`of ${totalMandates} total`} />
+      <StatTile to="/interactions" icon={MessageSquare} label="Touches this week"
+        value={weekTouches} sub={weekTouches === 0 ? 'log your first' : 'interactions logged'} />
+
+      {/* Founder / Investor balance — the headline tile. */}
+      <Link to="/interactions" className="vl-card vl-card-hover p-4 block">
+        <p className="vl-eyebrow-ink inline-flex items-center gap-1.5"><Briefcase className="h-3 w-3" /> This week's balance</p>
+        {splitTotal === 0 ? (
+          <p className="mt-3 text-sm text-valence-subtle">No interactions yet this week.</p>
+        ) : (
+          <>
+            <div className="mt-2.5 flex h-2 w-full overflow-hidden rounded-full bg-valence-surface">
+              {split.founder  > 0 && <div className={ctyBar('founder')}  style={{ width: `${pct(split.founder)}%`  }} title={`Founder ${split.founder}`} />}
+              {split.investor > 0 && <div className={ctyBar('investor')} style={{ width: `${pct(split.investor)}%` }} title={`Investor ${split.investor}`} />}
+              {split.general  > 0 && <div className={ctyBar('general')}  style={{ width: `${pct(split.general)}%`  }} title={`General ${split.general}`} />}
+            </div>
+            <div className="mt-2 flex items-center gap-3 text-[11px] text-valence-muted tabular-nums">
+              <span className="inline-flex items-center gap-1"><span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />{split.founder} founder</span>
+              <span className="inline-flex items-center gap-1"><span className="h-1.5 w-1.5 rounded-full bg-indigo-500" />{split.investor} investor</span>
+            </div>
+          </>
+        )}
+      </Link>
+
+      <StatTile to={overdue > 0 ? '/interactions' : undefined} icon={AlertTriangle} label="Overdue follow-ups"
+        value={overdue} sub={overdue === 0 ? 'all clear' : 'need a touch'} danger={overdue > 0} />
+    </section>
+  )
+}
+
+function StatTile({ to, icon: Icon, label, value, sub, danger }) {
+  const inner = (
+    <>
+      <p className="vl-eyebrow-ink inline-flex items-center gap-1.5"><Icon className="h-3 w-3" /> {label}</p>
+      <p className={`mt-1.5 font-display text-3xl font-bold tabular-nums ${danger ? 'text-valence-danger' : 'text-valence-text'}`}>{value}</p>
+      <p className="mt-0.5 text-[11px] text-valence-subtle">{sub}</p>
+    </>
+  )
+  return to
+    ? <Link to={to} className="vl-card vl-card-hover p-4 block">{inner}</Link>
+    : <div className="vl-card p-4">{inner}</div>
 }
 
 // Lightweight read-only card shown when a Priority row is tapped. Surfaces
