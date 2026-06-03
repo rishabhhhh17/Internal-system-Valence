@@ -361,16 +361,65 @@ export default function DailyNote() {
       return order[a.severity] - order[b.severity]
     })
 
-    // "Waiting on" — mandates whose NDA is still pending (stub for richer
-    // parsing once the KB is in place).
-    const waitingOn = deals
-      .filter(d => ['Pre-Mandate', 'Mandate'].includes(d.stage) && d.nda_status === 'Pending')
-      .map(d => ({ id: d.id, label: `${d.client_name} — NDA still pending` }))
+    // Phase 27 — "Waiting on" is no longer computed here. It comes from
+    // public.compute_waiting_for_org(), which detects stale follow-ups
+    // (interactions with outcome='to_followup' + follow_up_date in the
+    // past and no later interaction with the same counterparty). State
+    // lives in the `waiting` slice below.
 
-    // No hard cap — the Priorities / Waiting-on cards collapse the list to
-    // a small preview by default and let the user expand to see the rest.
-    return { priorities, waitingOn }
+    // No hard cap — the Priorities card collapses the list to a small
+    // preview by default and lets the user expand to see the rest.
+    return { priorities }
   }, [deals, activities, interactions, today])
+
+  // ─── Waiting On ─────────────────────────────────────────────────────────
+  // Pulled from the SQL function compute_waiting_for_org(). Refreshed when
+  // interactions change so logging a fresh follow-up clears stale ones.
+  const [waiting, setWaiting] = useState([])
+  const [waitingBusy, setWaitingBusy] = useState({})  // { [key]: 'snooze' | 'resolve' }
+  const orgId = org?.id
+
+  useEffect(() => {
+    if (!isSupabaseConfigured || !orgId) return
+    let alive = true
+    ;(async () => {
+      const { data, error } = await supabase.rpc('compute_waiting_for_org', { p_org_id: orgId })
+      if (!alive) return
+      if (error) { console.warn('waiting rpc failed', error); return }
+      setWaiting(data || [])
+    })()
+    return () => { alive = false }
+  }, [orgId, interactions.length])
+
+  async function snoozeWaiting(w, days = 3) {
+    const key = waitingKey(w)
+    setWaitingBusy(b => ({ ...b, [key]: 'snooze' }))
+    try {
+      const { error } = await supabase.rpc('waiting_snooze', {
+        p_deal_id: w.deal_id,
+        p_counterparty_name: w.counterparty_name,
+        p_days: days
+      })
+      if (error) throw error
+      setWaiting(prev => prev.filter(r => waitingKey(r) !== key))
+    } catch (e) { console.warn('snooze failed', e) }
+    finally { setWaitingBusy(b => { const n = { ...b }; delete n[key]; return n }) }
+  }
+
+  async function resolveWaiting(w) {
+    const key = waitingKey(w)
+    setWaitingBusy(b => ({ ...b, [key]: 'resolve' }))
+    try {
+      const { error } = await supabase.rpc('waiting_resolve', {
+        p_deal_id: w.deal_id,
+        p_counterparty_name: w.counterparty_name,
+        p_note: null
+      })
+      if (error) throw error
+      setWaiting(prev => prev.filter(r => waitingKey(r) !== key))
+    } catch (e) { console.warn('resolve failed', e) }
+    finally { setWaitingBusy(b => { const n = { ...b }; delete n[key]; return n }) }
+  }
 
   // KPI strip metrics — the "command center" numbers at the top of Today.
   // All computed from the data already in memory; no extra fetch.
@@ -585,20 +634,61 @@ export default function DailyNote() {
           icon={Clock}
           title="Waiting on"
           subtitle="Where we're blocked on someone else"
-          countBadge={auto.waitingOn.length}
+          countBadge={waiting.length}
         >
           {!ready ? (
             <SkeletonRows count={3} />
-          ) : auto.waitingOn.length === 0 ? (
+          ) : waiting.length === 0 ? (
             <Empty>Nothing flagged.</Empty>
           ) : (
-            <ExpandableList items={auto.waitingOn} initial={3} kind="items">
-              {w => (
-                <li key={w.id} className="flex items-start gap-3 py-2">
-                  <AlertTriangle className="h-3 w-3 mt-1 text-valence-warning shrink-0" />
-                  <Link to={`/deals?open=${w.id}`} className="text-sm text-valence-text hover:text-valence-blue">{w.label}</Link>
-                </li>
-              )}
+            <ExpandableList items={waiting} initial={4} kind="items">
+              {w => {
+                const key  = waitingKey(w)
+                const busy = waitingBusy[key]
+                const subjectLine = firstLineOf(w.last_subject)
+                return (
+                  <li key={key} className="group flex items-start gap-3 py-2.5 border-b border-valence-border/40 last:border-b-0">
+                    <AlertTriangle className="h-3 w-3 mt-1 text-valence-warning shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-baseline gap-2 flex-wrap">
+                        <Link
+                          to={`/deals?open=${w.deal_id}`}
+                          className="text-sm font-medium text-valence-text hover:text-valence-blue"
+                        >
+                          {w.counterparty_name}
+                        </Link>
+                        <span className="text-xs text-valence-muted">·</span>
+                        <span className="text-xs text-valence-muted">{w.client_name}</span>
+                        <span className="ml-auto text-[10px] font-mono uppercase tracking-wider text-valence-subtle">
+                          {w.days_blocked}d
+                        </span>
+                      </div>
+                      {subjectLine && (
+                        <div className="mt-0.5 text-xs text-valence-muted line-clamp-1">{subjectLine}</div>
+                      )}
+                      <div className="mt-1.5 flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <button
+                          type="button"
+                          onClick={() => snoozeWaiting(w, 3)}
+                          disabled={!!busy}
+                          className="text-[10px] font-medium text-valence-muted hover:text-valence-text disabled:opacity-50"
+                        >
+                          {busy === 'snooze' ? 'Snoozing…' : 'Snooze 3d'}
+                        </button>
+                        <span className="text-valence-subtle">·</span>
+                        <button
+                          type="button"
+                          onClick={() => resolveWaiting(w)}
+                          disabled={!!busy}
+                          className="text-[10px] font-medium text-valence-muted hover:text-valence-text disabled:opacity-50"
+                        >
+                          {busy === 'resolve' ? 'Resolving…' : 'Mark resolved'}
+                        </button>
+                      </div>
+                    </div>
+                  </li>
+                )
+              }}
             </ExpandableList>
           )}
         </Card>
@@ -865,6 +955,21 @@ function SkeletonRows({ count = 3 }) {
       ))}
     </ul>
   )
+}
+
+// Phase 27 — stable key per Waiting On row. counterparty_name is matched
+// case-insensitively by the SQL function so we normalise the same way here.
+function waitingKey(w) {
+  return `${w.deal_id}:${(w.counterparty_name || '').trim().toLowerCase()}`
+}
+
+// Interaction notes are multi-line "Context:/Origination:/Next Steps:" blobs;
+// the first non-empty line after stripping the field label is usually the
+// useful summary. Falls back to the whole string when there's no structure.
+function firstLineOf(text) {
+  if (!text) return ''
+  const first = String(text).split(/\r?\n/).map(s => s.trim()).find(Boolean) || ''
+  return first.replace(/^Context:\s*/i, '')
 }
 
 function ActionLink({ to, icon: Icon, label }) {
