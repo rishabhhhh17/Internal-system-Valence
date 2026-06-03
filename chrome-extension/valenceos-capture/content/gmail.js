@@ -77,6 +77,16 @@ function extractThread() {
   }
   if (!occurredAt) occurredAt = new Date().toISOString()
 
+  // Sender of the last visible message — the FIRST .gD[email] inside the
+  // last message container is Gmail's "from" badge. Used server-side to
+  // classify the interaction as email_sent vs email_received by comparing
+  // against the authenticated user's email.
+  let lastFrom = ''
+  if (last) {
+    const fromEl = last.querySelector('.gD[email], .go[email]')
+    lastFrom = (fromEl?.getAttribute('email') || '').trim().toLowerCase()
+  }
+
   // Stable id for dedupe — use Gmail's data-legacy-thread-id if present,
   // else fall back to the URL fragment.
   const idEl = root.querySelector('[data-legacy-thread-id]')
@@ -89,6 +99,7 @@ function extractThread() {
     subject,
     occurredAt,
     snippet,
+    lastFrom,
     participants: Array.from(participants.entries()).map(([email, name]) => ({ email, name }))
   }
 }
