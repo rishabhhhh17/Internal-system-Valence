@@ -6,7 +6,7 @@ import {
   AlertTriangle, Clock, ArrowUpRight, ChevronDown, ChevronUp
 } from 'lucide-react'
 import MeetingPrepCard from '../components/MeetingPrepCard.jsx'
-import { supabase, isSupabaseConfigured } from '../lib/supabase.js'
+import { supabase, isSupabaseConfigured, subscribeTable } from '../lib/supabase.js'
 import { useAuth } from '../hooks/useAuth.js'
 import { useSeat } from '../hooks/useSeat.js'
 import { stageMeta, LIVE_MANDATE_STAGES } from '../lib/stages.js'
@@ -69,32 +69,46 @@ export default function DailyNote() {
   const firstName = rawName ? rawName.split(/\s|@/)[0] : ''
   const userId   = profile?.id || '00000000-0000-0000-0000-000000000000'  // anon demo fallback
 
-  // Pull everything we need to compute priorities + waiting-on.
+  // Pull everything we need to compute priorities + waiting-on, and keep it
+  // LIVE — subscribe to interactions + deals so logging a touch or moving a
+  // stage updates the KPI tiles / Pulse / priorities instantly, no refresh.
   useEffect(() => {
     if (!isSupabaseConfigured) return
-    ;(async () => {
-      const [d, a, i, m] = await Promise.all([
+    let alive = true
+
+    // Core fetch — deals / activities / interactions. Deliberately excludes
+    // meetings so a realtime refresh doesn't clobber Google Calendar events
+    // (those are owned by the googleConnected effect below).
+    async function loadCore() {
+      const [d, a, i] = await Promise.all([
         supabase.from('deals').select('id, client_name, stage, lead_owner, target_close, expected_close_date, deal_types, deal_subtype, updated_at, created_at, nda_status').order('updated_at', { ascending: false }),
         supabase.from('activities').select('deal_id, kind, created_at').order('created_at', { ascending: false }).limit(2000),
-        // Pull ALL recent interactions (not just ones with follow_up_date) so
-        // we can compute the latest touch per counterparty. This is what
-        // drives the "X days since last touch" detail line — the old query
-        // only fetched rows with follow_up_date set, so a stale 2024 deadline
-        // would still light up even when the same person was re-engaged
-        // last month. Order desc + cap at 5000 to stay deterministic.
         supabase.from('interactions')
           .select('id, counterparty_name, counterparty_company, counterparty_type, follow_up_date, outcome, deal_id, lead_owner, occurred_at, created_at, is_complete, context, takeaways, next_steps')
           .order('occurred_at', { ascending: false, nullsFirst: false })
-          .limit(5000),
-        supabase.from('meetings').select('id, title, attendee_name, date, time').eq('date', dateIso).order('time')
+          .limit(5000)
       ])
+      if (!alive) return
       setDeals(d.data || [])
       setActivities(a.data || [])
       setInteractions(i.data || [])
+      setReady(true)
+    }
+
+    // Meetings — fetched once on mount; the Google effect may override.
+    async function loadMeetings() {
+      const m = await supabase.from('meetings').select('id, title, attendee_name, date, time').eq('date', dateIso).order('time')
+      if (!alive) return
       setMeetings(m.data || [])
       setMeetingsSource('local')
-      setReady(true)
-    })()
+    }
+
+    loadCore()
+    loadMeetings()
+
+    const offInteractions = subscribeTable('interactions', loadCore)
+    const offDeals = subscribeTable('deals', loadCore)
+    return () => { alive = false; offInteractions?.(); offDeals?.() }
   }, [dateIso])
 
   // Prefer Google Calendar when connected — the daily_notes 'meetings' table
