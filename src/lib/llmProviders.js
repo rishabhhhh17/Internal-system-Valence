@@ -76,9 +76,18 @@ export const PROVIDERS = Object.freeze([
     defaultModel: 'gemini-2.5-flash-lite',
     models: [
       {
+        id: 'gemini-2.5-flash-lite',
+        label: 'Gemini 2.5 Flash-Lite',
+        description: 'Default. Cheapest + fastest — ideal for everyday logging + summaries.',
+        inputUsdPer1K: 0.0001,
+        outputUsdPer1K: 0.0004,
+        customerInputUsdPer1K: 0.0002,
+        customerOutputUsdPer1K: 0.0008
+      },
+      {
         id: 'gemini-2.0-flash',
         label: 'Gemini 2.0 Flash',
-        description: 'Default. Best price-to-quality for everyday calls.',
+        description: 'Best price-to-quality for everyday calls.',
         inputUsdPer1K: 0.000075,
         outputUsdPer1K: 0.00030,
         customerInputUsdPer1K: 0.00015,

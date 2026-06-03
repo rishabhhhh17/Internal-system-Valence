@@ -16,9 +16,10 @@ describe('SETTINGS_SECTIONS', () => {
     expect(SETTINGS_SECTIONS.map(s => s.id)).toEqual([
       'workspace',
       'team',
+      'appearance',
+      'scoring',
       'integrations',
-      'data',
-      'appearance'
+      'data'
     ])
   })
 

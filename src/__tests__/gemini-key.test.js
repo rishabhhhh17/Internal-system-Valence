@@ -28,11 +28,14 @@ async function loadModule() {
 }
 
 describe('Gemini key resolution at import', () => {
-  it('reports source=none when nothing is set', async () => {
+  it('falls back to managed mode when no user key is set', async () => {
+    // Design change (dual-key failover): the server holds a managed key, so
+    // with no user key the source is 'managed' (not 'none') and AI is still
+    // configured. There is no longer an unconfigured 'none' state.
     const m = await loadModule()
-    expect(m.getGeminiKey()).toBeNull()
-    expect(m.isGeminiConfigured).toBe(false)
-    expect(m.geminiKeySource).toBe('none')
+    expect(m.getGeminiKey()).toBeNull()        // no USER key
+    expect(m.isGeminiConfigured).toBe(true)    // managed fallback covers it
+    expect(m.geminiKeySource).toBe('managed')
   })
 
   it('reads user key from localStorage if present', async () => {
@@ -66,7 +69,8 @@ describe('setGeminiKey', () => {
     expect(m.isGeminiConfigured).toBe(true)
     m.clearGeminiKey()
     expect(m.getGeminiKey()).toBeNull()
-    expect(m.getGeminiKeySource()).toBe('none')
+    // Clearing the user key drops back to the managed fallback, not 'none'.
+    expect(m.getGeminiKeySource()).toBe('managed')
     expect(storage.getItem('valence.settings.geminiKey')).toBeNull()
   })
 
@@ -91,7 +95,8 @@ describe('localStorage unavailable / blocked', () => {
     vi.stubGlobal('window', {})
     const m = await loadModule()
     expect(m.getGeminiKey()).toBeNull()
-    expect(m.geminiKeySource).toBe('none')
+    // No user key available (storage blocked) → managed fallback.
+    expect(m.geminiKeySource).toBe('managed')
   })
 
   it('setGeminiKey returns false when storage throws', async () => {
