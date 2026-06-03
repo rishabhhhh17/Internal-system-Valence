@@ -196,24 +196,53 @@ export default function Interactions() {
     })
   }, [rows, mandateFilter, deals, q, needsFollowUp])
 
+  // Header stat ribbon — turns the page from "raw list" into "here's the
+  // state of the funnel" in one line.
+  const summary = useMemo(() => {
+    const now = new Date()
+    const weekAgo = new Date(now.getTime() - 7 * 864e5)
+    let needFollowUp = 0, week = 0
+    for (const r of rows) {
+      if (r.follow_up_date && !r.is_complete) {
+        const due = parseISO(String(r.follow_up_date))
+        if (!Number.isNaN(due.getTime()) && differenceInCalendarDays(due, now) <= 0) needFollowUp++
+      }
+      if (r.occurred_at && new Date(r.occurred_at) >= weekAgo) week++
+    }
+    return { total: rows.length, needFollowUp, week }
+  }, [rows])
+
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
       <ConfigBanner />
 
-      <div className="flex flex-wrap items-center justify-end gap-2">
-        <ViewModeToggle pageKey="interactions" />
-        <button
-          onClick={exportFilteredCSV}
-          disabled={loading || filtered.length === 0}
-          title="Export currently filtered rows as CSV"
-          className="vl-btn-secondary-sm"
-        >
-          <Download className="h-3.5 w-3.5" />
-          Export CSV
-        </button>
-        <button onClick={() => setDrawer('new')} className="vl-btn-primary-sm">
-          <Plus className="h-4 w-4" /> Log interaction
-        </button>
+      <div className="flex flex-wrap items-end justify-between gap-4">
+        <div>
+          <p className="vl-eyebrow-ink">Interactions</p>
+          <h1 className="mt-2 font-display text-feature font-bold text-valence-text">
+            Every touchpoint, in one funnel.
+          </h1>
+          <p className="mt-1.5 text-sm text-valence-muted tabular-nums">
+            {summary.total} logged
+            {summary.needFollowUp > 0 && <> · <span className="font-semibold text-valence-warning">{summary.needFollowUp} need follow-up</span></>}
+            {summary.week > 0 && <> · {summary.week} this week</>}
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          <ViewModeToggle pageKey="interactions" />
+          <button
+            onClick={exportFilteredCSV}
+            disabled={loading || filtered.length === 0}
+            title="Export currently filtered rows as CSV"
+            className="vl-btn-secondary-sm"
+          >
+            <Download className="h-3.5 w-3.5" />
+            Export CSV
+          </button>
+          <button onClick={() => setDrawer('new')} className="vl-btn-primary-sm">
+            <Plus className="h-4 w-4" /> Log interaction
+          </button>
+        </div>
       </div>
 
       {/* Filter strip — single row: context dropdown + needs-follow-up
@@ -299,6 +328,25 @@ export default function Interactions() {
   )
 }
 
+// Counterparty name — links to the person's profile when the interaction
+// is tied to a People record, so the list behaves like a CRM (click a
+// name → see the person) instead of a flat log. stopPropagation keeps the
+// row's own open-the-drawer click from also firing.
+function CounterpartyName({ row, className = '' }) {
+  if (row.person_id) {
+    return (
+      <Link
+        to={`/people?open=${row.person_id}`}
+        onClick={e => e.stopPropagation()}
+        className={`text-valence-text hover:text-valence-blue hover:underline decoration-valence-blue/40 underline-offset-2 ${className}`}
+      >
+        {row.counterparty_name}
+      </Link>
+    )
+  }
+  return <p className={`text-valence-text ${className}`}>{row.counterparty_name}</p>
+}
+
 function InteractionRow({ row, onOpen, onConvert, isDetailed = true }) {
   const ago = row.created_at ? formatDistanceToNowStrict(new Date(row.created_at), { addSuffix: true }) : ''
   const due = row.follow_up_date ? format(parseISO(row.follow_up_date), 'd MMM') : null
@@ -317,11 +365,11 @@ function InteractionRow({ row, onOpen, onConvert, isDetailed = true }) {
   if (!isDetailed) {
     return (
       <li className="group">
-        <button onClick={onOpen} className={`flex w-full items-center gap-3 px-5 py-3 text-left hover:bg-valence-surface transition ${railCls}`}>
+        <div onClick={onOpen} className={`flex w-full cursor-pointer items-center gap-3 px-5 py-3 text-left hover:bg-valence-surface transition ${railCls}`}>
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2 min-w-0">
               {row.counterparty_type && <span className={`h-1.5 w-1.5 rounded-full shrink-0 ${ctyDot(row.counterparty_type)}`} title={ctyLabel(row.counterparty_type)} />}
-              <p className="text-sm font-semibold text-valence-text truncate">{row.counterparty_name}</p>
+              <CounterpartyName row={row} className="text-sm font-semibold truncate" />
               {row.counterparty_company && <span className="text-xs text-valence-muted truncate shrink-0 max-w-[40%]">· {row.counterparty_company}</span>}
             </div>
             {row.next_steps && (
@@ -337,7 +385,7 @@ function InteractionRow({ row, onOpen, onConvert, isDetailed = true }) {
             )}
             {row.is_complete && <p className="text-[10px] font-semibold text-valence-success">✓ done</p>}
           </div>
-        </button>
+        </div>
       </li>
     )
   }
@@ -346,9 +394,9 @@ function InteractionRow({ row, onOpen, onConvert, isDetailed = true }) {
   return (
     <li className="group">
       <div className={`flex items-start gap-4 px-5 py-4 hover:bg-valence-surface transition ${railCls}`}>
-        <button onClick={onOpen} className="flex-1 min-w-0 text-left">
+        <div onClick={onOpen} className="flex-1 min-w-0 cursor-pointer text-left">
           <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
-            <p className="text-sm font-semibold text-valence-text">{row.counterparty_name}</p>
+            <CounterpartyName row={row} className="text-sm font-semibold" />
             {row.counterparty_company && <p className="text-xs text-valence-muted">· {row.counterparty_company}</p>}
             {row.counterparty_role && <p className="text-xs text-valence-subtle">· {row.counterparty_role}</p>}
           </div>
@@ -396,7 +444,7 @@ function InteractionRow({ row, onOpen, onConvert, isDetailed = true }) {
               <WikilinkText>{row.notes}</WikilinkText>
             </p>
           ) : null}
-        </button>
+        </div>
         <div className="flex flex-col items-end gap-2 shrink-0 text-[11px] text-valence-subtle">
           <span>{ago}</span>
           {row.outcome === 'converted_to_mandate' && (

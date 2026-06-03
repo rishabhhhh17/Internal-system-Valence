@@ -240,11 +240,19 @@ export default function PersonDrawer({ open, onClose, existing, onSubmit, onRena
           items={interactions}
           empty="No interactions logged with this person yet."
           render={i => (
-            <div>
-              <p className="text-sm font-semibold text-valence-text">{i.type?.replace(/_/g, ' ') || 'Interaction'}</p>
-              <p className="text-[11px] text-valence-muted">{i.outcome?.replace(/_/g, ' ')} · {i.created_at?.slice(0, 10)}</p>
-              {i.notes && <p className="mt-1 text-[12px] text-valence-muted leading-relaxed line-clamp-2"><WikilinkText>{i.notes}</WikilinkText></p>}
-            </div>
+            // Click-through to the full interaction (CRM connective tissue).
+            <Link to={`/interactions?open=${i.id}`} className="block group/introw">
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-sm font-semibold text-valence-text group-hover/introw:text-valence-blue transition">{i.context || i.type?.replace(/_/g, ' ') || 'Interaction'}</p>
+                <ArrowUpRight className="h-3 w-3 text-valence-subtle opacity-0 group-hover/introw:opacity-100 transition shrink-0" />
+              </div>
+              <p className="text-[11px] text-valence-muted">{(i.type?.replace(/_/g, ' ') || '')}{i.occurred_at ? ` · ${i.occurred_at.slice(0, 10)}` : (i.created_at ? ` · ${i.created_at.slice(0, 10)}` : '')}</p>
+              {(i.next_steps || i.takeaways || i.notes) && (
+                <p className="mt-1 text-[12px] text-valence-muted leading-relaxed line-clamp-2">
+                  <WikilinkText>{i.next_steps || i.takeaways || i.notes}</WikilinkText>
+                </p>
+              )}
+            </Link>
           )}
         />
       )}
@@ -252,10 +260,13 @@ export default function PersonDrawer({ open, onClose, existing, onSubmit, onRena
       {tab === 'deals' && existing && (
         <RelatedList
           items={deals}
-          empty="No deals link to this person yet. Counterparty link by email; once Phase 2 wires contacts.person_id this list expands."
+          empty="No mandates linked to this person yet."
           render={d => (
-            <Link to={`/deals?open=${d.id}`} className="block">
-              <p className="text-sm font-semibold text-valence-text">{d.client_name}</p>
+            <Link to={`/deals?open=${d.id}`} className="block group/dealrow">
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-sm font-semibold text-valence-text group-hover/dealrow:text-valence-blue transition">{d.client_name}</p>
+                <ArrowUpRight className="h-3 w-3 text-valence-subtle opacity-0 group-hover/dealrow:opacity-100 transition shrink-0" />
+              </div>
               <p className="text-[11px] text-valence-muted">{d.stage}</p>
             </Link>
           )}
@@ -268,7 +279,7 @@ export default function PersonDrawer({ open, onClose, existing, onSubmit, onRena
 
       {tab === 'files' && existing && (
         <div className="rounded-lg border border-dashed border-valence-border bg-valence-surface px-5 py-8 text-center text-sm text-valence-muted">
-          Files attached directly to this person — Phase 2 with the KB folder hierarchy.
+          No files attached to this person yet.
         </div>
       )}
 
