@@ -648,7 +648,9 @@ export default function DailyNote() {
                 const subjectLine = firstLineOf(w.last_subject)
                 return (
                   <li key={key} className="group flex items-start gap-3 py-2.5 border-b border-valence-border/40 last:border-b-0">
-                    <AlertTriangle className="h-3 w-3 mt-1 text-valence-warning shrink-0" />
+                    {w.blocker_kind === 'email_silent'
+                      ? <MessageSquare className="h-3 w-3 mt-1 text-valence-blue shrink-0" />
+                      : <AlertTriangle className="h-3 w-3 mt-1 text-valence-warning shrink-0" />}
                     <div className="flex-1 min-w-0">
                       <div className="flex items-baseline gap-2 flex-wrap">
                         <Link
@@ -659,6 +661,15 @@ export default function DailyNote() {
                         </Link>
                         <span className="text-xs text-valence-muted">·</span>
                         <span className="text-xs text-valence-muted">{w.client_name}</span>
+                        <span
+                          className={`ml-1 inline-flex items-center rounded-full px-1.5 py-px text-[9px] font-medium uppercase tracking-wider ${
+                            w.blocker_kind === 'email_silent'
+                              ? 'bg-valence-blue-soft text-valence-blue'
+                              : 'bg-amber-50 text-amber-700'
+                          }`}
+                        >
+                          {w.blocker_kind === 'email_silent' ? 'No reply' : 'Follow-up'}
+                        </span>
                         <span className="ml-auto text-[10px] font-mono uppercase tracking-wider text-valence-subtle">
                           {w.days_blocked}d
                         </span>

@@ -60,8 +60,14 @@ export default async function handler(req, res) {
     if (orgErr) return res.status(500).json({ error: orgErr.message })
     if (!orgId)  return res.status(403).json({ error: 'No active seat — finish onboarding in the workspace first.' })
 
+    // Pull the authenticated user's email so Gmail captures can be
+    // classified as email_sent vs email_received by comparing against
+    // the last message's From header.
+    const { data: userInfo } = await sb.auth.getUser()
+    const userEmail = (userInfo?.user?.email || '').toLowerCase()
+
     switch (body.kind) {
-      case 'gmail_thread':  return await handleGmailThread(sb, orgId, body, res)
+      case 'gmail_thread':  return await handleGmailThread(sb, orgId, userEmail, body, res)
       case 'gcal_event':    return await handleCalendarEvent(sb, orgId, body, res)
       default:
         return res.status(400).json({ error: `Unknown capture kind: ${body.kind}` })
@@ -72,8 +78,8 @@ export default async function handler(req, res) {
 }
 
 // ============ GMAIL THREAD ============
-async function handleGmailThread(sb, orgId, body, res) {
-  const { threadId, subject, occurredAt, snippet, participants } = body
+async function handleGmailThread(sb, orgId, userEmail, body, res) {
+  const { threadId, subject, occurredAt, snippet, participants, lastFrom } = body
   if (!subject) return res.status(400).json({ error: 'Missing subject' })
 
   // Dedupe: skip if we already captured this thread for this org.
@@ -123,15 +129,62 @@ async function handleGmailThread(sb, orgId, body, res) {
     }
   }
 
-  // Log the interaction. counterparty_name = first non-self participant.
-  const lead = (participants || [])[0]
+  // counterparty_name = first non-self participant. With userEmail known
+  // we pick the actual external participant rather than just slot 0 (which
+  // is often the user themselves when they're on the From line).
+  const externalParticipants = (participants || []).filter(p => {
+    const e = (p.email || '').toLowerCase()
+    return e && e !== userEmail
+  })
+  const lead = externalParticipants[0] || (participants || [])[0]
+
+  // Direction: lastFrom is the sender of the last visible message in the
+  // thread. If that's us, the email is OUTBOUND — we sent the last message
+  // and the ball is now in their court (a Waiting On candidate). If it's
+  // them, INBOUND. Default to email_received when we don't have a clear
+  // sender so older captures and edge cases don't false-flag as outbound.
+  const senderIsUs = !!(userEmail && lastFrom && lastFrom === userEmail)
+  const interactionType = senderIsUs ? 'email_sent' : 'email_received'
+
+  // Try to attach this thread to a deal. The contacts table is the
+  // canonical (deal_id, email) link in this schema; any participant email
+  // that appears there points us at the right mandate. Pick the most
+  // recently updated match so live mandates win over closed ones.
+  let dealId = null
+  const partEmails = externalParticipants
+    .map(p => (p.email || '').toLowerCase())
+    .filter(e => e && e.includes('@'))
+  if (partEmails.length) {
+    const { data: dealHit } = await sb
+      .from('contacts')
+      .select('deal_id, deals(updated_at)')
+      .in('email', partEmails)
+      .not('deal_id', 'is', null)
+      .order('updated_at', { ascending: false, foreignTable: 'deals' })
+      .limit(1)
+    dealId = dealHit?.[0]?.deal_id || null
+  }
+
+  // External person id — link to the people row for the lead so the
+  // relationship graph + Waiting On signal can find them.
+  const leadEmail = (lead?.email || '').toLowerCase()
+  const leadPerson = people.find(p => p.email === leadEmail)
+
   const { error: intErr } = await sb.from('interactions')
     .insert({
       org_id: orgId,
+      deal_id: dealId,
+      external_person_id: leadPerson?.id || null,
       counterparty_name: lead?.name || lead?.email || 'Unknown',
       counterparty_company: extractCompanyFromEmail(lead?.email),
-      type: 'email',
+      type: 'email_thread',
+      interaction_type: interactionType,
       outcome: 'neutral',
+      subject,
+      summary: snippet || null,
+      source: 'gmail',
+      source_id: threadId || null,
+      occurred_at: occurredAt || new Date().toISOString(),
       notes: snippet ? `Subject: ${subject}\n\n${snippet}` : `Subject: ${subject}`,
       created_at: occurredAt || new Date().toISOString(),
       external_id: threadId ? `gmail:${threadId}` : null
