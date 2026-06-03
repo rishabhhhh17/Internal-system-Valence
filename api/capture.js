@@ -155,12 +155,14 @@ async function handleGmailThread(sb, orgId, userEmail, body, res) {
     .map(p => (p.email || '').toLowerCase())
     .filter(e => e && e.includes('@'))
   if (partEmails.length) {
+    // supabase-js v2.36+ renamed the embedded-order option from
+    // `foreignTable` to `referencedTable`. The old name is deprecated.
     const { data: dealHit } = await sb
       .from('contacts')
       .select('deal_id, deals(updated_at)')
       .in('email', partEmails)
       .not('deal_id', 'is', null)
-      .order('updated_at', { ascending: false, foreignTable: 'deals' })
+      .order('updated_at', { ascending: false, referencedTable: 'deals' })
       .limit(1)
     dealId = dealHit?.[0]?.deal_id || null
   }
@@ -179,7 +181,10 @@ async function handleGmailThread(sb, orgId, userEmail, body, res) {
       counterparty_company: extractCompanyFromEmail(lead?.email),
       type: 'email_thread',
       interaction_type: interactionType,
-      outcome: 'neutral',
+      // 'in_progress' is the closest neutral outcome accepted by
+      // interactions_outcome_check. The previous 'neutral' value was
+      // rejected by the constraint, silently failing every capture.
+      outcome: 'in_progress',
       subject,
       summary: snippet || null,
       source: 'gmail',
@@ -256,8 +261,12 @@ async function handleCalendarEvent(sb, orgId, body, res) {
       org_id: orgId,
       counterparty_name: lead?.name || lead?.email || title,
       counterparty_company: extractCompanyFromEmail(lead?.email),
-      type: 'meeting',
-      outcome: 'neutral',
+      // 'meeting' isn't in interactions_type_check; the closest legal value
+      // is 'pitch_meeting' (already used by 302 existing rows). Keeping the
+      // old typo would silently fail the insert under the constraint.
+      type: 'pitch_meeting',
+      // See email handler — 'neutral' is not in interactions_outcome_check.
+      outcome: 'in_progress',
       notes: [
         title,
         timeText ? `When: ${timeText}` : null,
