@@ -33,7 +33,7 @@ export default async function handler(req, res) {
   if (req.method === 'OPTIONS') {
     res.setHeader('Access-Control-Allow-Origin', '*')
     res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS')
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, x-user-gemini-key')
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, x-user-gemini-key')
     return res.status(204).end()
   }
   if (req.method !== 'POST') {
@@ -42,6 +42,11 @@ export default async function handler(req, res) {
 
   // Resolve key: caller header wins; server env is fallback.
   const userKey = String(req.headers['x-user-gemini-key'] || '').trim()
+  // Gate the managed server key behind a valid Supabase JWT (BYO keys pass).
+  if (!userKey) {
+    const ok = await hasValidSession(req)
+    if (!ok) return res.status(401).json({ error: 'Sign in to use the managed AI, or supply your own API key.' })
+  }
   const serverKey = process.env.GEMINI_API_KEY || ''
   const key = userKey || serverKey
   if (!key) {
@@ -105,3 +110,22 @@ function extractUsage(json) {
 }
 
 function round6(n) { return Math.round((Number(n) || 0) * 1e6) / 1e6 }
+
+// Validate the caller's Supabase JWT — gates the managed server key so this
+// endpoint can't be used anonymously to drain the firm's Gemini quota.
+async function hasValidSession(req) {
+  try {
+    const auth = req.headers['authorization'] || req.headers['Authorization'] || ''
+    const token = auth.startsWith('Bearer ') ? auth.slice(7).trim() : ''
+    if (!token) return false
+    const url  = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL
+    const anon = process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY
+    if (!url || !anon) return false
+    const { createClient } = await import('@supabase/supabase-js')
+    const sb = createClient(url, anon, { global: { headers: { Authorization: `Bearer ${token}` } } })
+    const { data, error } = await sb.auth.getUser()
+    return !error && !!data?.user
+  } catch {
+    return false
+  }
+}

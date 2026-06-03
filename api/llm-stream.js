@@ -42,7 +42,7 @@ export default async function handler(req, res) {
     res.setHeader('Access-Control-Allow-Origin', '*')
     res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS')
     res.setHeader('Access-Control-Allow-Headers',
-      'Content-Type, x-llm-provider, x-llm-api-key, x-llm-base-url, x-user-gemini-key')
+      'Content-Type, Authorization, x-llm-provider, x-llm-api-key, x-llm-base-url, x-user-gemini-key')
     return res.status(204).end()
   }
   if (req.method !== 'POST') {
@@ -57,6 +57,11 @@ export default async function handler(req, res) {
   const userKey = String(
     req.headers['x-llm-api-key'] || req.headers['x-user-gemini-key'] || ''
   ).trim()
+  // Gate the managed server key behind a valid Supabase JWT (BYO keys pass).
+  if (!userKey) {
+    const ok = await hasValidSession(req)
+    if (!ok) return res.status(401).json({ error: 'Sign in to use the managed AI, or supply your own API key.' })
+  }
   const serverKey = resolveServerKey(providerId)
   const apiKey = userKey || serverKey
   if (!apiKey) {
@@ -72,6 +77,9 @@ export default async function handler(req, res) {
   body = body || {}
   const model       = body.model || DEFAULTS[providerId].model
   const prompt      = String(body.prompt || '')
+  if (prompt.length > 48000) {
+    return res.status(413).json({ error: `Prompt too large (${prompt.length} chars; max 48000).` })
+  }
   const temperature = typeof body.temperature === 'number' ? body.temperature : 0.45
   const maxTokens   = typeof body.maxOutputTokens === 'number' ? body.maxOutputTokens : 700
   const baseUrl     = String(req.headers['x-llm-base-url'] || '').trim() || null
@@ -117,6 +125,24 @@ function resolveServerKey(providerId) {
     case 'vercel_ai_gateway': return process.env.VERCEL_AI_GATEWAY_KEY || process.env.AI_GATEWAY_API_KEY || ''
     case 'custom_openai':     return process.env.CUSTOM_OPENAI_API_KEY || ''
     default:                  return ''
+  }
+}
+
+// Validate the caller's Supabase JWT — gates the managed server key.
+async function hasValidSession(req) {
+  try {
+    const auth = req.headers['authorization'] || req.headers['Authorization'] || ''
+    const token = auth.startsWith('Bearer ') ? auth.slice(7).trim() : ''
+    if (!token) return false
+    const url  = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL
+    const anon = process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY
+    if (!url || !anon) return false
+    const { createClient } = await import('@supabase/supabase-js')
+    const sb = createClient(url, anon, { global: { headers: { Authorization: `Bearer ${token}` } } })
+    const { data, error } = await sb.auth.getUser()
+    return !error && !!data?.user
+  } catch {
+    return false
   }
 }
 

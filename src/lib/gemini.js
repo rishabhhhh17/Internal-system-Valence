@@ -19,6 +19,21 @@ import {
   clearApiKey as clearProviderApiKey
 } from './llmProviders.js'
 import { firmDisplayName } from './firmIdentity.js'
+import { supabase } from './supabase.js'
+
+// The /api/llm proxy now requires a Supabase JWT to use the managed server
+// key (so the endpoint can't be abused anonymously). Attach the signed-in
+// user's access token. Returns {} if there's no session (BYO-key callers
+// still work; managed calls will get a clear 401).
+async function authHeader() {
+  try {
+    const { data } = await supabase.auth.getSession()
+    const token = data?.session?.access_token
+    return token ? { Authorization: `Bearer ${token}` } : {}
+  } catch {
+    return {}
+  }
+}
 
 const LLM_PROXY_URL        = '/api/llm'
 const LLM_PROXY_STREAM_URL = '/api/llm-stream'
@@ -209,7 +224,7 @@ async function gemini(prompt, {
     throw new Error(`${cfg?.provider?.label || providerId} API key not configured`)
   }
 
-  const headers = { 'Content-Type': 'application/json', 'x-llm-provider': providerId }
+  const headers = { 'Content-Type': 'application/json', 'x-llm-provider': providerId, ...(await authHeader()) }
   if (userApiKey) headers['x-llm-api-key'] = userApiKey
   if (baseUrl)    headers['x-llm-base-url'] = baseUrl
 
@@ -295,7 +310,7 @@ export async function llmStream(prompt, {
     throw new Error(`${cfg?.provider?.label || providerId} API key not configured`)
   }
 
-  const headers = { 'Content-Type': 'application/json', 'x-llm-provider': providerId }
+  const headers = { 'Content-Type': 'application/json', 'x-llm-provider': providerId, ...(await authHeader()) }
   if (userApiKey) headers['x-llm-api-key'] = userApiKey
   if (baseUrl)    headers['x-llm-base-url'] = baseUrl
 
