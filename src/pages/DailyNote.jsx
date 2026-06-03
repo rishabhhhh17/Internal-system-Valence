@@ -384,6 +384,43 @@ export default function DailyNote() {
     }
   }, [deals, interactions, today, auto.priorities])
 
+  // Pulse — a daily "coach" that reads the week and gives ONE opinionated,
+  // human nudge tied to the firm's founder/investor-balance thesis. Useful
+  // (actionable + a CTA) and a little fun (it has a voice). Pure read of
+  // data already in memory.
+  const pulse = useMemo(() => {
+    const { split, splitTotal, weekTouches, overdue } = stats
+    const weekAgo = addDays(today, -7)
+    const days = new Set()
+    for (const i of interactions) {
+      if (!i.occurred_at) continue
+      const t = new Date(i.occurred_at)
+      if (t >= weekAgo) days.add(format(t, 'yyyy-MM-dd'))
+    }
+    const activeDays = days.size
+
+    if (overdue >= 6)
+      return { tone: 'alert', icon: AlertTriangle, msg: `${overdue} follow-ups are overdue. Clear the oldest first — momentum compounds.`, to: '/interactions', cta: 'Open backlog' }
+
+    if (splitTotal >= 4) {
+      const fPct = Math.round((split.founder / splitTotal) * 100)
+      const iPct = Math.round((split.investor / splitTotal) * 100)
+      if (fPct >= 70)
+        return { tone: 'tilt', icon: Briefcase, msg: `You're ${fPct}% founder-side this week. Balance the book — line up a couple of investor touches.`, to: '/funds', cta: 'Find investors' }
+      if (iPct >= 70)
+        return { tone: 'tilt', icon: Handshake, msg: `${iPct}% investor-side this week. Don't let the founders cool — check in on a live mandate.`, to: '/mandates', cta: 'Live mandates' }
+      return { tone: 'good', icon: Sparkles, msg: `Balanced week — ${split.founder} founder, ${split.investor} investor across ${activeDays} active day${activeDays === 1 ? '' : 's'}. Nicely played.` }
+    }
+
+    if (weekTouches === 0)
+      return { tone: 'quiet', icon: MessageSquare, msg: `No touches logged this week yet. Who's worth a call?`, to: '/people', cta: 'Open People' }
+    if (weekTouches < 3)
+      return { tone: 'quiet', icon: MessageSquare, msg: `Quiet week so far — ${weekTouches} touch${weekTouches === 1 ? '' : 'es'}. A couple more keeps the book warm.` }
+    if (overdue === 0)
+      return { tone: 'good', icon: Sparkles, msg: `All caught up — nothing overdue, ${weekTouches} touches this week. Clean book.` }
+    return { tone: 'good', icon: Sparkles, msg: `${weekTouches} touches this week, ${overdue} to follow up. Steady hands.` }
+  }, [stats, interactions, today])
+
   return (
     <div className="space-y-8">
       <ConfigBanner />
@@ -401,6 +438,9 @@ export default function DailyNote() {
 
       {/* KPI command-center strip — the numbers that matter at a glance. */}
       {ready && <StatStrip stats={stats} />}
+
+      {/* Pulse — the daily coach nudge. */}
+      {ready && <PulseBanner pulse={pulse} />}
 
       {/* Auto sections — read-only, regenerated every render */}
       <section className="grid gap-4 lg:grid-cols-2">
@@ -646,6 +686,32 @@ function StatStrip({ stats }) {
       <StatTile to={overdue > 0 ? '/interactions' : undefined} icon={AlertTriangle} label="Overdue follow-ups"
         value={overdue} sub={overdue === 0 ? 'all clear' : 'need a touch'} danger={overdue > 0} />
     </section>
+  )
+}
+
+// PulseBanner — renders the daily coach nudge with a tone-matched accent.
+const PULSE_TONE = {
+  alert: { rail: 'border-l-valence-warning', iconBg: 'bg-valence-warning/15 text-valence-warning' },
+  tilt:  { rail: 'border-l-indigo-400',      iconBg: 'bg-indigo-50 text-indigo-600 dark:bg-indigo-500/10 dark:text-indigo-300' },
+  quiet: { rail: 'border-l-slate-300',       iconBg: 'bg-valence-surface text-valence-muted' },
+  good:  { rail: 'border-l-emerald-400',     iconBg: 'bg-emerald-50 text-emerald-600 dark:bg-emerald-500/10 dark:text-emerald-300' }
+}
+function PulseBanner({ pulse }) {
+  const tone = PULSE_TONE[pulse.tone] || PULSE_TONE.good
+  const Icon = pulse.icon
+  return (
+    <div className={`vl-card flex items-center gap-3 border-l-[3px] p-4 ${tone.rail}`}>
+      <div className={`grid h-9 w-9 shrink-0 place-items-center rounded-lg ${tone.iconBg}`}>
+        <Icon className="h-4 w-4" />
+      </div>
+      <div className="min-w-0 flex-1">
+        <p className="vl-eyebrow-ink">Pulse</p>
+        <p className="mt-0.5 text-sm font-medium text-valence-text leading-snug">{pulse.msg}</p>
+      </div>
+      {pulse.to && (
+        <Link to={pulse.to} className="vl-btn-secondary-sm shrink-0">{pulse.cta}</Link>
+      )}
+    </div>
   )
 }
 
