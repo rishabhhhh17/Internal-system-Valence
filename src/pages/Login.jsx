@@ -1,8 +1,8 @@
 import { useState } from 'react'
-import { Sparkles, ArrowRight, Shield } from 'lucide-react'
+import { ArrowRight, Shield, Briefcase, BookOpen, CalendarDays, Sparkles } from 'lucide-react'
 import { signInWithGoogle } from '../lib/google.js'
 import { humanError } from '../lib/userError.js'
-import Logo from '../components/Logo.jsx'
+import OnboardingShell, { GoogleGlyph } from '../components/OnboardingShell.jsx'
 
 export default function Login() {
   const [busy, setBusy] = useState(false)
@@ -11,101 +11,89 @@ export default function Login() {
   async function connect() {
     setErr(null); setBusy(true)
     try {
-      // Always route Google's OAuth callback back to /welcome — the
-      // first surface every signed-in user should see. Welcome itself
-      // decides what to render (seated users get a "Continue to your
-      // firm" CTA; seatless users get Start / Join cards). Previously
-      // we let the redirect default to window.location.href which sent
-      // a seated user straight to / and made the onboarding screens
-      // invisible. /welcome now sits between sign-in and dashboard for
-      // everyone.
+      // Always route Google's OAuth callback back to /welcome — the first
+      // surface every signed-in user should see. Welcome decides what to
+      // render based on seat state.
       const origin = typeof window !== 'undefined' ? window.location.origin : ''
       await signInWithGoogle({ redirectTo: `${origin}/welcome` })
     } catch (e) {
-      // Raw Supabase OAuth errors look like "Invalid redirect URI: ..."
-      // — meaningful to Supabase staff, gibberish to the prospect on the
-      // very first screen of the demo. Route through humanError() so
-      // they see a friendly fallback instead.
       setErr(humanError(e, 'Sign-in failed — try again'))
       setBusy(false)
     }
   }
 
-  return (
-    <div className="min-h-screen bg-valence-bg">
-      <div className="relative mx-auto flex min-h-screen max-w-[1280px] flex-col">
-        <header className="px-8 pt-8 lg:px-16">
-          <Logo />
-        </header>
-
-        <main className="flex flex-1 items-center px-8 lg:px-16">
-          <div className="grid w-full gap-12 lg:grid-cols-2 lg:gap-20 items-center">
-            <div>
-              <h1 className="font-display text-hero font-bold text-valence-text leading-[1.05]">
-                The operating layer for the firm.
-              </h1>
-              <p className="mt-6 max-w-lg text-base leading-relaxed text-valence-muted lg:text-lg">
-                Sign in with Google to start a new team or join one with an invite code from your admin.
-              </p>
-              <div className="mt-10 flex flex-wrap items-center gap-3">
-                <button
-                  onClick={connect}
-                  disabled={busy}
-                  className="vl-btn-primary"
-                >
-                  <GoogleGlyph className="h-4 w-4" />
-                  {busy ? 'Connecting…' : 'Continue with Google'}
-                  <ArrowRight className="h-4 w-4" />
-                </button>
-                <span className="inline-flex items-center gap-1.5 text-xs text-valence-muted">
-                  <Shield className="h-3.5 w-3.5" />
-                  Your firm's data stays isolated — RLS at every query.
-                </span>
-              </div>
-              {err && (
-                <p className="mt-6 rounded-lg border border-valence-danger/30 bg-valence-danger/5 px-4 py-2.5 text-xs text-valence-danger">
-                  {err}
-                </p>
-              )}
-            </div>
-
-            <div className="vl-card p-8 space-y-5">
-              <p className="vl-eyebrow-ink">What you unlock</p>
-              <Item title="Deal Logger" body="Every mandate across Origination → Closed, with stage-gate checklists and deal-team economics." />
-              <Item title="Knowledge" body="Ask plain-English questions. Memos, files, and comps indexed and cited." />
-              <Item title="Day Planner" body="Your real Google Calendar, free-slot meeting proposals, and drafted follow-ups." />
-              <Item title="Audit-grade" body="Every action stamped with your identity. RLS scopes every query to authenticated users only." />
-            </div>
-          </div>
-        </main>
-
-        <footer className="px-8 pb-8 pt-16 text-[11px] text-valence-subtle lg:px-16">
-          © {new Date().getFullYear()} ValenceOS · <a href="/privacy" className="hover:text-valence-muted">Privacy</a> · <a href="/terms" className="hover:text-valence-muted">Terms</a>
-        </footer>
+  const showcase = (
+    <div className="space-y-8">
+      <h1 className="font-display text-hero font-bold leading-[1.04] text-valence-text text-balance">
+        The operating layer for your firm.
+      </h1>
+      <p className="max-w-md text-base leading-relaxed text-valence-muted">
+        Every mandate, relationship, and interaction — one workspace your
+        team actually uses.
+      </p>
+      <div className="space-y-3">
+        <Feature icon={Briefcase}    label="Deal Status"   body="Board, table, and Gantt across the whole pipeline." />
+        <Feature icon={BookOpen}     label="Knowledge"     body="Ask plain-English questions, cited from your data." />
+        <Feature icon={CalendarDays} label="Day Planner"   body="Your real calendar, free-slot finder, drafted follow-ups." />
+        <Feature icon={Sparkles}     label="AI throughout" body="Matcher, thesis-fit, IC memos — tuned to your firm type." />
       </div>
     </div>
   )
+
+  return (
+    <OnboardingShell split={showcase}>
+      <div className="mx-auto w-full max-w-sm space-y-7">
+        <div>
+          <p className="vl-eyebrow-ink">Welcome</p>
+          <h2 className="mt-2 font-display text-3xl font-bold leading-tight text-valence-text">
+            Sign in to ValenceOS
+          </h2>
+          <p className="mt-2 text-sm leading-relaxed text-valence-muted">
+            Continue with Google to start a new firm or join one with an
+            invite code.
+          </p>
+        </div>
+
+        <button
+          onClick={connect}
+          disabled={busy}
+          className="group flex w-full items-center justify-center gap-3 rounded-xl border border-valence-border bg-valence-elevated px-5 py-3.5 text-sm font-semibold text-valence-text shadow-valence transition hover:border-valence-blue/40 hover:-translate-y-0.5 disabled:opacity-60 disabled:translate-y-0"
+        >
+          {busy
+            ? <span className="h-4 w-4 animate-spin rounded-full border-2 border-valence-blue border-t-transparent" />
+            : <GoogleGlyph className="h-5 w-5" />}
+          {busy ? 'Connecting…' : 'Continue with Google'}
+          {!busy && <ArrowRight className="h-4 w-4 text-valence-subtle transition group-hover:translate-x-0.5 group-hover:text-valence-blue" />}
+        </button>
+
+        {err && (
+          <p className="rounded-lg border border-valence-danger/30 bg-valence-danger/5 px-4 py-2.5 text-xs text-valence-danger">
+            {err}
+          </p>
+        )}
+
+        <div className="flex items-center gap-2 rounded-lg border border-valence-border bg-valence-surface/50 px-3.5 py-2.5">
+          <Shield className="h-3.5 w-3.5 shrink-0 text-valence-blue" />
+          <p className="text-[11px] leading-relaxed text-valence-muted">
+            Your firm's data is fully isolated — row-level security scopes
+            every query to your team.
+          </p>
+        </div>
+      </div>
+    </OnboardingShell>
+  )
 }
 
-function Item({ title, body }) {
+function Feature({ icon: Icon, label, body }) {
   return (
     <div className="flex items-start gap-3">
-      <Sparkles className="mt-0.5 h-4 w-4 shrink-0 text-valence-blue" />
+      <div className="mt-0.5 grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-valence-blue-soft text-valence-blue-deep">
+        <Icon className="h-4 w-4" />
+      </div>
       <div>
-        <p className="text-sm font-semibold text-valence-text">{title}</p>
-        <p className="mt-1 text-xs leading-relaxed text-valence-muted">{body}</p>
+        <p className="text-sm font-semibold text-valence-text">{label}</p>
+        <p className="text-xs leading-relaxed text-valence-muted">{body}</p>
       </div>
     </div>
-  )
-}
-
-function GoogleGlyph({ className = '' }) {
-  return (
-    <svg className={className} viewBox="0 0 24 24" aria-hidden>
-      <path fill="#EA4335" d="M12 10.2v3.9h5.5c-.24 1.28-.97 2.36-2.06 3.08v2.56h3.33c1.95-1.79 3.07-4.43 3.07-7.58 0-.74-.07-1.44-.19-2.11H12z"/>
-      <path fill="#34A853" d="M12 21.5c2.76 0 5.07-.91 6.76-2.46l-3.33-2.56c-.92.62-2.1.99-3.43.99-2.64 0-4.88-1.78-5.68-4.18H2.86v2.63C4.54 19.09 7.99 21.5 12 21.5z"/>
-      <path fill="#FBBC05" d="M6.32 13.29c-.2-.6-.32-1.24-.32-1.9s.11-1.3.32-1.9V6.86H2.86C2.31 7.94 2 9.17 2 10.5s.31 2.56.86 3.64l3.46-2.65z"/>
-      <path fill="#4285F4" d="M12 5.5c1.5 0 2.85.52 3.91 1.54l2.94-2.94C17.07 2.39 14.76 1.5 12 1.5 7.99 1.5 4.54 3.91 2.86 6.86l3.46 2.63C7.12 7.28 9.36 5.5 12 5.5z"/>
-    </svg>
   )
 }

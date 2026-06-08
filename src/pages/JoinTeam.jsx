@@ -1,19 +1,17 @@
-// Join-a-team flow — for users who clicked "Join a team" on /welcome.
-// They paste the 8-character invite code their firm's admin generated and
-// fill in their profile in the same step. Calls the public.join_team()
-// RPC which atomically validates the code, creates their seat, and marks
-// the invite as claimed.
+// Join-a-team flow — paste the 8-char invite code, fill profile, submit.
+// Calls public.join_team() (validates code, creates seat, claims invite).
+// While typing, peek_invite() previews which firm the code lands you in.
 
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate, Link, useSearchParams } from 'react-router-dom'
-import { Loader2, KeyRound, Check, ArrowLeft, User, Building2 } from 'lucide-react'
+import { Loader2, KeyRound, Check, ArrowLeft, User, Building2, ArrowRight } from 'lucide-react'
 import { supabase, isSupabaseConfigured } from '../lib/supabase.js'
 import { signOut } from '../lib/google.js'
 import { humanError } from '../lib/userError.js'
 import { useToast } from '../components/Toast.jsx'
 import { useAuth } from '../hooks/useAuth.js'
 import { useSeat } from '../hooks/useSeat.js'
-import Logo from '../components/Logo.jsx'
+import OnboardingShell from '../components/OnboardingShell.jsx'
 
 export default function JoinTeam() {
   const navigate = useNavigate()
@@ -23,8 +21,6 @@ export default function JoinTeam() {
   const { refresh: refreshSeat } = useSeat()
   const isPreview = params.get('preview') === '1'
   const previewSuffix = isPreview ? '?preview=1' : ''
-  // Scroll the blocking-error card into view when it appears — same fix
-  // as Onboarding.jsx, see comment there.
   const blockingErrorRef = useRef(null)
 
   const [code,     setCode]     = useState(params.get('code') || '')
@@ -33,14 +29,6 @@ export default function JoinTeam() {
   const [phone,    setPhone]    = useState('')
   const [busy,     setBusy]     = useState(false)
   const [blockingError, setBlockingError] = useState(null)
-  // Preview state: once the user has typed a full 8-char code, hit
-  // peek_invite() to surface the org name they'd be joining BEFORE
-  // they submit. Removes the "I typed a code, who am I about to join?"
-  // ambiguity that several testers flagged.
-  //   null    → no preview attempted yet (or code too short)
-  //   'loading' → fetch in flight
-  //   { orgName, role } → valid invite
-  //   'invalid' → 8-char code typed but doesn't map to a usable invite
   const [previewState, setPreviewState] = useState(null)
 
   useEffect(() => {
@@ -48,9 +36,6 @@ export default function JoinTeam() {
     blockingErrorRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
   }, [blockingError])
 
-  // Debounced peek_invite lookup. Fires once the code reaches 8 chars,
-  // cancels in-flight on edit, settles fast (one PostgREST round-trip
-  // to a SECURITY DEFINER fn — no client RLS friction).
   useEffect(() => {
     if (!isSupabaseConfigured) return
     if (code.length !== 8) { setPreviewState(null); return }
@@ -60,61 +45,38 @@ export default function JoinTeam() {
       try {
         const { data, error } = await supabase.rpc('peek_invite', { p_invite_code: code })
         if (cancelled) return
-        if (error || !data || data.length === 0) {
-          setPreviewState('invalid')
-        } else {
-          setPreviewState({ orgName: data[0].org_name, role: data[0].role })
-        }
-      } catch {
-        if (!cancelled) setPreviewState('invalid')
-      }
+        if (error || !data || data.length === 0) setPreviewState('invalid')
+        else setPreviewState({ orgName: data[0].org_name, role: data[0].role })
+      } catch { if (!cancelled) setPreviewState('invalid') }
     }, 250)
     return () => { cancelled = true; clearTimeout(t) }
   }, [code])
 
-  // Auto-uppercase, allow only the alphabet we use in codes (no I/O/0/1).
   function onCodeChange(v) {
-    const cleaned = String(v || '')
-      .toUpperCase()
-      .replace(/[^A-Z2-9]/g, '')
-      .slice(0, 8)
-    setCode(cleaned)
+    setCode(String(v || '').toUpperCase().replace(/[^A-Z2-9]/g, '').slice(0, 8))
   }
 
   async function submit() {
     if (!isSupabaseConfigured) { toast.error('Supabase is not configured.'); return }
     if (code.length !== 8)      { toast.error('Invite code is 8 characters.'); return }
     if (!fullName.trim())       { toast.error('Add your name.'); return }
-
     setBusy(true)
     try {
       const { data, error } = await supabase.rpc('join_team', {
         p_invite_code: code,
         p_full_name:   fullName.trim(),
         p_title:       title.trim() || null,
-        p_phone:       phone.trim() || null
+        p_phone:       phone.trim() || null,
       })
       if (error) throw error
       if (!data) throw new Error('Invite not found or expired')
-
       toast.success('Joined. Welcome aboard.')
-
-      // Refresh useSeat BEFORE navigating — otherwise App.jsx still sees
-      // hasSeat=false and bounces back to /welcome. Without this await,
-      // the user filled the form, the server gave them a seat, but the
-      // client redirected them to start the same flow over again.
       await refreshSeat()
       navigate('/', { replace: true })
     } catch (err) {
-      // Same pattern as Onboarding — if the user already has a seat,
-      // surface a prominent inline error with a Sign-out button. The
-      // toast alone is too easy to miss.
       const raw = String(err?.message || '')
-      if (/user already belongs to a team/i.test(raw)) {
-        setBlockingError('alreadyOnTeam')
-      } else {
-        toast.error(humanError(err, 'Could not join — check the code and try again.'))
-      }
+      if (/user already belongs to a team/i.test(raw)) setBlockingError('alreadyOnTeam')
+      else toast.error(humanError(err, 'Could not join — check the code and try again.'))
     } finally {
       setBusy(false)
     }
@@ -124,140 +86,118 @@ export default function JoinTeam() {
     try { await signOut() } catch { /* render will route */ }
   }
 
+  const back = (
+    <Link to={`/welcome${previewSuffix}`} className="inline-flex items-center gap-1 text-xs font-medium text-valence-muted hover:text-valence-text">
+      <ArrowLeft className="h-3 w-3" /> Back
+    </Link>
+  )
+
+  const validPreview = previewState && typeof previewState === 'object'
+
   return (
-    <div className="min-h-screen bg-valence-bg">
-      <div className="relative mx-auto flex min-h-screen max-w-2xl flex-col px-6 py-10">
-        <header className="flex items-center justify-between">
-          <Link to={`/welcome${previewSuffix}`} className="text-xs text-valence-muted hover:text-valence-text inline-flex items-center gap-1">
-            <ArrowLeft className="h-3 w-3" /> Back
-          </Link>
-          <Logo />
+    <OnboardingShell right={back} maxWidth="max-w-lg">
+      <div className="space-y-7">
+        <header className="text-center">
+          <p className="vl-eyebrow-ink">Join your team</p>
+          <h1 className="mt-2 font-display text-3xl font-bold leading-tight text-valence-text">
+            Got an invite code?
+          </h1>
+          <p className="mx-auto mt-2 max-w-sm text-sm leading-relaxed text-valence-muted">
+            Paste the 8-character code your firm's admin sent you — we'll drop you straight into their workspace.
+          </p>
         </header>
 
-        <main className="flex flex-1 items-center">
-          <div className="w-full space-y-8">
-            <div>
-              <p className="vl-eyebrow-ink">Join your team</p>
-              <h1 className="font-display text-3xl font-bold text-valence-text mt-2">
-                Got an invite code?
-              </h1>
-              <p className="text-sm text-valence-muted mt-1.5 max-w-md">
-                Paste the 8-character code your firm's admin sent you. We'll add you to their workspace.
-              </p>
+        {blockingError === 'alreadyOnTeam' && (
+          <div ref={blockingErrorRef} className="rounded-xl border-2 border-valence-warning/60 bg-valence-warning/15 p-5 space-y-3 shadow-lg shadow-valence-warning/10 animate-fade-in">
+            <p className="text-sm font-semibold text-valence-text">You're already in a firm.</p>
+            <p className="text-xs leading-relaxed text-valence-muted">
+              This Google account already has a seat. To join a different firm, sign out and use a different account.
+            </p>
+            <div className="flex flex-wrap items-center gap-2">
+              <button onClick={signOutAndRetry} className="vl-btn-primary text-xs">Sign out and try a different account</button>
+              <Link to="/" className="vl-btn-ghost text-xs">Go to my current firm</Link>
             </div>
+          </div>
+        )}
 
-            {blockingError === 'alreadyOnTeam' && (
-              <div ref={blockingErrorRef} className="rounded-xl border-2 border-valence-warning/60 bg-valence-warning/15 p-5 space-y-3 shadow-lg shadow-valence-warning/10 animate-fade-in">
-                <div className="space-y-1.5">
-                  <p className="text-sm font-semibold text-valence-text">You're already in a firm.</p>
-                  <p className="text-xs text-valence-muted leading-relaxed">
-                    Your current Google account already has a seat in a Valence workspace. To join a different firm,
-                    sign out and sign back in with a different Google account.
-                  </p>
+        <div className="vl-card p-5 space-y-5">
+          <div className="space-y-1.5">
+            <label className="vl-label inline-flex items-center gap-1.5">
+              <KeyRound className="h-3 w-3" /> Invite code
+            </label>
+            <input
+              className="vl-input text-center font-mono text-2xl tracking-[0.4em] uppercase"
+              value={code}
+              onChange={e => onCodeChange(e.target.value)}
+              placeholder="ABCD2345"
+              maxLength={8}
+              autoFocus
+            />
+            <p className="text-[11px] text-valence-subtle">8 letters / digits · case-insensitive · no I, O, 0, or 1.</p>
+
+            {previewState === 'loading' && (
+              <div className="mt-2 inline-flex items-center gap-2 text-[12px] text-valence-muted">
+                <Loader2 className="h-3 w-3 animate-spin" /> Checking code…
+              </div>
+            )}
+            {previewState === 'invalid' && (
+              <div className="mt-2 rounded-lg border border-valence-danger/30 bg-valence-danger/5 px-3 py-2 text-[12px] text-valence-danger animate-fade-in">
+                That code isn't valid or has been claimed. Ask your admin for a fresh one.
+              </div>
+            )}
+            {validPreview && (
+              <div className="mt-2 flex items-start gap-3 rounded-lg border border-valence-blue/30 bg-valence-blue-soft/40 px-3.5 py-3 animate-fade-in">
+                <div className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-valence-blue text-white shadow-sm">
+                  <Building2 className="h-4 w-4" />
                 </div>
-                <div className="flex flex-wrap items-center gap-2">
-                  <button onClick={signOutAndRetry} className="vl-btn-primary text-xs">
-                    Sign out and try a different account
-                  </button>
-                  <Link to="/" className="vl-btn-ghost text-xs">Go to my current firm</Link>
+                <div className="min-w-0">
+                  <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-valence-blue-deep">You're joining</p>
+                  <p className="mt-0.5 truncate text-sm font-semibold text-valence-text">{previewState.orgName}</p>
+                  <p className="mt-0.5 text-[11px] text-valence-muted">
+                    Added as <span className="font-semibold text-valence-text">{previewState.role}</span>. Fill in your details below.
+                  </p>
                 </div>
               </div>
             )}
-
-            <div className="vl-card p-5 space-y-5">
-              <div className="space-y-1.5">
-                <label className="vl-label inline-flex items-center gap-1.5">
-                  <KeyRound className="h-3 w-3" /> Invite code
-                </label>
-                <input
-                  className="vl-input font-mono text-lg tracking-[0.25em] uppercase"
-                  value={code}
-                  onChange={e => onCodeChange(e.target.value)}
-                  placeholder="ABCD2345"
-                  maxLength={8}
-                  autoFocus
-                />
-                <p className="text-[11px] text-valence-subtle">8 letters / digits. Case-insensitive. No I, O, 0, or 1.</p>
-
-                {/* Live preview — once 8 chars typed, hit peek_invite() and
-                    tell the user which workspace this code would land them
-                    in. Removes the "I have no idea who I'm joining" beat
-                    before they hit submit. */}
-                {previewState === 'loading' && (
-                  <div className="mt-3 inline-flex items-center gap-2 text-[12px] text-valence-muted">
-                    <Loader2 className="h-3 w-3 animate-spin" /> Checking code…
-                  </div>
-                )}
-                {previewState === 'invalid' && (
-                  <div className="mt-3 rounded-lg border border-valence-danger/30 bg-valence-danger/5 px-3 py-2 text-[12px] text-valence-danger">
-                    That code isn't valid, or it's already been claimed. Ask your firm's admin for a fresh one.
-                  </div>
-                )}
-                {previewState && typeof previewState === 'object' && (
-                  <div className="mt-3 rounded-lg border border-valence-blue/30 bg-valence-blue-soft/40 px-3.5 py-3">
-                    <div className="flex items-start gap-3">
-                      <div className="rounded-lg bg-valence-blue p-2 text-white shadow-sm">
-                        <Building2 className="h-4 w-4" />
-                      </div>
-                      <div className="min-w-0">
-                        <p className="text-[10px] uppercase tracking-[0.14em] text-valence-blue-deep font-semibold">You're joining</p>
-                        <p className="mt-0.5 text-sm font-semibold text-valence-text truncate">{previewState.orgName}</p>
-                        <p className="text-[11px] text-valence-muted mt-0.5">
-                          You'll be added as <span className="font-semibold text-valence-text">{previewState.role}</span>. Fill in your details below.
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              <div className="space-y-1.5">
-                <label className="vl-label inline-flex items-center gap-1.5">
-                  <User className="h-3 w-3" /> Full name *
-                </label>
-                <input className="vl-input" value={fullName}
-                  onChange={e => setFullName(e.target.value)}
-                  placeholder="Jane Doe" />
-              </div>
-
-              <div className="space-y-1.5">
-                <label className="vl-label">Title / role</label>
-                <input className="vl-input" value={title}
-                  onChange={e => setTitle(e.target.value)}
-                  placeholder="Senior Associate" />
-              </div>
-
-              <div className="space-y-1.5">
-                <label className="vl-label">Phone (optional)</label>
-                <input className="vl-input" value={phone}
-                  onChange={e => setPhone(e.target.value)}
-                  placeholder="+44 20 7946 0000" />
-              </div>
-            </div>
-
-            <div className="flex items-center justify-between">
-              <Link to={`/onboarding${previewSuffix}`} className="text-xs text-valence-muted hover:text-valence-text">
-                No invite? Start a new team instead →
-              </Link>
-              <button
-                onClick={submit}
-                disabled={busy || code.length !== 8 || !fullName.trim() || previewState === 'invalid'}
-                className="vl-btn-primary"
-              >
-                {busy
-                  ? <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Joining…</>
-                  : previewState && typeof previewState === 'object'
-                    ? <><Check className="h-3.5 w-3.5" /> Join {previewState.orgName}</>
-                    : <><Check className="h-3.5 w-3.5" /> Join team</>}
-              </button>
-            </div>
           </div>
-        </main>
 
-        <footer className="text-[11px] text-valence-subtle text-center pt-8">
-          By continuing you agree to the <a className="text-valence-blue hover:underline" href="/terms">Terms</a> and <a className="text-valence-blue hover:underline" href="/privacy">Privacy Policy</a>.
-        </footer>
+          <Field icon={<User className="h-3 w-3" />} label="Full name *">
+            <input className="vl-input" value={fullName} onChange={e => setFullName(e.target.value)} placeholder="Jane Doe" />
+          </Field>
+          <Field label="Title / role">
+            <input className="vl-input" value={title} onChange={e => setTitle(e.target.value)} placeholder="Senior Associate" />
+          </Field>
+          <Field label="Phone (optional)">
+            <input className="vl-input" value={phone} onChange={e => setPhone(e.target.value)} placeholder="+44 20 7946 0000" />
+          </Field>
+        </div>
+
+        <div className="flex items-center justify-between gap-3">
+          <Link to={`/onboarding${previewSuffix}`} className="text-xs text-valence-muted hover:text-valence-text">
+            No invite? Start a team →
+          </Link>
+          <button
+            onClick={submit}
+            disabled={busy || code.length !== 8 || !fullName.trim() || previewState === 'invalid'}
+            className="vl-btn-primary"
+          >
+            {busy
+              ? <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Joining…</>
+              : validPreview
+                ? <><Check className="h-3.5 w-3.5" /> Join {previewState.orgName}</>
+                : <><Check className="h-3.5 w-3.5" /> Join team</>}
+          </button>
+        </div>
       </div>
+    </OnboardingShell>
+  )
+}
+
+function Field({ icon, label, children }) {
+  return (
+    <div className="space-y-1.5">
+      <label className="vl-label inline-flex items-center gap-1.5">{icon} {label}</label>
+      {children}
     </div>
   )
 }
