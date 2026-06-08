@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { ArrowRight, Shield, Briefcase, BookOpen, CalendarDays, Sparkles } from 'lucide-react'
+import { ArrowRight, Briefcase, BookOpen, CalendarDays, Sparkles } from 'lucide-react'
 import { signInWithGoogle } from '../lib/google.js'
 import { humanError } from '../lib/userError.js'
 import OnboardingShell, { GoogleGlyph } from '../components/OnboardingShell.jsx'
@@ -71,14 +71,6 @@ export default function Login() {
             {err}
           </p>
         )}
-
-        <div className="flex items-center gap-2 rounded-lg border border-valence-border bg-valence-surface/50 px-3.5 py-2.5">
-          <Shield className="h-3.5 w-3.5 shrink-0 text-valence-blue" />
-          <p className="text-[11px] leading-relaxed text-valence-muted">
-            Your firm's data is fully isolated — row-level security scopes
-            every query to your team.
-          </p>
-        </div>
       </div>
     </OnboardingShell>
   )
