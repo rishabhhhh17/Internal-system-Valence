@@ -63,9 +63,51 @@ export function clearGoogleTokens() {
   } catch { /* ignore */ }
 }
 
-// True when we either have a live in-session token or a valid stored one.
+export function storedGoogleRefreshToken() {
+  try { return window.localStorage?.getItem(GR_KEY) || null } catch { return null }
+}
+
+// True when we can reach Google: a live in-session token, a valid stored
+// access token, OR a stored refresh token (we can mint a fresh access token
+// from it on demand via /api/google-refresh).
 export function hasGoogleConnection(session) {
-  return Boolean(session?.provider_token) || Boolean(storedGoogleToken())
+  return Boolean(session?.provider_token) || Boolean(storedGoogleToken()) || Boolean(storedGoogleRefreshToken())
+}
+
+// Mint a fresh Google access token from the stored refresh token via the
+// server endpoint (Supabase won't refresh provider tokens itself). De-duped
+// so a burst of simultaneous 401s triggers exactly one network refresh.
+let _refreshInflight = null
+export async function refreshGoogleAccessToken() {
+  if (_refreshInflight) return _refreshInflight
+  _refreshInflight = (async () => {
+    const refresh = storedGoogleRefreshToken()
+    if (!refresh) return null
+    try {
+      const res = await fetch('/api/google-refresh', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ refresh_token: refresh })
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok || !data.access_token) {
+        // 401 = refresh token revoked/expired → drop the stash so the UI
+        // prompts a genuine reconnect. Other errors (config/network) leave
+        // the stash intact so a transient blip doesn't nuke the connection.
+        if (res.status === 401) clearGoogleTokens()
+        return null
+      }
+      try {
+        window.localStorage.setItem(GT_KEY, data.access_token)
+        const ttlMs = (Number(data.expires_in) || 3600) * 1000
+        window.localStorage.setItem(GE_KEY, String(Date.now() + ttlMs - 60_000)) // 60s safety margin
+      } catch { /* private mode */ }
+      return data.access_token
+    } catch {
+      return null
+    }
+  })()
+  try { return await _refreshInflight } finally { _refreshInflight = null }
 }
 
 // Scopes intentionally kept to Calendar + Drive + Tasks only. Gmail scopes
@@ -155,7 +197,10 @@ export async function googleToken() {
     rememberGoogleTokens(s)
     return s.provider_token
   }
-  return storedGoogleToken()
+  const stored = storedGoogleToken()
+  if (stored) return stored
+  // No live/stored access token — mint one from the refresh token.
+  return await refreshGoogleAccessToken()
 }
 
 async function gfetch(url, { method = 'GET', headers = {}, body, json = true } = {}) {
@@ -174,22 +219,17 @@ async function gfetch(url, { method = 'GET', headers = {}, body, json = true } =
 
   let res = await fetch(url, buildInit(initialToken))
 
-  // 401 → try a single session refresh. Supabase v2 will exchange the stored
-  // provider_refresh_token for a fresh access_token. If that yields a new
-  // token we retry the request once; otherwise we surface auth-expired and
-  // the UI prompts a re-consent.
+  // 401 → mint a fresh Google access token from the refresh token (via the
+  // server endpoint) and retry once. Supabase's own refreshSession does NOT
+  // refresh provider tokens, so we go straight to Google. refreshGoogleAccessToken
+  // clears the stash on a revoked refresh token, so a real expiry surfaces as
+  // "Reconnect Google"; a transient error keeps the connection.
   if (res.status === 401) {
-    try {
-      const { data } = await supabase.auth.refreshSession()
-      const refreshed = data?.session?.provider_token
-      if (refreshed && refreshed !== initialToken) {
-        rememberGoogleTokens(data.session)
-        res = await fetch(url, buildInit(refreshed))
-      }
-    } catch {/* fall through to GoogleAuthExpired */}
+    const fresh = await refreshGoogleAccessToken()
+    if (fresh && fresh !== initialToken) {
+      res = await fetch(url, buildInit(fresh))
+    }
     if (res.status === 401) {
-      // The Google token is genuinely dead — drop the stale stash so the UI
-      // correctly shows "Reconnect Google" instead of a phantom connection.
       clearGoogleTokens()
       throw new GoogleAuthExpired()
     }
