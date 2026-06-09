@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Sparkles, Copy, Check, RefreshCw, Printer, Save, Loader2 } from 'lucide-react'
 import { supabase, isSupabaseConfigured } from '../lib/supabase.js'
 import { generateCIM, parseCIM, CIM_SECTIONS } from '../lib/cim.js'
+import { dealTypeLabel, dealSideLabel } from '../lib/dealLabels.js'
 import { isGeminiConfigured } from '../lib/gemini.js'
 import { logActivity } from '../lib/activity.js'
 import { humanError } from '../lib/userError.js'
@@ -98,7 +99,7 @@ export default function CIMGenerator({ deal }) {
   <header>
     <div class="sub">Confidential — ${safe(firmDisplayName('your firm'))} · CIM draft</div>
     <h1>${safe(deal?.client_name || 'Untitled Mandate')}</h1>
-    <div class="sub" style="margin-top:6px;">${safe(deal?.deal_type || '')} · ${safe(deal?.side || '')} · ${safe(deal?.sector || '')}</div>
+    <div class="sub" style="margin-top:6px;">${[dealTypeLabel(deal), dealSideLabel(deal), deal?.sector].filter(Boolean).map(safe).join(' · ')}</div>
   </header>
   ${sections}
   <footer>Generated ${new Date().toLocaleString()} · ValenceOS · draft for internal review</footer>

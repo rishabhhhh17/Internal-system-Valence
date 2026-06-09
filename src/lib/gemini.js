@@ -20,6 +20,7 @@ import {
 } from './llmProviders.js'
 import { firmDisplayName } from './firmIdentity.js'
 import { supabase } from './supabase.js'
+import { dealTypeLabel, dealSideLabel } from './dealLabels.js'
 
 // The /api/llm proxy now requires a Supabase JWT to use the managed server
 // key (so the endpoint can't be abused anonymously). Attach the signed-in
@@ -483,7 +484,7 @@ Use plain labels "THESIS:", "COUNTERPARTIES:", "RISKS:", "NEXT MOVES:" at the st
 Live data:
 
 CLIENT: ${deal.client_name}
-TYPE: ${deal.deal_type}   SIDE: ${deal.side || 'Advisory'}   SECTOR: ${deal.sector || '—'}
+TYPE: ${dealTypeLabel(deal) || '—'}   SIDE: ${dealSideLabel(deal) || 'Advisory'}   SECTOR: ${deal.sector || '—'}
 STAGE: ${deal.stage}       NDA: ${deal.nda_status}
 COMMERCIALS: ${money}; ${fees}${deal.target_close ? `; target close ${deal.target_close}` : ''}
 LEAD: ${deal.lead_owner || 'unassigned'}
@@ -601,7 +602,7 @@ export async function draftEmail({ scenario, deal, contact }) {
 The tone is professional, warm but precise. No emojis, no placeholders like [Your Name]. Start directly with "Hi ${first}," and sign off simply with "Best, ${firmDisplayName('the firm')}". Keep the body to 3–6 short sentences. Do not mention that an AI wrote it.
 
 Context:
-- Mandate: ${deal.client_name} — ${deal.deal_type} (${deal.side || 'Advisory'})
+- Mandate: ${deal.client_name} — ${dealTypeLabel(deal) || '—'} (${dealSideLabel(deal) || 'Advisory'})
 - Stage: ${deal.stage}
 - Sector: ${deal.sector || '—'}
 - NDA: ${deal.nda_status}
@@ -623,7 +624,7 @@ Write the email now.`
 export function heuristicDealBrief({ deal, contacts = [], files = [], activities = [] }) {
   const sector       = deal.sector || 'this sector'
   const stage        = deal.stage  || 'Origination'
-  const dealType     = (deal.deal_type || 'transaction').toLowerCase()
+  const dealType     = (deal.deal_types || []).includes('advisory') && !(deal.deal_types || []).includes('transaction') ? 'advisory' : 'transaction'
   const subtype      = (deal.deal_subtype || '').replace(/_/g, ' ')
   const side         = deal.ma_side ? `${deal.ma_side}-side` : (deal.side || 'advisory').toLowerCase()
   const ev           = deal.ticket_size_usd_m

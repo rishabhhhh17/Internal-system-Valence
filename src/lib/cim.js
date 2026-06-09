@@ -5,6 +5,7 @@
 import { searchKnowledge } from './knowledge.js'
 import { isGeminiConfigured, llmStream } from './gemini.js'
 import { firmDisplayName } from './firmIdentity.js'
+import { dealTypeLabel, dealSideLabel } from './dealLabels.js'
 
 export const CIM_SECTIONS = [
   { id: 'executive_summary',  label: 'Executive Summary',    hint: 'High-level situation, why now, headline asks.' },
@@ -45,7 +46,7 @@ ${sectionBlock}
 
 ================= DEAL FACTS =================
 CLIENT:       ${deal.client_name}
-DEAL TYPE:    ${deal.deal_type}   SIDE: ${deal.side || 'Advisory'}
+DEAL TYPE:    ${dealTypeLabel(deal) || '—'}   SIDE: ${dealSideLabel(deal) || 'Advisory'}
 SECTOR:       ${deal.sector || 'n/a'}
 STAGE:        ${deal.stage}       NDA: ${deal.nda_status}
 EV RANGE:     ${deal.ticket_size_usd_m ? `~$${deal.ticket_size_usd_m}M` : 'tbd'}
@@ -83,7 +84,7 @@ export async function generateCIM({
   // Pull relevant knowledge context (sector memos, comps, playbooks)
   let compsContext = ''
   try {
-    const q = [deal.sector, deal.deal_type, deal.client_name].filter(Boolean).join(' ')
+    const q = [deal.sector, dealTypeLabel(deal), deal.client_name].filter(Boolean).join(' ')
     if (q) {
       const { results } = await searchKnowledge(q, { matchCount: 6 })
       compsContext = (results || []).map((r, i) => `[${i + 1}] ${r.title}: ${(r.content || r.snippet || '').slice(0, 400)}`).join('\n\n')

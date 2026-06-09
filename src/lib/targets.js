@@ -5,6 +5,7 @@ import { searchKnowledge } from './knowledge.js'
 import { supabase, isSupabaseConfigured } from './supabase.js'
 import { llmCall } from './gemini.js'
 import { firmDisplayName } from './firmIdentity.js'
+import { dealTypeLabel, dealSideLabel } from './dealLabels.js'
 
 // Returns JSON: [{ name, kind: 'Strategic' | 'Financial', rationale, warmth }]
 export async function suggestTargets(deal) {
@@ -13,7 +14,7 @@ export async function suggestTargets(deal) {
   let firmContext = ''
   let internalContacts = []
   try {
-    const q = [deal.sector, deal.deal_type, deal.side].filter(Boolean).join(' ')
+    const q = [deal.sector, dealTypeLabel(deal), dealSideLabel(deal)].filter(Boolean).join(' ')
     if (q) {
       const { results } = await searchKnowledge(q, { matchCount: 8 })
       firmContext = (results || []).map((r, i) => `[${i + 1}] ${r.title}: ${(r.content || r.snippet || '').slice(0, 300)}`).join('\n\n')
@@ -24,9 +25,9 @@ export async function suggestTargets(deal) {
     }
   } catch {}
 
-  const kind = deal.side === 'Buy-side'
+  const kind = dealSideLabel(deal) === 'Buy-side'
     ? 'targets to acquire or invest in'
-    : deal.deal_type === 'PE/VC'
+    : deal.deal_subtype === 'fundraise'
       ? 'investors (PE/VC funds and strategic minorities)'
       : 'strategic buyers and financial sponsors'
 
@@ -56,7 +57,7 @@ Rules:
 
 ================= MANDATE =================
 CLIENT: ${deal.client_name}
-TYPE: ${deal.deal_type}   SIDE: ${deal.side || 'Advisory'}
+TYPE: ${dealTypeLabel(deal) || '—'}   SIDE: ${dealSideLabel(deal) || 'Advisory'}
 SECTOR: ${deal.sector || 'n/a'}
 SIZE: ${deal.ticket_size_usd_m ? `~$${deal.ticket_size_usd_m}M EV` : 'tbd'}
 STAGE: ${deal.stage}

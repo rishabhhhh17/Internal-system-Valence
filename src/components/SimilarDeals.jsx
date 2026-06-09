@@ -4,6 +4,7 @@ import { Sparkles, Briefcase, ArrowUpRight } from 'lucide-react'
 import { supabase, isSupabaseConfigured } from '../lib/supabase.js'
 import { similarDealsHeuristic } from '../lib/insights.js'
 import { stageToneClasses, stageMeta } from '../lib/stages.js'
+import { dealTypeLabel } from '../lib/dealLabels.js'
 
 export default function SimilarDeals({ deal }) {
   const navigate = useNavigate()
@@ -68,7 +69,7 @@ export default function SimilarDeals({ deal }) {
                   <p className="truncate text-sm font-semibold text-valence-text">{d.client_name}</p>
                   <div className="mt-0.5 flex flex-wrap items-center gap-2 text-[11px] text-valence-muted">
                     <span className={`inline-flex rounded-full border px-1.5 py-0 text-[10px] font-semibold ${stageToneClasses(d.stage)}`}>{d.stage}</span>
-                    <span>{d.deal_type}</span>
+                    {dealTypeLabel(d) && <span>{dealTypeLabel(d)}</span>}
                     {d.sector && <span>· {d.sector}</span>}
                     {d.ticket_size_usd_m && <span>· ${Number(d.ticket_size_usd_m).toLocaleString()}M</span>}
                     {meta.terminal && d.stage === 'Closed' && <span className="text-valence-success">Closed</span>}

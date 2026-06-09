@@ -7,6 +7,7 @@ import { supabase, isSupabaseConfigured } from '../lib/supabase.js'
 import { generateDealBrief, isGeminiConfigured } from '../lib/gemini.js'
 import { logActivity } from '../lib/activity.js'
 import { firmDisplayName } from '../lib/firmIdentity.js'
+import { dealTypeLabel } from '../lib/dealLabels.js'
 
 // Polished AI Brief for the Deal drawer.
 //
@@ -110,7 +111,7 @@ export default function DealBrief({ deal }) {
     <div class="sub">${escape(firmDisplayName('Your firm'))} · Internal brief</div>
     <h1>${safeTitle}</h1>
     <div class="chips">
-      <span>${escape(deal.deal_type || '')}</span>
+      <span>${escape(dealTypeLabel(deal) || '')}</span>
       <span>${escape(deal.stage || '')}</span>
       ${deal.sector ? `<span>${escape(deal.sector)}</span>` : ''}
       ${deal.ticket_size_usd_m ? `<span>$${Number(deal.ticket_size_usd_m).toLocaleString()}M EV</span>` : ''}
@@ -265,8 +266,9 @@ function buildChips(deal) {
   const chips = []
   if (deal.stage)
     chips.push({ label: deal.stage, tone: 'border-valence-blue/30 bg-valence-blue-soft text-valence-blue', title: 'Stage' })
-  if (deal.deal_type)
-    chips.push({ label: cap(deal.deal_type), tone: 'border-valence-border bg-valence-surface text-valence-muted', title: 'Deal type' })
+  const topTypes = (deal.deal_types || []).map(cap).join(' + ')
+  if (topTypes)
+    chips.push({ label: topTypes, tone: 'border-valence-border bg-valence-surface text-valence-muted', title: 'Deal type' })
   if (deal.deal_subtype)
     chips.push({ label: cap(String(deal.deal_subtype).replace(/_/g, ' ')), tone: 'border-valence-border bg-valence-surface text-valence-muted', title: 'Sub-type' })
   if (deal.sector)
