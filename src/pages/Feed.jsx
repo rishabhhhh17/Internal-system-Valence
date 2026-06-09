@@ -54,8 +54,8 @@ export default function Feed() {
       const [act, intr, intk, dl, dn] = await Promise.all([
         supabase.from('activities').select('id, deal_id, kind, body, created_at, deals(client_name)').order('created_at', { ascending: false }).limit(40),
         supabase.from('interactions').select('id, counterparty_name, counterparty_company, counterparty_type, type, outcome, notes, deal_id, created_at').order('created_at', { ascending: false }).limit(40),
-        supabase.from('intake_submissions').select('id, submitter_name, company_name, sector, status, ai_screener_output, created_at').order('created_at', { ascending: false }).limit(20),
-        supabase.from('deals').select('id, client_name, stage, sector, deal_type, created_at, lead_owner').order('created_at', { ascending: false }).limit(15),
+        supabase.from('intake_submissions').select('id, contact_name, company_name, sector, status, ai_screener_output, created_at').order('created_at', { ascending: false }).limit(20),
+        supabase.from('deals').select('id, client_name, stage, sector, deal_types, deal_subtype, created_at, lead_owner').order('created_at', { ascending: false }).limit(15),
         supabase.from('daily_notes').select('user_id, date, body, updated_at').order('updated_at', { ascending: false }).limit(15)
       ])
       const merged = []
@@ -82,7 +82,7 @@ export default function Feed() {
         id: `s-${s.id}`,
         source: 'intake',
         title: `${s.company_name || 'Inbound submission'} · ${s.sector || 'unsectored'}`,
-        body:  s.ai_screener_output?.one_line || `From ${s.submitter_name || 'unknown'} — status ${s.status || 'new'}`,
+        body:  s.ai_screener_output?.one_line || `From ${s.contact_name || 'unknown'} — status ${s.status || 'new'}`,
         to:    '/inbox/intake',
         at:    s.created_at,
         meta:  { verdict: s.ai_screener_output?.verdict, score: s.ai_screener_output?.score }
@@ -91,7 +91,7 @@ export default function Feed() {
         id: `d-${d.id}`,
         source: 'deal',
         title: `${d.client_name} · ${d.stage || 'new'}`,
-        body:  [d.sector, d.deal_type, d.lead_owner ? `lead ${d.lead_owner}` : null].filter(Boolean).join(' · '),
+        body:  [d.sector, dealTypeLabel(d), d.lead_owner ? `lead ${d.lead_owner}` : null].filter(Boolean).join(' · '),
         to:    `/deals?open=${d.id}`,
         at:    d.created_at
       })
@@ -234,6 +234,17 @@ function FeedRow({ item }) {
 
 function labelKind(k) {
   return String(k || '').replace(/_/g, ' ')
+}
+// Readable deal-type from the live model (deal_subtype + deal_types[]); the
+// legacy singular `deal_type` column is no longer written.
+function dealTypeLabel(d) {
+  if (d.deal_subtype === 'm_and_a')  return 'M&A'
+  if (d.deal_subtype === 'fundraise') return 'Fundraise'
+  if (d.deal_subtype === 'exit')      return 'Exit'
+  const types = d.deal_types || []
+  if (types.includes('advisory'))     return 'Advisory'
+  if (types.includes('transaction'))  return 'Transaction'
+  return null
 }
 function trim(s, n) {
   const t = String(s || '').replace(/\s+/g, ' ').trim()

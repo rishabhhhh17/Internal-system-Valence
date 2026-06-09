@@ -79,8 +79,8 @@ export default function Analytics() {
   const [activities, setActivities] = useState([])
   const [sectorFilter, setSectorFilter] = useState('all')
   const [period, setPeriod]         = useState('LTM')
-  const [simDiligenceUplift, setSimDiligenceUplift]       = useState(15)
-  const [simNegotiationUplift, setSimNegotiationUplift]   = useState(5)
+  const [simMandateUplift, setSimMandateUplift]           = useState(15)
+  const [simPreMandateUplift, setSimPreMandateUplift]     = useState(5)
 
   useEffect(() => {
     if (!isSupabaseConfigured) return
@@ -109,7 +109,18 @@ export default function Analytics() {
 
   // ── Distributions & deeper cuts ──
   const sectorDist   = useMemo(() => distribution(filteredDeals, d => d.sector),       [filteredDeals])
-  const dealTypeDist = useMemo(() => distribution(filteredDeals, d => d.deal_type),    [filteredDeals])
+  const dealTypeDist = useMemo(() => distribution(filteredDeals, d => {
+    // Live deals carry deal_subtype ('m_and_a'|'fundraise'|'exit') + deal_types[]
+    // ('transaction'|'advisory'); the legacy singular `deal_type` is no longer
+    // written, so derive a readable label from the current model.
+    if (d.deal_subtype === 'm_and_a')  return 'M&A'
+    if (d.deal_subtype === 'fundraise') return 'Fundraise'
+    if (d.deal_subtype === 'exit')      return 'Exit'
+    const types = d.deal_types || []
+    if (types.includes('advisory'))     return 'Advisory'
+    if (types.includes('transaction'))  return 'Transaction'
+    return d.deal_type || 'Uncategorised'
+  }), [filteredDeals])
   const ladder       = useMemo(() => conversionLadder(filteredDeals),                  [filteredDeals])
   const quarters     = useMemo(() => feeByQuarter(filteredDeals, { quarters: 4 }),     [filteredDeals])
   const geo          = useMemo(() => geographyMix(filteredDeals),                      [filteredDeals])
@@ -135,12 +146,12 @@ export default function Analytics() {
     for (const d of filteredDeals) {
       const fee = expectedFee(d)
       let p = STAGE_PROBABILITY[d.stage] ?? 0
-      if (d.stage === 'Mandate')     p = Math.min(1, p * (1 + simDiligenceUplift / 100))
-      if (d.stage === 'Pre-Mandate') p = Math.min(1, p * (1 + simNegotiationUplift / 100))
+      if (d.stage === 'Mandate')     p = Math.min(1, p * (1 + simMandateUplift / 100))
+      if (d.stage === 'Pre-Mandate') p = Math.min(1, p * (1 + simPreMandateUplift / 100))
       scenario += fee * p
     }
     return { baseline, scenario, delta: scenario - baseline }
-  }, [filteredDeals, forecast.weighted, simDiligenceUplift, simNegotiationUplift])
+  }, [filteredDeals, forecast.weighted, simMandateUplift, simPreMandateUplift])
 
   const updatedLabel = format(new Date(), "d MMM yyyy · HH:mm")
 
@@ -151,7 +162,7 @@ export default function Analytics() {
     const horizon = new Date(today)
     horizon.setDate(horizon.getDate() + 30)
     const closing30 = filteredDeals.filter(d => {
-      if (d.stage !== 'Mandate') return false
+      if (!['Pre-Mandate', 'Mandate'].includes(d.stage)) return false
       const iso = d.expected_close_date || d.target_close
       if (!iso) return false
       const t = new Date(iso)
@@ -245,9 +256,9 @@ export default function Analytics() {
 
       {/* ── Pipeline health · operational, not money ── */}
       <section className="grid grid-cols-2 gap-px bg-valence-border rounded-2xl overflow-hidden border border-valence-border md:grid-cols-4">
-        <KPI label="Active mandates"      info="Mandates not in a terminal stage (Closed / On Hold / Lost)." value={pipelineHealth.activeCount}              sub="Engaged through Closing"        icon={Handshake} accent />
+        <KPI label="Active mandates"      info="Mandates not in a terminal stage (Closed / On Hold / Lost)." value={pipelineHealth.activeCount}              sub="Active through Mandate"         icon={Handshake} accent />
         <KPI label="Avg days in stage"    info="Mean days each active mandate has sat in its current stage."  value={pipelineHealth.avgDays}                  sub="Lower is healthier"             icon={Hourglass} />
-        <KPI label="Closing in 30 days"   info="Closing or Negotiation mandates with target close inside 30d." value={pipelineHealth.closing30}                sub="Eyes on these"                  icon={CalendarClock} />
+        <KPI label="Closing in 30 days"   info="Pre-Mandate or Mandate deals with a target close inside 30 days." value={pipelineHealth.closing30}             sub="Eyes on these"                  icon={CalendarClock} />
         <KPI label="Stale mandates"       info={`Active mandates that have spent more than ${STALE_THRESHOLD_DAYS} days in their current stage.`} value={pipelineHealth.stalled} sub={`> ${STALE_THRESHOLD_DAYS}d in stage`} icon={Flame} />
       </section>
 
@@ -274,7 +285,7 @@ export default function Analytics() {
 
       <section className="grid gap-6 lg:grid-cols-3">
         <DistributionCard title="Sector mix"  subtitle="Mandates by sector" items={sectorDist} money={money} icon={PieChart} />
-        <DistributionCard title="Deal type"   subtitle="M&A · PE/VC · ECM" items={dealTypeDist} money={money} icon={Briefcase} />
+        <DistributionCard title="Deal type"   subtitle="M&A · Fundraise · Exit · Advisory" items={dealTypeDist} money={money} icon={Briefcase} />
         <SideSplitCard side={side} />
       </section>
 
@@ -303,7 +314,7 @@ export default function Analytics() {
       <SectionHeading kicker="IV" title="Forward-looking" subtitle="What the next four quarters could look like" icon={CalendarDays} />
 
       <section className="vl-card p-8">
-        <CardTitle icon={CalendarDays} title="Fee forecast · next 4 quarters" subtitle="Probability-weighted fee recognition. Committed = Closing + Negotiation + Closed." />
+        <CardTitle icon={CalendarDays} title="Fee forecast · next 4 quarters" subtitle="Probability-weighted fee recognition. Committed = Mandate + Closed." />
         <QuarterBars quarters={quarters} amount={amount} />
       </section>
 
@@ -317,8 +328,8 @@ export default function Analytics() {
         <div className="relative">
           <CardTitle icon={Zap} title="What-if · conversion uplift" subtitle="Model how improving late-stage conversion shifts probability-weighted fees." />
           <div className="grid gap-6 md:grid-cols-[1fr_1fr_auto]">
-            <SimSlider label="Diligence uplift"   value={simDiligenceUplift}   onChange={setSimDiligenceUplift} />
-            <SimSlider label="Negotiation uplift" value={simNegotiationUplift} onChange={setSimNegotiationUplift} />
+            <SimSlider label="Mandate close-rate"   value={simMandateUplift}    onChange={setSimMandateUplift} />
+            <SimSlider label="Pre-Mandate conversion" value={simPreMandateUplift} onChange={setSimPreMandateUplift} />
             <div className="rounded-xl border border-valence-border bg-valence-surface p-5 min-w-[220px]">
               <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-valence-muted">Scenario weighted fees</p>
               <p className="mt-2 font-display text-3xl font-bold tabular-nums text-valence-text">{amount(whatIf.scenario)}</p>

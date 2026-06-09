@@ -934,7 +934,7 @@ function DealForm({ initial, onSubmit, onCancel }) {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-5">
-      {!initial && <ConflictBanner clientName={form.client_name} sector={form.sector} />}
+      {!initial && <ConflictBanner clientName={form.client_name} sector={form.sector} side={form.deal_subtype === 'm_and_a' ? form.ma_side : null} />}
       {/* SimilarDealsBanner only runs on new-deal creation (no `initial`).
           Surfaces existing deals with similar name OR exact website match
           via the find_similar_deals RPC, so the user doesn't unwittingly

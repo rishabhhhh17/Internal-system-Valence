@@ -7,6 +7,7 @@
 //   3. Same sector + opposite side (possible Chinese-wall concern)
 
 import { supabase, isSupabaseConfigured } from './supabase.js'
+import { ACTIVE_STAGES } from './stages.js'
 
 export async function checkConflicts({ clientName, sector, side }) {
   if (!isSupabaseConfigured || !clientName) return { hits: [] }
@@ -18,14 +19,14 @@ export async function checkConflicts({ clientName, sector, side }) {
   try {
     // 1. Existing deal with same client
     const { data: nameDeals } = await supabase
-      .from('deals').select('id, client_name, stage, side')
+      .from('deals').select('id, client_name, stage, ma_side, side')
       .ilike('client_name', needle)
       .limit(3)
     for (const d of (nameDeals || [])) {
       hits.push({
         severity: 'warn',
         title:    `An active mandate with the same client already exists`,
-        detail:   `${d.client_name} · ${d.stage} · ${d.side || 'Advisory'}`,
+        detail:   `${d.client_name} · ${d.stage} · ${d.ma_side || d.side || 'Advisory'}`,
         dealId:   d.id
       })
     }
@@ -60,15 +61,15 @@ export async function checkConflicts({ clientName, sector, side }) {
     // 3. Same sector, opposite side — possible Chinese-wall concern
     if (sector && side) {
       const { data: crossRows } = await supabase
-        .from('deals').select('id, client_name, stage, side, sector')
+        .from('deals').select('id, client_name, stage, ma_side, sector')
         .eq('sector', sector)
-        .neq('side', side)
-        .in('stage', ['Origination','Pitch','Mandate','Preparation','Marketing','Diligence','Negotiation','Closing'])
+        .neq('ma_side', side)
+        .in('stage', ACTIVE_STAGES.map(s => s.id))
         .limit(3)
       for (const d of (crossRows || [])) {
         hits.push({
           severity: 'low',
-          title:    `Active ${d.side || 'Advisory'} mandate in the same sector`,
+          title:    `Active ${d.ma_side || 'Advisory'} mandate in the same sector`,
           detail:   `${d.client_name} (${d.stage}, ${d.sector}). Confirm no Chinese-wall breach.`,
           dealId:   d.id
         })

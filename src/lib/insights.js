@@ -196,7 +196,7 @@ export function feeByQuarter(deals, { quarters = 4, now = new Date() } = {}) {
     const p = STAGE_PROBABILITY[d.stage] ?? 0
     if (p === 0) continue
     const weighted = fee * p
-    const closeIso = d.expected_close_date || d.target_close_date
+    const closeIso = d.expected_close_date || d.target_close
     if (closeIso) {
       const cd = new Date(closeIso)
       const offset = (cd.getFullYear() - y) * 4 + (Math.floor(cd.getMonth() / 3) - q0)
@@ -212,16 +212,14 @@ export function feeByQuarter(deals, { quarters = 4, now = new Date() } = {}) {
 
 function stageQuarterWeights(stage, quarters) {
   // Heuristic weights by stage — later stages are front-loaded.
+  // Keyed on the canonical 7-stage model (src/lib/stages.js). Later (closer
+  // to Mandate) stages are front-loaded; Origination is back-loaded.
   const templates = {
-    Origination: [0.05, 0.15, 0.30, 0.50],
-    Pitch:       [0.10, 0.25, 0.35, 0.30],
-    Mandate:     [0.15, 0.35, 0.35, 0.15],
-    Preparation: [0.25, 0.40, 0.25, 0.10],
-    Marketing:   [0.35, 0.40, 0.20, 0.05],
-    Diligence:   [0.50, 0.35, 0.12, 0.03],
-    Negotiation: [0.65, 0.25, 0.08, 0.02],
-    Closing:     [0.85, 0.12, 0.02, 0.01],
-    Closed:      [1.00, 0, 0, 0]
+    Origination:   [0.05, 0.15, 0.30, 0.50],
+    Pitching:      [0.10, 0.25, 0.35, 0.30],
+    'Pre-Mandate': [0.25, 0.35, 0.28, 0.12],
+    Mandate:       [0.45, 0.35, 0.15, 0.05],
+    Closed:        [1.00, 0, 0, 0]
   }
   const t = templates[stage] || [0.25, 0.25, 0.25, 0.25]
   return t.slice(0, quarters)
@@ -547,12 +545,15 @@ export function originationMix(deals) {
   return { illustrative: false, items }
 }
 
-// Side (buy/sell) split for mandates where `side` is set.
+// Side (buy/sell) split for mandates where the M&A side is set. The live
+// deal form writes `ma_side` ('buy'/'sell'); `side` is the legacy column
+// (kept as a fallback for any un-migrated rows).
 export function sideMix(deals) {
   let sell = 0, buy = 0, unknown = 0
   for (const d of deals) {
-    if (d.side === 'Sell') sell += 1
-    else if (d.side === 'Buy') buy += 1
+    const s = (d.ma_side || d.side || '').toLowerCase()
+    if (s.startsWith('sell')) sell += 1
+    else if (s.startsWith('buy')) buy += 1
     else unknown += 1
   }
   return { sell, buy, unknown }

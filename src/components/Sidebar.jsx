@@ -6,9 +6,12 @@ import { supabase, isSupabaseConfigured, subscribeTable } from '../lib/supabase.
 import { useSavedViews, filtersFromUrl } from '../hooks/useSavedViews.js'
 import SaveViewDialog from './SaveViewDialog.jsx'
 import { useWorkspaceSetting } from '../hooks/useWorkspaceSetting.js'
+import { TERMINAL_STAGES as TERMINAL_STAGE_DEFS, LIVE_MANDATE_STAGES as LIVE_MANDATE_STAGE_IDS } from '../lib/stages.js'
 
-const TERMINAL_STAGES  = new Set(['Closed', 'Lost', 'On Hold'])
-const LIVE_MANDATE_STAGES = new Set(['Mandate', 'Preparation', 'Marketing', 'Diligence', 'Negotiation', 'Closing'])
+// Derive from the canonical 7-stage taxonomy (src/lib/stages.js) so the
+// sidebar badge counts can never drift from what the destination pages show.
+const TERMINAL_STAGES  = new Set(TERMINAL_STAGE_DEFS.map(s => s.id))
+const LIVE_MANDATE_STAGES = new Set(LIVE_MANDATE_STAGE_IDS)
 
 // Items flagged `power` are internal-team / power-user surfaces that
 // clutter the sidebar for a 45-year-old IB partner on the first demo.
@@ -57,11 +60,16 @@ function useSidebarCounts() {
 
   async function load() {
     if (!isSupabaseConfigured) return
-    const todayIso = new Date().toISOString().slice(0, 10)
+    // Local calendar date (not UTC) so the "today's meetings" badge matches
+    // what the Planner shows for users in IST etc.
+    const now = new Date()
+    const todayIso = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
     const [d, m, i, ix] = await Promise.all([
       supabase.from('deals').select('stage'),
       supabase.from('meetings').select('id', { count: 'exact', head: true }).eq('date', todayIso),
-      supabase.from('interactions').select('id', { count: 'exact', head: true }).not('follow_up_date', 'is', null).lte('follow_up_date', todayIso),
+      // Exclude completed follow-ups so the badge matches the Interactions
+      // "needs follow-up" list (which drops is_complete rows).
+      supabase.from('interactions').select('id', { count: 'exact', head: true }).not('follow_up_date', 'is', null).lte('follow_up_date', todayIso).not('is_complete', 'is', true),
       supabase.from('intake_submissions').select('id', { count: 'exact', head: true }).eq('status', 'new')
     ])
     const stageRows = d.data || []
