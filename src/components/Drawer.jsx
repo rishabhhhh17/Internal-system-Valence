@@ -27,7 +27,18 @@ export default function Drawer({ open, onClose, title, children, footer }) {
           narrow widths so labels + values fit without horizontal scroll. */}
       <div ref={panelRef} className="relative ml-auto flex h-full w-full sm:max-w-[620px] animate-slide-in-right flex-col border-l border-white/40 vl-glass-side shadow-valence-lg">
         <div className="flex items-start justify-between border-b border-valence-border/60 px-4 sm:px-6 py-3 sm:py-4 shrink-0">
-          <h2 className="text-base font-semibold tracking-tight text-valence-text truncate">{title}</h2>
+          {/* Header used to be a single h2 with `truncate`. That clipped
+              JSX titles (PersonDrawer + InteractionDrawer now embed a
+              counterparty-type chip alongside the name) and squeezed
+              InlineEditableText's input during rename. Wrap in a
+              min-w-0 flex row so the chip stays visible, and only
+              truncate strings — JSX titles render with whatever
+              wrapping they bring. */}
+          <h2 className="min-w-0 flex-1 text-base font-semibold tracking-tight text-valence-text">
+            {typeof title === 'string'
+              ? <span className="block truncate">{title}</span>
+              : title}
+          </h2>
           <button onClick={onClose} className="vl-btn-ghost -mr-2 shrink-0" aria-label="Close">
             <X className="h-4 w-4" />
           </button>

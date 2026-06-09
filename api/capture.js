@@ -60,9 +60,10 @@ export default async function handler(req, res) {
     if (orgErr) return res.status(500).json({ error: orgErr.message })
     if (!orgId)  return res.status(403).json({ error: 'No active seat — finish onboarding in the workspace first.' })
 
-    // Pull the authenticated user's email so Gmail captures can be
-    // classified as email_sent vs email_received by comparing against
-    // the last message's From header.
+    // Phase 27b — pull the authed user's email so gmail captures can be
+    // classified as email_sent vs email_received by comparing against the
+    // last message's From header. Falls back to email_received when we
+    // don't have a clear sender so older captures don't false-flag.
     const { data: userInfo } = await sb.auth.getUser()
     const userEmail = (userInfo?.user?.email || '').toLowerCase()
 
@@ -98,65 +99,57 @@ async function handleGmailThread(sb, orgId, userEmail, body, res) {
     }
   }
 
-  // Upsert each participant as a person. Match by lowercase email to
-  // avoid creating duplicates from different cases.
+  // Upsert each participant as a person. The previous fetch-then-insert
+  // pattern raced under concurrent captures — two extension clicks landed
+  // inside each other's existence-check window and both inserted. Phase 30
+  // added a unique partial index on (org_id, lower(trim(email))) where
+  // email is real, so we now use ON CONFLICT to either get the existing
+  // row's id or insert + return atomically.
   const people = []
   for (const p of (participants || [])) {
     const email = (p.email || '').toLowerCase().trim()
     if (!email || !email.includes('@')) continue
     const name = (p.name || '').trim() || email.split('@')[0]
-    const { data: existing } = await sb.from('people')
-      .select('id, full_name, email, company')
-      .eq('org_id', orgId)
-      .ilike('email', email)
-      .limit(1)
-    if (existing && existing.length > 0) {
-      people.push({ id: existing[0].id, isNew: false, email })
-    } else {
-      const company = email.split('@')[1]?.split('.')[0] || null
-      const { data: created, error: insErr } = await sb.from('people')
-        .insert({
+    const company = email.split('@')[1]?.split('.')[0] || null
+    const { data: upserted, error: upErr } = await sb.from('people')
+      .upsert(
+        {
           org_id: orgId,
           full_name: name,
           email,
           company: company ? capitalise(company) : null,
           notes: 'Auto-captured from Gmail.'
-        })
-        .select('id')
-        .single()
-      if (insErr) continue
-      people.push({ id: created.id, isNew: true, email })
-    }
+        },
+        { onConflict: 'org_id,email', ignoreDuplicates: false }
+      )
+      .select('id')
+      .single()
+    if (upErr || !upserted) continue
+    people.push({ id: upserted.id, isNew: false, email })
   }
 
   // counterparty_name = first non-self participant. With userEmail known
-  // we pick the actual external participant rather than just slot 0 (which
-  // is often the user themselves when they're on the From line).
+  // we pick the actual external participant rather than slot 0 (which is
+  // often the user themselves on outbound).
   const externalParticipants = (participants || []).filter(p => {
     const e = (p.email || '').toLowerCase()
     return e && e !== userEmail
   })
   const lead = externalParticipants[0] || (participants || [])[0]
 
-  // Direction: lastFrom is the sender of the last visible message in the
-  // thread. If that's us, the email is OUTBOUND — we sent the last message
-  // and the ball is now in their court (a Waiting On candidate). If it's
-  // them, INBOUND. Default to email_received when we don't have a clear
-  // sender so older captures and edge cases don't false-flag as outbound.
-  const senderIsUs = !!(userEmail && lastFrom && lastFrom === userEmail)
+  // Direction: lastFrom is the sender of the last visible message. If
+  // that's us, the ball is in their court (a Waiting On candidate).
+  const senderIsUs      = !!(userEmail && lastFrom && lastFrom === userEmail)
   const interactionType = senderIsUs ? 'email_sent' : 'email_received'
 
-  // Try to attach this thread to a deal. The contacts table is the
-  // canonical (deal_id, email) link in this schema; any participant email
-  // that appears there points us at the right mandate. Pick the most
-  // recently updated match so live mandates win over closed ones.
+  // Try to attach this thread to a deal — contacts is the canonical
+  // (deal_id, email) link in this schema. Pick the most recently-updated
+  // matching deal so live mandates win over closed ones.
   let dealId = null
   const partEmails = externalParticipants
     .map(p => (p.email || '').toLowerCase())
     .filter(e => e && e.includes('@'))
   if (partEmails.length) {
-    // supabase-js v2.36+ renamed the embedded-order option from
-    // `foreignTable` to `referencedTable`. The old name is deprecated.
     const { data: dealHit } = await sb
       .from('contacts')
       .select('deal_id, deals(updated_at)')
@@ -167,11 +160,13 @@ async function handleGmailThread(sb, orgId, userEmail, body, res) {
     dealId = dealHit?.[0]?.deal_id || null
   }
 
-  // External person id — link to the people row for the lead so the
-  // relationship graph + Waiting On signal can find them.
-  const leadEmail = (lead?.email || '').toLowerCase()
+  // Link the people row for the lead so the relationship graph + Waiting
+  // On signal can find them.
+  const leadEmail  = (lead?.email || '').toLowerCase()
   const leadPerson = people.find(p => p.email === leadEmail)
 
+  // type='email' and outcome='neutral' both fail the CHECK constraints
+  // (legal: 'email_thread' / 'in_progress'). See PR #205.
   const { error: intErr } = await sb.from('interactions')
     .insert({
       org_id: orgId,
@@ -181,16 +176,13 @@ async function handleGmailThread(sb, orgId, userEmail, body, res) {
       counterparty_company: extractCompanyFromEmail(lead?.email),
       type: 'email_thread',
       interaction_type: interactionType,
-      // 'in_progress' is the closest neutral outcome accepted by
-      // interactions_outcome_check. The previous 'neutral' value was
-      // rejected by the constraint, silently failing every capture.
       outcome: 'in_progress',
       subject,
       summary: snippet || null,
       source: 'gmail',
       source_id: threadId || null,
-      occurred_at: occurredAt || new Date().toISOString(),
       notes: snippet ? `Subject: ${subject}\n\n${snippet}` : `Subject: ${subject}`,
+      occurred_at: occurredAt || new Date().toISOString(),
       created_at: occurredAt || new Date().toISOString(),
       external_id: threadId ? `gmail:${threadId}` : null
     })
@@ -226,53 +218,51 @@ async function handleCalendarEvent(sb, orgId, body, res) {
     }
   }
 
+  // Same race fix as the Gmail handler — switch to ON CONFLICT upsert
+  // now that Phase 30's unique partial index on (org_id, lower(trim(email)))
+  // exists.
   const people = []
   for (const a of (attendees || [])) {
     const email = (a.email || '').toLowerCase().trim()
     if (!email || !email.includes('@')) continue
     const name = (a.name || '').trim() || email.split('@')[0]
-    const { data: existing } = await sb.from('people')
-      .select('id')
-      .eq('org_id', orgId)
-      .ilike('email', email)
-      .limit(1)
-    if (existing && existing.length > 0) {
-      people.push({ id: existing[0].id, isNew: false })
-    } else {
-      const company = extractCompanyFromEmail(email)
-      const { data: created, error: insErr } = await sb.from('people')
-        .insert({
+    const { data: upserted, error: upErr } = await sb.from('people')
+      .upsert(
+        {
           org_id: orgId,
           full_name: name,
           email,
-          company,
+          company: extractCompanyFromEmail(email),
           notes: 'Auto-captured from Google Calendar.'
-        })
-        .select('id')
-        .single()
-      if (insErr) continue
-      people.push({ id: created.id, isNew: true })
-    }
+        },
+        { onConflict: 'org_id,email', ignoreDuplicates: false }
+      )
+      .select('id')
+      .single()
+    if (upErr || !upserted) continue
+    people.push({ id: upserted.id, isNew: false })
   }
 
+  // type='meeting' isn't in interactions_type_check; the closest legal
+  // value is 'pitch_meeting' (already used by 302+ live rows). outcome
+  // 'neutral' is also not in the CHECK list — every capture has been
+  // silently 23514ing.
   const lead = (attendees || [])[0]
   const { error: intErr } = await sb.from('interactions')
     .insert({
       org_id: orgId,
       counterparty_name: lead?.name || lead?.email || title,
       counterparty_company: extractCompanyFromEmail(lead?.email),
-      // 'meeting' isn't in interactions_type_check; the closest legal value
-      // is 'pitch_meeting' (already used by 302 existing rows). Keeping the
-      // old typo would silently fail the insert under the constraint.
       type: 'pitch_meeting',
-      // See email handler — 'neutral' is not in interactions_outcome_check.
       outcome: 'in_progress',
+      source: 'gcal',
       notes: [
         title,
         timeText ? `When: ${timeText}` : null,
         location ? `Where: ${location}` : null,
         attendees?.length ? `Attendees: ${attendees.length}` : null
       ].filter(Boolean).join('\n'),
+      occurred_at: occurredAt || new Date().toISOString(),
       created_at: occurredAt || new Date().toISOString(),
       external_id: eventId ? `gcal:${eventId}` : null
     })

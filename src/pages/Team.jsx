@@ -11,11 +11,13 @@
 // table so each tenant sees their own teammates only.
 
 import { useEffect, useMemo, useState } from 'react'
-import { Search, MapPin, Mail, ArrowUpRight, Users } from 'lucide-react'
+import { Link } from 'react-router-dom'
+import { Search, MapPin, Mail, ArrowUpRight, Users, UserPlus } from 'lucide-react'
 import { supabase, isSupabaseConfigured } from '../lib/supabase.js'
 import { useAuth } from '../hooks/useAuth.js'
 import { useSeat } from '../hooks/useSeat.js'
 import EmptyState from '../components/EmptyState.jsx'
+import { barFillClass as ctyBarFill } from '../lib/counterpartyColors.js'
 
 const ROLE_ORDER = ['admin', 'partner', 'analyst', 'observer']
 
@@ -34,31 +36,73 @@ export default function Team() {
   const { profile } = useAuth()
   const { org } = useSeat()
   const [members, setMembers] = useState([])
+  const [interactions, setInteractions] = useState([])  // raw rows for distribution
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [q, setQ] = useState('')
   const [roleFilter, setRoleFilter] = useState('All')
 
-  // Fetch every active seat in the user's org. RLS already filters to
-  // the current tenant, so we don't need an org_id .eq() — but we add
-  // .eq('active', true) so a deactivated seat doesn't render.
+  // Fetch every active seat + interactions for the per-member counterparty
+  // distribution. RLS scopes seats to the current tenant automatically.
   useEffect(() => {
     if (!isSupabaseConfigured) { setLoading(false); return }
     let alive = true
     ;(async () => {
       setLoading(true); setError(null)
-      const { data, error: err } = await supabase
-        .from('seats')
-        .select('id, user_id, email, full_name, title, phone, role, added_at, billable_from')
-        .eq('active', true)
-        .order('added_at', { ascending: true })
+      const [seatsRes, interactionsRes] = await Promise.all([
+        supabase
+          .from('seats')
+          .select('id, user_id, email, full_name, title, phone, role, added_at, billable_from')
+          .eq('active', true)
+          .order('added_at', { ascending: true }),
+        // Phase 26 — pulls the founder/investor/general split per member.
+        // lead_owner is free-form text matching seat.full_name; aggregate
+        // client-side. Same query the Settings → Team panel runs.
+        //
+        // PostgREST silently caps at 1000 rows. Order by recency and lift
+        // the cap to 10000 so growing tenants get a deterministic, mostly-
+        // complete slice instead of an arbitrary 1000. Beyond 10k we'd
+        // move this server-side as an RPC aggregation; flag for when we
+        // see a tenant push past it.
+        supabase
+          .from('interactions')
+          .select('lead_owner, counterparty_type')
+          .not('lead_owner', 'is', null)
+          .order('created_at', { ascending: false })
+          .limit(10000)
+      ])
       if (!alive) return
-      if (err) setError(err.message)
-      else setMembers(data || [])
+      if (seatsRes.error) setError(seatsRes.error.message)
+      else setMembers(seatsRes.data || [])
+      // Surface interactions errors instead of swallowing — empty bars
+      // with no console signal made it impossible to diagnose RLS drift.
+      if (interactionsRes.error) {
+        console.error('[team] interactions fetch failed:', interactionsRes.error)
+      }
+      setInteractions(interactionsRes.data || [])
       setLoading(false)
     })()
     return () => { alive = false }
   }, [org?.id])
+
+  // Aggregate interactions by lead_owner name (lowercased for case-
+  // insensitive match against members.full_name). Drives the distribution
+  // bar on each PersonCard.
+  const distByOwner = useMemo(() => {
+    const m = new Map()
+    for (const r of interactions) {
+      const owner = (r.lead_owner || '').toLowerCase().trim()
+      if (!owner) continue
+      const t = r.counterparty_type
+      if (!m.has(owner)) m.set(owner, { founder: 0, investor: 0, general: 0, total: 0 })
+      const e = m.get(owner)
+      if (t === 'founder' || t === 'investor' || t === 'general') {
+        e[t] += 1
+        e.total += 1
+      }
+    }
+    return m
+  }, [interactions])
 
   const filtered = useMemo(() => {
     const needle = q.trim().toLowerCase()
@@ -85,21 +129,44 @@ export default function Team() {
 
   const headerCount = members.length
 
+  const inviteHref = '/settings?section=team'
+
   return (
     <div className="space-y-6">
       {/* Header — quiet, IB-grade. No marketing hero. */}
-      <div>
-        <p className="vl-eyebrow-ink">Team</p>
-        <h1 className="mt-2 font-display text-feature font-bold text-valence-text">
-          {org?.name ? `Everyone at ${org.name}` : 'Your team'}
-        </h1>
-        <p className="mt-2 text-sm text-valence-muted">
-          {headerCount === 0
-            ? 'You\'re the first one here. Invite the rest of your firm from Settings → Team.'
-            : headerCount === 1
-              ? 'Just you for now. Invite the rest of your firm from Settings → Team.'
-              : `${headerCount} active seat${headerCount === 1 ? '' : 's'} in your firm.`}
-        </p>
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <p className="vl-eyebrow-ink">Team</p>
+          <h1 className="mt-2 font-display text-feature font-bold text-valence-text">
+            {org?.name ? `Everyone at ${org.name}` : 'Your team'}
+          </h1>
+          <p className="mt-2 text-sm text-valence-muted">
+            {headerCount === 0 ? (
+              <>You&apos;re the first one here.{' '}
+                <Link to={inviteHref} className="font-semibold text-valence-blue hover:text-valence-blue-hover underline-offset-2 hover:underline">
+                  Invite the rest of your firm →
+                </Link>
+              </>
+            ) : headerCount === 1 ? (
+              <>Just you for now.{' '}
+                <Link to={inviteHref} className="font-semibold text-valence-blue hover:text-valence-blue-hover underline-offset-2 hover:underline">
+                  Invite the rest of your firm →
+                </Link>
+              </>
+            ) : (
+              `${headerCount} active seat${headerCount === 1 ? '' : 's'} in your firm.`
+            )}
+          </p>
+        </div>
+        {/* Always-available invite CTA — user shouldn't have to dig into
+            Settings to invite teammates. Routes to the same Settings → Team
+            section that already owns the code generation flow. */}
+        <Link
+          to={inviteHref}
+          className="vl-btn-secondary-sm shrink-0 inline-flex items-center gap-1.5"
+        >
+          <UserPlus className="h-3.5 w-3.5" /> Invite teammates
+        </Link>
       </div>
 
       {/* Filters — role filter intentionally hidden along with the role
@@ -125,7 +192,15 @@ export default function Team() {
         <EmptyState
           icon={Users}
           title="You're the only one here yet"
-          description="Generate an invite code in Settings → Team to bring teammates into this workspace."
+          description={
+            <>
+              Generate an invite code in{' '}
+              <Link to={inviteHref} className="font-semibold text-valence-blue hover:text-valence-blue-hover underline-offset-2 hover:underline">
+                Settings → Team
+              </Link>{' '}
+              to bring teammates into this workspace.
+            </>
+          }
         />
       ) : (
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
@@ -134,6 +209,7 @@ export default function Team() {
               key={m.id}
               person={m}
               isYou={m.user_id === profile?.id}
+              dist={distByOwner.get((m.full_name || '').toLowerCase()) || null}
             />
           ))}
         </div>
@@ -148,7 +224,7 @@ export default function Team() {
   )
 }
 
-function PersonCard({ person, isYou }) {
+function PersonCard({ person, isYou, dist }) {
   const name = person.full_name || person.email || 'Unnamed'
   return (
     <article className="vl-card vl-card-hover relative p-4">
@@ -177,8 +253,19 @@ function PersonCard({ person, isYou }) {
         </div>
       </div>
 
-      {person.email && (
+      {/* Phase 26 — per-member counterparty distribution. Only renders if
+          the member has any tagged interactions; otherwise we show the
+          email row alone. Same shape as TeamPanel's bar in Settings so
+          a partner sees the same visual whether they navigate via
+          /team or /settings. */}
+      {dist && dist.total > 0 && (
         <div className="mt-3 border-t border-valence-border/60 pt-3">
+          <DistributionBar dist={dist} />
+        </div>
+      )}
+
+      {person.email && (
+        <div className={`${dist && dist.total > 0 ? 'mt-2' : 'mt-3 border-t border-valence-border/60 pt-3'}`}>
           <a
             href={`mailto:${person.email}`}
             className="inline-flex items-center gap-1.5 text-[11px] font-medium text-valence-muted hover:text-valence-blue truncate"
@@ -188,6 +275,29 @@ function PersonCard({ person, isYou }) {
         </div>
       )}
     </article>
+  )
+}
+
+// Stacked horizontal bar — emerald/indigo/slate segments proportional to
+// counts. Same recipe TeamPanel uses; inlined here to keep dep surface
+// shallow. If a third surface needs it, extract to src/components.
+function DistributionBar({ dist }) {
+  const { founder, investor, general, total } = dist
+  if (!total) return null
+  const pct = (n) => (n / total) * 100
+  return (
+    <div className="space-y-1">
+      <div className="flex h-1.5 w-full overflow-hidden rounded-full bg-valence-surface">
+        {founder  > 0 && <div className={ctyBarFill('founder')}  style={{ width: `${pct(founder)}%`  }} title={`Founder: ${founder}`} />}
+        {investor > 0 && <div className={ctyBarFill('investor')} style={{ width: `${pct(investor)}%` }} title={`Investor: ${investor}`} />}
+        {general  > 0 && <div className={ctyBarFill('general')}  style={{ width: `${pct(general)}%`  }} title={`General: ${general}`} />}
+      </div>
+      <div className="flex items-center gap-3 text-[10px] text-valence-muted tabular-nums">
+        {founder  > 0 && <span><span className="inline-block h-1.5 w-1.5 rounded-full bg-emerald-500 mr-1 align-middle" />{founder}</span>}
+        {investor > 0 && <span><span className="inline-block h-1.5 w-1.5 rounded-full bg-indigo-500  mr-1 align-middle" />{investor}</span>}
+        {general  > 0 && <span><span className="inline-block h-1.5 w-1.5 rounded-full bg-slate-400   mr-1 align-middle" />{general}</span>}
+      </div>
+    </div>
   )
 }
 

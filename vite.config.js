@@ -16,6 +16,12 @@ export default defineConfig({
     port: 5173,
     open: true
   },
+  // Vitest — exclude the embedded git worktrees under .claude/ (each is a
+  // full repo copy with its own stale __tests__ that otherwise run as
+  // phantom duplicate failures) plus the usual build dirs.
+  test: {
+    exclude: ['**/node_modules/**', '**/dist/**', '**/.claude/**']
+  },
   build: {
     // Split the heavy third-party dependencies into their own chunks so
     // first-paint isn't blocked by a 1.2 MB bundle. pdf.js + mammoth

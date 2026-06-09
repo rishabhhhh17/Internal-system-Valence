@@ -176,6 +176,7 @@ export default function Mandates() {
                       {isDetailed && <th className="px-3 py-2 font-semibold">Sector</th>}
                       {isDetailed && <th className="px-3 py-2 font-semibold">Side</th>}
                       <th className="px-3 py-2 font-semibold">Lead owner</th>
+                      <th className="px-3 py-2 font-semibold">Onboarding</th>
                       <th className="px-3 py-2 font-semibold text-right">Days in stage</th>
                       {isDetailed && <th className="px-3 py-2 font-semibold">Target close</th>}
                       {isDetailed && <th className="px-3 py-2 font-semibold">Last activity</th>}
@@ -222,6 +223,12 @@ function MandateRow({ d, isDetailed, onUpdate }) {
           onCommit={v => onUpdate(d.id, 'lead_owner', v)}
         />
       </td>
+      <td className="px-3 py-3">
+        <OnboardingChecklist
+          value={d.onboarding}
+          onToggle={next => onUpdate(d.id, 'onboarding', next)}
+        />
+      </td>
       <td className={`px-3 py-3 text-right tabular-nums ${stale ? 'font-semibold text-valence-warning' : 'text-valence-text'}`}>
         {d._daysInStage}d
       </td>
@@ -248,6 +255,47 @@ function MandateRow({ d, isDetailed, onUpdate }) {
         </Link>
       </td>
     </tr>
+  )
+}
+
+// Onboarding checklist — mirrors the partner's "Live Mandates" tab in the
+// Mastersheet (NDA → Term Sheet → Commercials → Engagement Letter →
+// Onboarding). Each step is a clickable pill: click to toggle done. Writes
+// the whole jsonb back via onToggle. Shows an X/5 progress count.
+const ONBOARDING_STEPS = [
+  { key: 'nda',               label: 'NDA' },
+  { key: 'term_sheet',        label: 'Term Sheet' },
+  { key: 'commercials',       label: 'Commercials' },
+  { key: 'engagement_letter', label: 'Engagement Letter' },
+  { key: 'onboarding',        label: 'Onboarding' }
+]
+function OnboardingChecklist({ value, onToggle }) {
+  const ob = value || {}
+  const done = ONBOARDING_STEPS.filter(s => ob[s.key]).length
+  return (
+    <div className="flex items-center gap-1.5">
+      <div className="flex items-center gap-1">
+        {ONBOARDING_STEPS.map(s => {
+          const on = !!ob[s.key]
+          return (
+            <button
+              key={s.key}
+              type="button"
+              title={`${s.label}${on ? ' — done (click to undo)' : ' — pending (click to mark done)'}`}
+              onClick={() => onToggle({ ...ob, [s.key]: !on })}
+              className={`inline-flex items-center rounded px-1.5 py-0.5 text-[9.5px] font-semibold uppercase tracking-wide transition ${
+                on
+                  ? 'bg-valence-success/15 text-valence-success ring-1 ring-valence-success/30'
+                  : 'bg-valence-surface text-valence-subtle ring-1 ring-valence-border hover:text-valence-muted'
+              }`}
+            >
+              {s.label.split(' ').map(w => w[0]).join('')}
+            </button>
+          )
+        })}
+      </div>
+      <span className="text-[10px] tabular-nums text-valence-muted">{done}/5</span>
+    </div>
   )
 }
 

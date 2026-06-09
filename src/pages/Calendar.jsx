@@ -2,12 +2,14 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { format, addDays, addWeeks, addMonths, startOfMonth, endOfMonth, isSameDay, isSameMonth, differenceInMinutes, isAfter } from 'date-fns'
 import { CalendarDays, ChevronLeft, ChevronRight, Plus, Users, Clock, MapPin, Sparkles, ExternalLink, Globe, X, RefreshCw, LogOut, AlertTriangle } from 'lucide-react'
 import { supabase, isSupabaseConfigured } from '../lib/supabase.js'
+import { railClass as ctyRail, chipClass as ctyChip, labelFor as ctyLabel, COUNTERPARTY_LEGEND } from '../lib/counterpartyColors.js'
 import {
   weekStart, weekEnd, addMinutes,
   DEFAULT_WORKING_HOURS, CALENDAR_COLOR_PALETTE,
   findCommonFreeSlots, groupBusyByCalendar, layoutDayColumn, colorClassesFor,
   attendeesWithPersonas,
-  syncAllGoogleCalendars
+  syncAllGoogleCalendars,
+  DEMO_TEAM_CALENDARS, DEMO_CALENDAR_EVENTS
 } from '../lib/calendar.js'
 import { signInWithGoogle, signOut, GoogleAuthExpired, createCalendarEvent, listCalendarsAccessible } from '../lib/google.js'
 import { useAuth } from '../hooks/useAuth.js'
@@ -70,9 +72,7 @@ export default function Calendar() {
   async function load() {
     setLoading(true); setLoadError(null)
     if (!isSupabaseConfigured) {
-      // No fake-data fallback any more — a tenant with nothing configured
-      // gets a clean empty state rather than VGP demo names/events.
-      setCalendars([]); setEvents([]); setPeople([]); setLoading(false); return
+      setCalendars(DEMO_TEAM_CALENDARS); setEvents(DEMO_CALENDAR_EVENTS); setPeople([]); setLoading(false); return
     }
     try {
       const [c, e, p] = await Promise.all([
@@ -80,10 +80,12 @@ export default function Calendar() {
         supabase.from('calendar_events').select('*').order('starts_at'),
         supabase.from('people').select('id, full_name, email, role, company')
       ])
-      setCalendars(c.data || []); setEvents(e.data || []); setPeople(p.data || [])
+      const cs = c.data?.length ? c.data : DEMO_TEAM_CALENDARS
+      const es = e.data?.length ? e.data : DEMO_CALENDAR_EVENTS
+      setCalendars(cs); setEvents(es); setPeople(p.data || [])
     } catch (err) {
       setLoadError(err?.message || 'Couldn\'t load calendars.')
-      setCalendars([]); setEvents([]); setPeople([])
+      setCalendars(DEMO_TEAM_CALENDARS); setEvents(DEMO_CALENDAR_EVENTS); setPeople([])
     } finally { setLoading(false) }
   }
 
@@ -708,7 +710,7 @@ function DayColumn({ date, events, calendars, calendarsById, onEventClick, onSta
                 if (overlapping.length > 0) onStackClick?.([ev, ...overlapping], rect)
                 else onEventClick(ev, rect)
               }}
-              className={`absolute rounded-md border px-1.5 py-1 text-left leading-snug transition shadow-sm ${cls}`}
+              className={`absolute rounded-md border px-1.5 py-1 text-left leading-snug transition shadow-sm ${cls} ${ctyRail(ev.counterparty_type)}`}
               style={{
                 top: startMin + 1,
                 height: heightPx - 2,
@@ -890,7 +892,7 @@ function MonthView({ anchor, events, calendarsById, onEventClick }) {
                     <li key={ev.id}>
                       <button
                         onClick={(e) => onEventClick(ev, e.currentTarget.getBoundingClientRect())}
-                        className={`w-full truncate rounded border px-1.5 py-0.5 text-left text-[10px] leading-tight ${cls}`}
+                        className={`w-full truncate rounded border px-1.5 py-0.5 text-left text-[10px] leading-tight ${cls} ${ctyRail(ev.counterparty_type)}`}
                         title={ev.title}
                       >
                         {format(new Date(ev.starts_at), 'HH:mm')} {ev.title}
@@ -954,9 +956,17 @@ function EventPopover({ event, anchor, calendar, people, onClose }) {
       >
         <div className="flex items-start justify-between gap-3 px-5 pt-4 pb-3">
           <div className="min-w-0 flex-1">
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
               <span className={`h-2.5 w-2.5 rounded-full ${cls}`} />
               <p className="text-xs text-valence-muted truncate">{calendar?.name || 'Unknown calendar'}</p>
+              {/* Phase 26 — surface the counterparty-type chip in the
+                  popover so the rail colour on the event chip has an
+                  explanatory label one click away. */}
+              {event.counterparty_type && (
+                <span className={`inline-flex items-center rounded-full border px-1.5 py-0 text-[10px] font-semibold ${ctyChip(event.counterparty_type)}`}>
+                  {ctyLabel(event.counterparty_type)}
+                </span>
+              )}
             </div>
             <h3 className="mt-1 text-base font-semibold text-valence-text">{event.title}</h3>
           </div>

@@ -18,6 +18,11 @@ import EmptyState from '../components/EmptyState.jsx'
 import ViewModeToggle from '../components/ViewModeToggle.jsx'
 import PersonDrawer from '../components/PersonDrawer.jsx'
 import WarmthChip from '../components/WarmthChip.jsx'
+// Phase 26 — derive founder/investor/general from person.tags so the
+// People grid and table light up with the same colour cue as Calendar /
+// Interactions / Team. Single source of truth keeps the three places in
+// sync; if we ever rename a tag, every surface updates with this file.
+import { typeFromPersonTags, dotClass as ctyDot, labelFor as ctyLabel, railClass as ctyRail } from '../lib/counterpartyColors.js'
 import { useToast } from '../components/Toast.jsx'
 import { humanError } from '../lib/userError.js'
 
@@ -158,20 +163,32 @@ export default function People() {
   }, [rows, q, tagFilter])
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
       <ConfigBanner />
 
-      {/* Page hero collapsed — title lives in the topbar so a second
-          giant heading just steals vertical space. Just the action row. */}
-      <div className="flex flex-wrap items-center justify-end gap-2">
-        <ViewModeToggle pageKey="people" />
-        {!isSimple && (
-          <div className="inline-flex items-center rounded-full border border-valence-border bg-valence-elevated p-0.5">
-            <button onClick={() => setView('grid')}  className={`rounded-full px-2.5 py-1 transition ${view === 'grid'  ? 'bg-valence-ink text-white' : 'text-valence-muted hover:text-valence-text'}`} title="Card view"><LayoutGrid className="h-3.5 w-3.5" /></button>
-            <button onClick={() => setView('table')} className={`rounded-full px-2.5 py-1 transition ${view === 'table' ? 'bg-valence-ink text-white' : 'text-valence-muted hover:text-valence-text'}`} title="Table view"><TableIcon className="h-3.5 w-3.5" /></button>
-          </div>
-        )}
-        <button onClick={() => setDrawer('new')} className="vl-btn-primary-sm"><Plus className="h-4 w-4" /> Add person</button>
+      {/* Page hero — consistent with every other page (eyebrow + display
+          H1 + a one-line stat ribbon), so navigating between sections
+          feels like one product. */}
+      <div className="flex flex-wrap items-end justify-between gap-4">
+        <div>
+          <p className="vl-eyebrow-ink">People</p>
+          <h1 className="mt-2 font-display text-feature font-bold text-valence-text">
+            Who we know, and what they care about.
+          </h1>
+          <p className="mt-1.5 text-sm text-valence-muted tabular-nums">
+            {rows.length} {rows.length === 1 ? 'person' : 'people'} tracked
+          </p>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <ViewModeToggle pageKey="people" />
+          {!isSimple && (
+            <div className="inline-flex items-center rounded-full border border-valence-border bg-valence-elevated p-0.5">
+              <button onClick={() => setView('grid')}  className={`rounded-full px-2.5 py-1 transition ${view === 'grid'  ? 'bg-valence-ink text-white' : 'text-valence-muted hover:text-valence-text'}`} title="Card view"><LayoutGrid className="h-3.5 w-3.5" /></button>
+              <button onClick={() => setView('table')} className={`rounded-full px-2.5 py-1 transition ${view === 'table' ? 'bg-valence-ink text-white' : 'text-valence-muted hover:text-valence-text'}`} title="Table view"><TableIcon className="h-3.5 w-3.5" /></button>
+            </div>
+          )}
+          <button onClick={() => setDrawer('new')} className="vl-btn-primary-sm"><Plus className="h-4 w-4" /> Add person</button>
+        </div>
       </div>
 
       <div className="flex flex-wrap items-center gap-3">
@@ -245,6 +262,7 @@ function chipClass(active) {
 
 function PersonCard({ person, score, onOpen }) {
   const [dragging, setDragging] = useState(false)
+  const cty = typeFromPersonTags(person.tags)
 
   function onDragStart(e) {
     if (!person?.id) return
@@ -266,10 +284,23 @@ function PersonCard({ person, score, onOpen }) {
       onDragEnd={onDragEnd}
       className={`relative group ${dragging ? 'opacity-50' : ''}`}
     >
-      <button onClick={onOpen} className="vl-card vl-card-hover block w-full p-5 text-left">
+      {/* Phase 26 — left rail in the person's counterparty colour. Same
+          visual as Interaction/Calendar event rails so a glance across the
+          People grid surfaces who's a founder vs investor vs general
+          contact without reading any tags. */}
+      <button onClick={onOpen} className={`vl-card vl-card-hover block w-full p-5 text-left ${cty ? ctyRail(cty) : ''}`}>
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0 flex-1">
-            <p className="text-sm font-semibold text-valence-text truncate">{person.full_name}</p>
+            <div className="flex items-center gap-1.5">
+              {cty && (
+                <span
+                  className={`inline-block h-1.5 w-1.5 rounded-full ${ctyDot(cty)}`}
+                  title={ctyLabel(cty)}
+                  aria-label={ctyLabel(cty)}
+                />
+              )}
+              <p className="text-sm font-semibold text-valence-text truncate">{person.full_name}</p>
+            </div>
             <p className="mt-0.5 text-[11px] text-valence-muted">{[person.role, person.company].filter(Boolean).join(' · ') || '—'}</p>
           </div>
           <div className="flex items-center gap-1.5 shrink-0">
@@ -431,9 +462,23 @@ function PersonTable({ rows, scoreMap, onOpen }) {
           </tr>
         </thead>
         <tbody>
-          {rows.map(p => (
+          {rows.map(p => {
+            // Tiny coloured dot prepended to the name cell — same logic as
+            // the grid card. Cheap visual cue for "what kind of person am
+            // I scrolling past" in the dense table view.
+            const cty = typeFromPersonTags(p.tags)
+            return (
             <tr key={p.id} className="border-t border-valence-border/60 hover:bg-valence-surface/60">
-              <td className="px-5 py-3 font-semibold text-valence-text">{p.full_name}</td>
+              <td className="px-5 py-3 font-semibold text-valence-text">
+                <span className="inline-flex items-center gap-2">
+                  <span
+                    className={`inline-block h-1.5 w-1.5 rounded-full ${cty ? ctyDot(cty) : 'bg-valence-border'}`}
+                    title={cty ? ctyLabel(cty) : 'Unclassified'}
+                    aria-label={cty ? ctyLabel(cty) : 'Unclassified'}
+                  />
+                  {p.full_name}
+                </span>
+              </td>
               <td className="px-3 py-3 text-valence-muted">{[p.role, p.company].filter(Boolean).join(' · ') || '—'}</td>
               <td className="px-3 py-3">{scoreMap?.get(p.id) ? <WarmthChip score={scoreMap.get(p.id)} showScore /> : '—'}</td>
               <td className="px-3 py-3 text-valence-muted">{locationLine(p) || '—'}</td>
@@ -443,7 +488,8 @@ function PersonTable({ rows, scoreMap, onOpen }) {
                 <button onClick={() => onOpen(p)} className="text-[11px] font-semibold text-valence-blue hover:text-valence-blue-hover">Open <ArrowUpRight className="inline h-3 w-3" /></button>
               </td>
             </tr>
-          ))}
+            )
+          })}
         </tbody>
       </table>
     </div>

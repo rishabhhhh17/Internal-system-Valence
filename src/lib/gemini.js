@@ -18,6 +18,22 @@ import {
   setApiKey as setProviderApiKey,
   clearApiKey as clearProviderApiKey
 } from './llmProviders.js'
+import { firmDisplayName } from './firmIdentity.js'
+import { supabase } from './supabase.js'
+
+// The /api/llm proxy now requires a Supabase JWT to use the managed server
+// key (so the endpoint can't be abused anonymously). Attach the signed-in
+// user's access token. Returns {} if there's no session (BYO-key callers
+// still work; managed calls will get a clear 401).
+async function authHeader() {
+  try {
+    const { data } = await supabase.auth.getSession()
+    const token = data?.session?.access_token
+    return token ? { Authorization: `Bearer ${token}` } : {}
+  } catch {
+    return {}
+  }
+}
 
 const LLM_PROXY_URL        = '/api/llm'
 const LLM_PROXY_STREAM_URL = '/api/llm-stream'
@@ -208,7 +224,7 @@ async function gemini(prompt, {
     throw new Error(`${cfg?.provider?.label || providerId} API key not configured`)
   }
 
-  const headers = { 'Content-Type': 'application/json', 'x-llm-provider': providerId }
+  const headers = { 'Content-Type': 'application/json', 'x-llm-provider': providerId, ...(await authHeader()) }
   if (userApiKey) headers['x-llm-api-key'] = userApiKey
   if (baseUrl)    headers['x-llm-base-url'] = baseUrl
 
@@ -287,20 +303,14 @@ export async function llmStream(prompt, {
   const userApiKey = cfg?.apiKey || (providerId === 'gemini' && geminiKeySource === 'user' ? geminiKey : null)
   const baseUrl    = cfg?.baseUrl || null
 
-  // Same fix as the non-streaming gemini() above: Gemini is managed by
-  // the server proxy (/api/llm-stream holds GEMINI_API_KEY), so a missing
-  // client-side key is NOT a "not configured" condition — the call would
-  // succeed if we let it through. This twin was missed when gemini()
-  // got patched and was the cause of Knowledge → Ask throwing
-  // "Google Gemini API key not configured" on a fresh demo deploy.
   const okToCall = providerId === 'gemini'
-    ? true   // server-managed fallback is always available
+    ? Boolean(userApiKey || geminiKey)
     : Boolean(userApiKey)
   if (!okToCall) {
     throw new Error(`${cfg?.provider?.label || providerId} API key not configured`)
   }
 
-  const headers = { 'Content-Type': 'application/json', 'x-llm-provider': providerId }
+  const headers = { 'Content-Type': 'application/json', 'x-llm-provider': providerId, ...(await authHeader()) }
   if (userApiKey) headers['x-llm-api-key'] = userApiKey
   if (baseUrl)    headers['x-llm-base-url'] = baseUrl
 
@@ -412,35 +422,30 @@ export async function llmCallRaw({ url, body, actionType = null } = {}) {
 }
 
 export async function generateDaySummary({ meetings, tasks, dateLabel }) {
-  // De-bluffed prompt: was a flowery "discreet chief-of-staff" voice
-  // brief that invented adjectives and tone. Now strictly factual — 2
-  // sentences max, state what's actually on the schedule, no filler.
-  const prompt = `Write a 1-2 sentence factual summary of this day. State the count of meetings and tasks. Name the first meeting only if there is one. No adjectives, no tone words ("calm", "important", "key"), no filler phrases. No bullets, no headings, no emojis.
+  const prompt = `You are the personal assistant for a senior professional at ${firmDisplayName('the firm')}, a global investment advisory firm. Write a short, confident summary of their day ahead — tight, 3 to 4 sentences maximum. No bullet lists, no emojis, no headings. Keep it professional and calm, the voice of a discreet chief-of-staff. Mention the most important meeting first and how many tasks are open.
 
 Date: ${dateLabel}
-Meetings (${meetings.length}):
-${meetings.map(m => `- ${m.time} · ${m.title} with ${m.attendee_name}`).join('\n') || '- none'}
+
+Meetings today (${meetings.length}):
+${meetings.map(m => `- ${m.time} · ${m.title} with ${m.attendee_name} (${m.status})`).join('\n') || '- none'}
+
 Open tasks (${tasks.filter(t => !t.completed).length}):
 ${tasks.filter(t => !t.completed).map(t => `- ${t.title}`).join('\n') || '- none'}
 
-Summary:`
-  return gemini(prompt, { temperature: 0.2, maxOutputTokens: 120, actionType: 'day_summary' })
+Write the summary now.`
+  return gemini(prompt, { temperature: 0.55, maxOutputTokens: 260, actionType: 'day_summary' })
 }
 
 export async function draftMeetingMessage({ title, date, time, attendeeName }) {
-  // De-bluffed: was a "warm but precise, voice of a discreet chief-of-
-  // staff" prompt that produced flowery emails. Now plain professional
-  // language only. No invented adjectives, no "wonderful to connect"
-  // openers, no "I look forward" closer.
-  const prompt = `Draft a 2-3 sentence meeting-request email. Plain, direct, professional. No filler ("hope you're well", "wonderful to", "look forward to"). No subject line. Start with "Hi {first name}," and end with the proposed time and a single closing question. No placeholders.
+  const prompt = `You are the personal assistant for a senior advisor at ${firmDisplayName('the firm')}, a global investment advisory firm based in Mumbai and London. Draft a short, professional email message proposing a meeting to the opposing partner. The tone should be warm but precise — the voice of a discreet chief-of-staff. No placeholders like [Your Name], no subject line, no greeting boilerplate other than "Hi {first name},". Keep it 3 to 5 sentences. Do not mention that an AI wrote it.
 
-Meeting: ${title}
-Date: ${date}
-Time: ${time}
-Recipient: ${attendeeName}
+Meeting title: ${title}
+Proposed date: ${date}
+Proposed time: ${time}
+Attendee: ${attendeeName}
 
-Message:`
-  return gemini(prompt, { temperature: 0.3, maxOutputTokens: 220, actionType: 'meeting_message' })
+Write the message now.`
+  return gemini(prompt, { temperature: 0.6, maxOutputTokens: 320, actionType: 'meeting_message' })
 }
 
 // ============ DEAL BRIEFER ============
@@ -464,20 +469,16 @@ export async function generateDealBrief({ deal, contacts = [], files = [], activ
     deal.fee_success_pct    ? `${deal.fee_success_pct}% success fee` : null
   ].filter(Boolean).join(' + ') || 'Fee structure TBD'
 
-  // De-bluffed: was a flowery "crisp, pragmatic, investment-banking-grade"
-  // brief that invented thesis/risk specifics not present in the data. Now
-  // strict: only restate what's in the data block. If a section has no
-  // supporting data, write "Not enough data logged yet." for that section.
-  const prompt = `Write an internal one-pager on this mandate using ONLY facts in the data block below. Do not invent thesis points, risks, or counterparty details not directly stated. If a section lacks supporting data, write exactly "Not enough data logged yet." for it.
+  const prompt = `You are a senior associate at ${firmDisplayName('the firm')} preparing an internal one-pager on a live mandate, the kind a partner would scan five minutes before walking into a meeting. Tone: crisp, pragmatic, investment-banking-grade. No emojis, no markdown, no bullet markers in prose — the renderer styles structure from the section labels.
 
-Four sections in this order, plain prose, no bullets, no emojis, no markdown. Each section 1-3 sentences. Start each with the label in caps followed by a colon:
+Produce four short labelled sections in this exact order, each 2–3 sentences:
 
-THESIS:
-COUNTERPARTIES:
-RISKS:
-NEXT MOVES:
+THESIS — what's the core opportunity here. Why is this mandate worth running. The "why now" angle.
+COUNTERPARTIES — who's on the other side that matters. Name names, note temperature where you can.
+RISKS — what could derail this. Be specific: counterparty risk, structuring risk, market timing, founder dynamics.
+NEXT MOVES — 2 concrete actions for this week. Verb-led ("Send teaser to X by Friday", "Schedule pitch with Y"). Numbered 1. / 2.
 
-No filler phrases ("crucial", "leverage", "going forward", "in today's market"). No adjectives unless they're in the data. Under 180 words total.
+Use plain labels "THESIS:", "COUNTERPARTIES:", "RISKS:", "NEXT MOVES:" at the start of each paragraph. Keep the whole brief under 220 words.
 
 Live data:
 
@@ -503,26 +504,22 @@ Write the brief now.`
 }
 
 // ============ EMAIL SCENARIOS ============
-// De-bluffed instruction blocks: stripped tone words ("warm", "diplomatic",
-// "polite") and emotion verbs ("nudging", "burning"). Each scenario now
-// states the structural intent only — what the email's job is — without
-// dictating a vibe. The model's default voice is fine.
 const EMAIL_SCENARIOS = {
   intro: {
     label: 'Introduction',
-    instruction: 'an introduction email referencing the mandate context and asking for a 20-minute exploratory call.'
+    instruction: 'a warm, specific introduction email to this counterparty to initiate the relationship and reference the mandate context. Request a brief exploratory call.'
   },
   followup: {
     label: 'Follow-up',
-    instruction: 'a short follow-up asking whether the recipient has had a chance to look at the previous message. Reference the most recent logged activity if available.'
+    instruction: 'a polite follow-up email nudging for a response or next step. Reference the most recent activity if relevant. Be concise, never pushy.'
   },
   status: {
     label: 'Status update',
-    instruction: 'a status update stating where the mandate currently stands and the immediate next step.'
+    instruction: 'a short status update to the counterparty reflecting where the mandate currently stands and the immediate next step. Professional and transparent.'
   },
   decline: {
-    label: 'Decline',
-    instruction: 'a decline message stating the firm is not pursuing this opportunity at present. One sentence only.'
+    label: 'Polite decline',
+    instruction: 'a diplomatic decline message — declining or pausing engagement without burning the relationship. Leave the door open for the future.'
   },
   propose_meeting: {
     label: 'Propose meeting',
@@ -538,7 +535,7 @@ export function emailScenarios() { return EMAIL_SCENARIOS }
 
 // ============ MEETING → ACTION ITEMS ============
 export async function summariseMeeting({ title, notes, dateLabel, attendees = [] }) {
-  const prompt = `You are a senior associate at Valence Growth Partners. The user just had a meeting and pasted their raw notes below. Produce a concise, professional summary AND a structured list of action items.
+  const prompt = `You are a senior associate at ${firmDisplayName('the firm')}. The user just had a meeting and pasted their raw notes below. Produce a concise, professional summary AND a structured list of action items.
 
 Return STRICT JSON matching this schema, and nothing else:
 {
@@ -571,7 +568,7 @@ ${notes}`
 
 // ============ TEASER → DEAL FIELDS ============
 export async function extractDealFromTeaser(text) {
-  const prompt = `You are a senior associate at Valence Growth Partners ingesting an external teaser or information memorandum. Extract the fields below from the text and return STRICT JSON only.
+  const prompt = `You are a senior associate at ${firmDisplayName('the firm')} ingesting an external teaser or information memorandum. Extract the fields below from the text and return STRICT JSON only.
 
 Schema (null where unknown):
 {
@@ -599,11 +596,9 @@ ${text.slice(0, 9000)}`
 export async function draftEmail({ scenario, deal, contact }) {
   const spec = EMAIL_SCENARIOS[scenario] || EMAIL_SCENARIOS.intro
   const first = (contact?.name || '').split(' ')[0] || 'there'
-  // De-bluffed: dropped the "chief-of-staff, warm but precise" framing.
-  // The model produces plain email copy now, no tone direction at all.
-  const prompt = `Draft ${spec.instruction}
+  const prompt = `You are the chief-of-staff for a senior advisor at ${firmDisplayName('the firm')}, a global investment advisory firm based in Mumbai and London. Draft ${spec.instruction}
 
-Plain professional language. No filler ("hope you're well", "trust this finds you well", "look forward to"). No adjectives unless they're in the context. No emojis. No placeholders. Start "Hi ${first}," and sign off "Best, Valence Growth Partners". 2-4 sentences.
+The tone is professional, warm but precise. No emojis, no placeholders like [Your Name]. Start directly with "Hi ${first}," and sign off simply with "Best, ${firmDisplayName('the firm')}". Keep the body to 3–6 short sentences. Do not mention that an AI wrote it.
 
 Context:
 - Mandate: ${deal.client_name} — ${deal.deal_type} (${deal.side || 'Advisory'})

@@ -58,6 +58,15 @@ function ToastItem({ toast, onDismiss }) {
         <div className="min-w-0 flex-1">
           {toast.title && <p className="text-sm font-semibold text-valence-text">{toast.title}</p>}
           <p className="text-sm leading-snug text-valence-text">{toast.message}</p>
+          {toast.action && (
+            <button
+              type="button"
+              onClick={() => { toast.action.onClick?.(); onDismiss() }}
+              className="mt-1 text-xs font-semibold text-valence-blue hover:text-valence-blue-hover underline-offset-2 hover:underline"
+            >
+              {toast.action.label}
+            </button>
+          )}
         </div>
         <button onClick={onDismiss} className="vl-btn-ghost -mr-1 -mt-1" aria-label="Dismiss">
           <X className="h-3.5 w-3.5" />

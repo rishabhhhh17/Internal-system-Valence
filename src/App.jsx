@@ -1,46 +1,47 @@
-import { useEffect } from 'react'
+import { lazy, Suspense, useEffect } from 'react'
 import { Routes, Route, Navigate, useLocation, useSearchParams } from 'react-router-dom'
 import Layout from './components/Layout.jsx'
+
+// Two routes stay eager — the partner lands on Today, and Login is what an
+// unauthed visitor sees first. Everything else lazy-loads so the initial
+// bundle drops from ~1.5 MB to the rough size of Today + Layout. Each
+// chunk is named via the /* @vite-ignore */-free dynamic-import path so
+// Rollup gives the partner-readable filenames in the dist.
 import DailyNote from './pages/DailyNote.jsx'
-import Deals from './pages/Deals.jsx'
-// Mandates page retired — /mandates now redirects to /deals?filter=live.
-// Kept the import line out of this file; the source file in src/pages/Mandates.jsx
-// remains for now in case we ever want to revive it.
-import Timeline from './pages/Timeline.jsx'
-import Funds from './pages/Funds.jsx'
-import People from './pages/People.jsx'
-import Screener from './pages/Screener.jsx'
-import ThesisFit from './pages/ThesisFit.jsx'
-import Portfolio from './pages/Portfolio.jsx'
-import Passes from './pages/Passes.jsx'
-import LPPack from './pages/LPPack.jsx'
-import DeckSummariser from './pages/DeckSummariser.jsx'
-import Intake from './pages/Intake.jsx'
-import IntakeThanks from './pages/IntakeThanks.jsx'
-import InboxIntake from './pages/InboxIntake.jsx'
-import Interactions from './pages/Interactions.jsx'
-import Knowledge from './pages/Knowledge.jsx'
-import KnowledgeLanding from './pages/KnowledgeLanding.jsx'
-import Planner from './pages/Planner.jsx'
-import Calendar from './pages/Calendar.jsx'
-import Drive from './pages/Drive.jsx'
-import Team from './pages/Team.jsx'
-import Analytics from './pages/Analytics.jsx'
-import Feed from './pages/Feed.jsx'
-import Share from './pages/Share.jsx'
 import Login from './pages/Login.jsx'
-import FitPreview from './pages/FitPreview.jsx'
-import Settings from './pages/Settings.jsx'
-import AdminBilling from './pages/AdminBilling.jsx'
-import Terms from './pages/Terms.jsx'
-import Privacy from './pages/Privacy.jsx'
-import Onboarding from './pages/Onboarding.jsx'
-import Welcome from './pages/Welcome.jsx'
-import JoinTeam from './pages/JoinTeam.jsx'
-import Import from './pages/Import.jsx'
-import CompleteProfile from './pages/CompleteProfile.jsx'
-import FirmTypePicker from './pages/FirmTypePicker.jsx'
-import RelationshipTimeline from './pages/RelationshipTimeline.jsx'
+
+const Deals               = lazy(() => import('./pages/Deals.jsx'))
+const Mandates            = lazy(() => import('./pages/Mandates.jsx'))
+const Timeline            = lazy(() => import('./pages/Timeline.jsx'))
+const Funds               = lazy(() => import('./pages/Funds.jsx'))
+const People              = lazy(() => import('./pages/People.jsx'))
+const Screener            = lazy(() => import('./pages/Screener.jsx'))
+const Intake              = lazy(() => import('./pages/Intake.jsx'))
+const IntakeThanks        = lazy(() => import('./pages/IntakeThanks.jsx'))
+const InboxIntake         = lazy(() => import('./pages/InboxIntake.jsx'))
+const Interactions        = lazy(() => import('./pages/Interactions.jsx'))
+const Knowledge           = lazy(() => import('./pages/Knowledge.jsx'))
+const KnowledgeLanding    = lazy(() => import('./pages/KnowledgeLanding.jsx'))
+const Planner             = lazy(() => import('./pages/Planner.jsx'))
+const Calendar            = lazy(() => import('./pages/Calendar.jsx'))
+const Drive               = lazy(() => import('./pages/Drive.jsx'))
+const Team                = lazy(() => import('./pages/Team.jsx'))
+const Analytics           = lazy(() => import('./pages/Analytics.jsx'))
+const Feed                = lazy(() => import('./pages/Feed.jsx'))
+const NotificationsPage   = lazy(() => import('./pages/NotificationsPage.jsx'))
+const AgingReport         = lazy(() => import('./pages/AgingReport.jsx'))
+const Share               = lazy(() => import('./pages/Share.jsx'))
+const FitPreview          = lazy(() => import('./pages/FitPreview.jsx'))
+const Settings            = lazy(() => import('./pages/Settings.jsx'))
+const AdminBilling        = lazy(() => import('./pages/AdminBilling.jsx'))
+const Terms               = lazy(() => import('./pages/Terms.jsx'))
+const Privacy             = lazy(() => import('./pages/Privacy.jsx'))
+const Onboarding          = lazy(() => import('./pages/Onboarding.jsx'))
+const Welcome             = lazy(() => import('./pages/Welcome.jsx'))
+const JoinTeam            = lazy(() => import('./pages/JoinTeam.jsx'))
+const Import              = lazy(() => import('./pages/Import.jsx'))
+const CompleteProfile     = lazy(() => import('./pages/CompleteProfile.jsx'))
+const RelationshipTimeline = lazy(() => import('./pages/RelationshipTimeline.jsx'))
 import { useAuth } from './hooks/useAuth.js'
 import { useSeat } from './hooks/useSeat.js'
 import { isSupabaseConfigured } from './lib/supabase.js'
@@ -115,29 +116,35 @@ export default function App() {
   // Public share pages render without chrome and without auth
   if (pathname.startsWith('/share/')) {
     return (
+      <Suspense fallback={<BootSplash />}>
       <Routes>
         <Route path="/share/:code" element={<Share />} />
       </Routes>
+      </Suspense>
     )
   }
 
   // Public intake routes render without chrome and without auth, like /share
   if (pathname === '/intake' || pathname === '/intake/thanks') {
     return (
+      <Suspense fallback={<BootSplash />}>
       <Routes>
         <Route path="/intake" element={<Intake />} />
         <Route path="/intake/thanks" element={<IntakeThanks />} />
       </Routes>
+      </Suspense>
     )
   }
 
   // Legal pages — public, no auth, no chrome.
   if (pathname === '/terms' || pathname === '/privacy') {
     return (
+      <Suspense fallback={<BootSplash />}>
       <Routes>
         <Route path="/terms"   element={<Terms />} />
         <Route path="/privacy" element={<Privacy />} />
       </Routes>
+      </Suspense>
     )
   }
 
@@ -192,22 +199,6 @@ export default function App() {
         </Routes>
       )
     }
-
-    // FIRM-TYPE ONBOARDING GATE
-    // The org needs a firm_type (ib / pe / vc) so the feature registry
-    // can curate the right toggles. Any seated user whose org has
-    // firm_type IS NULL gets bounced to the one-step picker. Once set,
-    // useSeat refreshes and this gate falls through.
-    if (hasSeat && profileComplete && org && !org.firm_type) {
-      if (pathname !== '/onboarding/firm-type') {
-        return <Navigate to="/onboarding/firm-type" replace />
-      }
-      return (
-        <Routes>
-          <Route path="/onboarding/firm-type" element={<FirmTypePicker />} />
-        </Routes>
-      )
-    }
     } // end if (!authUnavailable)
   } // end if (isSupabaseConfigured)
 
@@ -232,12 +223,14 @@ export default function App() {
     // place by the time the next pathname change re-runs the gate.
     try { sessionStorage.setItem('valence.welcome.shown', '1') } catch {}
     return (
+      <Suspense fallback={<BootSplash />}>
       <Routes>
         <Route path="/welcome"          element={<Welcome />} />
         <Route path="/onboarding"       element={<Onboarding />} />
         <Route path="/join"             element={<JoinTeam />} />
         <Route path="/complete-profile" element={<CompleteProfile />} />
       </Routes>
+      </Suspense>
     )
   }
 
@@ -261,29 +254,15 @@ export default function App() {
 
   return (
     <Layout>
+      <Suspense fallback={<BootSplash />}>
       <Routes>
         <Route path="/" element={<DailyNote />} />
         <Route path="/deals" element={<Deals />} />
-        {/* Live Mandates was merged into Deal Status — the standalone page
-            is retired. Anyone with a saved /mandates link lands on the
-            same merged page with the "Live" filter pre-selected. */}
-        <Route path="/mandates" element={<Navigate to="/deals?filter=live" replace />} />
+        <Route path="/mandates" element={<Mandates />} />
         <Route path="/timeline" element={<Timeline />} />
         <Route path="/funds" element={<Funds />} />
         <Route path="/people" element={<People />} />
-        {/* /screen is now the Thesis-Fit Checker (VC/PE curated tool).
-            The old Screener (IB investor-ranking) is kept as a legacy
-            route at /screen/legacy for the few existing deep-links. */}
-        <Route path="/screen"        element={<ThesisFit />} />
-        <Route path="/screen/legacy" element={<Screener />} />
-        {/* New per-firm-type tools — sidebar entries are gated by
-            feature flag but the routes resolve for any seated user
-            so saved deep-links + the Settings → Features explainer
-            stay clickable. */}
-        <Route path="/portfolio" element={<Portfolio />} />
-        <Route path="/passes"    element={<Passes />} />
-        <Route path="/lp-pack"   element={<LPPack />} />
-        <Route path="/deck"      element={<DeckSummariser />} />
+        <Route path="/screen" element={<Screener />} />
         <Route path="/inbox/intake" element={<InboxIntake />} />
         <Route path="/interactions" element={<Interactions />} />
         <Route path="/knowledge" element={<KnowledgeLanding />} />
@@ -298,6 +277,8 @@ export default function App() {
         <Route path="/analytics" element={<Analytics />} />
         <Route path="/feed" element={<Feed />} />
         <Route path="/team" element={<Team />} />
+        <Route path="/notifications" element={<NotificationsPage />} />
+        <Route path="/reports/aging" element={<AgingReport />} />
         <Route path="/import" element={<Import />} />
         <Route path="/timeline/:valenceId/:externalId" element={<RelationshipTimeline />} />
         <Route path="/settings" element={<Settings />} />
@@ -305,6 +286,7 @@ export default function App() {
         <Route path="/_fit-preview" element={<FitPreview />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
+      </Suspense>
     </Layout>
   )
 }

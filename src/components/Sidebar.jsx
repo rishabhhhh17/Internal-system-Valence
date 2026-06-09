@@ -1,42 +1,43 @@
 import { useEffect, useState } from 'react'
-import { NavLink } from 'react-router-dom'
-import { LayoutDashboard, Briefcase, BookOpen, CalendarDays, CalendarRange, Users, BarChart3, MessageSquare, Handshake, GanttChartSquare, Building2, Sparkles, Inbox, UserCircle, Settings as SettingsIcon, Wallet, Upload, XCircle, FileText, FileUp } from 'lucide-react'
+import { NavLink, useSearchParams } from 'react-router-dom'
+import { LayoutDashboard, Briefcase, BookOpen, CalendarDays, CalendarRange, Users, BarChart3, MessageSquare, Handshake, GanttChartSquare, Building2, Sparkles, Inbox, UserCircle, Settings as SettingsIcon, Wallet, Upload, ChevronDown, ChevronRight, Eye, Trash2, Plus, Clock } from 'lucide-react'
 import Logo from './Logo.jsx'
 import { supabase, isSupabaseConfigured, subscribeTable } from '../lib/supabase.js'
-import { useAllFeatureFlags } from '../hooks/useFeatureFlag.js'
+import { useSavedViews, filtersFromUrl } from '../hooks/useSavedViews.js'
+import SaveViewDialog from './SaveViewDialog.jsx'
+import { useWorkspaceSetting } from '../hooks/useWorkspaceSetting.js'
 
 const TERMINAL_STAGES  = new Set(['Closed', 'Lost', 'On Hold'])
 const LIVE_MANDATE_STAGES = new Set(['Mandate', 'Preparation', 'Marketing', 'Diligence', 'Negotiation', 'Closing'])
 
-// Each entry can carry an optional `featureId` — when present, the nav
-// item only renders when useAllFeatureFlags()[featureId] is true. Items
-// without a featureId always show (Today, Knowledge, Team Calendar etc.
-// are universal). This is how a VC ends up with a different sidebar
-// than an IB without forking the navigation file.
+// Items flagged `power` are internal-team / power-user surfaces that
+// clutter the sidebar for a 45-year-old IB partner on the first demo.
+// Hidden by default; revealed when the workspace setting
+// `sidebarShowPowerItems` is on (admin-only toggle in Settings →
+// Appearance). Routes still resolve — only the nav-entry is hidden so
+// existing deeplinks and the command palette keep working.
 const nav = [
   { to: '/',             label: 'Today',        icon: LayoutDashboard },
-  { to: '/deals',        label: 'Deal Status',  icon: Briefcase,     badgeKey: 'liveMandates', featureId: 'deal_status' },
-  { to: '/timeline',     label: 'Timeline',     icon: GanttChartSquare,                       featureId: 'timeline' },
-  { to: '/screen',       label: 'Thesis-Fit',   icon: Sparkles,                               featureId: 'thesis_fit_checker' },
-  { to: '/portfolio',    label: 'Portfolio',    icon: Building2,                              featureId: 'portfolio_tracker' },
-  { to: '/passes',       label: 'Passes',       icon: XCircle,                                featureId: 'pass_tracker' },
-  { to: '/lp-pack',      label: 'LP Pack',      icon: FileText,                               featureId: 'lp_reporting' },
-  { to: '/interactions', label: 'Interactions', icon: MessageSquare, badgeKey: 'pendingFollowUps', section: 'Relationships', featureId: 'interactions_feed' },
-  { to: '/people',       label: 'People',       icon: UserCircle,                             section: 'Relationships', featureId: 'people_crm' },
-  { to: '/funds',        label: 'Firm',         icon: Building2,                              section: 'Relationships' },
-  { to: '/import',       label: 'Import',       icon: Upload,                                 section: 'AI' },
-  { to: '/deck',         label: 'Deck Summary', icon: FileUp,                                 section: 'AI', featureId: 'deck_summariser' },
-  { to: '/inbox/intake', label: 'Intake inbox', icon: Inbox,        badgeKey: 'newIntakes',   section: 'AI', featureId: 'intake_inbox' },
-  // Internal-only — what every customer is burning. Hidden once we ship
-  // a proper role gate; for now the partner is the only one running this build.
-  { to: '/admin/billing', label: 'Billing · admin', icon: Wallet,                             section: 'Admin' },
+  { to: '/deals',        label: 'Deal Logger',  icon: Briefcase,     badgeKey: 'activeDeals' },
+  { to: '/mandates',     label: 'Live Mandates',icon: Handshake,     badgeKey: 'liveMandates' },
+  { to: '/timeline',     label: 'Timeline',     icon: GanttChartSquare },
+  { to: '/interactions', label: 'Interactions', icon: MessageSquare, badgeKey: 'pendingFollowUps', section: 'Relationships' },
+  { to: '/people',       label: 'People',       icon: UserCircle,                                section: 'Relationships' },
+  { to: '/funds',        label: 'Firm',         icon: Building2,                                 section: 'Relationships' },
+  // Import is a power-user CSV ingest — hidden from the demo nav.
+  { to: '/import',       label: 'Import',       icon: Upload,                                    section: 'AI', power: true },
+  { to: '/inbox/intake', label: 'Intake inbox', icon: Inbox,        badgeKey: 'newIntakes',     section: 'AI' },
+  // Billing · admin — internal cost-tracking dashboard. Always hidden
+  // from partners; route still resolves for the dev team.
+  { to: '/admin/billing', label: 'Billing · admin', icon: Wallet,                                section: 'Admin', power: true },
   { to: '/knowledge',    label: 'Knowledge',    icon: BookOpen },
-  { to: '/planner',      label: 'Day Planner',  icon: CalendarDays,  badgeKey: 'todayMeetings', featureId: 'day_planner' },
-  { to: '/calendar',     label: 'Team Calendar',icon: CalendarRange,                          featureId: 'team_calendar' },
-  // Firm pulse lives as a small topbar icon now — surfaced near the
-  // notifications bell rather than in the main nav, since it's a glance-
-  // at-it surface, not a destination partners come back to daily.
+  { to: '/planner',      label: 'Day Planner',  icon: CalendarDays,  badgeKey: 'todayMeetings' },
+  { to: '/calendar',     label: 'Team Calendar',icon: CalendarRange },
   { to: '/analytics',    label: 'Analytics',    icon: BarChart3 },
+  // Aging Report is a useful tool but adds a "Reports" section with just
+  // one item for first-time partners. Power-gated; reachable via the
+  // Analytics page once we cross-link.
+  { to: '/reports/aging',label: 'Aging Report', icon: Clock,        section: 'Reports', power: true },
   { to: '/team',         label: 'Team',         icon: Users }
 ]
 
@@ -86,16 +87,12 @@ function useSidebarCounts() {
 
 export default function Sidebar() {
   const counts = useSidebarCounts()
-  // Per-org feature flags, keyed by feature id. Used below to filter
-  // nav items so a VC ends up with a genuinely different sidebar
-  // than an IB without forking this file.
-  const flags  = useAllFeatureFlags()
-  const visibleNav = nav.filter(item => {
-    if (!item.featureId) return true
-    // Default to true if the flag hasn't resolved yet (e.g. mid-load)
-    // so we don't strip nav out from under the user during a refresh.
-    return flags[item.featureId] !== false
-  })
+  // Power-user items (Import, Billing · admin, Aging Report) hidden by
+  // default per pre-demo polish — they were cluttering the sidebar for
+  // a 45-year-old IB partner's first run. Reveal via the workspace
+  // setting `sidebarShowPowerItems` for the dev team.
+  const showPower = useWorkspaceSetting('sidebarShowPowerItems') === 'true'
+  const visibleNav = showPower ? nav : nav.filter(item => !item.power)
 
   return (
     <aside className="hidden lg:flex lg:sticky lg:top-0 lg:h-screen lg:w-64 shrink-0 flex-col border-r border-valence-border vl-glass-side">
@@ -143,6 +140,11 @@ export default function Sidebar() {
             })}
           </div>
         ))}
+
+        {/* Saved Views — appended after the main nav so it doesn't intrude
+            on the canonical IA. Stays collapsed by default to keep the
+            sidebar quiet for users who don't use views. */}
+        <SavedViewsSection />
       </nav>
 
       {/* Sidebar footer — minimal status pip + offices. Drops the marketing
@@ -175,4 +177,125 @@ export default function Sidebar() {
       </div>
     </aside>
   )
+}
+
+// ============ Saved Views section ============
+// Lists My Views + Team Views. Clicking a view navigates to /deals with
+// that view's filters applied via useSavedViews().applyView(). Both
+// sub-groups collapse independently — saved state lives in localStorage
+// so the user's preference sticks across reloads.
+function SavedViewsSection() {
+  const { myViews, teamViews, applyView, deleteView } = useSavedViews()
+  const [searchParams] = useSearchParams()
+  const [myOpen, setMyOpen]     = useState(() => readBool('valence.sidebar.myViews.open', true))
+  const [teamOpen, setTeamOpen] = useState(() => readBool('valence.sidebar.teamViews.open', true))
+  const [saveOpen, setSaveOpen] = useState(false)
+
+  // Pull current filters from the URL when the user clicks "+ New view" —
+  // that way the dialog pre-populates the chips for whatever pipeline
+  // view they're looking at right now. If they're on Today or another
+  // non-pipeline page, the dialog will warn them about empty filters.
+  const currentFilters = filtersFromUrl(searchParams)
+
+  // Keep the section always visible. Even with zero views, the "+ New
+  // view" button is the discovery affordance — without it, nobody finds
+  // the feature.
+  return (
+    <div className="pt-4">
+      <div className="px-3 pb-3 flex items-center justify-between">
+        <span className="vl-eyebrow-ink">Saved views</span>
+        <button
+          onClick={() => setSaveOpen(true)}
+          className="inline-flex items-center gap-1 rounded text-[10px] font-semibold uppercase tracking-[0.14em] text-valence-blue hover:text-valence-blue-hover transition"
+          title="Save current filters as a view"
+        >
+          <Plus className="h-3 w-3" /> New
+        </button>
+      </div>
+
+      {myViews.length > 0 && (
+        <ViewGroup
+          label="My views"
+          open={myOpen}
+          onToggle={() => { const next = !myOpen; setMyOpen(next); writeBool('valence.sidebar.myViews.open', next) }}
+          views={myViews}
+          onApply={(v) => applyView(v)}
+          onDelete={(v) => { if (confirm(`Delete view “${v.name}”?`)) deleteView(v.id) }}
+          showDelete
+        />
+      )}
+
+      {teamViews.length > 0 && (
+        <ViewGroup
+          label="Team views"
+          open={teamOpen}
+          onToggle={() => { const next = !teamOpen; setTeamOpen(next); writeBool('valence.sidebar.teamViews.open', next) }}
+          views={teamViews}
+          onApply={(v) => applyView(v)}
+        />
+      )}
+
+      {myViews.length === 0 && teamViews.length === 0 && (
+        <p className="px-3 text-[11px] text-valence-subtle italic">
+          No views yet — apply filters on Deal Logger, then click <span className="text-valence-blue font-semibold">+ New</span>.
+        </p>
+      )}
+
+      <SaveViewDialog
+        open={saveOpen}
+        onClose={() => setSaveOpen(false)}
+        currentFilters={currentFilters}
+      />
+    </div>
+  )
+}
+
+function ViewGroup({ label, open, onToggle, views, onApply, onDelete, showDelete }) {
+  return (
+    <div className="space-y-0.5">
+      <button
+        onClick={onToggle}
+        className="w-full flex items-center gap-1.5 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-valence-subtle hover:text-valence-text transition"
+      >
+        {open ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
+        {label}
+        <span className="ml-1 text-valence-border">·</span>
+        <span className="tabular-nums text-valence-muted">{views.length}</span>
+      </button>
+
+      {open && views.map(v => (
+        <div key={v.id} className="group flex items-center gap-1 pr-2">
+          <button
+            onClick={() => onApply(v)}
+            className="flex-1 min-w-0 flex items-center gap-2 rounded-lg px-3 py-1.5 text-sm text-valence-muted hover:bg-valence-surface hover:text-valence-text transition"
+            title={v.name}
+          >
+            <span className="text-sm shrink-0">{v.emoji || <Eye className="h-3.5 w-3.5 text-valence-subtle inline" />}</span>
+            <span className="flex-1 truncate text-left tracking-tight">{v.name}</span>
+          </button>
+          {showDelete && onDelete && (
+            <button
+              onClick={() => onDelete(v)}
+              className="opacity-0 group-hover:opacity-100 transition grid h-6 w-6 place-items-center rounded hover:bg-valence-danger/10 text-valence-subtle hover:text-valence-danger"
+              title="Delete view"
+              aria-label="Delete view"
+            >
+              <Trash2 className="h-3 w-3" />
+            </button>
+          )}
+        </div>
+      ))}
+    </div>
+  )
+}
+
+function readBool(key, fallback) {
+  try {
+    const v = window.localStorage?.getItem(key)
+    if (v === null || v === undefined) return fallback
+    return v === '1'
+  } catch { return fallback }
+}
+function writeBool(key, value) {
+  try { window.localStorage?.setItem(key, value ? '1' : '0') } catch {}
 }

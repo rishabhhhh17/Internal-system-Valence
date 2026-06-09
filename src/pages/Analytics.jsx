@@ -255,7 +255,7 @@ export default function Analytics() {
       <SectionHeading kicker="I" title="Pipeline" subtitle="What's on the board and where it's stuck" icon={Layers} />
 
       <section className="vl-card p-8">
-        <CardTitle icon={BarChart3} title="Funnel & conversion" subtitle="Count by stage, with stage-to-stage carry. Lost / On Hold excluded." right={<Link to="/deals" className="text-xs font-semibold text-valence-blue hover:text-valence-blue-hover inline-flex items-center gap-1">Open board <ArrowRight className="h-3 w-3" /></Link>} />
+        <CardTitle icon={BarChart3} title="Funnel & conversion" subtitle="Carry % = mandates that advanced from this stage to the next. Lost / On Hold excluded." right={<Link to="/deals" className="text-xs font-semibold text-valence-blue hover:text-valence-blue-hover inline-flex items-center gap-1">Open board <ArrowRight className="h-3 w-3" /></Link>} />
         <FunnelLadder ladder={ladder} />
       </section>
 
@@ -443,7 +443,10 @@ function FunnelLadder({ ladder }) {
               </div>
             </div>
             {next && r.count > 0 && (
-              <div className="ml-28 pl-4 mt-1 mb-1 flex items-center gap-2 text-[10px] text-valence-subtle">
+              <div
+                className="ml-28 pl-4 mt-1 mb-1 flex items-center gap-2 text-[10px] text-valence-subtle"
+                title={`${r.conversion != null ? Math.round(r.conversion * 100) : 0}% of mandates in ${r.stage} have advanced to ${next.stage} or beyond.`}
+              >
                 <span className="h-2 w-px bg-valence-border" />
                 <span>→ {next.stage}</span>
                 <span className={`rounded-full px-1.5 py-0.5 font-semibold ${r.conversion >= 0.5 ? 'bg-valence-success/10 text-valence-success' : r.conversion >= 0.25 ? 'bg-valence-warning/10 text-valence-warning' : 'bg-valence-danger/10 text-valence-danger'}`}>

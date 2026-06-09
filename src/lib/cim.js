@@ -4,6 +4,7 @@
 
 import { searchKnowledge } from './knowledge.js'
 import { isGeminiConfigured, llmStream } from './gemini.js'
+import { firmDisplayName } from './firmIdentity.js'
 
 export const CIM_SECTIONS = [
   { id: 'executive_summary',  label: 'Executive Summary',    hint: 'High-level situation, why now, headline asks.' },
@@ -24,7 +25,8 @@ function buildPrompt({ deal, sections, contacts, files, activities, compsContext
     ? `FINANCIAL SNAPSHOT (as supplied):\n${JSON.stringify(financials, null, 2)}`
     : 'FINANCIAL SNAPSHOT: not supplied — note the gap and move on.'
 
-  return `You are a senior associate at Valence Growth Partners drafting an initial Confidential Information Memorandum (CIM) for an internal partner review. Produce a high-quality draft, section by section, using only the facts supplied below. If a fact is missing, say so plainly in the relevant section — do not invent numbers, people, or agreements.
+  const firm = firmDisplayName('the firm')
+  return `You are a senior associate at ${firm} drafting an initial Confidential Information Memorandum (CIM) for an internal partner review. Produce a high-quality draft, section by section, using only the facts supplied below. If a fact is missing, say so plainly in the relevant section — do not invent numbers, people, or agreements.
 
 Voice: crisp, declarative, boutique-advisory. Plain paragraphs. No bullet lists. No emojis. No markdown headings other than the exact section labels listed below. Do NOT include sub-sub-headings.
 

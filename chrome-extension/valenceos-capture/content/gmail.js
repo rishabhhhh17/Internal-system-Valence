@@ -77,10 +77,9 @@ function extractThread() {
   }
   if (!occurredAt) occurredAt = new Date().toISOString()
 
-  // Sender of the last visible message — the FIRST .gD[email] inside the
-  // last message container is Gmail's "from" badge. Used server-side to
-  // classify the interaction as email_sent vs email_received by comparing
-  // against the authenticated user's email.
+  // Phase 27b — sender of the last visible message. The FIRST .gD[email]
+  // inside the last .adn.ads container is Gmail's "from" badge. Server
+  // uses this to classify the thread as email_sent vs email_received.
   let lastFrom = ''
   if (last) {
     const fromEl = last.querySelector('.gD[email], .go[email]')

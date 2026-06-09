@@ -4,9 +4,9 @@ import { format, parseISO } from 'date-fns'
 import {
   Plus, Search, Briefcase, FileText, ExternalLink, Edit3, Trash2,
   Filter as FilterIcon, Circle, Table as TableIcon, LayoutGrid, TrendingUp,
-  GanttChartSquare,
   Mail, Users as UsersIcon, FolderOpen, Activity as ActivityIcon, Sparkles, Info, Download,
-  ListChecks, MessageSquare, UserCircle, Building2, Settings2
+  ListChecks, MessageSquare, UserCircle, Building2, Settings2,
+  MoreHorizontal, ChevronDown
 } from 'lucide-react'
 import { supabase, isSupabaseConfigured, subscribeTable } from '../lib/supabase.js'
 import { humanError } from '../lib/userError.js'
@@ -20,15 +20,6 @@ import Drawer from '../components/Drawer.jsx'
 import Modal from '../components/Modal.jsx'
 import EmptyState from '../components/EmptyState.jsx'
 import DealKanban from '../components/DealKanban.jsx'
-import DealGantt from '../components/DealGantt.jsx'
-import CompanyFundMatcher from '../components/CompanyFundMatcher.jsx'
-import TargetListPanel from '../components/TargetListPanel.jsx'
-import BakeOffPanel from '../components/BakeOffPanel.jsx'
-import FeeTrackerPanel from '../components/FeeTrackerPanel.jsx'
-import ICMemoPanel from '../components/ICMemoPanel.jsx'
-import ClosingChecklistPanel from '../components/ClosingChecklistPanel.jsx'
-import DiligencePanel from '../components/DiligencePanel.jsx'
-import { useFeatureFlag } from '../hooks/useFeatureFlag.js'
 import FileVault from '../components/FileVault.jsx'
 import Contacts from '../components/Contacts.jsx'
 import WikilinkTextarea from '../components/WikilinkTextarea.jsx'
@@ -52,19 +43,13 @@ import StageGate from '../components/StageGate.jsx'
 import DealTeam from '../components/DealTeam.jsx'
 import DealComments from '../components/DealComments.jsx'
 import ConflictBanner from '../components/ConflictBanner.jsx'
+import SimilarDealsBanner from '../components/SimilarDealsBanner.jsx'
 import InlineEditableText from '../components/InlineEditableText.jsx'
 import { useToast } from '../components/Toast.jsx'
 import { useConfirm } from '../components/ConfirmDialog.jsx'
 import { useCurrency } from '../hooks/useCurrency.jsx'
 
 const NDA = ['Signed', 'Pending', 'Not Required']
-
-// Stages that count as a "live mandate" — i.e. firm is actively
-// engaged. The old /mandates page filtered to this set; we honour
-// the same shape when navigated to /deals?filter=live.
-const LIVE_MANDATE_STAGES = new Set([
-  'Mandate', 'Preparation', 'Marketing', 'Diligence', 'Negotiation', 'Closing'
-])
 
 // New deal-type taxonomy. A mandate can be Transaction, Advisory, or both.
 // Transaction requires a sub-type (fundraise / m_and_a / exit).
@@ -117,12 +102,7 @@ export default function Deals() {
   const [fTopType, setFTopType] = useState('All')   // 'All' | 'transaction' | 'advisory'
   const [fSubtype, setFSubtype] = useState('All')   // 'All' | 'fundraise' | 'm_and_a' | 'exit'
   const [fNda, setFNda]     = useState('All')
-  // Live-mandate macro filter. Either 'all' (show every deal) or 'live'
-  // (restrict to LIVE_MANDATE_STAGES). Toggled by the segmented control
-  // beside the search box, and pre-set when the user lands via
-  // /deals?filter=live (i.e. coming from the retired /mandates URL).
-  const [fLive, setFLive]   = useState(params.get('filter') === 'live' ? 'live' : 'all')
-  const [view, setView]     = useState('board') // 'board' | 'table' | 'gantt'
+  const [view, setView]     = useState('board') // 'board' | 'table'
 
   const [drawer, setDrawer] = useState(null)
   // Keyboard-focused row on the Table view (separate from open drawer so
@@ -215,7 +195,6 @@ export default function Deals() {
     const needle = q.trim().toLowerCase()
     return deals.filter(d => {
       const types = Array.isArray(d.deal_types) ? d.deal_types : []
-      if (fLive === 'live'   && !LIVE_MANDATE_STAGES.has(d.stage)) return false
       if (fStage !== 'All'   && d.stage !== fStage) return false
       if (fTopType !== 'All' && !types.includes(fTopType)) return false
       if (fSubtype !== 'All' && d.deal_subtype !== fSubtype) return false
@@ -228,7 +207,7 @@ export default function Deals() {
         || (d.acquisition_brief || '').toLowerCase().includes(needle)
         || (d.engagement_brief || '').toLowerCase().includes(needle)
     })
-  }, [deals, q, fStage, fTopType, fSubtype, fNda, fLive])
+  }, [deals, q, fStage, fTopType, fSubtype, fNda])
 
   const metrics = useMemo(() => {
     const active      = deals.filter(d => !stageMeta(d.stage).terminal)
@@ -342,10 +321,8 @@ export default function Deals() {
       <ConfigBanner />
 
       <div>
-        <p className="vl-eyebrow-ink">Deal Status</p>
-        <h1 className="mt-2 font-display text-feature font-bold text-valence-text">
-          {fLive === 'live' ? 'Live mandates' : 'Every deal in the pipeline'}
-        </h1>
+        <p className="vl-eyebrow-ink">Deal Logger</p>
+        <h1 className="mt-2 font-display text-feature font-bold text-valence-text">Every live conversation.</h1>
       </div>
 
       {/* Pipeline counters — operational, not money */}
@@ -373,19 +350,6 @@ export default function Deals() {
           <FilterPill label="Subtype" value={fSubtype} onChange={setFSubtype} options={['fundraise', 'm_and_a', 'exit']} />
           <FilterPill label="NDA"     value={fNda}     onChange={setFNda}     options={NDA} />
 
-          {/* All / Live macro filter. Replaces the standalone Live Mandates
-              page — same set of stages, just toggled here. */}
-          <div className="flex items-center rounded-lg border border-valence-border bg-valence-surface p-0.5">
-            <button onClick={() => setFLive('all')}
-              className={`inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-semibold transition ${fLive === 'all' ? 'bg-valence-blue-soft text-valence-text' : 'text-valence-muted hover:text-valence-text'}`}>
-              All deals
-            </button>
-            <button onClick={() => setFLive('live')}
-              className={`inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-semibold transition ${fLive === 'live' ? 'bg-valence-blue-soft text-valence-text' : 'text-valence-muted hover:text-valence-text'}`}>
-              Live mandates
-            </button>
-          </div>
-
           <div data-tour="deals-view-toggle" className="flex items-center rounded-lg border border-valence-border bg-valence-surface p-0.5">
             <button onClick={() => setView('board')}
               className={`inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-semibold transition ${view === 'board' ? 'bg-valence-blue-soft text-valence-text' : 'text-valence-muted hover:text-valence-text'}`}>
@@ -394,10 +358,6 @@ export default function Deals() {
             <button onClick={() => setView('table')}
               className={`inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-semibold transition ${view === 'table' ? 'bg-valence-blue-soft text-valence-text' : 'text-valence-muted hover:text-valence-text'}`}>
               <TableIcon className="h-3.5 w-3.5" /> Table
-            </button>
-            <button onClick={() => setView('gantt')}
-              className={`inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-semibold transition ${view === 'gantt' ? 'bg-valence-blue-soft text-valence-text' : 'text-valence-muted hover:text-valence-text'}`}>
-              <GanttChartSquare className="h-3.5 w-3.5" /> Gantt
             </button>
           </div>
 
@@ -443,8 +403,6 @@ export default function Deals() {
         />
       ) : view === 'board' ? (
         <DealKanban deals={filtered} onOpen={setDrawer} onStageChange={changeStage} />
-      ) : view === 'gantt' ? (
-        <DealGantt deals={filtered} onOpen={setDrawer} />
       ) : (
         <DealTable deals={filtered} onOpen={setDrawer} focusedId={focusedDealId} onFocus={setFocusedDealId} />
       )}
@@ -538,19 +496,36 @@ export default function Deals() {
 // ============ DRAWER BODY ============
 function DealDrawerBody({ deal, onEdit, onDelete, onComposeEmail }) {
   const [tab, setTab] = useState('overview')
+  const [moreOpen, setMoreOpen] = useState(false)
   const tabRefs = useRef({})
-  const tabs = [
+  const moreBtnRef = useRef(null)
+
+  // Audit reaction: 17 tabs in a scrolling rail was the partner's loudest
+  // gripe about the drawer — "where do I find files?" with the answer being
+  // "scroll the tab strip three times." Splitting into the six tabs that
+  // get used daily + a "More" overflow keeps every surface reachable but
+  // stops drowning the primary actions. Order is opinionated:
+  //   Overview → what is this deal
+  //   Checklist → what's blocking close
+  //   Files     → documents (most-clicked tab in the analytics)
+  //   Counterparties → who's on the other side
+  //   Discussion → team chatter
+  //   Activity → recent moves
+  // Everything else lives behind ▾ More.
+  const primaryTabs = [
     { id: 'overview',   label: 'Overview',       icon: Briefcase },
     { id: 'gate',       label: 'Checklist',      icon: ListChecks },
-    { id: 'team',       label: 'Deal team',      icon: UserCircle },
-    { id: 'financials', label: 'Financials',     icon: TrendingUp },
     { id: 'files',      label: 'Files',          icon: FolderOpen },
     { id: 'contacts',   label: 'Counterparties', icon: UsersIcon },
+    { id: 'comments',   label: 'Discussion',     icon: MessageSquare },
+    { id: 'activity',   label: 'Activity',       icon: ActivityIcon }
+  ]
+  const overflowTabs = [
+    { id: 'team',       label: 'Deal team',      icon: UserCircle },
+    { id: 'financials', label: 'Financials',     icon: TrendingUp },
     { id: 'intros',     label: 'Intros',         icon: Sparkles },
     { id: 'funds',      label: 'Funds',          icon: Building2 },
     { id: 'meeting',    label: 'Meeting intel',  icon: Sparkles },
-    { id: 'activity',   label: 'Activity',       icon: ActivityIcon },
-    { id: 'comments',   label: 'Discussion',     icon: MessageSquare },
     { id: 'similar',    label: 'Similar',        icon: Sparkles },
     { id: 'targets',    label: 'Targets',        icon: UsersIcon },
     { id: 'cim',        label: 'CIM',            icon: FileText },
@@ -558,22 +533,43 @@ function DealDrawerBody({ deal, onEdit, onDelete, onComposeEmail }) {
     { id: 'mentions',   label: 'Mentions',       icon: AtSign },
     { id: 'share',      label: 'Share',          icon: ExternalLink }
   ]
+  const activeOverflow = overflowTabs.find(t => t.id === tab)
 
   useEffect(() => {
+    // Skip scroll when the active tab lives in the (collapsed) overflow
+    // menu — its ref is unmounted while the menu is closed, so the
+    // scroll silently no-ops. The 6 primary tabs fit on every viewport
+    // we support, so this loop is now mostly a guard against future
+    // tab growth.
+    if (overflowTabs.some(t => t.id === tab)) return
     tabRefs.current[tab]?.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' })
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tab])
+
+  // Close the More menu on outside click. Tracked via a ref on the button
+  // wrapper; click on the menu itself stops propagation so it survives.
+  useEffect(() => {
+    if (!moreOpen) return
+    function onDocClick(e) {
+      if (moreBtnRef.current && !moreBtnRef.current.contains(e.target)) {
+        setMoreOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', onDocClick)
+    return () => document.removeEventListener('mousedown', onDocClick)
+  }, [moreOpen])
 
   return (
     <div className="space-y-5">
       <DealHeader deal={deal} onEdit={onEdit} onDelete={onDelete} onCompose={() => onComposeEmail(null)} />
 
       <div className="relative">
-        <div className="flex items-center gap-1 rounded-lg border border-valence-border bg-valence-surface p-1 overflow-x-auto scrollbar-hide">
-          {tabs.map(t => (
+        <div className="flex items-center gap-1 rounded-lg border border-valence-border bg-valence-surface p-1">
+          {primaryTabs.map(t => (
             <button
               key={t.id}
               ref={el => (tabRefs.current[t.id] = el)}
-              onClick={() => setTab(t.id)}
+              onClick={() => { setTab(t.id); setMoreOpen(false) }}
               className={`inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-semibold transition whitespace-nowrap shrink-0 ${
                 tab === t.id ? 'bg-valence-elevated text-valence-text shadow-sm' : 'text-valence-muted hover:text-valence-text'
               }`}
@@ -581,10 +577,50 @@ function DealDrawerBody({ deal, onEdit, onDelete, onComposeEmail }) {
               <t.icon className="h-3.5 w-3.5" /> {t.label}
             </button>
           ))}
+          {/* More menu — anchor-positioned dropdown of the 11 less-used
+              tabs. Highlights when the active tab lives inside, so the user
+              can tell from the strip alone that they're "in" an overflow
+              tab even when the dropdown is closed. */}
+          <div ref={moreBtnRef} className="relative ml-auto">
+            <button
+              onClick={() => setMoreOpen(o => !o)}
+              className={`inline-flex items-center gap-1 rounded-md px-2.5 py-1.5 text-xs font-semibold transition whitespace-nowrap shrink-0 ${
+                activeOverflow ? 'bg-valence-elevated text-valence-text shadow-sm' : 'text-valence-muted hover:text-valence-text'
+              }`}
+              aria-haspopup="true"
+              aria-expanded={moreOpen}
+            >
+              <MoreHorizontal className="h-3.5 w-3.5" />
+              {activeOverflow ? activeOverflow.label : 'More'}
+              <ChevronDown className={`h-3 w-3 transition ${moreOpen ? 'rotate-180' : ''}`} />
+            </button>
+            {moreOpen && (
+              <div
+                // Drawer body is overflow-y-auto so a long dropdown gets
+                // clipped at short viewports. Cap height + scroll inside
+                // so every overflow tab stays reachable.
+                className="absolute right-0 top-full z-20 mt-1 w-52 rounded-lg border border-valence-border bg-valence-elevated shadow-xl p-1 max-h-[60vh] overflow-y-auto"
+                role="menu"
+              >
+                {overflowTabs.map(t => (
+                  <button
+                    key={t.id}
+                    ref={el => (tabRefs.current[t.id] = el)}
+                    onClick={() => { setTab(t.id); setMoreOpen(false) }}
+                    className={`flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-left text-xs font-medium transition ${
+                      tab === t.id
+                        ? 'bg-valence-blue-soft text-valence-blue'
+                        : 'text-valence-text hover:bg-valence-surface'
+                    }`}
+                    role="menuitem"
+                  >
+                    <t.icon className="h-3.5 w-3.5 shrink-0" /> {t.label}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
-        {/* Edge fades so users know the tab list scrolls */}
-        <div className="pointer-events-none absolute inset-y-0 left-0 w-6 bg-gradient-to-r from-valence-elevated to-transparent" aria-hidden />
-        <div className="pointer-events-none absolute inset-y-0 right-0 w-6 bg-gradient-to-l from-valence-elevated to-transparent" aria-hidden />
       </div>
 
       <div>
@@ -652,16 +688,6 @@ function DealOverview({ deal }) {
   const types = Array.isArray(deal.deal_types) ? deal.deal_types : []
   const isTransaction = types.includes('transaction')
   const isAdvisory    = types.includes('advisory')
-
-  // Per-firm-type tools — every one gated on its own flag so the
-  // Overview tab is composed differently for IB / PE / VC.
-  const showMatcher    = useFeatureFlag('company_fund_matcher')
-  const showTargets    = useFeatureFlag('target_list_builder')
-  const showBakeOff    = useFeatureFlag('bake_off_mode')
-  const showFees       = useFeatureFlag('fee_tracker')
-  const showICMemo     = useFeatureFlag('ic_memo')
-  const showChecklist  = useFeatureFlag('closing_checklist')
-  const showDiligence  = useFeatureFlag('diligence_workstreams')
 
   return (
     <div className="space-y-5">
@@ -737,18 +763,6 @@ function DealOverview({ deal }) {
           {deal.notes ? <WikilinkText>{deal.notes}</WikilinkText> : <span className="text-valence-subtle">No notes yet.</span>}
         </p>
       </div>
-
-      {/* Per-firm-type curated panels. Each one is gated on its own
-          feature flag so the Overview tab composes itself for the
-          firm's profile — IB sees execution tools, PE sees diligence,
-          VC sees less of this clutter and more of /screen + /portfolio. */}
-      {showMatcher    && <CompanyFundMatcher mode="deal_to_funds" deal={deal} />}
-      {showTargets    && <TargetListPanel    deal={deal} />}
-      {showFees       && <FeeTrackerPanel    deal={deal} />}
-      {showBakeOff    && <BakeOffPanel       deal={deal} />}
-      {showDiligence  && <DiligencePanel     deal={deal} />}
-      {showICMemo     && <ICMemoPanel        deal={deal} />}
-      {showChecklist  && <ClosingChecklistPanel deal={deal} />}
     </div>
   )
 }
@@ -848,6 +862,7 @@ function DealTable({ deals, onOpen, focusedId = null, onFocus = () => {} }) {
 function DealForm({ initial, onSubmit, onCancel }) {
   const [form, setForm] = useState({
     client_name:                  initial?.client_name        || '',
+    website:                      initial?.website            || '',
     stage:                        initial?.stage              || 'Origination',
     nda_status:                   initial?.nda_status         || 'Pending',
     sector:                       initial?.sector             || '',
@@ -890,6 +905,7 @@ function DealForm({ initial, onSubmit, onCancel }) {
 
     const payload = {
       client_name:        form.client_name.trim(),
+      website:            txt(form.website),
       stage:              form.stage,
       nda_status:         form.nda_status,
       sector:             txt(form.sector),
@@ -919,12 +935,27 @@ function DealForm({ initial, onSubmit, onCancel }) {
   return (
     <form onSubmit={handleSubmit} className="space-y-5">
       {!initial && <ConflictBanner clientName={form.client_name} sector={form.sector} />}
+      {/* SimilarDealsBanner only runs on new-deal creation (no `initial`).
+          Surfaces existing deals with similar name OR exact website match
+          via the find_similar_deals RPC, so the user doesn't unwittingly
+          create a duplicate. Advisory only — no hard block. */}
+      {!initial && (
+        <SimilarDealsBanner
+          clientName={form.client_name}
+          website={form.website}
+          onUseExisting={onCancel}
+        />
+      )}
 
       {/* Universal block */}
       <div className="grid grid-cols-2 gap-4">
         <div className="col-span-2">
           <label className="vl-label">Client / company name</label>
           <input value={form.client_name} onChange={e => set('client_name', e.target.value)} className="vl-input" placeholder="e.g. HoV Mushrooms" required autoFocus />
+        </div>
+        <div className="col-span-2">
+          <label className="vl-label">Website <span className="text-valence-subtle font-normal">(optional — helps catch duplicates)</span></label>
+          <input value={form.website} onChange={e => set('website', e.target.value)} className="vl-input" placeholder="e.g. hovmushrooms.com" />
         </div>
         <div>
           <label className="vl-label">Stage</label>

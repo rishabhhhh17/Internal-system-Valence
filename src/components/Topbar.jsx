@@ -8,6 +8,7 @@ import NotificationCenter, { useNotifications } from './NotificationCenter.jsx'
 import Tutorial from './Tutorial.jsx'
 import { useWorkspaceSetting } from '../hooks/useWorkspaceSetting.js'
 import { WORKSPACE_KEYS, setWorkspaceSetting } from '../lib/workspace.js'
+import { useFirmDisplayName } from '../lib/firmIdentity.js'
 import { signOut } from '../lib/google.js'
 
 // Title + subtitle per route. Keep titles in lockstep with the sidebar
@@ -39,7 +40,12 @@ const titles = {
 
 export default function Topbar() {
   const { pathname } = useLocation()
-  const meta = titles[pathname] || { title: 'ValenceOS', sub: '' }
+  // Page-title fallback for unmapped routes uses the firm name from the
+  // workspace setting — defaults to the neutral 'Today' rather than
+  // 'ValenceOS' so a prospect on a non-Valence tenant doesn't see the
+  // dev codename in their topbar.
+  const firmName = useFirmDisplayName('Today')
+  const meta = titles[pathname] || { title: firmName, sub: '' }
 
   const [notifOpen, setNotifOpen] = useState(false)
   const notifs = useNotifications({ live: true })
@@ -174,7 +180,15 @@ function DemoResetButton() {
       // signOut already strips localStorage in this origin only; reload
       // so the next render starts from Login with no in-memory state.
       window.location.replace('/')
-    } catch {
+    } catch (err) {
+      // Audit found this path silently swallowed errors. Surface a toast
+      // so a dev clicking Reset on a broken auth state at least knows
+      // the sign-out half didn't happen and they should reload manually.
+      if (typeof window !== 'undefined' && window.alert) {
+        // No useToast in this scope; window.alert is the lowest common
+        // denominator and matches the click-confirm vibe.
+        window.alert(`Sign-out failed: ${err?.message || 'unknown error'}. Try reloading the page.`)
+      }
       setBusy(false)
     }
   }

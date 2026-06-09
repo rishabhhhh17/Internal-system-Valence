@@ -70,7 +70,7 @@ describe('active provider + model resolution', () => {
   it('falls back to Gemini default when nothing is set', async () => {
     const m = await load()
     expect(m.getActiveProviderId()).toBe('gemini')
-    expect(m.getActiveModelId()).toBe('gemini-2.0-flash')
+    expect(m.getActiveModelId()).toBe('gemini-2.5-flash-lite')
   })
 
   it('honours a stored provider + model', async () => {

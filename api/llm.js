@@ -1,5 +1,11 @@
 // Vercel serverless proxy — multi-provider LLM router.
 //
+// SECURITY: the managed server key (process.env.*_API_KEY) is only used for
+// callers who present a valid Supabase JWT (Authorization: Bearer <token>).
+// Bring-your-own-key callers (x-llm-api-key) are allowed without a JWT since
+// they pay their own cost. This stops an anonymous internet caller from
+// draining the firm's managed LLM quota.
+//
 // Replaces the single-purpose /api/gemini proxy for new code. Existing
 // callers still hit /api/gemini, which now forwards into this router so we
 // keep the surface unified.
@@ -70,12 +76,7 @@ const PRICING = {
 // momentarily exhausted. Ordered strongest-to-cheapest so we degrade
 // gracefully rather than escalate.
 const FALLBACK_CHAINS = {
-  gemini: [
-    'gemini-2.5-flash-lite',
-    'gemini-2.0-flash-lite',
-    'gemini-2.5-flash',
-    'gemini-2.0-flash'
-  ]
+  gemini: ['gemini-2.5-flash-lite', 'gemini-2.0-flash-lite']
 }
 
 const DEFAULTS = {
@@ -91,7 +92,7 @@ export default async function handler(req, res) {
     res.setHeader('Access-Control-Allow-Origin', '*')
     res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS')
     res.setHeader('Access-Control-Allow-Headers',
-      'Content-Type, x-llm-provider, x-llm-api-key, x-llm-base-url, x-user-gemini-key')
+      'Content-Type, Authorization, x-llm-provider, x-llm-api-key, x-llm-base-url, x-user-gemini-key')
     return res.status(204).end()
   }
   if (req.method !== 'POST') {
@@ -111,6 +112,16 @@ export default async function handler(req, res) {
     req.headers['x-llm-api-key'] || req.headers['x-user-gemini-key'] || ''
   ).trim()
   const serverKey = resolveServerKey(providerId)
+
+  // Gate the MANAGED server key behind a valid Supabase session. BYO-key
+  // callers (userKey present) are charged to their own key, so they pass.
+  if (!userKey) {
+    const ok = await hasValidSession(req)
+    if (!ok) {
+      return res.status(401).json({ error: 'Sign in to use the managed AI, or supply your own API key.' })
+    }
+  }
+
   const apiKey = userKey || serverKey
   if (!apiKey) {
     return res.status(503).json({
@@ -126,6 +137,9 @@ export default async function handler(req, res) {
 
   const model       = body.model || DEFAULTS[providerId].model
   const prompt      = String(body.prompt || '')
+  if (prompt.length > MAX_PROMPT_CHARS) {
+    return res.status(413).json({ error: `Prompt too large (${prompt.length} chars; max ${MAX_PROMPT_CHARS}).` })
+  }
   const temperature = typeof body.temperature === 'number' ? body.temperature : 0.55
   const maxTokens   = typeof body.maxOutputTokens === 'number' ? body.maxOutputTokens : 320
   const baseUrl     = String(req.headers['x-llm-base-url'] || '').trim() || null
@@ -200,6 +214,31 @@ function resolveServerKey(providerId) {
     default:                  return ''
   }
 }
+
+// Validate the caller's Supabase JWT. Returns true only for a real signed-in
+// user. Used to gate the managed key. Lazy-imports supabase-js so the
+// function cold-starts fast when a BYO key is used (no validation needed).
+async function hasValidSession(req) {
+  try {
+    const auth = req.headers['authorization'] || req.headers['Authorization'] || ''
+    const token = auth.startsWith('Bearer ') ? auth.slice(7).trim() : ''
+    if (!token) return false
+    const url  = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL
+    const anon = process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY
+    if (!url || !anon) return false
+    const { createClient } = await import('@supabase/supabase-js')
+    const sb = createClient(url, anon, { global: { headers: { Authorization: `Bearer ${token}` } } })
+    const { data, error } = await sb.auth.getUser()
+    return !error && !!data?.user
+  } catch {
+    return false
+  }
+}
+
+// Hard cap on prompt size — stops a single request from maxing input tokens
+// (cost) or being used to abuse the proxy. ~48k chars ≈ 12k tokens, plenty
+// for a deal brief or transcript summary.
+const MAX_PROMPT_CHARS = 48000
 
 // ============ GEMINI ============
 async function callGemini({ apiKey, model, prompt, temperature, maxTokens, rawPassthrough }) {
