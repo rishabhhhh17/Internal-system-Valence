@@ -25,11 +25,11 @@ const GROUPS = [
     ]
   },
   {
-    name: 'Deal Logger',
+    name: 'Pipeline',
     items: [
       ['Drag', 'Move a card between funnel stages'],
       ['Click row / card', 'Open the deal drawer'],
-      ['Tab inside drawer', 'Cycle between Overview / Files / Counterparties / Activity / Similar / AI Brief']
+      ['Tab inside drawer', 'Cycle between Overview / Files / Contacts / Activity / Similar / AI Brief']
     ]
   },
   {

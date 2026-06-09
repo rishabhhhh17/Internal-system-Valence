@@ -162,7 +162,7 @@ export default function NotificationsPage() {
           </div>
           <h3 className="text-base font-semibold text-valence-text">Nothing here</h3>
           <p className="mt-1 max-w-sm text-sm text-valence-muted">
-            Nothing in this view yet. Mandates moving stages, mentions, task assignments, file uploads, and reminders all land here.
+            Nothing in this view yet. Deals moving stages, mentions, task assignments, file uploads, and reminders all land here.
           </p>
         </div>
       ) : (

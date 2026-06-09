@@ -192,7 +192,7 @@ export default function Onboarding() {
               <p className="text-sm text-valence-muted mt-1.5 max-w-lg">
                 {step === 1
                   ? 'Two quick steps. You can change everything in Settings later.'
-                  : 'This is what shows up on your seat and on shared mandate pages.'}
+                  : 'This is what shows up on your seat and on shared deal pages.'}
               </p>
             </div>
 

@@ -11,17 +11,17 @@ import { searchKnowledge } from '../lib/knowledge.js'
 
 const QUICK_NAV = [
   { type: 'nav', title: 'Today',          sub: 'Daily note · priorities · meetings',  to: '/',                  icon: LayoutDashboard },
-  { type: 'nav', title: 'Deal Logger',    sub: 'Pipeline & files',                   to: '/deals',             icon: Briefcase },
-  { type: 'nav', title: 'Live Mandates',  sub: 'Active book by stage',               to: '/mandates',          icon: Briefcase },
-  { type: 'nav', title: 'Timeline',       sub: 'Gantt of every active mandate',      to: '/timeline',          icon: BarChart3 },
-  { type: 'nav', title: 'Interactions',   sub: 'Pre-mandate touchpoints',            to: '/interactions',      icon: MessageSquare },
+  { type: 'nav', title: 'Pipeline',       sub: 'Pipeline & files',                   to: '/deals',             icon: Briefcase },
+  { type: 'nav', title: 'Active Deals',   sub: 'Active book by stage',               to: '/mandates',          icon: Briefcase },
+  { type: 'nav', title: 'Timeline',       sub: 'Gantt of every active deal',         to: '/timeline',          icon: BarChart3 },
+  { type: 'nav', title: 'Interactions',   sub: 'Partner Call touchpoints',           to: '/interactions',      icon: MessageSquare },
   { type: 'nav', title: 'People',         sub: 'Persona-driven CRM',                 to: '/people',            icon: UserCircle },
-  { type: 'nav', title: 'Firm',           sub: 'Who writes the cheques',             to: '/funds',             icon: Building2 },
-  { type: 'nav', title: 'Quick Screener', sub: 'AI fund-match or mandate-fit',       to: '/screen',            icon: Sparkles },
-  { type: 'nav', title: 'Intake inbox',   sub: 'Inbound mandate submissions',        to: '/inbox/intake',      icon: BookOpen },
-  { type: 'nav', title: 'Knowledge',      sub: 'Firm-shared + mandate notes, or private', to: '/knowledge',           icon: BookOpen },
-  { type: 'nav', title: 'Mandate notes',  sub: 'Per-mandate folder hierarchy',            to: '/knowledge/shared?tab=mandates', icon: BookOpen },
-  { type: 'nav', title: 'Firm Knowledge', sub: 'Memos, files, comps, mandate notes',      to: '/knowledge/shared',    icon: BookOpen },
+  { type: 'nav', title: 'Investors',      sub: 'Who writes the cheques',             to: '/funds',             icon: Building2 },
+  { type: 'nav', title: 'Quick Screener', sub: 'AI fund-match or deal-fit',          to: '/screen',            icon: Sparkles },
+  { type: 'nav', title: 'Inbound deals',  sub: 'Inbound deal submissions',           to: '/inbox/intake',      icon: BookOpen },
+  { type: 'nav', title: 'Knowledge',      sub: 'Firm-shared + deal notes, or private', to: '/knowledge',           icon: BookOpen },
+  { type: 'nav', title: 'Deal notes',     sub: 'Per-deal folder hierarchy',               to: '/knowledge/shared?tab=mandates', icon: BookOpen },
+  { type: 'nav', title: 'Firm Knowledge', sub: 'Memos, files, comps, deal notes',         to: '/knowledge/shared',    icon: BookOpen },
   { type: 'nav', title: 'Private',        sub: 'Your personal Drive',                to: '/knowledge/private', icon: FolderOpen },
   { type: 'nav', title: 'Day Planner',    sub: 'Meetings & tasks',                   to: '/planner',           icon: CalendarDays },
   { type: 'nav', title: 'Analytics',      sub: 'Pipeline, fees, velocity',           to: '/analytics',         icon: BarChart3 },
@@ -128,7 +128,7 @@ export default function CommandPalette() {
     }
     for (const c of data.contacts) {
       if (match(c.name, needle) || match(c.company, needle))
-        out.push({ type: 'contact', title: c.name, sub: [c.role, c.company].filter(Boolean).join(' · ') || 'Counterparty', to: c.deal_id ? `/deals?open=${c.deal_id}` : '/deals', icon: Users, group: 'Counterparties' })
+        out.push({ type: 'contact', title: c.name, sub: [c.role, c.company].filter(Boolean).join(' · ') || 'Contact', to: c.deal_id ? `/deals?open=${c.deal_id}` : '/deals', icon: Users, group: 'Contacts' })
     }
     for (const i of data.interactions) {
       if (match(i.counterparty_name, needle) || match(i.counterparty_company, needle)) {
@@ -225,7 +225,7 @@ export default function CommandPalette() {
           <input
             ref={inputRef}
             value={q} onChange={e => setQ(e.target.value)}
-            placeholder="Search deals, docs, meetings, counterparties…"
+            placeholder="Search deals, docs, meetings, contacts…"
             className="flex-1 bg-transparent text-sm text-valence-text placeholder:text-valence-subtle outline-none"
           />
           <span className="vl-kbd">ESC</span>

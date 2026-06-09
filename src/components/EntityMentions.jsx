@@ -129,7 +129,7 @@ export default function EntityMentions({ entityType, entityId, entityName }) {
     for (const note of rows) {
       const folder = folders[note.folder_id]
       const mandateId = folder?.mandate_id
-      const mandateName = mandateId ? (mandateMap[mandateId] || 'Mandate') : 'Firm-wide'
+      const mandateName = mandateId ? (mandateMap[mandateId] || 'Deal') : 'Firm-wide'
       const key = mandateId || 'firm'
       if (!map.has(key)) map.set(key, { mandateId, mandateName, notes: [] })
       map.get(key).notes.push({ ...note, folderName: folder?.name })
@@ -328,7 +328,7 @@ function snippetAround(body, entityType, entityId) {
 // Pluralise + tally across all three sources for the header line.
 function summaryLine(kb, daily, inter, grouped) {
   const parts = []
-  if (kb.length > 0)    parts.push(`${kb.length} KB note${kb.length === 1 ? '' : 's'}${grouped.length > 1 ? ` across ${grouped.length} mandates` : ''}`)
+  if (kb.length > 0)    parts.push(`${kb.length} KB note${kb.length === 1 ? '' : 's'}${grouped.length > 1 ? ` across ${grouped.length} deals` : ''}`)
   if (daily.length > 0) parts.push(`${daily.length} daily note${daily.length === 1 ? '' : 's'}`)
   if (inter.length > 0) parts.push(`${inter.length} interaction${inter.length === 1 ? '' : 's'}`)
   if (parts.length === 0) return 'No mentions yet.'

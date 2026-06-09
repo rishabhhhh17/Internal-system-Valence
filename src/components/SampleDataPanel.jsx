@@ -85,7 +85,7 @@ export default function SampleDataPanel() {
               ? 'Reading current firm state…'
               : isEmpty
               ? 'No firm data yet — load a sample to explore every surface end-to-end.'
-              : `${counts.funds} funds · ${counts.people} people · ${counts.deals} mandates.`}
+              : `${counts.funds} funds · ${counts.people} people · ${counts.deals} deals.`}
           </p>
         </div>
       </div>

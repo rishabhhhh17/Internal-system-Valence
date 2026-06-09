@@ -33,7 +33,7 @@ export function labelForType(type) {
     mention:           'Mention',
     task_assigned:     'Task assigned',
     stage_change:      'Stage change',
-    new_deal:          'New mandate',
+    new_deal:          'New deal',
     document_uploaded: 'File uploaded',
     reminder_due:      'Reminder'
   }[type] || 'Notification'

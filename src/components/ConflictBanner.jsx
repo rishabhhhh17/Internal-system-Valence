@@ -76,7 +76,7 @@ export default function ConflictBanner({ clientName, sector, side }) {
         ))}
       </ul>
       <p className="mt-2 text-[11px] text-valence-muted italic">
-        Review before taking the mandate. You can still proceed — this is advisory.
+        Review before taking the deal. You can still proceed — this is advisory.
       </p>
     </div>
   )

@@ -13,7 +13,7 @@ export default function KnowledgeLanding() {
           What do you want to open?
         </h1>
         <p className="mt-3 max-w-2xl text-sm leading-relaxed text-valence-muted">
-          Two tracks — everything the firm shares (memos, comps, files, and per-mandate notes), or your own private drive.
+          Two tracks — everything the firm shares (memos, comps, files, and per-deal notes), or your own private drive.
         </p>
       </div>
 
@@ -32,7 +32,7 @@ export default function KnowledgeLanding() {
               Knowledge
             </h2>
             <p className="mt-3 text-sm leading-relaxed text-valence-muted">
-              Ask, search, memos, files, comps — plus per-mandate folder trees with cross-mandate links via <span className="vl-kbd">[[</span> and local-folder <span className="vl-kbd">#tag</span>s. One surface for everything the team has shared with the firm.
+              Ask, search, memos, files, comps — plus per-deal folder trees with cross-deal links via <span className="vl-kbd">[[</span> and local-folder <span className="vl-kbd">#tag</span>s. One surface for everything the team has shared with the firm.
             </p>
             <div className="mt-6 flex flex-wrap items-center gap-2 text-[11px] text-valence-muted">
               <span className="inline-flex items-center gap-1 rounded-full border border-valence-border bg-valence-surface px-2 py-1">
@@ -43,7 +43,7 @@ export default function KnowledgeLanding() {
               <span className="rounded-full border border-valence-border bg-valence-surface px-2 py-1">Files</span>
               <span className="rounded-full border border-valence-border bg-valence-surface px-2 py-1">Comps</span>
               <span className="inline-flex items-center gap-1 rounded-full border border-valence-border bg-valence-surface px-2 py-1">
-                <FolderTree className="h-3 w-3 text-valence-blue" /> Mandate notes
+                <FolderTree className="h-3 w-3 text-valence-blue" /> Deal notes
               </span>
             </div>
           </div>

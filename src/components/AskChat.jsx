@@ -18,9 +18,9 @@ import { useToast } from './Toast.jsx'
 const SUGGESTED = [
   'What did Renuka Ramnath say about HoV Mushrooms in our last call?',
   'Which funds have we pitched on Healthcare in the last 90 days?',
-  'Summarise active mandates in Negotiation or Closing.',
+  'Summarise active deals in Diligence or Analyst Call.',
   'What playbook do we run for sell-side infrastructure deals?',
-  'Which comps did we use to price the Helios Infra mandate?'
+  'Which comps did we use to price the Helios Infra deal?'
 ]
 
 export default function AskChat() {
@@ -94,7 +94,7 @@ export default function AskChat() {
               The firm's memory, on tap.
             </h1>
             <p className="mt-5 max-w-xl text-sm leading-relaxed text-valence-muted lg:text-base">
-              Ask in plain English. Answers come from your interactions, mandate notes, sector memos, files and precedent comps — every fact cited to its source. The walk-in-prepared moment without the rolodex search.
+              Ask in plain English. Answers come from your interactions, deal notes, sector memos, files and precedent comps — every fact cited to its source. The walk-in-prepared moment without the rolodex search.
             </p>
             {!isGeminiConfigured && (
               <p className="mt-4 inline-flex items-center gap-2 rounded-lg border border-amber-300/50 bg-amber-50 px-3 py-1.5 text-[11px] text-amber-800">

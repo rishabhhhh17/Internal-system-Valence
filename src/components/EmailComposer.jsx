@@ -35,7 +35,7 @@ export default function EmailComposer({ open, onClose, deal, contact }) {
         ? await draftEmail({ scenario: s, deal, contact })
         : fallbackBody(s, deal, contact)
       setBody(text)
-      if (deal?.id) await logActivity({ dealId: deal.id, kind: 'email_drafted', body: `${scenarios[s].label} — ${contact?.name || 'counterparty'}` })
+      if (deal?.id) await logActivity({ dealId: deal.id, kind: 'email_drafted', body: `${scenarios[s].label} — ${contact?.name || 'contact'}` })
     } catch (err) {
       setError(err.message || 'Could not draft email')
       setBody(fallbackBody(s, deal, contact))
@@ -58,7 +58,7 @@ export default function EmailComposer({ open, onClose, deal, contact }) {
   // want) gmail.send scope. Same effect from the partner's seat; no CASA
   // audit needed for OAuth verification.
   async function openInGmail() {
-    if (!contact?.email) { toast.error('This counterparty has no email on file.'); return }
+    if (!contact?.email) { toast.error('This contact has no email on file.'); return }
     setSending(true)
     try {
       openGmailCompose({ to: contact.email, subject: currentSubject(), body: currentBody() })
@@ -79,7 +79,7 @@ export default function EmailComposer({ open, onClose, deal, contact }) {
       open={open}
       onClose={onClose}
       title="Draft an email"
-      description={contact ? `To ${contact.name}${contact.company ? ' — ' + contact.company : ''}` : 'Compose a message for the mandate.'}
+      description={contact ? `To ${contact.name}${contact.company ? ' — ' + contact.company : ''}` : 'Compose a message for the deal.'}
       size="xl"
     >
       <div className="grid gap-5 md:grid-cols-[220px_1fr]">
@@ -160,7 +160,7 @@ export default function EmailComposer({ open, onClose, deal, contact }) {
 }
 
 function defaultSubject(scenario, deal) {
-  const base = deal?.client_name || 'Mandate'
+  const base = deal?.client_name || 'Deal'
   switch (scenario) {
     case 'intro':           return `Introduction — ${base}`
     case 'followup':        return `Following up — ${base}`
@@ -178,7 +178,7 @@ function fallbackBody(scenario, deal, contact) {
   // original tenant name leaked through to other firms' AI surfaces and
   // looked like a single-tenant product.
   const first = (contact?.name || '').split(' ')[0] || 'there'
-  const name = deal?.client_name || 'the mandate'
+  const name = deal?.client_name || 'the deal'
   const firm = firmDisplayName('our firm')
   const map = {
     intro:           `Hi ${first},\n\nIntroducing myself from ${firm} — we're advising on ${name}. I'd welcome a short call to walk you through the opportunity and gauge your appetite. Could we find 20 minutes in the next week?\n\nBest,\n${firm}`,

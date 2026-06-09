@@ -28,13 +28,13 @@ import { supabase, isSupabaseConfigured } from '../lib/supabase.js'
 const STALLED_THRESHOLD_DAYS = 30
 
 const STAGE_COLORS = {
-  'Origination':  '#3399FF',
-  'Pitching':     '#6F7BFF',
-  'Pre-Mandate':  '#A06FFF',
-  'Mandate':      '#10B981',
-  'Closed':       '#16A34A',
-  'On Hold':      '#F59E0B',
-  'Lost':         '#EF4444'
+  'Sourced':              '#F59E0B',
+  'Information Received':  '#3399FF',
+  'Analyst Call':         '#6F7BFF',
+  'Partner Call':         '#A06FFF',
+  'Memo':                 '#10B981',
+  'Diligence':            '#16A34A',
+  'Passed':               '#EF4444'
 }
 function colorForStage(s) { return STAGE_COLORS[s] || '#94A3B8' }
 
@@ -187,7 +187,7 @@ export default function AgingReport() {
           <p className="vl-eyebrow-ink">Reports</p>
           <h1 className="font-display text-3xl font-bold text-valence-text mt-2">Aging</h1>
           <p className="mt-2 max-w-2xl text-sm text-valence-muted">
-            How long every mandate has been sitting in its current stage. Stalled deals (≥{STALLED_THRESHOLD_DAYS} days idle) sort to the top.
+            How long every deal has been sitting in its current stage. Stalled deals (≥{STALLED_THRESHOLD_DAYS} days idle) sort to the top.
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -239,7 +239,7 @@ export default function AgingReport() {
             <Briefcase className="h-4 w-4 text-valence-subtle" />
           </div>
           <h3 className="text-base font-semibold text-valence-text">No deals match these filters</h3>
-          <p className="mt-1 text-sm text-valence-muted">Clear filters or add deals from <Link to="/deals" className="text-valence-blue hover:underline">Deal Logger</Link>.</p>
+          <p className="mt-1 text-sm text-valence-muted">Clear filters or add deals from <Link to="/deals" className="text-valence-blue hover:underline">Pipeline</Link>.</p>
         </div>
       ) : (
         <div className="rounded-xl border border-valence-border bg-valence-elevated overflow-hidden">

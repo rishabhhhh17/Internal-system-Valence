@@ -28,7 +28,7 @@ const SOURCE_META = {
   activity:    { label: 'Activity',     icon: ActivityIcon,    color: 'text-valence-blue',     bg: 'bg-valence-blue-soft'  },
   interaction: { label: 'Interaction',  icon: MessageSquare,   color: 'text-emerald-700',      bg: 'bg-emerald-50'         },
   intake:      { label: 'Inbound',      icon: Inbox,           color: 'text-amber-700',        bg: 'bg-amber-50'           },
-  deal:        { label: 'New mandate',  icon: Briefcase,       color: 'text-violet-700',       bg: 'bg-violet-50'          },
+  deal:        { label: 'New deal',     icon: Briefcase,       color: 'text-violet-700',       bg: 'bg-violet-50'          },
   daily:       { label: 'Daily note',   icon: Calendar,        color: 'text-valence-muted',    bg: 'bg-valence-surface'    }
 }
 
@@ -37,7 +37,7 @@ const FILTERS = [
   ['activity',    'Deal activity'],
   ['interaction', 'Interactions'],
   ['intake',      'Inbound'],
-  ['deal',        'New mandates'],
+  ['deal',        'New deals'],
   ['daily',       'Daily notes']
 ]
 
@@ -70,7 +70,7 @@ export default function Feed() {
       for (const i of (intr.data || [])) merged.push({
         id: `i-${i.id}`,
         source: 'interaction',
-        title: `${i.counterparty_name || 'Counterparty'} · ${labelKind(i.type)}`,
+        title: `${i.counterparty_name || 'Contact'} · ${labelKind(i.type)}`,
         body:  i.notes ? trim(i.notes, 200) : (i.outcome ? `Outcome: ${labelKind(i.outcome)}` : ''),
         to:    i.deal_id ? `/deals?open=${i.deal_id}` : '/interactions',
         at:    i.created_at,
@@ -136,7 +136,7 @@ export default function Feed() {
               Everything the firm did, in order.
             </h2>
             <p className="mt-1 text-[12px] text-valence-muted">
-              Interactions, new mandates, inbound submissions, deal activity, daily notes. Updated as you reload.
+              Interactions, new deals, inbound submissions, deal activity, daily notes. Updated as you reload.
             </p>
           </div>
           <button onClick={load} className="vl-btn-secondary text-[12px]" disabled={loading}>

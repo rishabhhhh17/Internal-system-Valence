@@ -143,7 +143,7 @@ export function scorePerson(person, interactions, deals) {
     else                       reasons.push(`Last touch ${daysSince}+ days ago — gone cold`)
   }
   if (recentCount > 0)         reasons.push(`${recentCount} interaction${recentCount === 1 ? '' : 's'} in the last 90 days`)
-  if (dealIds.size > 0)        reasons.push(`${dealIds.size} live deal${dealIds.size === 1 ? '' : 's'} as counterparty`)
+  if (dealIds.size > 0)        reasons.push(`${dealIds.size} live deal${dealIds.size === 1 ? '' : 's'} as contact`)
   if (signaled.length > 0) {
     const pos = signaled.filter(i => POSITIVE_OUTCOMES.has(i.outcome)).length
     const neg = signaled.length - pos

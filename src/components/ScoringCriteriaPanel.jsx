@@ -125,7 +125,7 @@ export default function ScoringCriteriaPanel() {
             )}
           </div>
           <p className="text-xs text-valence-muted mt-0.5">
-            Drives Quick Screener, Mandate-Fit verdicts, and Fund-Match suggestions. Sectors and geographies are exact-match (case-insensitive); the EV band is inclusive.
+            Drives Quick Screener, Thesis-fit verdicts, and Fund-Match suggestions. Sectors and geographies are exact-match (case-insensitive); the EV band is inclusive.
           </p>
         </div>
       </div>

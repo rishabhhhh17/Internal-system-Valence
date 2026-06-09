@@ -113,7 +113,7 @@ export default function MeetingIntelligence({ deal }) {
       {loading ? (
         <div className="rounded-lg border border-valence-border bg-valence-surface px-5 py-6 text-center text-sm text-valence-muted">Loading meeting briefs…</div>
       ) : items.length === 0 ? (
-        <div className="rounded-lg border border-dashed border-valence-border bg-valence-surface px-5 py-6 text-center text-sm text-valence-muted">No meeting briefs on this mandate yet.</div>
+        <div className="rounded-lg border border-dashed border-valence-border bg-valence-surface px-5 py-6 text-center text-sm text-valence-muted">No meeting briefs on this deal yet.</div>
       ) : (
         <ul className="space-y-4">
           {items.map(it => <BriefCard key={it.id} item={it} />)}

@@ -176,7 +176,7 @@ export default function FundDrawer({ open, onClose, existing, onSubmit, onRename
 
           <div className="grid gap-4">
             <Field label="Sectors (comma-separated)"><input className="vl-input" value={form.sectors} onChange={e => update({ sectors: e.target.value })} placeholder="Fintech, Healthcare, Consumer" /></Field>
-            <Field label="Stages (comma-separated)"><input className="vl-input" value={form.stages} onChange={e => update({ stages: e.target.value })} placeholder="Mandate, Marketing, Diligence" /></Field>
+            <Field label="Stages (comma-separated)"><input className="vl-input" value={form.stages} onChange={e => update({ stages: e.target.value })} placeholder="Seed, Series A, Growth" /></Field>
             <Field label="Geographies (comma-separated)"><input className="vl-input" value={form.geographies} onChange={e => update({ geographies: e.target.value })} placeholder="India, SE Asia" /></Field>
           </div>
         </form>
@@ -251,7 +251,7 @@ export default function FundDrawer({ open, onClose, existing, onSubmit, onRename
       {existing && tab === 'overview' && (
         <div className="mt-6 rounded-lg border border-valence-border bg-valence-surface px-4 py-3 text-[11px] text-valence-muted inline-flex items-start gap-2">
           <Sparkles className="h-3 w-3 mt-0.5 text-valence-blue" />
-          <span>Use the Funds tab inside any deal drawer to shortlist this fund for a live mandate.</span>
+          <span>Use the Funds tab inside any deal drawer to shortlist this fund for a live deal.</span>
         </div>
       )}
     </Drawer>

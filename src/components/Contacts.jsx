@@ -26,7 +26,7 @@ export default function Contacts({ dealId, onOpenComposer }) {
   async function load() {
     setLoading(true)
     const { data, error } = await supabase.from('contacts').select('*').eq('deal_id', dealId).order('created_at', { ascending: true })
-    if (error) toast.error(humanError(error, 'Could not load counterparties'))
+    if (error) toast.error(humanError(error, 'Could not load contacts'))
     setContacts(data || [])
     setLoading(false)
   }
@@ -37,7 +37,7 @@ export default function Contacts({ dealId, onOpenComposer }) {
       setAdding(false); return
     }
     const { data, error } = await supabase.from('contacts').insert({ deal_id: dealId, ...form }).select().single()
-    if (error) return toast.error(humanError(error, 'Could not add counterparty'))
+    if (error) return toast.error(humanError(error, 'Could not add contact'))
     await logActivity({ dealId, kind: 'contact_added', body: `${form.name}${form.company ? ' (' + form.company + ')' : ''}` })
     setContacts(prev => [...prev, data])
     setAdding(false)
@@ -45,13 +45,13 @@ export default function Contacts({ dealId, onOpenComposer }) {
   }
 
   async function remove(c) {
-    const ok = await confirm({ title: 'Remove counterparty?', body: `${c.name} will be detached from this deal.`, destructive: true, confirmLabel: 'Remove' })
+    const ok = await confirm({ title: 'Remove contact?', body: `${c.name} will be detached from this deal.`, destructive: true, confirmLabel: 'Remove' })
     if (!ok) return
     if (!isSupabaseConfigured) {
       setContacts(prev => prev.filter(x => x.id !== c.id)); return
     }
     const { error } = await supabase.from('contacts').delete().eq('id', c.id)
-    if (error) return toast.error(humanError(error, 'Could not remove counterparty'))
+    if (error) return toast.error(humanError(error, 'Could not remove contact'))
     setContacts(prev => prev.filter(x => x.id !== c.id))
     toast.success(`${c.name} removed.`)
   }
@@ -60,10 +60,10 @@ export default function Contacts({ dealId, onOpenComposer }) {
     <div className="space-y-3">
       <div className="flex items-center justify-between">
         <p className="text-xs text-valence-muted">
-          Everyone on the other side of this mandate.
+          Everyone on the other side of this deal.
         </p>
         <button onClick={() => setAdding(true)} className="vl-btn-ghost">
-          <Plus className="h-3.5 w-3.5" /> Add counterparty
+          <Plus className="h-3.5 w-3.5" /> Add contact
         </button>
       </div>
 
@@ -74,7 +74,7 @@ export default function Contacts({ dealId, onOpenComposer }) {
       ) : contacts.length === 0 && !adding ? (
         <div className="rounded-lg border border-valence-border bg-valence-surface px-5 py-6 text-center">
           <User2 className="mx-auto h-4 w-4 text-valence-subtle" />
-          <p className="mt-2 text-sm text-valence-muted">No counterparties yet. Add founders, investors, or co-advisors.</p>
+          <p className="mt-2 text-sm text-valence-muted">No contacts yet. Add founders, investors, or co-advisors.</p>
         </div>
       ) : (
         <ul className="space-y-2">

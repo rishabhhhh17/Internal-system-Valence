@@ -119,7 +119,7 @@ export default function FitCard({
       {/* Header */}
       <div className="flex items-start justify-between gap-4 mb-4">
         <div className="min-w-0">
-          <span className="vl-eyebrow-ink">Mandate Fit</span>
+          <span className="vl-eyebrow-ink">Thesis-fit</span>
           <h3 className="vl-section-title text-lg mt-1">{criteria.name}</h3>
         </div>
         <button

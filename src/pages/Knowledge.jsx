@@ -68,7 +68,7 @@ export default function Knowledge() {
         )}
         <TabButton active={tab === 'search'}                         onClick={() => setTab('search')}   icon={Search}>Search</TabButton>
         <TabButton active={tab === 'files' || tab === 'memos'}       onClick={() => setTab('files')}    icon={FileIcon}>Files</TabButton>
-        <TabButton active={tab === 'mandates'}                       onClick={() => setTab('mandates')} icon={FolderTree}>Mandates</TabButton>
+        <TabButton active={tab === 'mandates'}                       onClick={() => setTab('mandates')} icon={FolderTree}>Deals</TabButton>
       </div>
 
       {tab === 'ask' && (isGeminiConfigured || !PITCH_MODE)   && <AskChat />}
@@ -160,7 +160,7 @@ function SearchSection() {
       )}
 
       {!q.trim() ? (
-        <EmptyState icon={Search} title="Search the firm" description="Type a name, sector, mandate, or any phrase — results from notes, files, interactions, people, and funds." sampleEligible={false} />
+        <EmptyState icon={Search} title="Search the firm" description="Type a name, sector, deal, or any phrase — results from notes, files, interactions, people, and funds." sampleEligible={false} />
       ) : results && results.length === 0 && !searching ? (
         <EmptyState icon={Search} title="No matches" description={`Nothing matches "${q}". Try a different phrase or broader keywords.`} sampleEligible={false} />
       ) : results && results.length > 0 ? (

@@ -21,7 +21,7 @@
 const TEMPLATE_FUNDRAISE = [
   { name: 'Investor Meetings' },
   { name: 'Internal' },
-  { name: 'Client Communication' },
+  { name: 'Company Communication' },
   { name: 'Diligence' }
 ]
 
@@ -29,7 +29,7 @@ const TEMPLATE_MA_SELL = [
   { name: 'Buyer Meetings' },
   { name: 'Diligence' },
   { name: 'Internal' },
-  { name: 'Client Communication' }
+  { name: 'Company Communication' }
 ]
 
 const TEMPLATE_MA_BUY = [
@@ -37,13 +37,13 @@ const TEMPLATE_MA_BUY = [
   { name: 'Acquisition Targets' },
   { name: 'Diligence' },
   { name: 'Internal' },
-  { name: 'Client Communication' }
+  { name: 'Company Communication' }
 ]
 
 const TEMPLATE_EXIT = [
-  { name: 'Counterparty Meetings' },
+  { name: 'Contact Meetings' },
   { name: 'Internal' },
-  { name: 'Client Communication' },
+  { name: 'Company Communication' },
   { name: 'Diligence' }
 ]
 
@@ -51,7 +51,7 @@ const TEMPLATE_ADVISORY = [
   { name: 'Engagement Notes' },
   { name: 'Research' },
   { name: 'Deliverables' },
-  { name: 'Client Communication' },
+  { name: 'Company Communication' },
   { name: 'Internal' }
 ]
 
@@ -99,7 +99,7 @@ export async function spawnMandateFolders(supabase, deal) {
 
   const { data: root, error } = await supabase.from('kb_folders').insert({
     mandate_id: deal.id,
-    name: deal.client_name || 'Mandate',
+    name: deal.client_name || 'Deal',
     folder_type: 'mandate_root',
     sort_order: 0
   }).select('id').single()
@@ -219,7 +219,7 @@ export async function fetchBacklinks(supabase, noteId) {
         updated_at: n.updated_at,
         folderName: f?.name || null,
         mandateId: f?.mandate_id || null,
-        mandateName: f?.mandate_id ? (mandateMap[f.mandate_id] || 'Mandate') : 'Firm-wide'
+        mandateName: f?.mandate_id ? (mandateMap[f.mandate_id] || 'Deal') : 'Firm-wide'
       }
     })
     .sort((a, b) => new Date(b.updated_at || 0) - new Date(a.updated_at || 0))

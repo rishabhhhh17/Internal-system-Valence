@@ -19,15 +19,15 @@ const primary = [
 // Timeline / Interactions / People / Funds / Quick Screener / Intake inbox
 // / Team Calendar / Analytics / Team.
 const more = [
-  { to: '/mandates',    label: 'Live Mandates', icon: ListChecks },
+  { to: '/mandates',    label: 'Active Deals',  icon: ListChecks },
   { to: '/timeline',    label: 'Timeline',      icon: Activity },
   { to: '/calendar',    label: 'Team Calendar', icon: CalendarIcon },
   { to: '/interactions',label: 'Interactions',  icon: MessageSquare },
   { to: '/people',      label: 'People',        icon: Users },
-  { to: '/funds',       label: 'Firm',          icon: Building2 },
+  { to: '/funds',       label: 'Investors',     icon: Building2 },
   // Quick Screener hidden from nav for now — route still resolves.
   // { to: '/screen',      label: 'Quick Screener',icon: Sparkles },
-  { to: '/inbox/intake',label: 'Intake inbox',  icon: Inbox },
+  { to: '/inbox/intake',label: 'Inbound deals', icon: Inbox },
   { to: '/feed',        label: 'Firm pulse',    icon: Activity },
   { to: '/analytics',   label: 'Analytics',     icon: BarChart3 },
   { to: '/team',        label: 'Team',          icon: FolderTree },

@@ -197,7 +197,7 @@ function TourMenu({ onPick, onClose }) {
               Pick how you want to walk through
             </h2>
             <p className="mt-1 text-[12px] text-valence-muted">
-              Built for boutique IB firms — Mandate · Pre-Mandate · teaser · IM · LOI · SPA. Not a CRM.
+              Built for VC investors — Memo · Partner Call · pitch deck · data room · term sheet. Not a CRM.
             </p>
           </div>
           <button onClick={onClose} className="vl-btn-ghost shrink-0 -mr-2" aria-label="Close">
@@ -228,7 +228,7 @@ function TourMenu({ onPick, onClose }) {
             tone="amber"
             title="Advanced trial"
             sub="10-min · 10 pages"
-            body="The same loop, plus the AI surfaces — Mandate Screener, Intake triage, Knowledge Ask, Team Calendar slot finder."
+            body="The same loop, plus the AI surfaces — Deal Screener, Inbound triage, Knowledge Ask, Team Calendar slot finder."
             onClick={() => onPick('advanced')}
           />
         </div>

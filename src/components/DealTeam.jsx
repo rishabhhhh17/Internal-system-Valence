@@ -74,7 +74,7 @@ export default function DealTeam({ deal }) {
         <div>
           <p className="text-sm font-semibold text-valence-text">Internal deal team</p>
           <p className="text-xs text-valence-muted mt-0.5">
-            Valence side of the mandate. Track roles + origination / execution credit.
+            Valence side of the deal. Track roles + origination / execution credit.
           </p>
         </div>
         <button onClick={() => setAdding(true)} className="vl-btn-ghost">
