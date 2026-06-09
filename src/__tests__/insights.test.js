@@ -21,9 +21,9 @@ describe('insights', () => {
       }
     })
 
-    it('assigns 1.0 to Closed and 0 to Lost', () => {
-      expect(STAGE_PROBABILITY.Closed).toBe(1)
-      expect(STAGE_PROBABILITY.Lost).toBe(0)
+    it('assigns 0 to Passed and a high probability to Diligence (graduation)', () => {
+      expect(STAGE_PROBABILITY.Passed).toBe(0)
+      expect(STAGE_PROBABILITY.Diligence).toBeGreaterThan(0.5)
     })
   })
 
@@ -41,16 +41,17 @@ describe('insights', () => {
   })
 
   describe('forecastPipeline', () => {
-    it('sums probability-weighted fees and tracks recognised (closed) separately', () => {
+    it('sums probability-weighted value and tracks recognised (reached diligence) separately', () => {
+      const fee = 2_000_000
       const deals = [
-        { stage: 'Closed',  ticket_size_usd_m: 100, fee_success_pct: 2 },   // 2M recognised
-        { stage: 'Mandate', ticket_size_usd_m: 100, fee_success_pct: 2 },   // 2M × 0.75 = 1.5M weighted
-        { stage: 'Lost',    ticket_size_usd_m: 100, fee_success_pct: 2 }    // 0
+        { stage: 'Diligence', ticket_size_usd_m: 100, fee_success_pct: 2 },  // recognised
+        { stage: 'Memo',      ticket_size_usd_m: 100, fee_success_pct: 2 },  // weighted by Memo prob
+        { stage: 'Passed',    ticket_size_usd_m: 100, fee_success_pct: 2 }   // 0
       ]
       const r = forecastPipeline(deals)
-      expect(r.recognised).toBe(2_000_000)
-      // weighted includes Closed (1.0 × 2M) + Mandate (0.75 × 2M) = 3.5M
-      expect(r.weighted).toBe(3_500_000)
+      expect(r.recognised).toBe(fee) // only deals that reached Diligence
+      // weighted derives from the live STAGE_PROBABILITY so it stays correct if tuned
+      expect(r.weighted).toBeCloseTo(fee * STAGE_PROBABILITY.Diligence + fee * STAGE_PROBABILITY.Memo, 0)
     })
   })
 
@@ -59,9 +60,9 @@ describe('insights', () => {
       const oldIso = new Date(Date.now() - 14 * 24 * 3600_000).toISOString()
       const freshIso = new Date(Date.now() - 1 * 24 * 3600_000).toISOString()
       const deals = [
-        { id: 'a', stage: 'Mandate',     updated_at: oldIso },
-        { id: 'b', stage: 'Closed',      updated_at: oldIso }, // terminal — excluded
-        { id: 'c', stage: 'Pre-Mandate', updated_at: freshIso }
+        { id: 'a', stage: 'Memo',         updated_at: oldIso },
+        { id: 'b', stage: 'Diligence',    updated_at: oldIso }, // terminal — excluded
+        { id: 'c', stage: 'Partner Call', updated_at: freshIso }
       ]
       const stale = staleDeals(deals, {}, 7)
       expect(stale.map(d => d.id)).toEqual(['a'])

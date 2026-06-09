@@ -102,7 +102,7 @@ export default function DealComments({ deal }) {
       <div>
         <p className="text-sm font-semibold text-valence-text">Deal discussion</p>
         <p className="mt-0.5 text-xs text-valence-muted">
-          Internal thread for this mandate. Use <span className="vl-kbd">@name</span> to tag a teammate. Everything is timestamped and kept with the deal.
+          Internal thread for this deal. Use <span className="vl-kbd">@name</span> to tag a teammate. Everything is timestamped and kept with the deal.
         </p>
       </div>
 

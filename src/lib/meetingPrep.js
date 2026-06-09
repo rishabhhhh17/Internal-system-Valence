@@ -118,9 +118,9 @@ function buildTalkingPoints({ people, interactions, deals }) {
   if (interactions[0]?.notes) {
     out.push(`Pick up from last meeting: "${trim(interactions[0].notes, 120)}"`)
   }
-  const stuck = deals.find(d => ['Pitching','Pre-Mandate','Mandate'].includes(d.stage))
+  const stuck = deals.find(d => ['Analyst Call','Partner Call','Memo'].includes(d.stage))
   if (stuck) {
-    out.push(`Mandate context: ${stuck.client_name} (${stuck.stage}) — confirm the next gate before closing.`)
+    out.push(`Deal context: ${stuck.client_name} (${stuck.stage}) — confirm the next gate before moving forward.`)
   }
   if (p?.mutuals?.length > 0) {
     out.push(`Mutuals to drop in conversation: ${p.mutuals.slice(0, 2).join(', ')}.`)

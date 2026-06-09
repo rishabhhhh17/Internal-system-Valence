@@ -13,14 +13,14 @@ export default function TargetList({ deal }) {
   const [copied, setCopied] = useState(false)
 
   async function run() {
-    if (!isGeminiConfigured) { setError('Add VITE_GEMINI_API_KEY to generate target lists.'); return }
+    if (!isGeminiConfigured) { setError('Add VITE_GEMINI_API_KEY to generate co-investor lists.'); return }
     setLoading(true); setError(''); setList([])
     try {
       const targets = await suggestTargets(deal)
       setList(targets)
-      if (deal?.id) await logActivity({ dealId: deal.id, kind: 'note', body: `Target list generated (${targets.length} candidates).` })
+      if (deal?.id) await logActivity({ dealId: deal.id, kind: 'note', body: `Co-investor list generated (${targets.length} candidates).` })
     } catch (e) {
-      setError(e.message || 'Could not generate target list.')
+      setError(e.message || 'Could not generate co-investor list.')
     } finally {
       setLoading(false)
     }
@@ -62,9 +62,9 @@ export default function TargetList({ deal }) {
             <UsersIcon className="h-4 w-4 text-valence-blue" />
           </div>
           <div className="flex-1">
-            <p className="font-display text-lg font-semibold text-valence-text">Suggested outreach list</p>
+            <p className="font-display text-lg font-semibold text-valence-text">Suggested co-investor list</p>
             <p className="mt-1 text-xs text-valence-muted leading-relaxed">
-              Shortlist of buyers / investors to approach, ranked by fit. Draws on sector memos, your firm's contacts, and market knowledge.
+              Shortlist of co-investors to approach, ranked by fit. Draws on sector memos, your firm's contacts, and market knowledge.
             </p>
           </div>
           <button onClick={run} disabled={loading} className="vl-btn-accent shrink-0">

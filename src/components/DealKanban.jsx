@@ -24,11 +24,11 @@ export default function DealKanban({ deals, onOpen, onStageChange }) {
   const [stageMenu, setStageMenu]   = useState(null) // dealId for mobile stage picker
 
   // Build per-stage buckets. Any deal with an unknown stage gets safely
-  // bucketed into 'Origination' so the funnel never silently loses cards.
+  // bucketed into 'Sourced' so the funnel never silently loses cards.
   const byStage = useMemo(() => {
     const g = Object.fromEntries(STAGES.map(s => [s.id, []]))
     for (const d of deals) {
-      const bucket = STAGE_IDS.includes(d.stage) ? d.stage : 'Origination'
+      const bucket = STAGE_IDS.includes(d.stage) ? d.stage : 'Sourced'
       g[bucket].push(d)
     }
     return g
@@ -43,7 +43,7 @@ export default function DealKanban({ deals, onOpen, onStageChange }) {
           Stage descriptions still live in tooltips on each column header. */}
       <div className="flex items-center justify-between gap-3 mb-4">
         <p className="text-sm text-valence-muted">
-          <span className="font-semibold text-valence-text tabular-nums">{totalCount}</span> mandate{totalCount === 1 ? '' : 's'} across <span className="font-semibold text-valence-text tabular-nums">{stagesShown}</span> stages
+          <span className="font-semibold text-valence-text tabular-nums">{totalCount}</span> deal{totalCount === 1 ? '' : 's'} across <span className="font-semibold text-valence-text tabular-nums">{stagesShown}</span> stages
         </p>
         <span className="hidden sm:inline-flex items-center gap-1.5 rounded-full border border-valence-border bg-valence-elevated px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-valence-subtle">
           <MoveRight className="h-3 w-3" /> Drag to advance

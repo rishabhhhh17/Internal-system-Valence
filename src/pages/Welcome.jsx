@@ -30,7 +30,7 @@ import { signOut } from '../lib/google.js'
 import Logo from '../components/Logo.jsx'
 
 const FEATURES = [
-  { icon: Briefcase,     label: 'Deal Logger',         body: 'Every mandate, every stage, in one pipeline.' },
+  { icon: Briefcase,     label: 'Pipeline',            body: 'Every deal, every stage, in one pipeline.' },
   { icon: Users,         label: 'People CRM',          body: 'Personas, warmth, and who knows who.' },
   { icon: MessageSquare, label: 'Auto-capture',        body: 'Gmail + Calendar flow in via the Chrome extension.' },
   { icon: BookOpen,      label: 'Knowledge base',      body: 'Files, memos, and AI-searched firm notes.' },

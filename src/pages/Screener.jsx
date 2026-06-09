@@ -13,7 +13,7 @@ import { humanError } from '../lib/userError.js'
 
 const MODES = [
   { id: 'fund_match',   label: 'Fund-Match',   blurb: 'A client is raising / selling. Rank the universe.' },
-  { id: 'mandate_fit',  label: 'Mandate-Fit',  blurb: 'Inbound teaser. Should we pursue?' }
+  { id: 'mandate_fit',  label: 'Thesis-fit',  blurb: 'Inbound deck. Should we pursue?' }
 ]
 
 const TOP_TYPES = [
@@ -81,7 +81,7 @@ export default function Screener() {
   const composedDeal = useMemo(() => {
     if (selectedDeal) return selectedDeal
     return {
-      client_name: manual.client_name || 'Untitled mandate',
+      client_name: manual.client_name || 'Untitled deal',
       sector: manual.sector || null,
       deal_types: manual.deal_types,
       deal_subtype: manual.deal_types.includes('transaction') ? manual.deal_subtype : null,
@@ -136,7 +136,7 @@ export default function Screener() {
       let result
       if (mode === 'fund_match') {
         if (isAdvisoryOnly) {
-          toast.error('Fund-Match is not applicable for advisory mandates.')
+          toast.error('Fund-Match is not applicable for advisory deals.')
           return
         }
         result = await screenForFundsAI({ deal: composedDeal, funds, topN: 8 })
@@ -185,7 +185,7 @@ export default function Screener() {
       new: '1',
       client_name: composedDeal.client_name,
       sector: composedDeal.sector || '',
-      stage: 'Origination',
+      stage: 'Information Received',
       notes: composedDeal.notes || ''
     })
     window.location.href = `/deals?${params.toString()}`
@@ -254,7 +254,7 @@ export default function Screener() {
               </div>
 
               <div>
-                <label className="vl-label">Mandate type</label>
+                <label className="vl-label">Deal type</label>
                 <div className="mt-1.5 grid grid-cols-2 gap-2">
                   {TOP_TYPES.map(t => {
                     const active = manual.deal_types.includes(t.id)
@@ -538,7 +538,7 @@ function FundMatchOutput({ output, funds, onShortlist, pingedFundIds, canShortli
 function MandateFitOutput({ output, onConvert }) {
   // Polished IB-diligence-style verdict block. The wrapper is intentionally
   // stripped down — MandateFitVerdict carries its own card chrome.
-  return <MandateFitVerdict output={output} onConvert={onConvert} eyebrow="Quick Screener · Mandate-Fit" />
+  return <MandateFitVerdict output={output} onConvert={onConvert} eyebrow="Quick Screener · Thesis-fit" />
 }
 
 function AdvisoryNotApplicable() {
@@ -547,7 +547,7 @@ function AdvisoryNotApplicable() {
       <div className="flex items-start gap-3">
         <Lock className="h-4 w-4 mt-0.5 text-valence-warning shrink-0" />
         <div>
-          <p className="text-sm font-semibold text-valence-text">Not applicable for advisory mandates</p>
+          <p className="text-sm font-semibold text-valence-text">Not applicable for advisory deals</p>
           <p className="mt-1 text-[12px] leading-relaxed text-valence-muted">
             Advisory work — geography expansion, vertical entry, distribution — isn't fund-matchable. There's no investor universe to rank.
             Convert the engagement into a Transaction sub-type if it later moves to fundraising or M&A.
@@ -564,20 +564,20 @@ const DEMO_DEALS = [
     deal_types: ['transaction'], deal_subtype: 'm_and_a', ma_side: 'sell',
     acquisition_brief: null,
     notes: 'Family-owned premium consumer brand exploring partial sale.',
-    stage: 'Pitching'
+    stage: 'Analyst Call'
   },
   {
     id: 'dl2', client_name: 'Quantum Edge', sector: 'Fintech',
     deal_types: ['transaction'], deal_subtype: 'fundraise',
     target_raise_usd_m: 250, target_valuation_usd_m: 1200, company_stage: 'Pre-IPO',
     notes: 'Pre-IPO cap raise. Anchor book being built.',
-    stage: 'Mandate'
+    stage: 'Memo'
   },
   {
     id: 'dl3', client_name: 'Solstice Solar', sector: 'Renewables',
     deal_types: ['transaction'], deal_subtype: 'fundraise',
     target_raise_usd_m: 90, target_valuation_usd_m: 320, company_stage: 'Series C',
     notes: 'Operating solar portfolio with PPAs in place.',
-    stage: 'Mandate'
+    stage: 'Memo'
   }
 ]

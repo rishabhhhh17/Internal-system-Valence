@@ -43,12 +43,12 @@ const PEOPLE = [
 ]
 
 const DEALS = [
-  { client_name: 'Nimbus Health',     sector: 'Healthcare',     stage: 'Mandate',     deal_type: 'transaction', deal_subtype: 'fundraise', counterparty_name: 'Anand Iyer',         counterparty_company: 'Nimbus Health',     ev_usd_m: 75,  fee_estimate_usd_m: 1.5 },
-  { client_name: 'Quantum Edge',      sector: 'Fintech',        stage: 'Mandate',     deal_type: 'transaction', deal_subtype: 'fundraise', counterparty_name: 'Devika Kapoor',      counterparty_company: 'Quantum Edge',      ev_usd_m: 240, fee_estimate_usd_m: 4.8 },
-  { client_name: 'HoV Mushrooms',     sector: 'Consumer',       stage: 'Pre-Mandate', deal_type: 'transaction', deal_subtype: 'fundraise', counterparty_name: 'Karthik Ranganathan',counterparty_company: 'HoV Mushrooms',     ev_usd_m: 30,  fee_estimate_usd_m: 0.6 },
-  { client_name: 'Helios Infra',      sector: 'Infrastructure', stage: 'Closed',      deal_type: 'transaction', deal_subtype: 'm_and_a',    ma_side: 'sell', counterparty_name: 'Daniel Cheng',      counterparty_company: 'Brookfield',        ev_usd_m: 850, fee_estimate_usd_m: 12  },
-  { client_name: 'Saffron Studios',   sector: 'Consumer',       stage: 'Pitching',    deal_type: 'transaction', deal_subtype: 'm_and_a',    ma_side: 'sell', counterparty_name: 'Priyanka Saxena',   counterparty_company: 'Saffron Studios',   ev_usd_m: 80,  fee_estimate_usd_m: 1.6 },
-  { client_name: 'Crescent Pharma',   sector: 'Healthcare',     stage: 'Origination', deal_type: 'transaction', deal_subtype: 'm_and_a',    ma_side: 'sell', counterparty_name: 'Aditya Sharma',     counterparty_company: 'Crescent Pharma',   ev_usd_m: 150, fee_estimate_usd_m: 3   }
+  { client_name: 'Nimbus Health',     sector: 'Healthcare',     stage: 'Memo',                 deal_type: 'transaction', deal_subtype: 'fundraise', counterparty_name: 'Anand Iyer',         counterparty_company: 'Nimbus Health',     ev_usd_m: 75,  fee_estimate_usd_m: 1.5 },
+  { client_name: 'Quantum Edge',      sector: 'Fintech',        stage: 'Memo',                 deal_type: 'transaction', deal_subtype: 'fundraise', counterparty_name: 'Devika Kapoor',      counterparty_company: 'Quantum Edge',      ev_usd_m: 240, fee_estimate_usd_m: 4.8 },
+  { client_name: 'HoV Mushrooms',     sector: 'Consumer',       stage: 'Partner Call',         deal_type: 'transaction', deal_subtype: 'fundraise', counterparty_name: 'Karthik Ranganathan',counterparty_company: 'HoV Mushrooms',     ev_usd_m: 30,  fee_estimate_usd_m: 0.6 },
+  { client_name: 'Helios Infra',      sector: 'Infrastructure', stage: 'Diligence',            deal_type: 'transaction', deal_subtype: 'm_and_a',    ma_side: 'sell', counterparty_name: 'Daniel Cheng',      counterparty_company: 'Brookfield',        ev_usd_m: 850, fee_estimate_usd_m: 12  },
+  { client_name: 'Saffron Studios',   sector: 'Consumer',       stage: 'Analyst Call',         deal_type: 'transaction', deal_subtype: 'm_and_a',    ma_side: 'sell', counterparty_name: 'Priyanka Saxena',   counterparty_company: 'Saffron Studios',   ev_usd_m: 80,  fee_estimate_usd_m: 1.6 },
+  { client_name: 'Crescent Pharma',   sector: 'Healthcare',     stage: 'Information Received',  deal_type: 'transaction', deal_subtype: 'm_and_a',    ma_side: 'sell', counterparty_name: 'Aditya Sharma',     counterparty_company: 'Crescent Pharma',   ev_usd_m: 150, fee_estimate_usd_m: 3   }
 ]
 
 const KNOWLEDGE_FILES = [

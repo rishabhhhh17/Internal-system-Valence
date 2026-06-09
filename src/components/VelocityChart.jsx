@@ -4,16 +4,16 @@ import { supabase, isSupabaseConfigured } from '../lib/supabase.js'
 import { stageVelocity } from '../lib/insights.js'
 import { stageToneClasses } from '../lib/stages.js'
 
-// Rough boutique-IB benchmarks — based on the ~mid-market sell-side /
-// fund-raise mandates Valence runs. Sourced from a partner's gut, not
-// hard data — partner can edit when they have firm-specific numbers.
-// Stages outside the active book (Closed / On Hold / Lost) intentionally
-// omitted — they're terminal, average-days isn't a useful read.
+// Rough benchmarks for the active pre-diligence funnel. Sourced from a
+// partner's gut, not hard data — partner can edit when they have
+// firm-specific numbers. Terminal stages (Diligence / Passed) are
+// intentionally omitted — average-days isn't a useful read for them.
 const BENCHMARK_DAYS = {
-  'Origination':  14,
-  'Pitching':     21,
-  'Pre-Mandate':  18,
-  'Mandate':      90
+  'Sourced':              10,
+  'Information Received':  10,
+  'Analyst Call':         14,
+  'Partner Call':         14,
+  'Memo':                 21
 }
 
 export default function VelocityChart() {

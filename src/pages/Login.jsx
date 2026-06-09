@@ -85,7 +85,7 @@ export default function Login() {
 
             <div className="vl-card p-8 space-y-5">
               <p className="vl-eyebrow-ink">What you unlock</p>
-              <Item title="Deal Logger" body="Every mandate across Origination → Closed, with stage-gate checklists and deal-team economics." />
+              <Item title="Pipeline" body="Every deal from sourcing → diligence, with stage-gate checklists and deal-team economics." />
               <Item title="Knowledge" body="Ask plain-English questions. Memos, files, and comps indexed and cited." />
               <Item title="Day Planner" body="Your real Google Calendar, free-slot meeting proposals, and drafted follow-ups." />
             </div>

@@ -151,7 +151,7 @@ export default function Intake() {
       </header>
 
       <main className="mx-auto max-w-3xl px-6 py-16">
-        <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-valence-blue">Submit a mandate</p>
+        <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-valence-blue">Submit your deal</p>
         <h1 className="mt-3 font-display text-4xl font-bold leading-tight tracking-tight md:text-5xl">
           Tell us about the situation.
         </h1>
@@ -186,7 +186,7 @@ export default function Intake() {
 
           {/* Mandate type */}
           <div>
-            <label className="text-[11px] font-semibold uppercase tracking-[0.18em] text-white/60">Mandate type</label>
+            <label className="text-[11px] font-semibold uppercase tracking-[0.18em] text-white/60">Deal type</label>
             <div className="mt-2 grid gap-2 sm:grid-cols-2">
               {TOP_TYPES.map(t => {
                 const active = form.deal_types.includes(t.id)
@@ -208,7 +208,7 @@ export default function Intake() {
                 )
               })}
             </div>
-            <p className="mt-1.5 text-[11px] text-white/50">A mandate can be one or both. Both is fine.</p>
+            <p className="mt-1.5 text-[11px] text-white/50">A deal can be one or both. Both is fine.</p>
           </div>
 
           {/* Transaction-conditional */}
@@ -331,11 +331,11 @@ export default function Intake() {
 
           {/* Situation + deck */}
           <Field label="The situation, in your own words">
-            <textarea className="vl-input bg-valence-elevated text-valence-text min-h-[160px] leading-relaxed" value={form.situation} onChange={e => update({ situation: e.target.value })} placeholder="What's the mandate, what triggered the need, what does success look like?" />
+            <textarea className="vl-input bg-valence-elevated text-valence-text min-h-[160px] leading-relaxed" value={form.situation} onChange={e => update({ situation: e.target.value })} placeholder="What's the deal, what triggered the need, what does success look like?" />
           </Field>
 
           <div>
-            <label className="text-[11px] font-semibold uppercase tracking-[0.18em] text-white/60">Teaser / deck (optional)</label>
+            <label className="text-[11px] font-semibold uppercase tracking-[0.18em] text-white/60">Pitch deck (optional)</label>
             <div className="mt-1.5 flex items-center gap-3">
               <input
                 ref={inputRef}

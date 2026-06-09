@@ -5,12 +5,12 @@ import { Paperclip, X, FileText } from 'lucide-react'
 // User picks files BEFORE the deal exists; we hold them in parent state
 // and upload them after the deal-insert returns the new id.
 //
-// Each pending file carries a category (Teaser / NDA / IM / Deck / LOI /
-// Diligence / SPA / Engagement Letter / Other) matching the CHECK
+// Each pending file carries a category (Pitch deck / NDA / Data room / Deck /
+// Term sheet / Diligence / Side letter / Other) matching the CHECK
 // constraint on deal_files.category. Defaults to "Other" so the user can
 // drop a file and only categorise it if they care.
 
-const CATEGORIES = ['Teaser', 'NDA', 'IM', 'Deck', 'LOI', 'Diligence', 'SPA', 'Engagement Letter', 'Other']
+const CATEGORIES = ['Pitch deck', 'NDA', 'Data room', 'Deck', 'Term sheet', 'Diligence', 'Side letter', 'Other']
 
 function formatBytes(n) {
   if (!n && n !== 0) return ''
@@ -56,7 +56,7 @@ export default function DealDocumentsUploader({ files, onChange }) {
         <div>
           <p className="vl-eyebrow-ink">Documents</p>
           <p className="text-[11px] text-valence-muted mt-0.5">
-            Attach the NDA, engagement letter, deck — anything you already have. Uploaded once the deal is created.
+            Attach the NDA, side letter, deck — anything you already have. Uploaded once the deal is created.
           </p>
         </div>
         <button
@@ -125,12 +125,12 @@ export default function DealDocumentsUploader({ files, onChange }) {
 function guessCategory(name) {
   const n = (name || '').toLowerCase()
   if (/\bnda\b|non[-_ ]?disclosure/.test(n))           return 'NDA'
-  if (/teaser/.test(n))                                 return 'Teaser'
-  if (/\bim\b|information[-_ ]?memorandum/.test(n))     return 'IM'
-  if (/deck|pitch|presentation/.test(n))                return 'Deck'
-  if (/\bloi\b|letter[-_ ]?of[-_ ]?intent/.test(n))     return 'LOI'
+  if (/teaser/.test(n))                                 return 'Pitch deck'
+  if (/\bim\b|information[-_ ]?memorandum/.test(n))     return 'Data room'
+  if (/deck|pitch|presentation/.test(n))                return 'Pitch deck'
+  if (/\bloi\b|letter[-_ ]?of[-_ ]?intent/.test(n))     return 'Term sheet'
   if (/diligence|due[-_ ]?dilig/.test(n))               return 'Diligence'
-  if (/\bspa\b|share[-_ ]?purchase/.test(n))            return 'SPA'
-  if (/engagement|el[-_ ]?signed/.test(n))              return 'Engagement Letter'
+  if (/\bspa\b|share[-_ ]?purchase|term[-_ ]?sheet/.test(n)) return 'Term sheet'
+  if (/engagement|el[-_ ]?signed|side[-_ ]?letter/.test(n))  return 'Side letter'
   return 'Other'
 }

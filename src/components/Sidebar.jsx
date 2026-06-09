@@ -21,15 +21,15 @@ const LIVE_MANDATE_STAGES = new Set(LIVE_MANDATE_STAGE_IDS)
 // existing deeplinks and the command palette keep working.
 const nav = [
   { to: '/',             label: 'Today',        icon: LayoutDashboard },
-  { to: '/deals',        label: 'Deal Logger',  icon: Briefcase,     badgeKey: 'activeDeals' },
-  { to: '/mandates',     label: 'Live Mandates',icon: Handshake,     badgeKey: 'liveMandates' },
+  { to: '/deals',        label: 'Pipeline',     icon: Briefcase,     badgeKey: 'activeDeals' },
+  { to: '/mandates',     label: 'Active Deals', icon: Handshake,     badgeKey: 'liveMandates' },
   { to: '/timeline',     label: 'Timeline',     icon: GanttChartSquare },
   { to: '/interactions', label: 'Interactions', icon: MessageSquare, badgeKey: 'pendingFollowUps', section: 'Relationships' },
   { to: '/people',       label: 'People',       icon: UserCircle,                                section: 'Relationships' },
-  { to: '/funds',        label: 'Firm',         icon: Building2,                                 section: 'Relationships' },
+  { to: '/funds',        label: 'Investors',    icon: Building2,                                 section: 'Relationships' },
   // Import is a power-user CSV ingest — hidden from the demo nav.
   { to: '/import',       label: 'Import',       icon: Upload,                                    section: 'AI', power: true },
-  { to: '/inbox/intake', label: 'Intake inbox', icon: Inbox,        badgeKey: 'newIntakes',     section: 'AI' },
+  { to: '/inbox/intake', label: 'Inbound deals',icon: Inbox,        badgeKey: 'newIntakes',     section: 'AI' },
   // Billing · admin — internal cost-tracking dashboard. Always hidden
   // from partners; route still resolves for the dev team.
   { to: '/admin/billing', label: 'Billing · admin', icon: Wallet,                                section: 'Admin', power: true },
@@ -245,7 +245,7 @@ function SavedViewsSection() {
 
       {myViews.length === 0 && teamViews.length === 0 && (
         <p className="px-3 text-[11px] text-valence-subtle italic">
-          No views yet — apply filters on Deal Logger, then click <span className="text-valence-blue font-semibold">+ New</span>.
+          No views yet — apply filters on Pipeline, then click <span className="text-valence-blue font-semibold">+ New</span>.
         </p>
       )}
 

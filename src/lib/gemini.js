@@ -623,7 +623,7 @@ Write the email now.`
 // would write on the back of an envelope.
 export function heuristicDealBrief({ deal, contacts = [], files = [], activities = [] }) {
   const sector       = deal.sector || 'this sector'
-  const stage        = deal.stage  || 'Origination'
+  const stage        = deal.stage  || 'Sourced'
   const dealType     = (deal.deal_types || []).includes('advisory') && !(deal.deal_types || []).includes('transaction') ? 'advisory' : 'transaction'
   const subtype      = (deal.deal_subtype || '').replace(/_/g, ' ')
   const side         = deal.ma_side ? `${deal.ma_side}-side` : (deal.side || 'advisory').toLowerCase()
@@ -667,10 +667,10 @@ export function heuristicDealBrief({ deal, contacts = [], files = [], activities
     const days = Math.floor((Date.now() - lastTouch.getTime()) / 86400000)
     if (days >= 21) risks.push(`No activity logged in ${days} days — momentum risk; counterparty cool-off likely.`)
   }
-  if (nda === 'Pending' && (stage === 'Pre-Mandate' || stage === 'Mandate'))
+  if (nda === 'Pending' && (stage === 'Partner Call' || stage === 'Memo'))
     risks.push(`NDA still pending at ${stage} — blocks diligence room sharing and slows pricing work.`)
-  if (!deal.fee_retainer_usd && !deal.fee_success_pct && stage === 'Mandate')
-    risks.push(`Fee structure not set on a live mandate — revisit the engagement letter before next stage.`)
+  if (!deal.fee_retainer_usd && !deal.fee_success_pct && stage === 'Memo')
+    risks.push(`Fee structure not set on a live deal — revisit the engagement letter before next stage.`)
   if (contacts.length === 0)
     risks.push(`No counterparty logged — relationship is in ${lead}'s head only, not the firm's.`)
   if (targetClose) {
@@ -696,47 +696,47 @@ export function heuristicDealBrief({ deal, contacts = [], files = [], activities
 
 function nextMovesFor(stage, deal, contacts) {
   const counterpartyName = contacts[0]?.name || 'the lead counterparty'
-  const lead             = deal.lead_owner || 'the lead banker'
+  const lead             = deal.lead_owner || 'the deal lead'
   switch (stage) {
-    case 'Origination':
+    case 'Sourced':
       return [
-        `Confirm the engagement framing with ${counterpartyName} this week — scope, fees, timeline.`,
-        `Spin up the data room template for ${deal.sector || 'the sector'} and seed it with the top three precedent comps.`
+        `Request the deck / intro from ${counterpartyName} this week so there's something concrete to screen.`,
+        `Log where this came from and the one-line reason it's interesting before it goes cold.`
       ]
-    case 'Pitching':
+    case 'Information Received':
       return [
-        `Walk ${counterpartyName} through the pitch deck and capture two objections to address before the IC.`,
-        `Shortlist five fund counterparties whose persona fits and warm-intro by Friday.`
+        `Do a first-pass screen on the materials and decide if it's worth an analyst call.`,
+        `Flag the two open questions an analyst should pressure-test before booking time.`
       ]
-    case 'Pre-Mandate':
+    case 'Analyst Call':
       return [
-        `Close out the NDA${deal.nda_status === 'Pending' ? ' — currently pending' : ''} so diligence work isn't blocked.`,
-        `Draft the engagement letter (retainer + success fee) and circulate internally for ${lead} to sign off.`
+        `Book the analyst call with ${counterpartyName} and pressure-test the core thesis.`,
+        `Capture the gaps the call exposes so you know whether to pull a partner in.`
       ]
-    case 'Mandate':
+    case 'Partner Call':
       return [
-        `Refresh the live pipeline of interested counterparties — add new touches under the Interactions tab.`,
-        `Run a mid-mandate diligence checklist: docs, comps, model, regulatory. Flag any gaps to ${lead}.`
+        `Get a partner on a call with ${counterpartyName} and frame the why-now sharply.`,
+        `Pre-brief ${lead} on the thesis, the numbers, and the single biggest risk.`
       ]
-    case 'Closed':
+    case 'Memo':
       return [
-        `Log the final fee position and close-out memo under the Files tab.`,
-        `Schedule the 30-day post-close debrief with ${counterpartyName} to seed the next mandate.`
+        `Draft the investment memo for IC — thesis, market, risks, and the ask.`,
+        `Line up the diligence workstreams you'll kick off the moment IC says go.`
       ]
-    case 'On Hold':
+    case 'Diligence':
       return [
-        `Confirm the hold trigger (market, counterparty, internal) and set a calendar reminder to revisit in 30 days.`,
-        `Park the data room and notify any active funds so they de-prioritise without going cold.`
+        `Diligence underway — track the workstreams (commercial, financial, legal) and flag any slippage to ${lead}.`,
+        `Keep ${counterpartyName} warm on the data-room asks so nothing stalls the timeline.`
       ]
-    case 'Lost':
+    case 'Passed':
       return [
-        `Write the loss reason into the Activity log so the firm learns from this counterparty.`,
-        `Stay in touch every quarter — losses today are mandates tomorrow.`
+        `Logged as passed — note why for future reference so the firm learns from it.`,
+        `Stay in touch lightly; today's pass can be tomorrow's deal.`
       ]
     default:
       return [
-        `Move the mandate forward by logging the next concrete action under Activity.`,
-        `Re-confirm scope, timing, and economics with ${counterpartyName}.`
+        `Move the deal forward by logging the next concrete action under Activity.`,
+        `Re-confirm the thesis, timing, and economics with ${counterpartyName}.`
       ]
   }
 }

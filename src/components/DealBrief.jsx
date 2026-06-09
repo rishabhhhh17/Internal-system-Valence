@@ -12,7 +12,7 @@ import { dealTypeLabel } from '../lib/dealLabels.js'
 // Polished AI Brief for the Deal drawer.
 //
 // The previous version put the prose in a plain card; this rewrite:
-//   1. Shows the mandate economics as chips at the top (stage, NDA, EV,
+//   1. Shows the deal economics as chips at the top (stage, NDA, EV,
 //      fees, target close, lead) so the prose can stay focused on
 //      judgement.
 //   2. Renders the LLM's four labelled sections (THESIS / COUNTERPARTIES /
@@ -23,7 +23,7 @@ import { dealTypeLabel } from '../lib/dealLabels.js'
 
 const SECTION_META = [
   { key: 'THESIS',        label: 'Thesis',        icon: Target,         accent: 'blue' },
-  { key: 'COUNTERPARTIES',label: 'Counterparties',icon: Users2,         accent: 'violet' },
+  { key: 'COUNTERPARTIES',label: 'Key parties',   icon: Users2,         accent: 'violet' },
   { key: 'RISKS',         label: 'Risks',         icon: AlertTriangle,  accent: 'amber' },
   { key: 'NEXT MOVES',    label: 'Next moves',    icon: ArrowRight,     accent: 'emerald' },
   // Legacy fallbacks — the old prompt emitted these labels. Keep them
@@ -149,7 +149,7 @@ export default function DealBrief({ deal }) {
               )}
             </div>
             <p className="mt-0.5 text-[11px] text-valence-muted leading-relaxed">
-              Crisp, partner-grade read of this mandate. Pulls live data, counterparties, files and recent activity into four sections: Thesis · Counterparties · Risks · Next moves.
+              Crisp, partner-grade read of this deal. Pulls live data, key parties, files and recent activity into four sections: Thesis · Key parties · Risks · Next moves.
             </p>
           </div>
           <button onClick={run} disabled={loading} className="vl-btn-primary shrink-0">
@@ -227,7 +227,7 @@ export default function DealBrief({ deal }) {
       {!brief && !loading && !error && (
         <div className="rounded-xl border border-dashed border-valence-border bg-valence-surface/40 px-4 py-6 text-center">
           <p className="text-[12px] text-valence-muted">
-            Click <span className="font-semibold text-valence-text">Generate brief</span> to produce the partner-grade read of this mandate.
+            Click <span className="font-semibold text-valence-text">Generate brief</span> to produce the partner-grade read of this deal.
           </p>
         </div>
       )}
@@ -260,8 +260,8 @@ function parseSections(text) {
 }
 
 // Build the chip strip from the deal record. Each chip carries an optional
-// tooltip so partners can disambiguate (e.g. is "Mandate" the stage or a
-// deal type?).
+// tooltip so partners can disambiguate (e.g. whether a label is the stage
+// or the deal type).
 function buildChips(deal) {
   const chips = []
   if (deal.stage)
@@ -274,7 +274,7 @@ function buildChips(deal) {
   if (deal.sector)
     chips.push({ label: deal.sector, tone: 'border-violet-200 bg-violet-50 text-violet-700', title: 'Sector' })
   if (deal.ticket_size_usd_m)
-    chips.push({ label: `USD ${deal.ticket_size_usd_m}M EV`, tone: 'border-emerald-200 bg-emerald-50 text-emerald-800', title: 'Enterprise value' })
+    chips.push({ label: `USD ${deal.ticket_size_usd_m}M EV`, tone: 'border-emerald-200 bg-emerald-50 text-emerald-800', title: 'Valuation' })
   if (deal.target_raise_usd_m)
     chips.push({ label: `USD ${deal.target_raise_usd_m}M raise`, tone: 'border-emerald-200 bg-emerald-50 text-emerald-800', title: 'Target raise' })
   if (deal.fee_retainer_usd)
@@ -286,7 +286,7 @@ function buildChips(deal) {
   if (deal.target_close)
     chips.push({ label: `Target close ${String(deal.target_close).slice(0, 10)}`, tone: 'border-rose-200 bg-rose-50 text-rose-800', title: 'Target close' })
   if (deal.lead_owner)
-    chips.push({ label: `Lead: ${deal.lead_owner}`, tone: 'border-valence-border bg-valence-surface text-valence-muted', title: 'Lead banker' })
+    chips.push({ label: `Lead: ${deal.lead_owner}`, tone: 'border-valence-border bg-valence-surface text-valence-muted', title: 'Deal lead' })
   return chips
 }
 

@@ -55,7 +55,7 @@ DEAL fields (live mandates the firm is running):
   deal_subtype       — 'fundraise','m_and_a','exit','advisory'
   side               — 'Buy-side','Sell-side','Advisory'
   sector             — sector tag
-  stage              — 'Origination','Pitching','Pre-Mandate','Mandate','Closed','On Hold','Lost'
+  stage              — 'Sourced','Information Received','Analyst Call','Partner Call','Memo','Diligence','Passed'
   ticket_size_usd_m  — number, enterprise value in USD millions
   notes              — short context (under 300 chars)
 
@@ -212,7 +212,7 @@ async function insertEntity(e, orgId) {
         deal_subtype: f.deal_subtype || null,
         ma_side:     maSide,
         sector:      f.sector      || null,
-        stage:       f.stage       || 'Origination',
+        stage:       f.stage       || 'Sourced',
         ticket_size_usd_m: numOrNull(f.ticket_size_usd_m),
         notes:       f.notes       || null,
         nda_status:  'Pending'

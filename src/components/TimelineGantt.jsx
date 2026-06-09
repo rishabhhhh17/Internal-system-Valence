@@ -47,17 +47,20 @@ const MARKER_KIND = {
 }
 const MARKER_KINDS = Object.keys(MARKER_KIND)
 
-// Default per-stage durations, in days. The new model has only two live
-// stages — Pre-Mandate (paperwork) and Mandate (execution). Mandate is
-// long because it absorbs what used to be Preparation through Closing.
+// Default per-stage durations, in days, across the active pre-diligence
+// funnel. Used to project future segments when there's no explicit close
+// date to scale against.
 export const STAGE_DEFAULT_DAYS = {
-  'Pre-Mandate': 14,
-  'Mandate':     90
+  'Sourced':              10,
+  'Information Received':  10,
+  'Analyst Call':         14,
+  'Partner Call':         14,
+  'Memo':                 21
 }
 
-// The ordered list of stages a live mandate progresses through. Used to
+// The ordered list of active stages a deal progresses through. Used to
 // derive past / current / future segments deterministically.
-const LIVE_STAGES = ['Pre-Mandate', 'Mandate']
+const LIVE_STAGES = ['Sourced', 'Information Received', 'Analyst Call', 'Partner Call', 'Memo']
 
 const ZOOMS = {
   weeks:    { px: 12,  monthLabel: false, weekLabel: true,  monthsRange: { back: 6, fwd: 9 } },
@@ -81,7 +84,7 @@ function buildSegments(deal, activitiesByDeal, today) {
     if (a.kind && a.kind !== 'stage_change') continue
     const t = new Date(a.created_at)
     if (a.body) {
-      // Activity body is "Origination → Pitch" style. Pull the destination.
+      // Activity body is "Sourced → Analyst Call" style. Pull the destination.
       const m = String(a.body).match(/→\s*([\w\s]+)/)
       const dest = m ? m[1].trim() : null
       if (dest && stageOrder.includes(dest)) {

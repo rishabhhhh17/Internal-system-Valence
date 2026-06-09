@@ -23,7 +23,7 @@ export default function CIMGenerator({ deal }) {
   }, [deal?.id])
 
   async function run() {
-    if (!isGeminiConfigured) { setError('Add VITE_GEMINI_API_KEY to draft a CIM.'); return }
+    if (!isGeminiConfigured) { setError('Add VITE_GEMINI_API_KEY to draft an investment memo.'); return }
     setError(''); setStreaming(true); setDraft('')
 
     // Fetch attached context in parallel
@@ -43,7 +43,7 @@ export default function CIMGenerator({ deal }) {
         deal, contacts, files, activities, financials, sections,
         onChunk: (_, full) => setDraft(full),
         onDone: async () => {
-          if (deal?.id) await logActivity({ dealId: deal.id, kind: 'brief_generated', body: 'CIM draft generated.' })
+          if (deal?.id) await logActivity({ dealId: deal.id, kind: 'brief_generated', body: 'Investment memo draft generated.' })
         },
         onError: (e) => setError(e.message || 'Generation failed')
       })
@@ -60,9 +60,9 @@ export default function CIMGenerator({ deal }) {
     try {
       const { error } = await supabase.from('deals').update({ cim_draft: draft }).eq('id', deal.id)
       if (error) throw error
-      toast.success('CIM draft saved to the deal.')
+      toast.success('Investment memo draft saved to the deal.')
     } catch (e) {
-      toast.error(humanError(e, 'Could not save CIM draft'))
+      toast.error(humanError(e, 'Could not save investment memo draft'))
     } finally {
       setSaving(false)
     }
@@ -83,7 +83,7 @@ export default function CIMGenerator({ deal }) {
       `<section><h2>${safe(b.title)}</h2>${b.body.split(/\n\n+/).map(p => `<p>${safe(p)}</p>`).join('')}</section>`
     ).join('')
     win.document.write(`<!doctype html><html><head><meta charset="utf-8"/>
-<title>${safe(deal?.client_name || 'Deal')} — CIM Draft</title>
+<title>${safe(deal?.client_name || 'Deal')} — Investment Memo Draft</title>
 <style>
   body { font-family: Inter, -apple-system, sans-serif; color: #0a0f1e; padding: 56px; max-width: 760px; margin: auto; line-height: 1.6; }
   header { border-bottom: 2px solid #3399FF; padding-bottom: 18px; margin-bottom: 36px; }
@@ -97,8 +97,8 @@ export default function CIMGenerator({ deal }) {
 </style></head>
 <body>
   <header>
-    <div class="sub">Confidential — ${safe(firmDisplayName('your firm'))} · CIM draft</div>
-    <h1>${safe(deal?.client_name || 'Untitled Mandate')}</h1>
+    <div class="sub">Confidential — ${safe(firmDisplayName('your firm'))} · Investment memo draft</div>
+    <h1>${safe(deal?.client_name || 'Untitled deal')}</h1>
     <div class="sub" style="margin-top:6px;">${[dealTypeLabel(deal), dealSideLabel(deal), deal?.sector].filter(Boolean).map(safe).join(' · ')}</div>
   </header>
   ${sections}
@@ -122,14 +122,14 @@ export default function CIMGenerator({ deal }) {
             <Sparkles className="h-4 w-4 text-valence-blue" />
           </div>
           <div className="flex-1">
-            <p className="font-display text-lg font-semibold text-valence-text">CIM draft</p>
+            <p className="font-display text-lg font-semibold text-valence-text">Investment memo draft</p>
             <p className="mt-1 text-xs text-valence-muted leading-relaxed">
-              A first pass at a confidential information memorandum — drawn from your deal facts, attached files, comps, and sector memos. Review, rewrite, and ship.
+              A first pass at an investment memo — drawn from your deal facts, attached files, comps, and sector memos. Review, rewrite, and ship.
             </p>
           </div>
           <button onClick={run} disabled={streaming} className="vl-btn-accent shrink-0">
             {streaming ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
-            {streaming ? 'Drafting…' : (draft ? 'Regenerate' : 'Draft CIM')}
+            {streaming ? 'Drafting…' : (draft ? 'Regenerate' : 'Draft memo')}
           </button>
         </div>
 

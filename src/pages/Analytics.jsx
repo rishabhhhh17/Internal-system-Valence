@@ -136,18 +136,17 @@ export default function Analytics() {
   const origin       = useMemo(() => originationMix(filteredDeals),                    [filteredDeals])
   const flags        = useMemo(() => riskFlags(filteredDeals),                         [filteredDeals])
 
-  // ── What-if: uplift on Pre-Mandate + Mandate conversion ──
-  // Old model had separate sliders for Diligence and Negotiation; the new
-  // model collapses both into Mandate, so the second slider now lifts
-  // Pre-Mandate conversion and the first lifts in-Mandate close-rate.
+  // ── What-if: uplift on Partner Call + Memo conversion ──
+  // The first slider lifts in-Memo advance-rate, the second lifts
+  // Partner Call conversion.
   const whatIf = useMemo(() => {
     const baseline = forecast.weighted
     let scenario = 0
     for (const d of filteredDeals) {
       const fee = expectedFee(d)
       let p = STAGE_PROBABILITY[d.stage] ?? 0
-      if (d.stage === 'Mandate')     p = Math.min(1, p * (1 + simMandateUplift / 100))
-      if (d.stage === 'Pre-Mandate') p = Math.min(1, p * (1 + simPreMandateUplift / 100))
+      if (d.stage === 'Memo')         p = Math.min(1, p * (1 + simMandateUplift / 100))
+      if (d.stage === 'Partner Call') p = Math.min(1, p * (1 + simPreMandateUplift / 100))
       scenario += fee * p
     }
     return { baseline, scenario, delta: scenario - baseline }
@@ -162,7 +161,7 @@ export default function Analytics() {
     const horizon = new Date(today)
     horizon.setDate(horizon.getDate() + 30)
     const closing30 = filteredDeals.filter(d => {
-      if (!['Pre-Mandate', 'Mandate'].includes(d.stage)) return false
+      if (!['Partner Call', 'Memo'].includes(d.stage)) return false
       const iso = d.expected_close_date || d.target_close
       if (!iso) return false
       const t = new Date(iso)
@@ -194,7 +193,7 @@ export default function Analytics() {
         <div className="vl-card p-8 text-center max-w-xl mx-auto">
           <p className="text-sm font-semibold text-valence-text">No deals to chart yet.</p>
           <p className="mt-2 text-xs text-valence-muted leading-relaxed">
-            Log your first mandate on <a href="/deals" className="text-valence-blue hover:underline">/deals</a>{' '}
+            Log your first deal on <a href="/deals" className="text-valence-blue hover:underline">/deals</a>{' '}
             and Analytics fills in automatically — pipeline, conversion ladder, fee composition, velocity, the lot.
           </p>
         </div>
@@ -256,27 +255,27 @@ export default function Analytics() {
 
       {/* ── Pipeline health · operational, not money ── */}
       <section className="grid grid-cols-2 gap-px bg-valence-border rounded-2xl overflow-hidden border border-valence-border md:grid-cols-4">
-        <KPI label="Active mandates"      info="Mandates not in a terminal stage (Closed / On Hold / Lost)." value={pipelineHealth.activeCount}              sub="Active through Mandate"         icon={Handshake} accent />
-        <KPI label="Avg days in stage"    info="Mean days each active mandate has sat in its current stage."  value={pipelineHealth.avgDays}                  sub="Lower is healthier"             icon={Hourglass} />
-        <KPI label="Closing in 30 days"   info="Pre-Mandate or Mandate deals with a target close inside 30 days." value={pipelineHealth.closing30}             sub="Eyes on these"                  icon={CalendarClock} />
-        <KPI label="Stale mandates"       info={`Active mandates that have spent more than ${STALE_THRESHOLD_DAYS} days in their current stage.`} value={pipelineHealth.stalled} sub={`> ${STALE_THRESHOLD_DAYS}d in stage`} icon={Flame} />
+        <KPI label="Active deals"         info="Deals not in a terminal stage (Diligence / Passed)." value={pipelineHealth.activeCount}              sub="Active through Memo"            icon={Handshake} accent />
+        <KPI label="Avg days in stage"    info="Mean days each active deal has sat in its current stage."  value={pipelineHealth.avgDays}                  sub="Lower is healthier"             icon={Hourglass} />
+        <KPI label="Closing in 30 days"   info="Partner Call or Memo deals with a target close inside 30 days." value={pipelineHealth.closing30}             sub="Eyes on these"                  icon={CalendarClock} />
+        <KPI label="Stale deals"          info={`Active deals that have spent more than ${STALE_THRESHOLD_DAYS} days in their current stage.`} value={pipelineHealth.stalled} sub={`> ${STALE_THRESHOLD_DAYS}d in stage`} icon={Flame} />
       </section>
 
       {/* ══════ PIPELINE ══════ */}
       <SectionHeading kicker="I" title="Pipeline" subtitle="What's on the board and where it's stuck" icon={Layers} />
 
       <section className="vl-card p-8">
-        <CardTitle icon={BarChart3} title="Funnel & conversion" subtitle="Carry % = mandates that advanced from this stage to the next. Lost / On Hold excluded." right={<Link to="/deals" className="text-xs font-semibold text-valence-blue hover:text-valence-blue-hover inline-flex items-center gap-1">Open board <ArrowRight className="h-3 w-3" /></Link>} />
+        <CardTitle icon={BarChart3} title="Funnel & conversion" subtitle="Advance % = deals that advanced from this stage to the next. Passed excluded." right={<Link to="/deals" className="text-xs font-semibold text-valence-blue hover:text-valence-blue-hover inline-flex items-center gap-1">Open board <ArrowRight className="h-3 w-3" /></Link>} />
         <FunnelLadder ladder={ladder} />
       </section>
 
       <section className="vl-card p-8">
-        <CardTitle icon={Layers} title="Sector × Stage matrix" subtitle="Where the book is concentrated. Darker = more mandates." />
+        <CardTitle icon={Layers} title="Sector × Stage matrix" subtitle="Where the book is concentrated. Darker = more deals." />
         <SectorStageHeatmap matrix={matrix} />
       </section>
 
       <section className="vl-card p-8">
-        <CardTitle icon={Hourglass} title="Stage aging" subtitle="How long current mandates have sat in their present stage. Slipping-risk at the top." />
+        <CardTitle icon={Hourglass} title="Stage aging" subtitle="How long current deals have sat in their present stage. Slipping-risk at the top." />
         <StageAgingTable aging={aging} />
       </section>
 
@@ -284,7 +283,7 @@ export default function Analytics() {
       <SectionHeading kicker="II" title="Composition" subtitle="What the book is made of" icon={PieChart} />
 
       <section className="grid gap-6 lg:grid-cols-3">
-        <DistributionCard title="Sector mix"  subtitle="Mandates by sector" items={sectorDist} money={money} icon={PieChart} />
+        <DistributionCard title="Sector mix"  subtitle="Deals by sector" items={sectorDist} money={money} icon={PieChart} />
         <DistributionCard title="Deal type"   subtitle="M&A · Fundraise · Exit · Advisory" items={dealTypeDist} money={money} icon={Briefcase} />
         <SideSplitCard side={side} />
       </section>
@@ -314,12 +313,12 @@ export default function Analytics() {
       <SectionHeading kicker="IV" title="Forward-looking" subtitle="What the next four quarters could look like" icon={CalendarDays} />
 
       <section className="vl-card p-8">
-        <CardTitle icon={CalendarDays} title="Fee forecast · next 4 quarters" subtitle="Probability-weighted fee recognition. Committed = Mandate + Closed." />
+        <CardTitle icon={CalendarDays} title="Fee forecast · next 4 quarters" subtitle="Probability-weighted fee recognition. Committed = Memo + Diligence." />
         <QuarterBars quarters={quarters} amount={amount} />
       </section>
 
       <section className="vl-card p-8">
-        <CardTitle icon={TrendingUp} title="Book-building curve" subtitle="Cumulative mandates engaged over the trailing 12 months." right={curve.illustrative && <IllustrativeBadge />} />
+        <CardTitle icon={TrendingUp} title="Book-building curve" subtitle="Cumulative deals engaged over the trailing 12 months." right={curve.illustrative && <IllustrativeBadge />} />
         <BookCurve curve={curve} />
       </section>
 
@@ -328,8 +327,8 @@ export default function Analytics() {
         <div className="relative">
           <CardTitle icon={Zap} title="What-if · conversion uplift" subtitle="Model how improving late-stage conversion shifts probability-weighted fees." />
           <div className="grid gap-6 md:grid-cols-[1fr_1fr_auto]">
-            <SimSlider label="Mandate close-rate"   value={simMandateUplift}    onChange={setSimMandateUplift} />
-            <SimSlider label="Pre-Mandate conversion" value={simPreMandateUplift} onChange={setSimPreMandateUplift} />
+            <SimSlider label="Memo advance-rate"      value={simMandateUplift}    onChange={setSimMandateUplift} />
+            <SimSlider label="Partner Call conversion" value={simPreMandateUplift} onChange={setSimPreMandateUplift} />
             <div className="rounded-xl border border-valence-border bg-valence-surface p-5 min-w-[220px]">
               <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-valence-muted">Scenario weighted fees</p>
               <p className="mt-2 font-display text-3xl font-bold tabular-nums text-valence-text">{amount(whatIf.scenario)}</p>
@@ -456,12 +455,12 @@ function FunnelLadder({ ladder }) {
             {next && r.count > 0 && (
               <div
                 className="ml-28 pl-4 mt-1 mb-1 flex items-center gap-2 text-[10px] text-valence-subtle"
-                title={`${r.conversion != null ? Math.round(r.conversion * 100) : 0}% of mandates in ${r.stage} have advanced to ${next.stage} or beyond.`}
+                title={`${r.conversion != null ? Math.round(r.conversion * 100) : 0}% of deals in ${r.stage} have advanced to ${next.stage} or beyond.`}
               >
                 <span className="h-2 w-px bg-valence-border" />
                 <span>→ {next.stage}</span>
                 <span className={`rounded-full px-1.5 py-0.5 font-semibold ${r.conversion >= 0.5 ? 'bg-valence-success/10 text-valence-success' : r.conversion >= 0.25 ? 'bg-valence-warning/10 text-valence-warning' : 'bg-valence-danger/10 text-valence-danger'}`}>
-                  {r.conversion != null ? `${Math.round(r.conversion * 100)}% carry` : '—'}
+                  {r.conversion != null ? `${Math.round(r.conversion * 100)}% advance` : '—'}
                 </span>
               </div>
             )}
@@ -606,7 +605,7 @@ function SideSplitCard({ side }) {
       {side.unknown > 0 && (
         <p className="mt-3 text-[10px] text-valence-subtle">
           <AlertTriangle className="inline h-3 w-3 text-valence-warning mr-0.5" />
-          {side.unknown} mandate{side.unknown === 1 ? '' : 's'} missing side tag.
+          {side.unknown} deal{side.unknown === 1 ? '' : 's'} missing side tag.
         </p>
       )}
     </div>
@@ -667,7 +666,7 @@ function FeeCompositionCard({ composition, amount }) {
               <div className="h-full bg-valence-ink" style={{ width: `${retainerPct}%` }} />
             </div>
           </div>
-          <p className="text-[10px] text-valence-subtle">Probability-weighted, across all non-terminal mandates.</p>
+          <p className="text-[10px] text-valence-subtle">Probability-weighted, across all non-terminal deals.</p>
         </div>
       </div>
     </div>
@@ -681,7 +680,7 @@ function BankerProductivityCard({ productivity, amount }) {
   const max = Math.max(1, ...productivity.map(p => p.weightedFee))
   return (
     <div className="vl-card p-6">
-      <CardTitle icon={Users} title="Banker productivity" subtitle="Weighted fees and active mandates per lead owner" />
+      <CardTitle icon={Users} title="Partner productivity" subtitle="Weighted fees and active deals per deal lead" />
       <ul className="space-y-3">
         {productivity.map(p => (
           <li key={p.owner}>
@@ -706,7 +705,7 @@ function OriginationCard({ origin }) {
   const max = Math.max(1, ...origin.items.map(i => i.count))
   return (
     <div className="vl-card p-6">
-      <CardTitle icon={Globe2} title="Origination sources" subtitle="How mandates are entering the firm" right={origin.illustrative && <IllustrativeBadge />} />
+      <CardTitle icon={Globe2} title="Sourcing channels" subtitle="How deals are entering the firm" right={origin.illustrative && <IllustrativeBadge />} />
       <ul className="space-y-2.5">
         {origin.items.map(i => (
           <li key={i.source}>
@@ -820,7 +819,7 @@ function BookCurve({ curve }) {
           </div>
         ))}
       </div>
-      <p className="mt-3 text-[10px] text-valence-subtle">Line · cumulative live mandates. Bars · new mandates added per month.</p>
+      <p className="mt-3 text-[10px] text-valence-subtle">Line · cumulative live deals. Bars · new deals added per month.</p>
     </div>
   )
 }
@@ -924,7 +923,7 @@ function ClientConcentrationCard({ concentration, amount }) {
   if (!top.length) {
     return (
       <div className="vl-card p-6">
-        <CardTitle icon={Crown} title="Client concentration" subtitle="Top clients by weighted fee contribution" />
+        <CardTitle icon={Crown} title="Company concentration" subtitle="Top companies by weighted fee contribution" />
         <p className="mt-4 text-sm text-valence-muted">No weighted fees in scope.</p>
       </div>
     )
@@ -936,8 +935,8 @@ function ClientConcentrationCard({ concentration, amount }) {
     <div className="vl-card p-6">
       <CardTitle
         icon={Crown}
-        title="Client concentration"
-        subtitle="Top 5 clients by probability-weighted fee contribution"
+        title="Company concentration"
+        subtitle="Top 5 companies by probability-weighted fee contribution"
         right={<span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold ${concTone}`}>{concLabel} · HHI {hhi.toFixed(2)}</span>}
       />
       <ul className="space-y-2">
@@ -952,7 +951,7 @@ function ClientConcentrationCard({ concentration, amount }) {
               <div className="mt-1 h-1.5 rounded-full bg-valence-surface overflow-hidden">
                 <div className="h-full bg-gradient-to-r from-valence-blue/40 to-valence-blue" style={{ width: `${c.share * 100}%` }} />
               </div>
-              <p className="mt-0.5 text-[10px] text-valence-subtle">{c.deals} mandate{c.deals === 1 ? '' : 's'}</p>
+              <p className="mt-0.5 text-[10px] text-valence-subtle">{c.deals} deal{c.deals === 1 ? '' : 's'}</p>
             </div>
           </li>
         ))}

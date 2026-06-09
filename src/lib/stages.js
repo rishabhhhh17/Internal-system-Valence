@@ -1,56 +1,59 @@
-// Canonical Valence pipeline. Compressed from the previous 11-stage model
-// to 7 stages that mirror how mandates actually progress at the firm. The
-// old execution-phase stages (Preparation, Marketing, Diligence,
-// Negotiation, Closing) collapse into "Mandate" — that work is captured in
-// the activity log, not as separate pipeline stages.
+// Canonical pre-diligence pipeline for an investor (VC / PE / family office).
+// This tool tracks a potential portfolio company from first contact up to the
+// point formal due diligence begins — "Diligence" is the final tracked stage
+// (a graduation/handoff out of the tool), and "Passed" is the drop-off.
+//
+// The funnel:
+//   Sourced → Information Received → Analyst Call → Partner Call → Memo → Diligence
+//   (Passed = dropped at any point)
 
 export const STAGES = [
   {
-    id: 'Origination',
-    short: 'Prospect',
-    desc: 'First few interactions. We have started talking. Nothing committed.',
+    id: 'Sourced',
+    short: 'Sourced',
+    desc: 'On the radar. Identified but not yet evaluated — no info in yet.',
     tone: 'slate',
     terminal: false
   },
   {
-    id: 'Pitching',
-    short: 'Pitching',
-    desc: 'Actively hard-pitching the proposition. Not soft-pitching, not informal.',
+    id: 'Information Received',
+    short: 'Info in',
+    desc: 'Deck or materials received (inbound, intro, or outreach). Awaiting a first look.',
     tone: 'slate',
     terminal: false
   },
   {
-    id: 'Pre-Mandate',
-    short: 'Pre-mandate',
-    desc: 'Negotiating pricing, NDAs, engagement letter. Pre-contractual paperwork.',
+    id: 'Analyst Call',
+    short: 'Analyst call',
+    desc: 'Worth evaluating further — first analyst call done or scheduled.',
     tone: 'blue',
     terminal: false
   },
   {
-    id: 'Mandate',
-    short: 'Engaged',
-    desc: 'Fully working on the engagement. Active execution.',
+    id: 'Partner Call',
+    short: 'Partner call',
+    desc: 'Escalated past the analyst — partner has taken or scheduled a call.',
+    tone: 'blue',
+    terminal: false
+  },
+  {
+    id: 'Memo',
+    short: 'Memo',
+    desc: 'Investment / opportunity memo being prepared for IC. Last step before diligence.',
     tone: 'blue-strong',
     terminal: false
   },
   {
-    id: 'Closed',
-    short: 'Closed',
-    desc: 'Successfully completed mandate.',
+    id: 'Diligence',
+    short: 'Diligence',
+    desc: 'Due diligence has begun. Graduates out of the pre-diligence pipeline.',
     tone: 'success',
     terminal: true
   },
   {
-    id: 'On Hold',
-    short: 'Paused',
-    desc: 'Holding the contract but not actively working — payment dispute, client emergency, force majeure.',
-    tone: 'warning',
-    terminal: true
-  },
-  {
-    id: 'Lost',
-    short: 'Lost',
-    desc: 'Engagement ended abruptly. Not a successful close.',
+    id: 'Passed',
+    short: 'Passed',
+    desc: 'We passed (or lost the allocation). Out of the pipeline.',
     tone: 'danger',
     terminal: true
   }
@@ -60,10 +63,11 @@ export const ACTIVE_STAGES   = STAGES.filter(s => !s.terminal)
 export const TERMINAL_STAGES = STAGES.filter(s =>  s.terminal)
 export const STAGE_IDS       = STAGES.map(s => s.id)
 
-// "Live mandate" stages — what the Live Mandates page and Timeline view show.
-// Pre-Mandate + Mandate. Origination and Pitching are pre-pipeline (Interactions
-// territory); the terminal three are after.
-export const LIVE_MANDATE_STAGES = ['Pre-Mandate', 'Mandate']
+// "Active pipeline" — deals being actively worked (post first-contact,
+// pre-diligence). Drives the Active Deals view and the sidebar badge.
+export const LIVE_PIPELINE_STAGES = ['Analyst Call', 'Partner Call', 'Memo']
+// Back-compat alias (older imports referenced LIVE_MANDATE_STAGES).
+export const LIVE_MANDATE_STAGES = LIVE_PIPELINE_STAGES
 
 export function stageMeta(id) {
   return STAGES.find(s => s.id === id) || STAGES[0]
@@ -82,21 +86,36 @@ export function stageToneClasses(id) {
   }
 }
 
-// Progress percentage through active funnel (0..1). Useful for progress bars.
+// Progress percentage through the active funnel (0..1). Useful for progress bars.
 export function stageProgress(id) {
   const m = stageMeta(id)
-  if (m.terminal) return m.id === 'Closed' ? 1 : 0
+  if (m.terminal) return m.id === 'Diligence' ? 1 : 0
   const idx = ACTIVE_STAGES.findIndex(s => s.id === id)
   return (idx + 1) / ACTIVE_STAGES.length
 }
 
-// Map old stage names to new ones. Used at runtime when reading historical
-// data that hasn't been migrated yet (the SQL migration covers the durable
-// case; this catches in-memory data and demo arrays).
+// Map legacy / un-migrated stage names to the new pre-diligence funnel. Used at
+// runtime for in-memory data and demo arrays; the SQL migration covers durable
+// rows. Old IB pipeline → new investor funnel:
+//   Origination → Information Received   Pitching → Analyst Call
+//   Pre-Mandate → Partner Call           Mandate  → Memo
+//   Closed → Diligence (graduated)       Lost → Passed   On Hold → Sourced
 export function migrateStage(old) {
-  if (!old) return 'Origination'
-  if (old === 'Pitch') return 'Pitching'
-  if (['Preparation', 'Marketing', 'Diligence', 'Negotiation', 'Closing'].includes(old)) return 'Mandate'
+  if (!old) return 'Sourced'
   if (STAGE_IDS.includes(old)) return old
-  return 'Origination'
+  const map = {
+    Origination: 'Information Received',
+    Pitch: 'Analyst Call',
+    Pitching: 'Analyst Call',
+    'Pre-Mandate': 'Partner Call',
+    Preparation: 'Memo',
+    Marketing: 'Memo',
+    Negotiation: 'Memo',
+    Closing: 'Memo',
+    Mandate: 'Memo',
+    Closed: 'Diligence',
+    'On Hold': 'Sourced',
+    Lost: 'Passed'
+  }
+  return map[old] || 'Sourced'
 }

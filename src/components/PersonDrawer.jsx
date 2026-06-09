@@ -228,7 +228,7 @@ export default function PersonDrawer({ open, onClose, existing, onSubmit, onRena
             <PersonaField label="How to talk to them" value={form.how_to_talk} onChange={v => update({ how_to_talk: v })} placeholder={`e.g. "Direct, asks for the cheque size in 30 seconds. Skip preamble."`} />
             <PersonaField label="Relationship history"  value={form.relationship_history} onChange={v => update({ relationship_history: v })} placeholder={`e.g. "Met at IVCA 2019 via Trishant. Closed 2 deals together."`} />
             <PersonaField label="What they care about"  value={form.what_they_care_about} onChange={v => update({ what_they_care_about: v })} placeholder={`e.g. "Founder optionality. Path-to-IPO clarity."`} />
-            <PersonaField label="Favours bank"          value={form.favours_bank} onChange={v => update({ favours_bank: v })} placeholder={`e.g. "Will move fast for us. 2 of ~3 favours used."`} />
+            <PersonaField label="Goodwill"              value={form.favours_bank} onChange={v => update({ favours_bank: v })} placeholder={`e.g. "Will move fast for us. 2 of ~3 favours used."`} />
             <PersonaField label="Things to avoid"       value={form.things_to_avoid} onChange={v => update({ things_to_avoid: v })} placeholder={`e.g. "Don't pitch on Mondays. Treats them as planning days."`} />
             <PersonaField label="Mutuals"               value={form.mutuals} onChange={v => update({ mutuals: v })} placeholder={`e.g. "Close to Trishant. Distant from Manav."`} />
           </div>
@@ -260,7 +260,7 @@ export default function PersonDrawer({ open, onClose, existing, onSubmit, onRena
       {tab === 'deals' && existing && (
         <RelatedList
           items={deals}
-          empty="No mandates linked to this person yet."
+          empty="No deals linked to this person yet."
           render={d => (
             <Link to={`/deals?open=${d.id}`} className="block group/dealrow">
               <div className="flex items-center justify-between gap-2">

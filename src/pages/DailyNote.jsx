@@ -968,8 +968,8 @@ export default function DailyNote() {
             <Card icon={ArrowUpRight} title="Quick actions" subtitle="Log fast, write later">
               <div className="grid grid-cols-2 gap-2">
                 <ActionLink to="/interactions" icon={MessageSquare} label="Log interaction" />
-                <ActionLink to="/deals" icon={Briefcase} label="Open Deal Logger" />
-                <ActionLink to="/mandates" icon={Handshake} label="Live Mandates" />
+                <ActionLink to="/deals" icon={Briefcase} label="Open Pipeline" />
+                <ActionLink to="/mandates" icon={Handshake} label="Active Deals" />
                 <ActionLink to="/planner" icon={Calendar} label="Day Planner" />
               </div>
             </Card>
@@ -1024,14 +1024,14 @@ function StatStrip({ stats }) {
   const pct = n => (splitTotal ? (n / splitTotal) * 100 : 0)
   return (
     <section className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-      <StatTile to="/mandates" icon={Handshake} label="Live mandates"
+      <StatTile to="/mandates" icon={Handshake} label="Active deals"
         value={liveMandates} sub={`of ${totalMandates} total`} />
       <StatTile to="/interactions" icon={MessageSquare} label="Interactions this week"
         value={weekTouches} />
 
       {/* Founder / Investor client-type breakdown — the headline tile. */}
       <Link to="/interactions" className="vl-card vl-card-hover p-4 block">
-        <p className="vl-eyebrow-ink inline-flex items-center gap-1.5"><Briefcase className="h-3 w-3" /> Client type</p>
+        <p className="vl-eyebrow-ink inline-flex items-center gap-1.5"><Briefcase className="h-3 w-3" /> Contact type</p>
         {splitTotal === 0 ? (
           <p className="mt-3 text-sm text-valence-subtle">No interactions yet this week.</p>
         ) : (

@@ -11,8 +11,8 @@ function mandateModeLabel(row) {
   switch (row.mandate_link_mode) {
     case 'self':     return 'Self'
     case 'general':  return 'General'
-    case 'multi':    return 'Multi-mandate'
-    case 'specific': return 'Mandate-linked'
+    case 'multi':    return 'Multiple deals'
+    case 'specific': return 'Deal-linked'
     default:         return row.interaction_purpose ? 'Legacy' : 'General'
   }
 }
@@ -68,7 +68,7 @@ export default function Interactions() {
     if (!isSupabaseConfigured) { setDeals([]); return }
     supabase.from('deals')
       .select('id, client_name, stage')
-      .not('stage', 'in', '("Closed","Lost","On Hold")')
+      .not('stage', 'in', '("Diligence","Passed","Sourced")')
       .order('client_name')
       .then(({ data }) => setDeals(data || []))
   }, [])
@@ -137,10 +137,10 @@ export default function Interactions() {
       { key: 'counterparty_name',   label: 'Name' },
       { key: 'counterparty_company',label: 'Company' },
       { key: 'context',             label: 'Context' },
-      { key: 'mandate_link_mode',   label: 'Associated Mandate' },
+      { key: 'mandate_link_mode',   label: 'Associated deal' },
       { key: 'type',                label: 'Interaction Type' },
       { key: 'origination',         label: 'Origination' },
-      { key: 'lead_owner',          label: 'VGP POC' },
+      { key: 'lead_owner',          label: 'Owner' },
       { key: 'takeaways',           label: 'Takeaways' },
       { key: 'next_steps',          label: 'Next Steps' },
       { key: 'follow_up_date',      label: 'Deadline' },
@@ -253,17 +253,17 @@ export default function Interactions() {
           value={mandateFilter}
           onChange={e => setMandateFilter(e.target.value)}
           className="h-8 rounded-md border border-valence-border bg-valence-elevated px-2.5 text-xs font-medium text-valence-text focus:border-valence-blue outline-none"
-          aria-label="Mandate filter"
+          aria-label="Deal filter"
         >
-          <option value="All">All mandates</option>
+          <option value="All">All deals</option>
           <optgroup label="By mode">
-            <option value="self">Self — client about themselves</option>
-            <option value="general">General — no mandate link</option>
-            <option value="multi">Multi-mandate</option>
+            <option value="self">Self — the company itself</option>
+            <option value="general">General — no deal link</option>
+            <option value="multi">Multiple deals</option>
             <option value="specific">Specific (any linked)</option>
           </optgroup>
           {deals.length > 0 && (
-            <optgroup label="Active mandates">
+            <optgroup label="Active deals">
               {deals.map(d => <option key={d.id} value={d.id}>{d.client_name} · {d.stage}</option>)}
             </optgroup>
           )}
@@ -280,7 +280,7 @@ export default function Interactions() {
           <Search className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-valence-subtle" />
           <input
             value={q} onChange={e => setQ(e.target.value)}
-            placeholder="Search counterparty, company, notes…"
+            placeholder="Search contact, company, notes…"
             className="vl-input h-8 w-72 pl-8 text-xs"
           />
         </div>
@@ -449,7 +449,7 @@ function InteractionRow({ row, onOpen, onConvert, isDetailed = true }) {
           <span>{ago}</span>
           {row.outcome === 'converted_to_mandate' && (
             <button onClick={onConvert} className="vl-btn-ghost text-[11px]">
-              <Sparkles className="h-3 w-3" /> Convert to origination <ArrowRight className="h-3 w-3" />
+              <Sparkles className="h-3 w-3" /> Convert to deal <ArrowRight className="h-3 w-3" />
             </button>
           )}
         </div>

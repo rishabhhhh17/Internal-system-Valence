@@ -110,7 +110,7 @@ export default function Funds() {
 
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <p className="vl-eyebrow-ink">Firm</p>
+          <p className="vl-eyebrow-ink">Investors</p>
           <h1 className="mt-2 font-display text-feature font-bold text-valence-text">
             Who writes the cheques.
           </h1>

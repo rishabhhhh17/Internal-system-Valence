@@ -141,7 +141,7 @@ export default function InteractionDrawer({ open, onClose, existing, onSubmit })
         // active mandates only in the picker.
         supabase.from('deals')
           .select('id, client_name, stage')
-          .not('stage', 'in', '("Closed","Lost","On Hold")')
+          .not('stage', 'in', '("Diligence","Passed","Sourced")')
           .order('created_at', { ascending: false })
           .limit(200),
         supabase.from('people').select('id, full_name, role, company, tags').order('full_name').limit(500),
@@ -254,19 +254,19 @@ export default function InteractionDrawer({ open, onClose, existing, onSubmit })
     if (resolvedMode === 'self') {
       const co = form.counterparty_company?.trim().toLowerCase()
       if (!co) {
-        toast.error('Pick "Self" only after entering a Company. Or use General / Multi-mandate.')
+        toast.error('Pick "Self" only after entering a Company. Or use General / Multiple deals.')
         return
       }
       const match = deals.find(d => d.client_name?.toLowerCase().trim() === co)
       if (!match) {
-        toast.error(`No active mandate matches "${form.counterparty_company}". Use Specific to pick one, or General.`)
+        toast.error(`No active deal matches "${form.counterparty_company}". Use Specific to pick one, or General.`)
         return
       }
       resolvedDealId  = match.id
       resolvedDealIds = [match.id]
     } else if (resolvedMode === 'specific') {
       if (!form.deal_id) {
-        toast.error('Pick a mandate from the dropdown.')
+        toast.error('Pick a deal from the dropdown.')
         return
       }
       resolvedDealId  = form.deal_id
@@ -274,7 +274,7 @@ export default function InteractionDrawer({ open, onClose, existing, onSubmit })
     } else if (resolvedMode === 'multi') {
       const ids = (form.deal_ids || []).filter(Boolean)
       if (ids.length < 2) {
-        toast.error('Multi-mandate needs at least two mandates ticked. Use Specific for one, or General for none.')
+        toast.error('Multiple deals needs at least two deals ticked. Use Specific for one, or General for none.')
         return
       }
       resolvedDealIds = ids
@@ -370,7 +370,7 @@ export default function InteractionDrawer({ open, onClose, existing, onSubmit })
         {/* Person picker — typed search → dropdown → Create Person fallback */}
         <div className="rounded-xl border border-valence-border bg-valence-surface p-4 space-y-3">
           <div className="flex items-center justify-between">
-            <label className="vl-label inline-flex items-center gap-1.5"><UserCircle className="h-3.5 w-3.5 text-valence-blue" /> Counterparty</label>
+            <label className="vl-label inline-flex items-center gap-1.5"><UserCircle className="h-3.5 w-3.5 text-valence-blue" /> Contact</label>
             {form.person_id && (
               <button type="button" onClick={clearPerson} className="text-[11px] font-semibold text-valence-muted hover:text-valence-danger">Unlink person</button>
             )}
@@ -440,7 +440,7 @@ export default function InteractionDrawer({ open, onClose, existing, onSubmit })
                     const co = (p.company || '').trim()
                     if (!co || seen.has(co.toLowerCase())) continue
                     seen.add(co.toLowerCase())
-                    out.push({ id: `client-${co}`, label: co, sub: 'Client company', type: 'Client' })
+                    out.push({ id: `client-${co}`, label: co, sub: 'Company', type: 'Company' })
                   }
                   return out.slice(0, 10)
                 }}
@@ -453,7 +453,7 @@ export default function InteractionDrawer({ open, onClose, existing, onSubmit })
             </div>
           </div>
           <div>
-            <label className="vl-label">POC at the firm</label>
+            <label className="vl-label">Deal lead</label>
             {/* Phase 3 redesign — dropdown of active seats. Removes the
                 spelling-anxiety problem (no more "Kartik" vs "Karthik")
                 and means the per-member distribution bar lights up
@@ -482,7 +482,7 @@ export default function InteractionDrawer({ open, onClose, existing, onSubmit })
           <label className="vl-label">Who is this with?</label>
           <div className="mt-1.5 grid grid-cols-3 gap-2">
             {[
-              { id: 'founder',  label: 'Founder',  blurb: 'Client / company',     icon: Briefcase,  active: 'border-emerald-400 bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300' },
+              { id: 'founder',  label: 'Founder',  blurb: 'Founder / company',     icon: Briefcase,  active: 'border-emerald-400 bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300' },
               { id: 'investor', label: 'Investor', blurb: 'Fund / LP / buyer',    icon: TrendingUp, active: 'border-indigo-400 bg-indigo-50 text-indigo-700 dark:bg-indigo-500/10 dark:text-indigo-300' },
               { id: 'general',  label: 'Other',    blurb: 'Networking / counsel', icon: Users,      active: 'border-slate-400 bg-slate-100 text-slate-700 dark:bg-slate-500/15 dark:text-slate-200' }
             ].map(t => {
@@ -600,7 +600,7 @@ function MoreOptions({ form, update, deals, defaultOpen }) {
           {open ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
           More options
         </span>
-        <span className="text-[10px] text-valence-subtle">Mandate · type · origination · follow-up · transcript</span>
+        <span className="text-[10px] text-valence-subtle">Deal · type · origination · follow-up · transcript</span>
       </button>
 
       {open && (
@@ -608,7 +608,7 @@ function MoreOptions({ form, update, deals, defaultOpen }) {
           {/* Associated Mandate — the marquee field. Replaces the old
               12-option Purpose dropdown + Linked Deal pair. */}
           <div>
-            <label className="vl-label">Associated Mandate</label>
+            <label className="vl-label">Associated deal</label>
             <select
               className="vl-input mt-1.5"
               value={form.mandate_link_mode || 'general'}
@@ -624,10 +624,10 @@ function MoreOptions({ form, update, deals, defaultOpen }) {
                 })
               }}
             >
-              <option value="self">Self — talking to a client about themselves</option>
+              <option value="self">Self — the company itself</option>
               <option value="general">General — first-time meet / no agenda</option>
-              <option value="multi">Multi-mandate — spans multiple mandates</option>
-              <option value="specific">Link to a specific mandate…</option>
+              <option value="multi">Multiple deals — spans multiple deals</option>
+              <option value="specific">Link to a specific deal…</option>
             </select>
             {showDealPicker && (
               <select
@@ -635,7 +635,7 @@ function MoreOptions({ form, update, deals, defaultOpen }) {
                 value={form.deal_id || ''}
                 onChange={e => update({ deal_id: e.target.value })}
               >
-                <option value="">— Pick a mandate —</option>
+                <option value="">— Pick a deal —</option>
                 {deals.map(d => <option key={d.id} value={d.id}>{d.client_name} · {d.stage}</option>)}
               </select>
             )}
@@ -644,7 +644,7 @@ function MoreOptions({ form, update, deals, defaultOpen }) {
                 ANY of them surfaces this row (the "multiple linkages" ask). */}
             {showMultiPicker && (
               <div className="mt-2 rounded-lg border border-valence-border bg-valence-elevated p-2 space-y-1 max-h-48 overflow-y-auto">
-                {deals.length === 0 && <p className="px-1 py-1 text-[11px] text-valence-subtle">No active mandates.</p>}
+                {deals.length === 0 && <p className="px-1 py-1 text-[11px] text-valence-subtle">No active deals.</p>}
                 {deals.map(d => {
                   const on = selectedDealIds.includes(d.id)
                   return (
@@ -655,7 +655,7 @@ function MoreOptions({ form, update, deals, defaultOpen }) {
                     </label>
                   )
                 })}
-                <p className="px-1 pt-1 text-[10px] text-valence-subtle">{selectedDealIds.length} mandate{selectedDealIds.length === 1 ? '' : 's'} selected.</p>
+                <p className="px-1 pt-1 text-[10px] text-valence-subtle">{selectedDealIds.length} deal{selectedDealIds.length === 1 ? '' : 's'} selected.</p>
               </div>
             )}
           </div>

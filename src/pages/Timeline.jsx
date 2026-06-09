@@ -13,7 +13,7 @@ const ZOOM_OPTIONS = ['weeks', 'months', 'quarters']
 // Stages the Gantt chart treats as "in flight". Terminal stages get
 // surfaced in the Table view (with their close-out date) but aren't
 // drawn as bars on the timeline.
-const NON_TERMINAL_STAGES = new Set(['Origination','Pitching','Pre-Mandate','Mandate'])
+const NON_TERMINAL_STAGES = new Set(['Sourced','Information Received','Analyst Call','Partner Call','Memo'])
 
 // Threshold below which we auto-default to Table — a Gantt with 3 rows
 // and lots of empty cells looks like a broken product. Table is denser.
@@ -107,7 +107,7 @@ export default function Timeline() {
         <div className="flex items-baseline gap-3">
           <h1 className="text-2xl font-bold tracking-[-0.02em] text-valence-text">Timeline</h1>
           <span className="text-sm text-valence-muted">
-            {stats.live} live mandate{stats.live === 1 ? '' : 's'}
+            {stats.live} active deal{stats.live === 1 ? '' : 's'}
             {stats.live > 0 && ` · ${stats.inMandate} in execution`}
           </span>
         </div>
@@ -142,14 +142,14 @@ export default function Timeline() {
       {!loading && deals.length > 0 && (
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
           <StatCard icon={<Activity className="h-3.5 w-3.5" />}
-            label="Live mandates" value={stats.live} tone="ink" />
+            label="Active deals" value={stats.live} tone="ink" />
           <StatCard icon={<Clock className="h-3.5 w-3.5" />}
             label="Closing in 90 days" value={stats.closingSoon} tone="blue" />
           <StatCard icon={<AlertTriangle className="h-3.5 w-3.5" />}
             label="Stale (>21d no touch)" value={stats.stale}
             tone={stats.stale > 0 ? 'warning' : 'muted'} />
           <StatCard icon={<CheckCircle2 className="h-3.5 w-3.5" />}
-            label="Closed this quarter" value={stats.closedQuarter} tone="success" />
+            label="Reached diligence" value={stats.closedQuarter} tone="success" />
         </div>
       )}
 
@@ -158,7 +158,7 @@ export default function Timeline() {
         <div className="flex flex-wrap items-center gap-3">
           <FilterRow label="Lead owner" value={ownerFilter}  onChange={setOwnerFilter}  options={['All', ...owners]} />
           <FilterRow label="Sector"     value={sectorFilter} onChange={setSectorFilter} options={['All', ...sectors]} />
-          <FilterRow label="Side"       value={sideFilter}   onChange={setSideFilter}   options={['All', ...sides]} />
+          <FilterRow label="Role"       value={sideFilter}   onChange={setSideFilter}   options={['All', ...sides]} />
         </div>
       )}
 
@@ -169,9 +169,9 @@ export default function Timeline() {
       ) : filtered.length === 0 ? (
         <EmptyState
           icon={GanttChartSquare}
-          title={deals.length === 0 ? 'No mandates to chart yet' : 'No mandates match your filters'}
-          description={deals.length === 0 ? 'Log a mandate in Deal Logger and it\'ll appear here automatically.' : 'Try widening the owner / sector / side filters.'}
-          action={deals.length === 0 ? <Link to="/deals" className="vl-btn-primary">Open Deal Logger</Link> : null}
+          title={deals.length === 0 ? 'No deals to chart yet' : 'No deals match your filters'}
+          description={deals.length === 0 ? 'Log a deal in Pipeline and it\'ll appear here automatically.' : 'Try widening the owner / sector / role filters.'}
+          action={deals.length === 0 ? <Link to="/deals" className="vl-btn-primary">Open Pipeline</Link> : null}
         />
       ) : activeView === 'table' ? (
         <TimelineTable deals={filtered} activities={activities} onOpenDeal={openDeal} />
@@ -203,7 +203,7 @@ function computeStats(deals, activities) {
     const isLive = NON_TERMINAL_STAGES.has(d.stage)
     if (isLive) {
       live += 1
-      if (d.stage === 'Mandate') inMandate += 1
+      if (d.stage === 'Memo') inMandate += 1
       const closeDate = d.expected_close_date || d.target_close
       if (closeDate) {
         const t = new Date(closeDate).getTime() - now
@@ -212,7 +212,7 @@ function computeStats(deals, activities) {
       const lastTouch = lastTouchByDeal.get(d.id) || (d.updated_at ? new Date(d.updated_at).getTime() : 0)
       if (lastTouch && (now - lastTouch) > ms21d) stale += 1
     }
-    if (d.stage === 'Closed' && d.updated_at) {
+    if (d.stage === 'Diligence' && d.updated_at) {
       const t = new Date(d.updated_at).getTime()
       if (t >= quarter.start && t <= quarter.end) closedQuarter += 1
     }
@@ -288,14 +288,14 @@ const today = new Date()
 const daysAgo = (n) => { const d = new Date(today); d.setDate(d.getDate() - n); return d.toISOString() }
 const daysFwd = (n) => { const d = new Date(today); d.setDate(d.getDate() + n); return d.toISOString().slice(0,10) }
 const DEMO_DEALS = [
-  { id: 'tl1', client_name: 'Nimbus Health',   stage: 'Mandate',     sector: 'Healthcare',     side: 'Sell-side', lead_owner: 'Neha Jain',       expected_close_date: daysFwd(75),  updated_at: daysAgo(28), created_at: daysAgo(210) },
-  { id: 'tl2', client_name: 'Quantum Edge',    stage: 'Mandate',     sector: 'Fintech',        side: 'Sell-side', lead_owner: 'James Whitfield', expected_close_date: daysFwd(150), updated_at: daysAgo(7),  created_at: daysAgo(95)  },
-  { id: 'tl3', client_name: 'Meridian EdTech', stage: 'Mandate',     sector: 'EdTech',         side: 'Sell-side', lead_owner: 'Priya Mehta',     expected_close_date: daysFwd(45),  updated_at: daysAgo(12), created_at: daysAgo(160) },
-  { id: 'tl4', client_name: 'Orion Realty',    stage: 'Mandate',     sector: 'Real Estate',    side: 'Sell-side', lead_owner: 'Neha Jain',       expected_close_date: daysFwd(25),  updated_at: daysAgo(3),  created_at: daysAgo(275) },
-  { id: 'tl5', client_name: 'Aegis Logistics', stage: 'Pre-Mandate', sector: 'Logistics',      side: 'Sell-side', lead_owner: 'Oliver Hayes',    expected_close_date: daysFwd(180), updated_at: daysAgo(40), created_at: daysAgo(60)  },
-  { id: 'tl6', client_name: 'Solstice Solar',  stage: 'Pre-Mandate', sector: 'Renewables',     side: 'Sell-side', lead_owner: 'Neha Jain',       expected_close_date: daysFwd(170), updated_at: daysAgo(5),  created_at: daysAgo(42)  },
-  { id: 'tl7', client_name: 'Halo Beverages',  stage: 'Pre-Mandate', sector: 'Consumer',       side: 'Buy-side',  lead_owner: 'James Whitfield', expected_close_date: daysFwd(120), updated_at: daysAgo(15), created_at: daysAgo(50)  },
-  { id: 'tl8', client_name: 'Vertex Bridge',   stage: 'Mandate',     sector: 'Infrastructure', side: 'Sell-side', lead_owner: 'Oliver Hayes',    expected_close_date: daysFwd(220), updated_at: daysAgo(20), created_at: daysAgo(180) }
+  { id: 'tl1', client_name: 'Nimbus Health',   stage: 'Memo',         sector: 'Healthcare',     side: 'Sell-side', lead_owner: 'Neha Jain',       expected_close_date: daysFwd(75),  updated_at: daysAgo(28), created_at: daysAgo(210) },
+  { id: 'tl2', client_name: 'Quantum Edge',    stage: 'Memo',         sector: 'Fintech',        side: 'Sell-side', lead_owner: 'James Whitfield', expected_close_date: daysFwd(150), updated_at: daysAgo(7),  created_at: daysAgo(95)  },
+  { id: 'tl3', client_name: 'Meridian EdTech', stage: 'Memo',         sector: 'EdTech',         side: 'Sell-side', lead_owner: 'Priya Mehta',     expected_close_date: daysFwd(45),  updated_at: daysAgo(12), created_at: daysAgo(160) },
+  { id: 'tl4', client_name: 'Orion Realty',    stage: 'Memo',         sector: 'Real Estate',    side: 'Sell-side', lead_owner: 'Neha Jain',       expected_close_date: daysFwd(25),  updated_at: daysAgo(3),  created_at: daysAgo(275) },
+  { id: 'tl5', client_name: 'Aegis Logistics', stage: 'Partner Call', sector: 'Logistics',      side: 'Sell-side', lead_owner: 'Oliver Hayes',    expected_close_date: daysFwd(180), updated_at: daysAgo(40), created_at: daysAgo(60)  },
+  { id: 'tl6', client_name: 'Solstice Solar',  stage: 'Partner Call', sector: 'Renewables',     side: 'Sell-side', lead_owner: 'Neha Jain',       expected_close_date: daysFwd(170), updated_at: daysAgo(5),  created_at: daysAgo(42)  },
+  { id: 'tl7', client_name: 'Halo Beverages',  stage: 'Analyst Call', sector: 'Consumer',       side: 'Buy-side',  lead_owner: 'James Whitfield', expected_close_date: daysFwd(120), updated_at: daysAgo(15), created_at: daysAgo(50)  },
+  { id: 'tl8', client_name: 'Vertex Bridge',   stage: 'Memo',         sector: 'Infrastructure', side: 'Sell-side', lead_owner: 'Oliver Hayes',    expected_close_date: daysFwd(220), updated_at: daysAgo(20), created_at: daysAgo(180) }
 ]
 
 // Demo activity log so the timeline tells a story even without Supabase. We
@@ -303,7 +303,7 @@ const DEMO_DEALS = [
 // / brief / contact dots — gives the partner a feel for cross-deal velocity.
 const DEMO_ACTIVITIES = [
   // Nimbus Health (Healthcare · Mandate · closes in 75d)
-  { deal_id: 'tl1', kind: 'stage_change',    body: 'Pre-Mandate → Mandate', created_at: daysAgo(120) },
+  { deal_id: 'tl1', kind: 'stage_change',    body: 'Partner Call → Memo', created_at: daysAgo(120) },
   { deal_id: 'tl1', kind: 'nda_signed',      body: 'NDA executed with Apollo Hospitals', created_at: daysAgo(115) },
   { deal_id: 'tl1', kind: 'teaser_sent',     body: 'Teaser circulated to 18 healthcare PE',  created_at: daysAgo(95) },
   { deal_id: 'tl1', kind: 'meeting',         body: 'Mgmt presentation · KKR',                created_at: daysAgo(70) },
@@ -312,14 +312,14 @@ const DEMO_ACTIVITIES = [
   { deal_id: 'tl1', kind: 'note',            body: 'Two LOIs in hand',                       created_at: daysAgo(10) },
 
   // Quantum Edge (Fintech · Mandate · closes in 150d)
-  { deal_id: 'tl2', kind: 'stage_change',    body: 'Pre-Mandate → Mandate',     created_at: daysAgo(60) },
+  { deal_id: 'tl2', kind: 'stage_change',    body: 'Partner Call → Memo',     created_at: daysAgo(60) },
   { deal_id: 'tl2', kind: 'brief_generated', body: 'CIM v1 generated',           created_at: daysAgo(48) },
   { deal_id: 'tl2', kind: 'teaser_sent',     body: 'Teaser to 12 fintech-focused investors', created_at: daysAgo(35) },
   { deal_id: 'tl2', kind: 'meeting',         body: 'Pitch · Tiger Global',       created_at: daysAgo(22) },
   { deal_id: 'tl2', kind: 'email_drafted',   body: 'Process letter draft',       created_at: daysAgo(8)  },
 
   // Meridian EdTech (EdTech · Mandate · closes in 45d)
-  { deal_id: 'tl3', kind: 'stage_change',    body: 'Pre-Mandate → Mandate',     created_at: daysAgo(95) },
+  { deal_id: 'tl3', kind: 'stage_change',    body: 'Partner Call → Memo',     created_at: daysAgo(95) },
   { deal_id: 'tl3', kind: 'meeting',         body: 'Diligence call · Sequoia',  created_at: daysAgo(72) },
   { deal_id: 'tl3', kind: 'file_upload',     body: 'Technical due-diligence pack', created_at: daysAgo(60) },
   { deal_id: 'tl3', kind: 'meeting',         body: 'Site visit · Bengaluru campus', created_at: daysAgo(45) },
@@ -327,7 +327,7 @@ const DEMO_ACTIVITIES = [
   { deal_id: 'tl3', kind: 'note',            body: 'Final bid date set', created_at: daysAgo(4) },
 
   // Orion Realty (Real Estate · Mandate · closes in 25d)
-  { deal_id: 'tl4', kind: 'stage_change',    body: 'Pre-Mandate → Mandate',     created_at: daysAgo(180) },
+  { deal_id: 'tl4', kind: 'stage_change',    body: 'Partner Call → Memo',     created_at: daysAgo(180) },
   { deal_id: 'tl4', kind: 'teaser_sent',     body: 'Teaser to 8 sovereigns + family offices', created_at: daysAgo(160) },
   { deal_id: 'tl4', kind: 'meeting',         body: 'Mgmt meet · GIC',            created_at: daysAgo(110) },
   { deal_id: 'tl4', kind: 'meeting',         body: 'Mgmt meet · Brookfield',     created_at: daysAgo(80)  },
@@ -344,7 +344,7 @@ const DEMO_ACTIVITIES = [
   { deal_id: 'tl6', kind: 'meeting',         body: 'Pitch meeting · partner Adi', created_at: daysAgo(40) },
   { deal_id: 'tl6', kind: 'file_upload',     body: 'Project pipeline deck',       created_at: daysAgo(28) },
   { deal_id: 'tl6', kind: 'email_drafted',   body: 'Engagement letter draft',     created_at: daysAgo(12) },
-  { deal_id: 'tl6', kind: 'note',            body: 'Targeting Q3 mandate',        created_at: daysAgo(3)  },
+  { deal_id: 'tl6', kind: 'note',            body: 'Targeting Q3 partner call',   created_at: daysAgo(3)  },
 
   // Halo Beverages (Consumer · Pre-Mandate · Buy-side)
   { deal_id: 'tl7', kind: 'meeting',         body: 'Intro · Pinnacle Foods',     created_at: daysAgo(38) },
@@ -352,7 +352,7 @@ const DEMO_ACTIVITIES = [
   { deal_id: 'tl7', kind: 'note',            body: 'Three targets shortlisted',  created_at: daysAgo(10) },
 
   // Vertex Bridge (Infrastructure · Mandate)
-  { deal_id: 'tl8', kind: 'stage_change',    body: 'Pre-Mandate → Mandate',     created_at: daysAgo(140) },
+  { deal_id: 'tl8', kind: 'stage_change',    body: 'Partner Call → Memo',     created_at: daysAgo(140) },
   { deal_id: 'tl8', kind: 'teaser_sent',     body: 'Teaser to 6 infra funds',   created_at: daysAgo(120) },
   { deal_id: 'tl8', kind: 'meeting',         body: 'Mgmt meet · Macquarie',     created_at: daysAgo(85) },
   { deal_id: 'tl8', kind: 'file_upload',     body: 'Concession agreement docs', created_at: daysAgo(50) },

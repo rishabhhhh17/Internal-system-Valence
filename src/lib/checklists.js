@@ -1,44 +1,39 @@
-// Templated checklist for each stage of the new 7-stage Valence pipeline.
-// The old execution-phase stages (Preparation, Marketing, Diligence,
-// Negotiation, Closing) collapsed into "Mandate", so all of their items now
-// live under Mandate as a single execution checklist.
+// Templated checklist for each stage of the pre-diligence investor funnel
+// (src/lib/stages.js): Sourced → Information Received → Analyst Call →
+// Partner Call → Memo → Diligence (graduation) / Passed (drop-off).
 
 export const STAGE_CHECKLISTS = {
-  Origination: [
+  Sourced: [
     { key: 'first_contact',    label: 'First contact logged',           required: true  },
-    { key: 'prospect_note',    label: 'Prospect profile note captured', required: false }
+    { key: 'prospect_note',    label: 'Company profile note captured',  required: false }
   ],
-  Pitching: [
-    { key: 'pitch_deck',       label: 'Pitch deck drafted',                        required: true  },
-    { key: 'intro_call',       label: 'Intro call held with counterparty',         required: true  },
-    { key: 'firm_creds',       label: 'Valence credentials shared',                required: false }
+  'Information Received': [
+    { key: 'materials_in',     label: 'Deck / materials received',                 required: true  },
+    { key: 'first_look',       label: 'First look completed',                      required: false }
   ],
-  'Pre-Mandate': [
-    { key: 'fee_terms',        label: 'Pricing and fee terms negotiated',          required: true  },
-    { key: 'nda_signed',       label: 'NDA signed',                                required: true  },
-    { key: 'engagement_letter',label: 'Engagement letter drafted',                 required: true  },
-    { key: 'el_countersigned', label: 'Engagement letter countersigned',           required: true  }
+  'Analyst Call': [
+    { key: 'analyst_call',     label: 'Analyst call held with company',            required: true  },
+    { key: 'fit_screen',       label: 'Thesis / fit screen documented',            required: true  },
+    { key: 'firm_creds',       label: 'Fund overview shared',                      required: false }
   ],
-  Mandate: [
-    { key: 'kickoff',            label: 'Internal kickoff held',                   required: true  },
-    { key: 'materials',          label: 'Core materials prepared (teaser / IM / brief)', required: true  },
-    { key: 'outreach',           label: 'Outreach to counterparties begun',        required: false },
-    { key: 'mgmt_presentations', label: 'Management or counterparty meetings held',required: false },
-    { key: 'shortlist',          label: 'Counterparty shortlist segmented',        required: false },
-    { key: 'definitive_terms',   label: 'Definitive terms / LOIs progressed',      required: false },
-    { key: 'closing_docs',       label: 'Closing documents executed',              required: false }
+  'Partner Call': [
+    { key: 'partner_call',     label: 'Partner call held',                         required: true  },
+    { key: 'data_request',     label: 'Data / metrics request sent',               required: true  },
+    { key: 'nda_signed',       label: 'NDA signed',                                required: false }
   ],
-  Closed: [
-    { key: 'invoice',          label: 'Success fee invoice issued',                required: true  },
-    { key: 'case_study',       label: 'Internal case study logged',                required: false },
-    { key: 'testimonial',      label: 'Client testimonial captured',               required: false }
+  Memo: [
+    { key: 'memo_drafted',       label: 'Investment memo drafted',                 required: true  },
+    { key: 'key_metrics',        label: 'Key metrics and model assembled',         required: true  },
+    { key: 'references',         label: 'Customer / reference calls done',         required: false },
+    { key: 'ic_scheduled',       label: 'IC review scheduled',                      required: false }
   ],
-  'On Hold': [
-    { key: 'reason_noted',     label: 'Reason for hold noted in activity',         required: true  },
-    { key: 'revive_trigger',   label: 'Trigger to resume documented',              required: false }
+  Diligence: [
+    { key: 'dd_kickoff',       label: 'Diligence kickoff held',                    required: true  },
+    { key: 'dd_workstreams',   label: 'Diligence workstreams assigned',            required: false },
+    { key: 'case_study',       label: 'Internal case study logged',                required: false }
   ],
-  Lost: [
-    { key: 'loss_reason',      label: 'Loss reason captured for PM review',        required: true  },
+  Passed: [
+    { key: 'pass_reason',      label: 'Pass reason captured for review',           required: true  },
     { key: 'relationship_logged', label: 'Relationship-maintenance next step logged', required: false }
   ]
 }

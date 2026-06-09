@@ -5,8 +5,8 @@ import { supabase, isSupabaseConfigured } from '../lib/supabase.js'
 import { STAGES } from '../lib/stages.js'
 
 // Visible on the deal Overview directly under the progress bar. Answers the
-// partner's question at a glance: "When did we start with them, when did we
-// pre-mandate, when did we mandate, where are we now?"
+// partner's question at a glance: "When did we start with them, when did the
+// analyst call happen, when did it go to a memo, where are we now?"
 //
 // Reads activities.kind = 'stage_change' (body format "<from> → <to>") to
 // learn the date the deal *entered* each stage. Fallbacks:
@@ -19,13 +19,13 @@ import { STAGES } from '../lib/stages.js'
 const DEST_RE = /→\s*([\w\s-]+?)\s*$/
 
 const STAGE_TONE = {
-  Origination:  'border-valence-border bg-valence-elevated text-valence-text',
-  Pitching:     'border-valence-border bg-valence-elevated text-valence-text',
-  'Pre-Mandate':'border-valence-blue/30 bg-valence-blue-soft text-valence-text',
-  Mandate:      'border-valence-blue/40 bg-valence-blue-soft text-valence-text',
-  Closed:       'border-valence-success/40 bg-valence-success/10 text-valence-success',
-  Lost:         'border-valence-danger/40 bg-valence-danger/10 text-valence-danger',
-  'On Hold':    'border-valence-warning/40 bg-valence-warning/10 text-valence-warning'
+  'Sourced':              'border-valence-border bg-valence-elevated text-valence-text',
+  'Information Received': 'border-valence-border bg-valence-elevated text-valence-text',
+  'Analyst Call':        'border-valence-blue/30 bg-valence-blue-soft text-valence-text',
+  'Partner Call':        'border-valence-blue/40 bg-valence-blue-soft text-valence-text',
+  'Memo':                'border-valence-blue/40 bg-valence-blue-soft text-valence-text',
+  'Diligence':           'border-valence-success/40 bg-valence-success/10 text-valence-success',
+  'Passed':              'border-valence-danger/40 bg-valence-danger/10 text-valence-danger'
 }
 
 const CURRENT_RING = 'ring-2 ring-valence-blue/40 shadow-sm'
@@ -40,8 +40,8 @@ function buildHistory(deal, stageChanges) {
   // Map<stage, Date> for first-entry timestamps.
   const entryAt = new Map()
 
-  // Origination always seeded from deal.created_at.
-  if (deal.created_at) entryAt.set('Origination', new Date(deal.created_at))
+  // Sourced always seeded from deal.created_at.
+  if (deal.created_at) entryAt.set('Sourced', new Date(deal.created_at))
 
   for (const a of stageChanges) {
     const dest = stageFromBody(a.body)

@@ -72,7 +72,7 @@ export default function SimilarDeals({ deal }) {
                     {dealTypeLabel(d) && <span>{dealTypeLabel(d)}</span>}
                     {d.sector && <span>· {d.sector}</span>}
                     {d.ticket_size_usd_m && <span>· ${Number(d.ticket_size_usd_m).toLocaleString()}M</span>}
-                    {meta.terminal && d.stage === 'Closed' && <span className="text-valence-success">Closed</span>}
+                    {meta.terminal && d.stage === 'Diligence' && <span className="text-valence-success">Diligence</span>}
                   </div>
                 </div>
                 <div className="flex flex-col items-end gap-0.5">

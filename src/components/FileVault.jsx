@@ -8,7 +8,7 @@ import { humanError } from '../lib/userError.js'
 import { useToast } from './Toast.jsx'
 import { useConfirm } from './ConfirmDialog.jsx'
 
-const CATEGORIES = ['Teaser','NDA','IM','Deck','LOI','Diligence','SPA','Engagement Letter','Other']
+const CATEGORIES = ['Pitch deck','NDA','Data room','Deck','Term sheet','Diligence','Side letter','Other']
 
 export default function FileVault({ dealId }) {
   const toast = useToast()
@@ -16,7 +16,7 @@ export default function FileVault({ dealId }) {
   const [files, setFiles] = useState([])
   const [loading, setLoading] = useState(true)
   const [uploading, setUploading] = useState(false)
-  const [category, setCategory] = useState('Teaser')
+  const [category, setCategory] = useState('Pitch deck')
   const [bucket, setBucket] = useState(null) // 'ok' | 'missing' | 'error' | 'unconfigured'
   const inputRef = useRef(null)
 
@@ -124,7 +124,7 @@ export default function FileVault({ dealId }) {
           {uploading ? 'Uploading…' : 'Drop a file or click to upload'}
         </p>
         <p className="mt-0.5 text-[11px] text-valence-muted">
-          Tag type first — teaser, NDA, IM, deck, LOI, diligence, SPA…
+          Tag type first — pitch deck, NDA, data room, deck, term sheet, diligence, side letter…
         </p>
         <div className="mt-3 flex items-center justify-center gap-2">
           <select

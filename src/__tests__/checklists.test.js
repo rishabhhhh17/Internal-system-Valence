@@ -30,23 +30,23 @@ describe('stage-gate checklists', () => {
     })
 
     it('is blocked when a required item is outstanding', () => {
-      const p = progress(new Set(), 'Mandate')
+      const p = progress(new Set(), 'Memo')
       expect(p.blocked).toBe(true)
       expect(p.done).toBe(0)
     })
 
     it('becomes unblocked when every required item is done', () => {
-      const required = STAGE_CHECKLISTS.Mandate.filter(i => i.required).map(i => i.key)
-      const p = progress(new Set(required), 'Mandate')
+      const required = STAGE_CHECKLISTS.Memo.filter(i => i.required).map(i => i.key)
+      const p = progress(new Set(required), 'Memo')
       expect(p.blocked).toBe(false)
       expect(p.doneRequired).toBe(p.required)
     })
 
     it('computes percent as done/total', () => {
-      const items = STAGE_CHECKLISTS.Mandate
+      const items = STAGE_CHECKLISTS.Memo
       const half = Math.floor(items.length / 2)
       const doneKeys = new Set(items.slice(0, half).map(i => i.key))
-      const p = progress(doneKeys, 'Mandate')
+      const p = progress(doneKeys, 'Memo')
       expect(p.percent).toBe(Math.round((half / items.length) * 100))
     })
   })

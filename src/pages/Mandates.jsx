@@ -12,8 +12,9 @@ import { InlineText, InlineSelect, InlineDate } from '../components/InlineEdit.j
 import { useToast } from '../components/Toast.jsx'
 import { humanError } from '../lib/userError.js'
 
-// Live mandates = Pre-Mandate + Mandate. Origination and Pitching are
-// pre-pipeline (Interactions territory) and the terminal three are after.
+// Active deals = Analyst Call + Partner Call + Memo. Sourced and Information
+// Received are pre-pipeline (Interactions territory) and the terminal two
+// (Diligence, Passed) are after.
 const LIVE_STAGES = LIVE_MANDATE_STAGES
 const STALE_THRESHOLD_DAYS = 21
 
@@ -41,7 +42,7 @@ export default function Mandates() {
     setDeals(prev => prev.map(d => d.id === dealId ? { ...d, [field]: value } : d))
     if (!isSupabaseConfigured) return
     const { error } = await supabase.from('deals').update({ [field]: value }).eq('id', dealId)
-    if (error) toast.error(humanError(error, 'Could not update mandate'))
+    if (error) toast.error(humanError(error, 'Could not update deal'))
     // re-pull the row in the background so derived fields (days-in-stage etc.) stay current
     if (field === 'stage') load()
   }
@@ -65,7 +66,7 @@ export default function Mandates() {
       setActivities(a.data || [])
     } catch (err) {
       console.error(err)
-      setLoadError(err?.message || 'Couldn\'t load mandates.')
+      setLoadError(err?.message || 'Couldn\'t load deals.')
       setDeals([]); setActivities([])
     } finally {
       setLoading(false)
@@ -122,19 +123,19 @@ export default function Mandates() {
 
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <p className="vl-eyebrow-ink">Live Mandates</p>
+          <p className="vl-eyebrow-ink">Active Deals</p>
           <h1 className="mt-2 font-display text-feature font-bold text-valence-text">
-            Active book — engaged through closing.
+            Active pipeline — first call through diligence.
           </h1>
         </div>
         <div className="flex items-center gap-3">
           <ViewModeToggle pageKey="mandates" />
-          <Link to="/deals" className="vl-btn-secondary"><Briefcase className="h-4 w-4" /> Open Deal Logger</Link>
+          <Link to="/deals" className="vl-btn-secondary"><Briefcase className="h-4 w-4" /> Open Pipeline</Link>
         </div>
       </div>
 
       <div className="flex flex-wrap items-center gap-2">
-        <span className="vl-eyebrow-ink inline-flex items-center gap-1.5"><Filter className="h-3 w-3" /> Lead owner</span>
+        <span className="vl-eyebrow-ink inline-flex items-center gap-1.5"><Filter className="h-3 w-3" /> Deal lead</span>
         {owners.map(o => (
           <button
             key={o}
@@ -147,16 +148,16 @@ export default function Mandates() {
           >{o}</button>
         ))}
         <span className="ml-auto inline-flex items-center gap-1.5 rounded-full border border-valence-border bg-valence-elevated px-2.5 py-1 text-[11px] text-valence-muted">
-          <Users className="h-3 w-3" /> {totalLive} live mandate{totalLive === 1 ? '' : 's'}
+          <Users className="h-3 w-3" /> {totalLive} active deal{totalLive === 1 ? '' : 's'}
         </span>
       </div>
 
       {loading ? (
         <TableSkeleton />
       ) : loadError ? (
-        <EmptyState icon={Briefcase} title="Couldn't load mandates" description={loadError} action={<button onClick={load} className="vl-btn-primary">Retry</button>} />
+        <EmptyState icon={Briefcase} title="Couldn't load deals" description={loadError} action={<button onClick={load} className="vl-btn-primary">Retry</button>} />
       ) : grouped.length === 0 ? (
-        <EmptyState icon={Briefcase} title="No live mandates" description="Mandates appear here once a deal moves into Mandate or beyond." action={<Link to="/deals" className="vl-btn-primary">Open Deal Logger</Link>} />
+        <EmptyState icon={Briefcase} title="No active deals" description="Deals appear here once they move into Analyst Call or beyond." action={<Link to="/deals" className="vl-btn-primary">Open Pipeline</Link>} />
       ) : (
         <div className="space-y-6">
           {grouped.map(([stage, rows]) => (
@@ -166,7 +167,7 @@ export default function Mandates() {
                   <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-semibold ${stageToneClasses(stage)}`}>{stage}</span>
                   <span className="text-[11px] text-valence-muted">{stageMeta(stage).short}</span>
                 </div>
-                <span className="text-[11px] tabular-nums text-valence-muted">{rows.length} mandate{rows.length === 1 ? '' : 's'}</span>
+                <span className="text-[11px] tabular-nums text-valence-muted">{rows.length} deal{rows.length === 1 ? '' : 's'}</span>
               </header>
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
@@ -174,8 +175,8 @@ export default function Mandates() {
                     <tr className="text-left text-[10px] font-semibold uppercase tracking-[0.16em] text-valence-subtle">
                       <th className="px-5 py-2 font-semibold">Company</th>
                       {isDetailed && <th className="px-3 py-2 font-semibold">Sector</th>}
-                      {isDetailed && <th className="px-3 py-2 font-semibold">Side</th>}
-                      <th className="px-3 py-2 font-semibold">Lead owner</th>
+                      {isDetailed && <th className="px-3 py-2 font-semibold">Role</th>}
+                      <th className="px-3 py-2 font-semibold">Deal lead</th>
                       <th className="px-3 py-2 font-semibold">Onboarding</th>
                       <th className="px-3 py-2 font-semibold text-right">Days in stage</th>
                       {isDetailed && <th className="px-3 py-2 font-semibold">Target close</th>}
@@ -258,15 +259,15 @@ function MandateRow({ d, isDetailed, onUpdate }) {
   )
 }
 
-// Onboarding checklist — mirrors the partner's "Live Mandates" tab in the
-// Mastersheet (NDA → Term Sheet → Commercials → Engagement Letter →
-// Onboarding). Each step is a clickable pill: click to toggle done. Writes
-// the whole jsonb back via onToggle. Shows an X/5 progress count.
+// Onboarding checklist — mirrors the partner's "Active Deals" tab in the
+// Mastersheet (NDA → Term sheet → Economics → Docs → Onboarding). Each step
+// is a clickable pill: click to toggle done. Writes the whole jsonb back via
+// onToggle. Shows an X/5 progress count.
 const ONBOARDING_STEPS = [
   { key: 'nda',               label: 'NDA' },
-  { key: 'term_sheet',        label: 'Term Sheet' },
-  { key: 'commercials',       label: 'Commercials' },
-  { key: 'engagement_letter', label: 'Engagement Letter' },
+  { key: 'term_sheet',        label: 'Term sheet' },
+  { key: 'commercials',       label: 'Economics' },
+  { key: 'engagement_letter', label: 'Docs' },
   { key: 'onboarding',        label: 'Onboarding' }
 ]
 function OnboardingChecklist({ value, onToggle }) {
@@ -320,20 +321,20 @@ function TableSkeleton() {
   )
 }
 
-// Minimal demo set — used when Supabase isn't configured. The Mandates page is a
-// secondary view of the same deal pipeline, so the demo set mirrors what the
-// Deal Logger demo array contains in active stages.
+// Minimal demo set — used when Supabase isn't configured. The Active Deals page
+// is a secondary view of the same deal pipeline, so the demo set mirrors what
+// the Pipeline demo array contains in active stages.
 const today = new Date()
 const daysAgo = (n) => { const d = new Date(today); d.setDate(d.getDate() - n); return d.toISOString() }
 const daysFwd = (n) => { const d = new Date(today); d.setDate(d.getDate() + n); return d.toISOString().slice(0,10) }
 const DEMO_MANDATES = [
-  { id: 'm1', client_name: 'Nimbus Health',       stage: 'Mandate',     sector: 'Healthcare',  side: 'Sell-side', lead_owner: 'Neha Jain',       expected_close_date: daysFwd(75),  updated_at: daysAgo(28), created_at: daysAgo(210) },
-  { id: 'm2', client_name: 'Quantum Edge',        stage: 'Mandate',     sector: 'Fintech',     side: 'Sell-side', lead_owner: 'James Whitfield', expected_close_date: daysFwd(150), updated_at: daysAgo(7),  created_at: daysAgo(95)  },
-  { id: 'm3', client_name: 'Meridian EdTech',     stage: 'Mandate',     sector: 'EdTech',      side: 'Sell-side', lead_owner: 'Priya Mehta',     expected_close_date: daysFwd(45),  updated_at: daysAgo(12), created_at: daysAgo(160) },
-  { id: 'm4', client_name: 'Orion Realty',        stage: 'Mandate',     sector: 'Real Estate', side: 'Sell-side', lead_owner: 'Neha Jain',       expected_close_date: daysFwd(25),  updated_at: daysAgo(3),  created_at: daysAgo(275) },
-  { id: 'm5', client_name: 'Aegis Logistics',     stage: 'Mandate',     sector: 'Logistics',   side: 'Sell-side', lead_owner: 'Oliver Hayes',    expected_close_date: daysFwd(180), updated_at: daysAgo(40), created_at: daysAgo(60)  },
-  { id: 'm6', client_name: 'Solstice Solar',      stage: 'Pre-Mandate', sector: 'Renewables',  side: 'Sell-side', lead_owner: 'Neha Jain',       expected_close_date: daysFwd(170), updated_at: daysAgo(5),  created_at: daysAgo(42)  },
-  { id: 'm7', client_name: 'Pelican Foods',       stage: 'Mandate',     sector: 'Consumer',    side: 'Sell-side', lead_owner: 'Priya Mehta',     expected_close_date: daysFwd(90),  updated_at: daysAgo(18), created_at: daysAgo(120) },
-  { id: 'm8', client_name: 'Tidewater Logistics', stage: 'Mandate',     sector: 'Logistics',   side: 'Sell-side', lead_owner: 'Oliver Hayes',    expected_close_date: daysFwd(120), updated_at: daysAgo(10), created_at: daysAgo(72)  },
-  { id: 'm9', client_name: 'Halcyon Pharma',      stage: 'Mandate',     sector: 'Healthcare',  side: 'Buy-side',  lead_owner: 'Neha Jain',       expected_close_date: daysFwd(65),  updated_at: daysAgo(45), created_at: daysAgo(110) }
+  { id: 'm1', client_name: 'Nimbus Health',       stage: 'Memo',         sector: 'Healthcare',  side: 'Sell-side', lead_owner: 'Neha Jain',       expected_close_date: daysFwd(75),  updated_at: daysAgo(28), created_at: daysAgo(210) },
+  { id: 'm2', client_name: 'Quantum Edge',        stage: 'Memo',         sector: 'Fintech',     side: 'Sell-side', lead_owner: 'James Whitfield', expected_close_date: daysFwd(150), updated_at: daysAgo(7),  created_at: daysAgo(95)  },
+  { id: 'm3', client_name: 'Meridian EdTech',     stage: 'Memo',         sector: 'EdTech',      side: 'Sell-side', lead_owner: 'Priya Mehta',     expected_close_date: daysFwd(45),  updated_at: daysAgo(12), created_at: daysAgo(160) },
+  { id: 'm4', client_name: 'Orion Realty',        stage: 'Memo',         sector: 'Real Estate', side: 'Sell-side', lead_owner: 'Neha Jain',       expected_close_date: daysFwd(25),  updated_at: daysAgo(3),  created_at: daysAgo(275) },
+  { id: 'm5', client_name: 'Aegis Logistics',     stage: 'Analyst Call', sector: 'Logistics',   side: 'Sell-side', lead_owner: 'Oliver Hayes',    expected_close_date: daysFwd(180), updated_at: daysAgo(40), created_at: daysAgo(60)  },
+  { id: 'm6', client_name: 'Solstice Solar',      stage: 'Partner Call', sector: 'Renewables',  side: 'Sell-side', lead_owner: 'Neha Jain',       expected_close_date: daysFwd(170), updated_at: daysAgo(5),  created_at: daysAgo(42)  },
+  { id: 'm7', client_name: 'Pelican Foods',       stage: 'Memo',         sector: 'Consumer',    side: 'Sell-side', lead_owner: 'Priya Mehta',     expected_close_date: daysFwd(90),  updated_at: daysAgo(18), created_at: daysAgo(120) },
+  { id: 'm8', client_name: 'Tidewater Logistics', stage: 'Partner Call', sector: 'Logistics',   side: 'Sell-side', lead_owner: 'Oliver Hayes',    expected_close_date: daysFwd(120), updated_at: daysAgo(10), created_at: daysAgo(72)  },
+  { id: 'm9', client_name: 'Halcyon Pharma',      stage: 'Memo',         sector: 'Healthcare',  side: 'Buy-side',  lead_owner: 'Neha Jain',       expected_close_date: daysFwd(65),  updated_at: daysAgo(45), created_at: daysAgo(110) }
 ]

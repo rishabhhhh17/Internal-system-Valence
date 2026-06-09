@@ -12,29 +12,29 @@
 // InteractionDrawer narrows dynamically.
 
 export const CONTEXT_GROUPS = [
-  { id: 'pre_mandate',    label: 'Pre-mandate' },
-  { id: 'live_execution', label: 'Live execution' },
+  { id: 'pre_mandate',    label: 'Pre-investment' },
+  { id: 'live_execution', label: 'In evaluation' },
   { id: 'post_cross',     label: 'Post / cross-cutting' }
 ]
 
 export const PURPOSES = [
   // Pre-mandate (the original four)
-  { id: 'pitch_for_mandate',     group: 'pre_mandate',    label: 'Pitch for mandate',     blurb: 'Active outreach to win a mandate' },
-  { id: 'counterparty_outreach', group: 'pre_mandate',    label: 'Counterparty outreach', blurb: 'Funds, strategics, family offices' },
+  { id: 'pitch_for_mandate',     group: 'pre_mandate',    label: 'First meeting',     blurb: 'Active outreach to win a deal' },
+  { id: 'counterparty_outreach', group: 'pre_mandate',    label: 'Co-investor / LP outreach', blurb: 'Funds, strategics, family offices' },
   { id: 'relationship_building', group: 'pre_mandate',    label: 'Relationship building', blurb: 'Long-arc relationship-keeping' },
   { id: 'referral',              group: 'pre_mandate',    label: 'Referral',              blurb: 'Inbound or outbound referral' },
 
   // Live mandate execution
-  { id: 'client_update',             group: 'live_execution', label: 'Client update',          blurb: 'Mandate-side check-in (sponsor, founder, board)' },
-  { id: 'investor_buyer_engagement', group: 'live_execution', label: 'Investor / buyer call',  blurb: 'Marketing the mandate to a fund or strategic acquirer' },
+  { id: 'client_update',             group: 'live_execution', label: 'Portfolio / founder update', blurb: 'Deal-side check-in (sponsor, founder, board)' },
+  { id: 'investor_buyer_engagement', group: 'live_execution', label: 'Co-investor sync',        blurb: 'Marketing the deal to a fund or strategic acquirer' },
   { id: 'diligence_session',         group: 'live_execution', label: 'Diligence session',      blurb: 'Counterparty doing DD on the asset (Q&A, data room walk-through)' },
-  { id: 'negotiation',               group: 'live_execution', label: 'Negotiation',            blurb: 'Term sheet, SPA, fee letter, deal terms' },
+  { id: 'negotiation',               group: 'live_execution', label: 'Negotiation',            blurb: 'Term sheet, deal terms' },
   { id: 'closing_coordination',      group: 'live_execution', label: 'Closing coordination',   blurb: 'Final docs, signing, funds flow, regulatory' },
 
   // Post / cross-cutting
-  { id: 'post_close_followup', group: 'post_cross', label: 'Post-close follow-up', blurb: 'After a mandate closes — fee, references, ongoing relationship' },
+  { id: 'post_close_followup', group: 'post_cross', label: 'Post-close follow-up', blurb: 'After a deal closes — fee, references, ongoing relationship' },
   { id: 'co_advisor_sync',     group: 'post_cross', label: 'Co-advisor / counsel', blurb: 'Counsel, accountants, friendly co-advisors' },
-  { id: 'industry_intel',      group: 'post_cross', label: 'Industry intelligence',blurb: 'Market check-in, sector read, no specific mandate' }
+  { id: 'industry_intel',      group: 'post_cross', label: 'Industry intelligence',blurb: 'Market check-in, sector read, no specific deal' }
 ]
 
 export const TYPES = [
@@ -57,8 +57,8 @@ export const TYPES = [
 const OUTCOME_LABELS = {
   to_followup:          'To follow up',
   in_progress:          'In progress',
-  converted_to_mandate: 'Converted to mandate',
-  pitched_lost:         'Pitched and lost',
+  converted_to_mandate: 'Committed',
+  pitched_lost:         'Passed',
   interested:           'Interested',
   passed:               'Passed',
   referred_out:         'Referred out',

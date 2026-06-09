@@ -2,18 +2,18 @@ import { useMemo } from 'react'
 import { format, parseISO } from 'date-fns'
 import { ArrowRight } from 'lucide-react'
 
-// Stage-history table for the Timeline page. One row per live mandate,
-// columns for each stage in the canonical 7-stage funnel. Each cell shows
+// Stage-history table for the Timeline page. One row per live deal,
+// columns for each stage in the canonical pre-diligence funnel. Each cell shows
 // the date the deal *entered* that stage (derived from activities.kind =
 // 'stage_change' rows, falling back to deal.created_at for the initial
 // stage). The current stage cell is highlighted; never-entered cells are
 // shown as a quiet em-dash so the path through the funnel reads at a glance.
 
 // Stages in the order the partner wants to read them. Terminal stages
-// (Closed / On Hold / Lost) share a single rightmost "Outcome" column so
-// the main funnel reads as a clean 5-column path.
-const FUNNEL_STAGES = ['Origination', 'Pitching', 'Pre-Mandate', 'Mandate']
-const TERMINAL_STAGES = new Set(['Closed', 'On Hold', 'Lost'])
+// (Diligence / Passed) share a single rightmost "Outcome" column so
+// the main funnel reads as a clean path.
+const FUNNEL_STAGES = ['Sourced', 'Information Received', 'Analyst Call', 'Partner Call', 'Memo']
+const TERMINAL_STAGES = new Set(['Diligence', 'Passed'])
 
 // Parse the destination stage out of a stage_change activity body. The
 // canonical format is "<from> → <to>" (em-arrow). Fall back to scanning
@@ -29,8 +29,8 @@ function stageFromActivity(body) {
 function buildStageMap(deal, activitiesByDeal) {
   const out = {}
   const acts = (activitiesByDeal.get(deal.id) || []).filter(a => a.kind === 'stage_change')
-  // Initial stage timestamp = deal.created_at (seeded as Origination).
-  if (deal.created_at) out['Origination'] = new Date(deal.created_at)
+  // Initial stage timestamp = deal.created_at (seeded as Sourced).
+  if (deal.created_at) out['Sourced'] = new Date(deal.created_at)
   for (const a of acts) {
     const dest = stageFromActivity(a.body)
     if (!dest) continue
@@ -120,9 +120,9 @@ export default function TimelineTable({ deals, activities, onOpenDeal }) {
                   {terminal ? (
                     <div className="inline-flex flex-col gap-0.5">
                       <span className={`text-sm font-semibold ${
-                        terminal === 'Closed' ? 'text-valence-success' :
-                        terminal === 'Lost'   ? 'text-valence-danger'  :
-                                                 'text-valence-warning'
+                        terminal === 'Diligence' ? 'text-valence-success' :
+                        terminal === 'Passed'    ? 'text-valence-danger'  :
+                                                    'text-valence-warning'
                       }`}>{terminal}</span>
                       {terminalAt && <span className="text-[10px] text-valence-muted tabular-nums">{format(terminalAt, 'd MMM yyyy')}</span>}
                     </div>

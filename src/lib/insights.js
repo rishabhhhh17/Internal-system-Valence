@@ -2,20 +2,20 @@
 // deal drawer. Pure functions — no side effects, testable in isolation.
 
 import { differenceInDays, parseISO } from 'date-fns'
-import { ACTIVE_STAGES, STAGES, stageMeta } from './stages.js'
+import { ACTIVE_STAGES, STAGES, LIVE_PIPELINE_STAGES, stageMeta } from './stages.js'
 
 // Stage-weighted probability estimates used for forecasting pipeline value.
-// Aligned to the new 7-stage model. Mandate is a single execution stage that
-// absorbs what used to be Preparation / Marketing / Diligence / Negotiation /
-// Closing — its probability sits where those stages used to average out.
+// Aligned to the pre-diligence investor funnel (src/lib/stages.js). Monotonic
+// up the active funnel; Diligence is the graduation (high, not certain) and
+// Passed is the drop-off (zero).
 export const STAGE_PROBABILITY = {
-  'Origination':  0.05,
-  'Pitching':     0.15,
-  'Pre-Mandate':  0.40,
-  'Mandate':      0.75,
-  'Closed':       1.0,
-  'On Hold':      0.10,
-  'Lost':         0
+  'Sourced':               0.03,
+  'Information Received':   0.08,
+  'Analyst Call':          0.18,
+  'Partner Call':          0.38,
+  'Memo':                  0.65,
+  'Diligence':             0.9,
+  'Passed':                0
 }
 
 // Compute the expected fee for a deal given its size and fee structure.
@@ -35,7 +35,7 @@ export function forecastPipeline(deals) {
     const fee = expectedFee(d)
     const p = STAGE_PROBABILITY[d.stage] ?? 0
     weighted += fee * p
-    if (d.stage === 'Closed') recognised += fee
+    if (d.stage === 'Diligence') recognised += fee
   }
   return { weighted, recognised }
 }
@@ -72,7 +72,7 @@ export function stageVelocity(activities) {
   const durations = {} // stage → [days spent]
   for (const [_, arr] of byDeal) {
     const sorted = arr.sort((x, y) => new Date(x.created_at) - new Date(y.created_at))
-    // First entry (created) is the birth time of the deal in 'Origination'
+    // First entry (created) is the birth time of the deal in 'Sourced'
     for (let i = 0; i < sorted.length - 1; i++) {
       const a = sorted[i]
       const b = sorted[i + 1]
@@ -80,7 +80,7 @@ export function stageVelocity(activities) {
       if (b.kind !== 'stage_change') continue
       const from = a.kind === 'stage_change'
         ? (a.body?.match(/→\s*([A-Za-z /]+)/) || [])[1]?.trim()
-        : 'Origination'
+        : 'Sourced'
       if (!from) continue
       const days = Math.max(0, differenceInDays(new Date(b.created_at), new Date(a.created_at)))
       if (!durations[from]) durations[from] = []
@@ -105,8 +105,8 @@ export function expertsBySector(deals, documents = []) {
     if (!owner) continue
     scores[sector] ??= {}
     scores[sector][owner] ??= 0
-    // Closed deals count double
-    scores[sector][owner] += d.stage === 'Closed' ? 2 : 1
+    // Graduated (Diligence) deals count double
+    scores[sector][owner] += d.stage === 'Diligence' ? 2 : 1
   }
   // Could fold in documents.uploaded_by once we track it per sector.
   for (const doc of documents) {
@@ -145,28 +145,27 @@ export function distribution(deals, keyFn, { fallback = 'Unspecified' } = {}) {
 }
 
 // Stage-to-stage conversion ladder: for each active stage, % of deals that
-// reached at least the NEXT stage (any stage deeper in the funnel, or Closed).
+// reached at least the NEXT stage (any stage deeper in the funnel, or Diligence).
 // This is a cohort-lite view: treats every deal that ever crossed a stage as
-// having been in it. Deals in Lost/On Hold count as drop-offs.
+// having been in it. Deals in Passed count as drop-offs.
 export function conversionLadder(deals) {
-  const order = ACTIVE_STAGES.map(s => s.id) // Origination → Closing
+  const order = ACTIVE_STAGES.map(s => s.id) // Sourced → Memo
   const idxOf = Object.fromEntries(order.map((s, i) => [s, i]))
-  // Assume the CURRENT stage is the furthest a deal has reached. For "Closed"
-  // deals, they crossed every active stage.
+  // Assume the CURRENT stage is the furthest a deal has reached. Deals that
+  // reached "Diligence" (graduated) crossed every active stage.
   const reached = order.map(() => 0)
   for (const d of deals) {
     const stage = d.stage
     let maxIdx = -1
-    if (stage === 'Closed')      maxIdx = order.length - 1
-    else if (stage === 'Lost')   maxIdx = -1   // counted as never-closed; drop from all stages
-    else if (stage === 'On Hold') maxIdx = -1  // paused — exclude from conversion math
+    if (stage === 'Diligence')   maxIdx = order.length - 1
+    else if (stage === 'Passed') maxIdx = -1   // dropped; drop from all stages
     else if (idxOf[stage] != null) maxIdx = idxOf[stage]
     for (let i = 0; i <= maxIdx; i++) reached[i] += 1
   }
   // Conversion from stage i → stage i+1 = reached[i+1] / reached[i]
   return order.map((stage, i) => {
     const count = reached[i]
-    const nextCount = reached[i + 1] ?? deals.filter(d => d.stage === 'Closed').length
+    const nextCount = reached[i + 1] ?? deals.filter(d => d.stage === 'Diligence').length
     const conversion = count ? nextCount / count : null
     return { stage, count, nextCount, conversion }
   })
@@ -174,7 +173,7 @@ export function conversionLadder(deals) {
 
 // Fee forecast bucketed by calendar quarter based on `expected_close_date`.
 // Falls back to distributing weighted fee across the next 4 quarters when no
-// date is available, weighted by stage probability (so Closing hits Q1+2).
+// date is available, weighted by stage probability (so Memo hits Q1+2).
 export function feeByQuarter(deals, { quarters = 4, now = new Date() } = {}) {
   const buckets = []
   const y = now.getFullYear()
@@ -188,7 +187,7 @@ export function feeByQuarter(deals, { quarters = 4, now = new Date() } = {}) {
     if (quarterOffset < 0 || quarterOffset >= quarters) return
     const b = buckets[quarterOffset]
     b.weightedFeeUsd += weighted
-    if (stage === 'Mandate' || stage === 'Closed') b.committedFeeUsd += fee
+    if (stage === 'Memo' || stage === 'Diligence') b.committedFeeUsd += fee
     b.dealCount += 1
   }
   for (const d of deals) {
@@ -212,14 +211,15 @@ export function feeByQuarter(deals, { quarters = 4, now = new Date() } = {}) {
 
 function stageQuarterWeights(stage, quarters) {
   // Heuristic weights by stage — later stages are front-loaded.
-  // Keyed on the canonical 7-stage model (src/lib/stages.js). Later (closer
-  // to Mandate) stages are front-loaded; Origination is back-loaded.
+  // Keyed on the pre-diligence investor funnel (src/lib/stages.js). Later
+  // (closer to Memo) stages are front-loaded; Sourced is back-loaded.
   const templates = {
-    Origination:   [0.05, 0.15, 0.30, 0.50],
-    Pitching:      [0.10, 0.25, 0.35, 0.30],
-    'Pre-Mandate': [0.25, 0.35, 0.28, 0.12],
-    Mandate:       [0.45, 0.35, 0.15, 0.05],
-    Closed:        [1.00, 0, 0, 0]
+    'Sourced':              [0.05, 0.15, 0.30, 0.50],
+    'Information Received':  [0.08, 0.20, 0.34, 0.38],
+    'Analyst Call':         [0.10, 0.25, 0.35, 0.30],
+    'Partner Call':         [0.25, 0.35, 0.28, 0.12],
+    'Memo':                 [0.45, 0.35, 0.15, 0.05],
+    'Diligence':            [1.00, 0, 0, 0]
   }
   const t = templates[stage] || [0.25, 0.25, 0.25, 0.25]
   return t.slice(0, quarters)
@@ -260,15 +260,15 @@ export function winRateTrend(deals, activities = [], { windows = 6 } = {}) {
     const t = new Date(a.created_at).getTime()
     const bucket = series.find(s => t >= s.start && t < s.end)
     if (!bucket) continue
-    if (body.includes('→ Closed')) bucket.closed += 1
-    if (body.includes('→ Lost'))   bucket.lost += 1
+    if (body.includes('→ Diligence')) bucket.closed += 1
+    if (body.includes('→ Passed'))    bucket.lost += 1
   }
   // If no real data at all, synthesize a plausible trend based on current
-  // closed/lost counts (for demo integrity).
+  // graduated/passed counts (for demo integrity).
   const totalReal = series.reduce((s, x) => s + x.closed + x.lost, 0)
   if (totalReal === 0) {
-    const closed = deals.filter(d => d.stage === 'Closed').length || 3
-    const lost   = deals.filter(d => d.stage === 'Lost').length   || 1
+    const closed = deals.filter(d => d.stage === 'Diligence').length || 3
+    const lost   = deals.filter(d => d.stage === 'Passed').length   || 1
     const base = Math.max(1, Math.round((closed + lost) / windows))
     series.forEach((s, i) => {
       s.closed = Math.max(0, Math.round(base * (0.6 + i * 0.15)))
@@ -322,8 +322,8 @@ export function activityHeatmap(activities = [], { weeks = 12 } = {}) {
 
 // Win-rate summary — how many closed vs lost among terminal deals.
 export function winLossSummary(deals) {
-  const closed = deals.filter(d => d.stage === 'Closed').length
-  const lost   = deals.filter(d => d.stage === 'Lost').length
+  const closed = deals.filter(d => d.stage === 'Diligence').length
+  const lost   = deals.filter(d => d.stage === 'Passed').length
   const total  = closed + lost
   return { closed, lost, total, rate: total ? closed / total : null }
 }
@@ -455,8 +455,8 @@ export function bankerProductivity(deals) {
     const existing = byOwner.get(k) || { owner: k, total: 0, active: 0, closed: 0, lost: 0, weightedFee: 0 }
     existing.total += 1
     if (!stageMeta(d.stage).terminal) existing.active += 1
-    if (d.stage === 'Closed') existing.closed += 1
-    if (d.stage === 'Lost')   existing.lost += 1
+    if (d.stage === 'Diligence') existing.closed += 1
+    if (d.stage === 'Passed')    existing.lost += 1
     existing.weightedFee += w
     byOwner.set(k, existing)
   }
@@ -564,15 +564,15 @@ export function sideMix(deals) {
 export function riskFlags(deals) {
   const flags = []
   for (const d of deals) {
-    const isLive = ['Pre-Mandate', 'Mandate'].includes(d.stage)
+    const isLive = LIVE_PIPELINE_STAGES.includes(d.stage)
     if (!d.lead_owner)
       flags.push({ severity: 'warn',  message: `${d.client_name || 'Deal'} — no lead owner assigned`, deal_id: d.id })
     if (!d.sector)
       flags.push({ severity: 'info',  message: `${d.client_name || 'Deal'} — sector not tagged`, deal_id: d.id })
     if (isLive && !d.deal_subtype && !(d.deal_types || []).includes('advisory'))
       flags.push({ severity: 'warn',  message: `${d.client_name || 'Deal'} — transaction type not classified`, deal_id: d.id })
-    if (d.stage === 'Mandate' && !d.expected_close_date && !d.target_close)
-      flags.push({ severity: 'high',  message: `${d.client_name || 'Deal'} — Mandate stage with no target close date`, deal_id: d.id })
+    if (d.stage === 'Memo' && !d.expected_close_date && !d.target_close)
+      flags.push({ severity: 'high',  message: `${d.client_name || 'Deal'} — Memo stage with no target close date`, deal_id: d.id })
     if (isLive && d.nda_status === 'Pending')
       flags.push({ severity: 'info',  message: `${d.client_name || 'Deal'} — NDA still pending`, deal_id: d.id })
   }

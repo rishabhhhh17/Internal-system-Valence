@@ -48,7 +48,7 @@ export default function InboxIntake() {
       new: '1',
       client_name: row.company_name || '',
       sector: row.sector || '',
-      stage: 'Origination',
+      stage: 'Information Received',
       // legacy
       side:   row.deal_side || 'Sell-side',
       ticket_size_usd_m: row.ev_ask_usd_m || '',
@@ -81,8 +81,8 @@ export default function InboxIntake() {
       <ConfigBanner />
 
       <div>
-        <p className="vl-eyebrow-ink">Intake review</p>
-        <h1 className="mt-2 font-display text-feature font-bold text-valence-text">Inbound submissions.</h1>
+        <p className="vl-eyebrow-ink">Deal flow</p>
+        <h1 className="mt-2 font-display text-feature font-bold text-valence-text">Inbound deals.</h1>
       </div>
 
       <div className="flex flex-wrap items-center gap-2">

@@ -1,23 +1,24 @@
 import { describe, it, expect } from 'vitest'
-import { STAGES, ACTIVE_STAGES, TERMINAL_STAGES, LIVE_MANDATE_STAGES, stageMeta, stageProgress, migrateStage } from '../lib/stages.js'
+import { STAGES, ACTIVE_STAGES, TERMINAL_STAGES, LIVE_MANDATE_STAGES, LIVE_PIPELINE_STAGES, stageMeta, stageProgress, migrateStage } from '../lib/stages.js'
 
 describe('stages', () => {
-  it('has exactly 7 stages (4 active + 3 terminal)', () => {
+  it('has exactly 7 stages (5 active + 2 terminal)', () => {
     expect(STAGES).toHaveLength(7)
-    expect(ACTIVE_STAGES).toHaveLength(4)
-    expect(TERMINAL_STAGES).toHaveLength(3)
+    expect(ACTIVE_STAGES).toHaveLength(5)
+    expect(TERMINAL_STAGES).toHaveLength(2)
   })
 
-  it('active stages are Origination → Pitching → Pre-Mandate → Mandate', () => {
-    expect(ACTIVE_STAGES.map(s => s.id)).toEqual(['Origination', 'Pitching', 'Pre-Mandate', 'Mandate'])
+  it('active stages are the pre-diligence funnel', () => {
+    expect(ACTIVE_STAGES.map(s => s.id)).toEqual(['Sourced', 'Information Received', 'Analyst Call', 'Partner Call', 'Memo'])
   })
 
-  it('terminal stages are Closed, On Hold, Lost', () => {
-    expect(TERMINAL_STAGES.map(s => s.id).sort()).toEqual(['Closed', 'Lost', 'On Hold'])
+  it('terminal stages are Diligence (graduation) and Passed', () => {
+    expect(TERMINAL_STAGES.map(s => s.id).sort()).toEqual(['Diligence', 'Passed'])
   })
 
-  it('LIVE_MANDATE_STAGES is Pre-Mandate + Mandate', () => {
-    expect(LIVE_MANDATE_STAGES).toEqual(['Pre-Mandate', 'Mandate'])
+  it('LIVE_PIPELINE_STAGES is the actively-worked set', () => {
+    expect(LIVE_PIPELINE_STAGES).toEqual(['Analyst Call', 'Partner Call', 'Memo'])
+    expect(LIVE_MANDATE_STAGES).toEqual(LIVE_PIPELINE_STAGES) // back-compat alias
   })
 
   it('every stage has a description', () => {
@@ -29,19 +30,18 @@ describe('stages', () => {
 
   describe('stageMeta()', () => {
     it('returns the matching stage', () => {
-      expect(stageMeta('Mandate').id).toBe('Mandate')
+      expect(stageMeta('Memo').id).toBe('Memo')
     })
 
     it('falls back to the first stage for unknown ids', () => {
-      expect(stageMeta('Nonsense').id).toBe('Origination')
+      expect(stageMeta('Nonsense').id).toBe('Sourced')
     })
   })
 
   describe('stageProgress()', () => {
-    it('returns 1.0 for Closed and 0 for On Hold / Lost', () => {
-      expect(stageProgress('Closed')).toBe(1)
-      expect(stageProgress('On Hold')).toBe(0)
-      expect(stageProgress('Lost')).toBe(0)
+    it('returns 1.0 for Diligence and 0 for Passed', () => {
+      expect(stageProgress('Diligence')).toBe(1)
+      expect(stageProgress('Passed')).toBe(0)
     })
 
     it('returns a strictly increasing fraction across active funnel', () => {
@@ -55,13 +55,20 @@ describe('stages', () => {
   })
 
   describe('migrateStage()', () => {
-    it('maps Pitch → Pitching', () => {
-      expect(migrateStage('Pitch')).toBe('Pitching')
+    it('maps the old IB pipeline to the new funnel', () => {
+      expect(migrateStage('Origination')).toBe('Information Received')
+      expect(migrateStage('Pitch')).toBe('Analyst Call')
+      expect(migrateStage('Pitching')).toBe('Analyst Call')
+      expect(migrateStage('Pre-Mandate')).toBe('Partner Call')
+      expect(migrateStage('Mandate')).toBe('Memo')
+      expect(migrateStage('Closed')).toBe('Diligence')
+      expect(migrateStage('Lost')).toBe('Passed')
+      expect(migrateStage('On Hold')).toBe('Sourced')
     })
 
-    it('collapses execution-phase stages into Mandate', () => {
-      for (const old of ['Preparation', 'Marketing', 'Diligence', 'Negotiation', 'Closing']) {
-        expect(migrateStage(old)).toBe('Mandate')
+    it('collapses old execution-phase stages into Memo', () => {
+      for (const old of ['Preparation', 'Marketing', 'Negotiation', 'Closing']) {
+        expect(migrateStage(old)).toBe('Memo')
       }
     })
 
@@ -71,9 +78,9 @@ describe('stages', () => {
       }
     })
 
-    it('parks unknown stages at Origination', () => {
-      expect(migrateStage('Bogus')).toBe('Origination')
-      expect(migrateStage(undefined)).toBe('Origination')
+    it('parks unknown stages at Sourced', () => {
+      expect(migrateStage('Bogus')).toBe('Sourced')
+      expect(migrateStage(undefined)).toBe('Sourced')
     })
   })
 })

@@ -247,7 +247,7 @@ export function MandatesPanel() {
           </button>
         </div>
         {selectedMandateId && selectedMandateId !== FIRM_SCOPE && (
-          <button onClick={ensureFolders} className="inline-flex items-center gap-1.5 rounded-md bg-valence-surface border border-valence-border px-2.5 py-1 text-[11px] font-medium text-valence-muted hover:text-valence-text hover:border-valence-ink/30 transition shrink-0" title="Spawn the default folder template for this mandate">
+          <button onClick={ensureFolders} className="inline-flex items-center gap-1.5 rounded-md bg-valence-surface border border-valence-border px-2.5 py-1 text-[11px] font-medium text-valence-muted hover:text-valence-text hover:border-valence-ink/30 transition shrink-0" title="Spawn the default folder template for this deal">
             <FolderTree className="h-3 w-3" /> Ensure folders
           </button>
         )}
@@ -307,7 +307,7 @@ export function MandatesPanel() {
               {loadingMandates ? (
                 <p className="px-3 py-2 text-[11px] text-valence-muted">Loading…</p>
               ) : filteredMandates.length === 0 ? (
-                <p className="px-3 py-2 text-[11px] text-valence-muted">No mandates.</p>
+                <p className="px-3 py-2 text-[11px] text-valence-muted">No deals.</p>
               ) : (
                 filteredMandates.map(m => (
                   <FinderRow
@@ -469,8 +469,8 @@ export default function KnowledgeMandates() {
     <div className="space-y-6">
       <ConfigBanner />
       <div>
-        <p className="vl-eyebrow-ink">Knowledge · Mandate notes</p>
-        <h1 className="mt-2 font-display text-feature font-bold text-valence-text">Per-mandate folders.</h1>
+        <p className="vl-eyebrow-ink">Knowledge · Deal notes</p>
+        <h1 className="mt-2 font-display text-feature font-bold text-valence-text">Per-deal folders.</h1>
       </div>
       <MandatesPanel />
     </div>

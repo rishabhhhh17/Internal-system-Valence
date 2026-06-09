@@ -76,7 +76,7 @@ const ACCENT_TONE = {
   }
 }
 
-export default function MandateFitVerdict({ output, onConvert, dense = false, eyebrow = 'AI Mandate-Fit' }) {
+export default function MandateFitVerdict({ output, onConvert, dense = false, eyebrow = 'AI Thesis-fit' }) {
   if (!output) return null
   const verdict = (output.verdict || 'review').toLowerCase()
   const meta = VERDICT_META[verdict] || VERDICT_META.review
@@ -174,7 +174,7 @@ export default function MandateFitVerdict({ output, onConvert, dense = false, ey
           <p className="text-[11px] text-valence-subtle">{meta.blurb}</p>
           {verdict === 'pursue' && onConvert && (
             <button onClick={onConvert} className="vl-btn-primary text-[11px] shrink-0">
-              Convert to mandate <ArrowRight className="h-3 w-3" />
+              Convert to deal <ArrowRight className="h-3 w-3" />
             </button>
           )}
         </div>
