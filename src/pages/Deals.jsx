@@ -134,7 +134,7 @@ export default function Deals() {
   useEffect(() => { load() }, [])
   useEffect(() => {
     if (!isSupabaseConfigured) return
-    return subscribeTable('deals', load)
+    return subscribeTable('deals', () => load({ silent: true }))
   }, [])
 
   // Keep the drawer's deal object in sync when the underlying data changes
@@ -194,8 +194,11 @@ export default function Deals() {
     setParams(next, { replace: true })
   }, [params])
 
-  async function load() {
-    setLoading(true)
+  async function load({ silent = false } = {}) {
+    // `silent` skips the skeleton flash — used for realtime refreshes (e.g.
+    // after a drag-to-change-stage or a teammate's edit) so the board
+    // updates in place instead of blanking to a loader on every change.
+    if (!silent) setLoading(true)
     setLoadError(null)
     if (!isSupabaseConfigured) {
       setDeals(demo); setLoading(false); return
@@ -337,7 +340,7 @@ export default function Deals() {
     if (!isSupabaseConfigured) return
     const { error } = await supabase.from('deals').update({ stage: newStage }).eq('id', id)
     if (error) {
-      toast.error(humanError(error, 'Could not change stage — try again.')); load(); return
+      toast.error(humanError(error, 'Could not change stage — try again.')); load({ silent: true }); return
     }
     await logActivity({ dealId: id, kind: 'stage_change', body: `${deal.stage} → ${newStage}` })
     toast.success(`${deal.client_name} → ${newStage}`)

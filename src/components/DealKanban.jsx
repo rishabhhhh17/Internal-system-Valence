@@ -63,7 +63,7 @@ export default function DealKanban({ deals, onOpen, onStageChange }) {
               onDrop={(e) => {
                 e.preventDefault()
                 setOverStage(null)
-                const id = e.dataTransfer.getData('text/deal-id')
+                const id = e.dataTransfer.getData('text/deal-id') || e.dataTransfer.getData('text/plain')
                 if (id && onStageChange) onStageChange(id, stage.id)
               }}
               className={`shrink-0 snap-start w-[244px] rounded-xl border transition ${
@@ -123,6 +123,7 @@ function Card({ deal: d, onOpen, onStageChange, setDraggingId, setOverStage, ope
       onDragStart={(e) => {
         setDraggingId(d.id)
         e.dataTransfer.setData('text/deal-id', d.id)
+        e.dataTransfer.setData('text/plain', d.id) // fallback for browsers that drop custom MIME types
         e.dataTransfer.effectAllowed = 'move'
         if (ref.current) {
           try { e.dataTransfer.setDragImage(ref.current, 20, 20) } catch {}
