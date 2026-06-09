@@ -5,6 +5,7 @@ import { Briefcase, Filter, Users, AlertTriangle, ArrowUpRight } from 'lucide-re
 import { supabase, isSupabaseConfigured, subscribeTable } from '../lib/supabase.js'
 import { STAGES, LIVE_MANDATE_STAGES, stageMeta, stageToneClasses } from '../lib/stages.js'
 import { useViewMode } from '../hooks/useViewMode.jsx'
+import { usePipelineMode } from '../hooks/usePipelineMode.js'
 import ConfigBanner from '../components/ConfigBanner.jsx'
 import EmptyState from '../components/EmptyState.jsx'
 import ViewModeToggle from '../components/ViewModeToggle.jsx'
@@ -21,13 +22,15 @@ const STALE_THRESHOLD_DAYS = 21
 export default function Mandates() {
   const toast = useToast()
   const { isDetailed } = useViewMode('mandates')
+  const [pipelineMode] = usePipelineMode()
   const [deals, setDeals]           = useState([])
   const [activities, setActivities] = useState([])
   const [loading, setLoading]       = useState(true)
   const [loadError, setLoadError]   = useState(null)
   const [ownerFilter, setOwnerFilter] = useState('All')
 
-  useEffect(() => { load() }, [])
+  // Re-load on mount and whenever the pipeline mode flips (company ↔ lp).
+  useEffect(() => { load() }, [pipelineMode])
 
   // Live sync — teammate's stage change / new mandate appears here without reload.
   useEffect(() => {
@@ -54,7 +57,7 @@ export default function Mandates() {
     }
     try {
       const fetchPromise = Promise.all([
-        supabase.from('deals').select('*').in('stage', LIVE_STAGES).order('updated_at', { ascending: false }),
+        supabase.from('deals').select('*').eq('kind', pipelineMode).in('stage', LIVE_STAGES).order('updated_at', { ascending: false }),
         supabase.from('activities').select('deal_id, kind, created_at').eq('kind', 'stage_change')
       ])
       const timeoutPromise = new Promise((_, reject) =>

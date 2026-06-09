@@ -6,6 +6,7 @@ import { supabase, isSupabaseConfigured, subscribeTable } from '../lib/supabase.
 import { useSavedViews, filtersFromUrl } from '../hooks/useSavedViews.js'
 import SaveViewDialog from './SaveViewDialog.jsx'
 import { useWorkspaceSetting } from '../hooks/useWorkspaceSetting.js'
+import { usePipelineMode } from '../hooks/usePipelineMode.js'
 import { TERMINAL_STAGES as TERMINAL_STAGE_DEFS, LIVE_MANDATE_STAGES as LIVE_MANDATE_STAGE_IDS } from '../lib/stages.js'
 
 // Derive from the canonical 7-stage taxonomy (src/lib/stages.js) so the
@@ -56,6 +57,7 @@ function groupNav(items) {
 }
 
 function useSidebarCounts() {
+  const [pipelineMode] = usePipelineMode()
   const [counts, setCounts] = useState({ activeDeals: 0, todayMeetings: 0, pendingFollowUps: 0, liveMandates: 0, newIntakes: 0 })
 
   async function load() {
@@ -65,7 +67,7 @@ function useSidebarCounts() {
     const now = new Date()
     const todayIso = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
     const [d, m, i, ix] = await Promise.all([
-      supabase.from('deals').select('stage'),
+      supabase.from('deals').select('stage').eq('kind', pipelineMode),
       supabase.from('meetings').select('id', { count: 'exact', head: true }).eq('date', todayIso),
       // Exclude completed follow-ups so the badge matches the Interactions
       // "needs follow-up" list (which drops is_complete rows).
@@ -88,7 +90,9 @@ function useSidebarCounts() {
       subscribeTable('intake_submissions', load)
     ]
     return () => offs.forEach(o => o?.())
-  }, [])
+    // pipelineMode in deps so the deal-count badges refresh when the user
+    // toggles Companies ↔ LPs.
+  }, [pipelineMode])
 
   return counts
 }

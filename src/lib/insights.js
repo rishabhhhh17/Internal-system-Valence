@@ -621,3 +621,34 @@ export function similarDealsHeuristic(target, candidates, { limit = 4 } = {}) {
     .slice(0, limit)
   return scored.map(x => ({ ...x.deal, _similarity: x.score }))
 }
+
+// ── Drop-off diagnostics (pre-diligence funnel) ─────────────────────────
+// Per deal-lead funnel outcomes — spot who is leaking deals and where. For
+// each owner: total deals, still-active, reached Diligence (graduated), and
+// passed. passRate = passed / resolved (reached + passed).
+export function dropoffByOwner(deals) {
+  const map = new Map()
+  for (const d of deals || []) {
+    const owner = d.lead_owner || 'Unassigned'
+    if (!map.has(owner)) map.set(owner, { owner, total: 0, active: 0, reached: 0, passed: 0 })
+    const r = map.get(owner)
+    r.total += 1
+    if (d.stage === 'Diligence') r.reached += 1
+    else if (d.stage === 'Passed') r.passed += 1
+    else r.active += 1
+  }
+  return [...map.values()]
+    .map(r => {
+      const resolved = r.reached + r.passed
+      return { ...r, passRate: resolved ? Math.round((r.passed / resolved) * 100) : null }
+    })
+    .sort((a, b) => b.total - a.total)
+}
+
+// Funnel snapshot — count of deals CURRENTLY in each active stage, plus the
+// two terminal buckets. Drives the "where deals sit / where they leak" view.
+export function funnelSnapshot(deals) {
+  const counts = {}
+  for (const d of deals || []) counts[d.stage] = (counts[d.stage] || 0) + 1
+  return counts
+}

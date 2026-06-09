@@ -15,8 +15,10 @@ import {
   geographyMix, winRateTrend, activityHeatmap,
   stageAgingList, dealSizeHistogram, sectorStageMatrix, feeComposition,
   clientConcentration, bankerProductivity, bookBuildingCurve,
-  originationMix, sideMix, riskFlags, scopeDeals, STAGE_PROBABILITY
+  originationMix, sideMix, riskFlags, scopeDeals, STAGE_PROBABILITY,
+  dropoffByOwner, funnelSnapshot
 } from '../lib/insights.js'
+import { usePipelineMode } from '../hooks/usePipelineMode.js'
 import { useCurrency } from '../hooks/useCurrency.jsx'
 import ConfigBanner from '../components/ConfigBanner.jsx'
 import VelocityChart from '../components/VelocityChart.jsx'
@@ -63,6 +65,7 @@ const PERIODS = [
 
 export default function Analytics() {
   const { money, amount, currency } = useCurrency()
+  const [pipelineMode] = usePipelineMode()
   // The demo array still uses old stage names; migrate them on init so the
   // component doesn't need a 18-row data rewrite. Live data from Supabase
   // is already migrated by the Phase 0 SQL.
@@ -86,13 +89,13 @@ export default function Analytics() {
     if (!isSupabaseConfigured) return
     ;(async () => {
       const [d, a] = await Promise.all([
-        supabase.from('deals').select('*').order('created_at', { ascending: false }),
+        supabase.from('deals').select('*').eq('kind', pipelineMode).order('created_at', { ascending: false }),
         supabase.from('activities').select('deal_id, kind, body, created_at').order('created_at', { ascending: false }).limit(2000)
       ])
       if (d.data?.length) setDeals(d.data)
       setActivities(a.data || [])
     })()
-  }, [])
+  }, [pipelineMode])
 
   const sectors = useMemo(() => ['all', ...new Set(deals.map(d => d.sector).filter(Boolean))], [deals])
 
@@ -135,6 +138,7 @@ export default function Analytics() {
   const curve        = useMemo(() => bookBuildingCurve(filteredDeals, { months: 12 }), [filteredDeals])
   const origin       = useMemo(() => originationMix(filteredDeals),                    [filteredDeals])
   const flags        = useMemo(() => riskFlags(filteredDeals),                         [filteredDeals])
+  const dropoffRows  = useMemo(() => dropoffByOwner(filteredDeals),                    [filteredDeals])
 
   // ── What-if: uplift on Partner Call + Memo conversion ──
   // The first slider lifts in-Memo advance-rate, the second lifts
@@ -254,18 +258,26 @@ export default function Analytics() {
       </div>
 
       {/* ── Pipeline health · operational, not money ── */}
+      {(() => {
+        const reachedDD = filteredDeals.filter(d => d.stage === 'Diligence').length
+        const passedDD  = filteredDeals.filter(d => d.stage === 'Passed').length
+        const resolved  = reachedDD + passedDD
+        const dropoffRate = resolved ? `${Math.round((passedDD / resolved) * 100)}%` : '—'
+        return (
       <section className="grid grid-cols-2 gap-px bg-valence-border rounded-2xl overflow-hidden border border-valence-border md:grid-cols-4">
         <KPI label="Active deals"         info="Deals not in a terminal stage (Diligence / Passed)." value={pipelineHealth.activeCount}              sub="Active through Memo"            icon={Handshake} accent />
         <KPI label="Avg days in stage"    info="Mean days each active deal has sat in its current stage."  value={pipelineHealth.avgDays}                  sub="Lower is healthier"             icon={Hourglass} />
-        <KPI label="Closing in 30 days"   info="Partner Call or Memo deals with a target close inside 30 days." value={pipelineHealth.closing30}             sub="Eyes on these"                  icon={CalendarClock} />
-        <KPI label="Stale deals"          info={`Active deals that have spent more than ${STALE_THRESHOLD_DAYS} days in their current stage.`} value={pipelineHealth.stalled} sub={`> ${STALE_THRESHOLD_DAYS}d in stage`} icon={Flame} />
+        <KPI label="Reached diligence"    info="Deals that have graduated into Diligence (DD)." value={reachedDD}             sub="Graduated to DD"                  icon={CalendarClock} />
+        <KPI label="Drop-off rate"        info="Passed ÷ (reached DD + passed). Share of resolved deals that leaked before diligence." value={dropoffRate} sub="Passed vs reached DD" icon={Flame} />
       </section>
+        )
+      })()}
 
       {/* ══════ PIPELINE ══════ */}
       <SectionHeading kicker="I" title="Pipeline" subtitle="What's on the board and where it's stuck" icon={Layers} />
 
       <section className="vl-card p-8">
-        <CardTitle icon={BarChart3} title="Funnel & conversion" subtitle="Advance % = deals that advanced from this stage to the next. Passed excluded." right={<Link to="/deals" className="text-xs font-semibold text-valence-blue hover:text-valence-blue-hover inline-flex items-center gap-1">Open board <ArrowRight className="h-3 w-3" /></Link>} />
+        <CardTitle icon={BarChart3} title="Funnel & conversion" subtitle="Advance % = deals that moved past this stage. Where the funnel narrows is where you're losing deals." right={<Link to="/deals" className="text-xs font-semibold text-valence-blue hover:text-valence-blue-hover inline-flex items-center gap-1">Open board <ArrowRight className="h-3 w-3" /></Link>} />
         <FunnelLadder ladder={ladder} />
       </section>
 
@@ -282,19 +294,13 @@ export default function Analytics() {
       {/* ══════ COMPOSITION ══════ */}
       <SectionHeading kicker="II" title="Composition" subtitle="What the book is made of" icon={PieChart} />
 
-      <section className="grid gap-6 lg:grid-cols-3">
+      <section className="grid gap-6 lg:grid-cols-2">
         <DistributionCard title="Sector mix"  subtitle="Deals by sector" items={sectorDist} money={money} icon={PieChart} />
         <DistributionCard title="Deal type"   subtitle="M&A · Fundraise · Exit · Advisory" items={dealTypeDist} money={money} icon={Briefcase} />
-        <SideSplitCard side={side} />
       </section>
 
-      <section className="grid gap-6 lg:grid-cols-[3fr_2fr]">
-        <SizeHistogramCard hist={sizeHist} money={money} />
-        <FeeCompositionCard composition={composition} amount={amount} />
-      </section>
-
-      {/* ══════ PRODUCTIVITY ══════ */}
-      <SectionHeading kicker="III" title="Productivity" subtitle="How the team converts effort into fees" icon={Flame} />
+      {/* ══════ DROP-OFF ══════ */}
+      <SectionHeading kicker="III" title="Drop-off" subtitle="Where deals leak — by stage and by owner" icon={Flame} />
 
       <section className="grid gap-6 lg:grid-cols-2">
         {/* VelocityChart carries gut-feel benchmark numbers — hidden on the
@@ -305,41 +311,16 @@ export default function Analytics() {
       </section>
 
       <section className="grid gap-6 lg:grid-cols-[3fr_2fr]">
-        <BankerProductivityCard productivity={productivity} amount={amount} />
+        <DropoffByOwnerCard rows={dropoffRows} />
         <OriginationCard origin={origin} />
       </section>
 
       {/* ══════ FORWARD-LOOKING ══════ */}
-      <SectionHeading kicker="IV" title="Forward-looking" subtitle="What the next four quarters could look like" icon={CalendarDays} />
+      <SectionHeading kicker="IV" title="Forward-looking" subtitle="Deal flow over time" icon={CalendarDays} />
 
       <section className="vl-card p-8">
-        <CardTitle icon={CalendarDays} title="Fee forecast · next 4 quarters" subtitle="Probability-weighted fee recognition. Committed = Memo + Diligence." />
-        <QuarterBars quarters={quarters} amount={amount} />
-      </section>
-
-      <section className="vl-card p-8">
-        <CardTitle icon={TrendingUp} title="Book-building curve" subtitle="Cumulative deals engaged over the trailing 12 months." right={curve.illustrative && <IllustrativeBadge />} />
+        <CardTitle icon={TrendingUp} title="Deal-flow curve" subtitle="Cumulative deals sourced over the trailing 12 months." right={curve.illustrative && <IllustrativeBadge />} />
         <BookCurve curve={curve} />
-      </section>
-
-      <section className="vl-card p-8 relative overflow-hidden">
-        <div className="absolute -right-20 -top-20 h-56 w-56 rounded-full bg-valence-blue/10 blur-3xl" aria-hidden />
-        <div className="relative">
-          <CardTitle icon={Zap} title="What-if · conversion uplift" subtitle="Model how improving late-stage conversion shifts probability-weighted fees." />
-          <div className="grid gap-6 md:grid-cols-[1fr_1fr_auto]">
-            <SimSlider label="Memo advance-rate"      value={simMandateUplift}    onChange={setSimMandateUplift} />
-            <SimSlider label="Partner Call conversion" value={simPreMandateUplift} onChange={setSimPreMandateUplift} />
-            <div className="rounded-xl border border-valence-border bg-valence-surface p-5 min-w-[220px]">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-valence-muted">Scenario weighted fees</p>
-              <p className="mt-2 font-display text-3xl font-bold tabular-nums text-valence-text">{amount(whatIf.scenario)}</p>
-              <p className="mt-1 text-xs text-valence-muted">Baseline {amount(whatIf.baseline)}</p>
-              <p className={`mt-3 inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold ${whatIf.delta >= 0 ? 'bg-valence-success/10 text-valence-success' : 'bg-valence-danger/10 text-valence-danger'}`}>
-                {whatIf.delta >= 0 ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
-                {whatIf.delta >= 0 ? '+' : ''}{amount(whatIf.delta)}
-              </p>
-            </div>
-          </div>
-        </div>
       </section>
 
       {/* ══════ COVERAGE & QUALITY ══════ */}
@@ -351,7 +332,6 @@ export default function Analytics() {
       </section>
 
       <section className="grid gap-6 lg:grid-cols-[3fr_2fr]">
-        <ClientConcentrationCard concentration={concentration} amount={amount} />
         <RiskFlagsCard flags={flags} />
       </section>
 
@@ -697,6 +677,64 @@ function BankerProductivityCard({ productivity, amount }) {
           </li>
         ))}
       </ul>
+    </div>
+  )
+}
+
+function DropoffByOwnerCard({ rows }) {
+  if (!rows?.length) {
+    return (
+      <div className="vl-card p-6">
+        <CardTitle icon={Users} title="Drop-off by owner" subtitle="Passed vs reached diligence, per deal lead" />
+        <p className="mt-4 text-sm text-valence-muted">No deals in scope.</p>
+      </div>
+    )
+  }
+  return (
+    <div className="vl-card p-6">
+      <CardTitle icon={Users} title="Drop-off by owner" subtitle="Passed vs reached diligence, per deal lead" />
+      <div className="overflow-x-auto">
+        <table className="min-w-full text-[11px]">
+          <thead>
+            <tr className="border-b border-valence-border">
+              <th className="p-2 text-left vl-eyebrow-ink">Owner</th>
+              <th className="p-2 text-right vl-eyebrow-ink">Total</th>
+              <th className="p-2 text-right vl-eyebrow-ink">Active</th>
+              <th className="p-2 text-right vl-eyebrow-ink">Reached</th>
+              <th className="p-2 text-right vl-eyebrow-ink">Passed</th>
+              <th className="p-2 text-right vl-eyebrow-ink w-28">Drop-off</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map(r => {
+              const high = r.passRate != null && r.passRate >= 50
+              const rateTone = r.passRate == null
+                ? 'text-valence-subtle'
+                : high ? 'text-valence-danger' : 'text-valence-muted'
+              return (
+                <tr key={r.owner} className="border-t border-valence-border">
+                  <td className="p-2 font-semibold text-valence-text">{r.owner}</td>
+                  <td className="p-2 text-right tabular-nums text-valence-text">{r.total}</td>
+                  <td className="p-2 text-right tabular-nums text-valence-muted">{r.active}</td>
+                  <td className="p-2 text-right tabular-nums font-semibold text-valence-success">{r.reached}</td>
+                  <td className="p-2 text-right tabular-nums font-semibold text-valence-danger">{r.passed}</td>
+                  <td className="p-2">
+                    <div className="flex items-center justify-end gap-2">
+                      {r.passRate != null && (
+                        <div className="relative h-1.5 w-12 rounded-full bg-valence-surface overflow-hidden">
+                          <div className={`absolute inset-y-0 left-0 rounded-full ${high ? 'bg-valence-danger' : 'bg-valence-warning'}`} style={{ width: `${r.passRate}%` }} />
+                        </div>
+                      )}
+                      <span className={`tabular-nums font-semibold ${rateTone}`}>{r.passRate == null ? '—' : `${r.passRate}%`}</span>
+                    </div>
+                  </td>
+                </tr>
+              )
+            })}
+          </tbody>
+        </table>
+      </div>
+      <p className="mt-3 text-[10px] text-valence-subtle">Reached = graduated to Diligence · Passed = dropped before DD. Drop-off = passed ÷ resolved.</p>
     </div>
   )
 }

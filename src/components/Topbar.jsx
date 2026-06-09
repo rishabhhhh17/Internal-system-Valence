@@ -10,6 +10,7 @@ import { useWorkspaceSetting } from '../hooks/useWorkspaceSetting.js'
 import { WORKSPACE_KEYS, setWorkspaceSetting } from '../lib/workspace.js'
 import { useFirmDisplayName } from '../lib/firmIdentity.js'
 import { signOut } from '../lib/google.js'
+import { usePipelineMode, PIPELINE_MODES } from '../hooks/usePipelineMode.js'
 
 // Title + subtitle per route. Keep titles in lockstep with the sidebar
 // labels so the topbar / sidebar / page hero never disagree about what
@@ -80,10 +81,14 @@ export default function Topbar() {
           </div>
         )}
 
-        <div className="min-w-0 flex-1 flex items-center gap-2">
+        <div className="min-w-0 flex items-center gap-2">
           <h1 className="truncate text-[15px] font-semibold tracking-tight text-valence-text">{meta.title}</h1>
           <BranchBadge />
         </div>
+
+        <PipelineModeToggle />
+
+        <div className="flex-1" />
 
         <div className="relative">
           <button
@@ -205,6 +210,35 @@ function DemoResetButton() {
       <RotateCcw className="h-3 w-3" />
       {busy ? 'Resetting…' : 'Reset demo'}
     </button>
+  )
+}
+
+// Global Companies ↔ LPs switch. Scopes every pipeline view to the chosen
+// mode (deals.kind). Persisted + broadcast via usePipelineMode.
+function PipelineModeToggle() {
+  const [mode, setMode] = usePipelineMode()
+  return (
+    <div
+      className="hidden sm:inline-flex shrink-0 items-center rounded-lg border border-valence-border bg-valence-elevated p-0.5"
+      role="group"
+      aria-label="Pipeline mode"
+    >
+      {PIPELINE_MODES.map(m => (
+        <button
+          key={m.id}
+          onClick={() => setMode(m.id)}
+          title={m.sub}
+          aria-pressed={mode === m.id}
+          className={`rounded-md px-2.5 py-1 text-xs font-semibold transition ${
+            mode === m.id
+              ? 'bg-valence-ink text-white shadow-sm'
+              : 'text-valence-muted hover:text-valence-text'
+          }`}
+        >
+          {m.label}
+        </button>
+      ))}
+    </div>
   )
 }
 

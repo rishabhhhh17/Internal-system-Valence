@@ -48,6 +48,7 @@ import InlineEditableText from '../components/InlineEditableText.jsx'
 import { useToast } from '../components/Toast.jsx'
 import { useConfirm } from '../components/ConfirmDialog.jsx'
 import { useCurrency } from '../hooks/useCurrency.jsx'
+import { usePipelineMode } from '../hooks/usePipelineMode.js'
 
 const NDA = ['Signed', 'Pending', 'Not Required']
 
@@ -93,6 +94,7 @@ export default function Deals() {
   const toast = useToast()
   const confirm = useConfirm()
   const { money } = useCurrency()
+  const [pipelineMode] = usePipelineMode()
   const [params, setParams] = useSearchParams()
   const [deals, setDeals] = useState([])
   const [loading, setLoading] = useState(true)
@@ -131,7 +133,9 @@ export default function Deals() {
   // Uploaded after the deal insert returns the new id; cleared on close.
   const [pendingFiles, setPendingFiles] = useState([])
 
-  useEffect(() => { load() }, [])
+  // Re-load whenever the global pipeline mode flips (company ↔ lp) so the
+  // board/table re-scopes to the active pipeline's kind.
+  useEffect(() => { load() }, [pipelineMode])
   useEffect(() => {
     if (!isSupabaseConfigured) return
     return subscribeTable('deals', () => load({ silent: true }))
@@ -205,7 +209,7 @@ export default function Deals() {
     }
     try {
       // Race the Supabase fetch against a 10s timeout so the skeleton never hangs.
-      const fetchPromise = supabase.from('deals').select('*').order('created_at', { ascending: false })
+      const fetchPromise = supabase.from('deals').select('*').eq('kind', pipelineMode).order('created_at', { ascending: false })
       const timeoutPromise = new Promise((_, reject) =>
         setTimeout(() => reject(new Error('Request timed out — check your connection or Supabase status.')), 10_000)
       )
@@ -268,7 +272,9 @@ export default function Deals() {
       await logActivity({ dealId: id, kind: 'note', body: 'Deal details updated.' })
       toast.success('Deal updated.')
     } else {
-      const { data, error } = await supabase.from('deals').insert(payload).select().single()
+      // Stamp the active pipeline's kind so new deals land in the pipeline
+      // the user is currently viewing (Companies vs LPs).
+      const { data, error } = await supabase.from('deals').insert({ ...payload, kind: pipelineMode }).select().single()
       if (error) return toast.error(humanError(error))
       const typeLabel = (payload.deal_types || []).join(' + ') || 'mandate'
       const subtypeLabel = payload.deal_subtype ? ` · ${payload.deal_subtype}` : ''

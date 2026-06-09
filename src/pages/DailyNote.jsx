@@ -10,6 +10,7 @@ import { supabase, isSupabaseConfigured, subscribeTable } from '../lib/supabase.
 import { useToast } from '../components/Toast.jsx'
 import { useAuth } from '../hooks/useAuth.js'
 import { useSeat } from '../hooks/useSeat.js'
+import { usePipelineMode } from '../hooks/usePipelineMode.js'
 import { stageMeta, LIVE_MANDATE_STAGES } from '../lib/stages.js'
 import { listTodayEvents, GoogleAuthExpired } from '../lib/google.js'
 import ConfigBanner from '../components/ConfigBanner.jsx'
@@ -32,6 +33,7 @@ export default function DailyNote() {
   // row-level security policy" on every page load and Today never
   // hydrated for a fresh seat.
   const { org } = useSeat()
+  const [pipelineMode] = usePipelineMode()
   const [deals, setDeals]         = useState([])
   const [activities, setActivities] = useState([])
   const [interactions, setInteractions] = useState([])
@@ -82,7 +84,7 @@ export default function DailyNote() {
     // (those are owned by the googleConnected effect below).
     async function loadCore() {
       const [d, a, i] = await Promise.all([
-        supabase.from('deals').select('id, client_name, stage, lead_owner, target_close, deal_types, deal_subtype, updated_at, created_at, nda_status').order('updated_at', { ascending: false }),
+        supabase.from('deals').select('id, client_name, stage, lead_owner, target_close, deal_types, deal_subtype, updated_at, created_at, nda_status').eq('kind', pipelineMode).order('updated_at', { ascending: false }),
         supabase.from('activities').select('deal_id, kind, created_at').order('created_at', { ascending: false }).limit(2000),
         supabase.from('interactions')
           .select('id, counterparty_name, counterparty_company, counterparty_type, follow_up_date, outcome, deal_id, lead_owner, occurred_at, created_at, is_complete, context, takeaways, next_steps')
@@ -110,7 +112,9 @@ export default function DailyNote() {
     const offInteractions = subscribeTable('interactions', loadCore)
     const offDeals = subscribeTable('deals', loadCore)
     return () => { alive = false; offInteractions?.(); offDeals?.() }
-  }, [dateIso])
+    // pipelineMode in deps so the deals slice re-fetches when the user
+    // toggles Companies ↔ LPs (interactions/meetings stay unscoped).
+  }, [dateIso, pipelineMode])
 
   // Prefer Google Calendar when connected — the daily_notes 'meetings' table
   // was always a stub. If Google is wired, swap today's meetings list to the

@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { Filter, GanttChartSquare, Table as TableIcon, Activity, Clock, AlertTriangle, CheckCircle2 } from 'lucide-react'
 import { supabase, isSupabaseConfigured } from '../lib/supabase.js'
 import { useViewMode } from '../hooks/useViewMode.jsx'
+import { usePipelineMode } from '../hooks/usePipelineMode.js'
 import ConfigBanner from '../components/ConfigBanner.jsx'
 import EmptyState from '../components/EmptyState.jsx'
 import TimelineGantt from '../components/TimelineGantt.jsx'
@@ -22,6 +23,7 @@ const STALE_DAYS_THRESHOLD  = 21
 
 export default function Timeline() {
   const { isDetailed } = useViewMode('timeline')
+  const [pipelineMode] = usePipelineMode()
   const [deals, setDeals]           = useState([])
   const [activities, setActivities] = useState([])
   const [loading, setLoading]       = useState(true)
@@ -34,7 +36,8 @@ export default function Timeline() {
   const [sectorFilter, setSectorFilter] = useState('All')
   const [sideFilter, setSideFilter]     = useState('All')
 
-  useEffect(() => { load() }, [])
+  // Re-load on mount and whenever the pipeline mode flips (company ↔ lp).
+  useEffect(() => { load() }, [pipelineMode])
 
   async function load() {
     setLoading(true); setLoadError(null)
@@ -44,7 +47,7 @@ export default function Timeline() {
         // Pull every deal — the Table view surfaces terminal-stage rows so
         // the partner can see when a mandate closed / went on hold / was
         // lost. The Gantt filters terminal rows out itself when rendering.
-        supabase.from('deals').select('*').order('updated_at', { ascending: false }),
+        supabase.from('deals').select('*').eq('kind', pipelineMode).order('updated_at', { ascending: false }),
         // Pull every activity kind for these deals — stage_change drives
         // segment boundaries; meeting / nda_signed / teaser_sent / file_upload
         // / note / email_drafted / brief_generated / contact_added become
