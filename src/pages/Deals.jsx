@@ -98,10 +98,24 @@ export default function Deals() {
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState(null)
   const [q, setQ] = useState('')
-  const [fStage, setFStage] = useState('All')
-  const [fTopType, setFTopType] = useState('All')   // 'All' | 'transaction' | 'advisory'
-  const [fSubtype, setFSubtype] = useState('All')   // 'All' | 'fundraise' | 'm_and_a' | 'exit'
-  const [fNda, setFNda]     = useState('All')
+  // Pipeline filters are URL-backed (?stage=&deal_types=&deal_subtype=&nda_status=)
+  // so Saved Views works end-to-end: applying a view navigates here with these
+  // params, and the "+ New view" dialog reads the active filters back off the
+  // URL. The URL is the single source of truth — no separate filter state.
+  const fStage   = params.get('stage')        || 'All'
+  const fTopType = params.get('deal_types')    || 'All'   // 'All' | 'transaction' | 'advisory'
+  const fSubtype = params.get('deal_subtype')  || 'All'   // 'All' | 'fundraise' | 'm_and_a' | 'exit'
+  const fNda     = params.get('nda_status')    || 'All'
+  const setFilterParam = (key, value) => {
+    const next = new URLSearchParams(params)
+    if (!value || value === 'All') next.delete(key)
+    else next.set(key, value)
+    setParams(next, { replace: true })
+  }
+  const setFStage   = (v) => setFilterParam('stage', v)
+  const setFTopType = (v) => setFilterParam('deal_types', v)
+  const setFSubtype = (v) => setFilterParam('deal_subtype', v)
+  const setFNda     = (v) => setFilterParam('nda_status', v)
   const [view, setView]     = useState('board') // 'board' | 'table'
 
   const [drawer, setDrawer] = useState(null)

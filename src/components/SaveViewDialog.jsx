@@ -95,6 +95,8 @@ export default function SaveViewDialog({ open, onClose, currentFilters = {}, def
   if (currentFilters.stage)        summaryChips.push(`stage: ${currentFilters.stage}`)
   if (currentFilters.sector)       summaryChips.push(`sector: ${currentFilters.sector}`)
   if (Array.isArray(currentFilters.deal_types) && currentFilters.deal_types.length) summaryChips.push(`type: ${currentFilters.deal_types.join('/')}`)
+  if (currentFilters.deal_subtype) summaryChips.push(`subtype: ${String(currentFilters.deal_subtype).replace(/_/g, ' ')}`)
+  if (currentFilters.nda_status)   summaryChips.push(`NDA: ${currentFilters.nda_status}`)
   if (currentFilters.ma_side)      summaryChips.push(`side: ${currentFilters.ma_side}`)
   if (currentFilters.lead_owner)   summaryChips.push(`owner: ${currentFilters.lead_owner}`)
 

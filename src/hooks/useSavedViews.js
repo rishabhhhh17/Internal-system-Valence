@@ -23,7 +23,7 @@ const ARRAY_FILTER_KEYS = new Set(['deal_types'])
 
 // Filter keys we serialise to/from URL params. Anything else in the JSONB
 // `filters` blob is ignored on apply — keeps URL clean and predictable.
-const FILTER_KEYS = ['stage', 'sector', 'deal_types', 'ma_side', 'lead_owner', 'pipeline_type']
+const FILTER_KEYS = ['stage', 'sector', 'deal_types', 'deal_subtype', 'nda_status', 'ma_side', 'lead_owner', 'pipeline_type']
 
 export function useSavedViews() {
   const { session } = useAuth()
