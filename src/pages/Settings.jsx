@@ -21,19 +21,15 @@ import BulkAddPeoplePanel from '../components/BulkAddPeoplePanel.jsx'
 import WorkspacePreferencesPanel from '../components/WorkspacePreferencesPanel.jsx'
 import AppearancePanel from '../components/AppearancePanel.jsx'
 
-function ComingSoon({ label }) {
-  return (
-    <div className="vl-card-subtle p-6 text-sm text-valence-muted">
-      <div className="font-semibold text-valence-text mb-1">{label}</div>
-      <div>Wiring up in the next Phase 2 sub-task.</div>
-    </div>
-  )
-}
-
 function MeetingToolPicker() {
   const available = getAvailableMeetingTools({ pitchMode: PITCH_MODE })
   const [selected, setSelected] = useState(() => getMeetingTool({ pitchMode: PITCH_MODE }))
   const [savedFlash, setSavedFlash] = useState(false)
+
+  // Don't render a panel full of disabled "Coming soon" tools — if nothing
+  // is actually wired up, the whole card reads as vaporware. Show it only
+  // once at least one recorder is configurable.
+  if (!available.some(t => t.status === 'configurable')) return null
 
   function selectTool(id) {
     const tool = MEETING_TOOLS.find(t => t.id === id)
@@ -119,11 +115,6 @@ function MeetingToolPicker() {
         </div>
       )}
 
-      {PITCH_MODE && (
-        <p className="text-[11px] text-valence-subtle italic">
-          Pitch mode: meeting-tool wiring activates once your firm’s build is provisioned.
-        </p>
-      )}
     </div>
   )
 }

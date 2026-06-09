@@ -69,12 +69,12 @@ export default function Timeline() {
 
   const owners  = useMemo(() => uniqueValues(deals, 'lead_owner'), [deals])
   const sectors = useMemo(() => uniqueValues(deals, 'sector'),     [deals])
-  const sides   = useMemo(() => Array.from(new Set(deals.map(d => normalizeSide(d.side)).filter(Boolean))).sort(), [deals])
+  const sides   = useMemo(() => Array.from(new Set(deals.map(d => normalizeSide(d.ma_side || d.side)).filter(Boolean))).sort(), [deals])
 
   const filtered = useMemo(() => deals.filter(d =>
     (ownerFilter  === 'All' || d.lead_owner === ownerFilter) &&
     (sectorFilter === 'All' || d.sector === sectorFilter) &&
-    (sideFilter   === 'All' || normalizeSide(d.side) === sideFilter)
+    (sideFilter   === 'All' || normalizeSide(d.ma_side || d.side) === sideFilter)
   ), [deals, ownerFilter, sectorFilter, sideFilter])
 
   // Stats for the header strip. Computed off the FULL deal set, not the

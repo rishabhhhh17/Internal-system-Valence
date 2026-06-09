@@ -213,9 +213,8 @@ export default function Welcome() {
             <div className="flex items-start gap-3 rounded-xl border border-valence-border bg-valence-elevated/40 px-4 py-3.5">
               <Shield className="h-4 w-4 text-valence-blue shrink-0 mt-0.5" />
               <p className="text-xs text-valence-muted leading-relaxed">
-                Your firm's data is fully isolated. Row-level security in the database
-                guarantees nothing crosses tenants — every team's deals, people, and
-                interactions are visible only to their seats.
+                Your firm's data is fully isolated — every team only ever sees their
+                own deals, people, and interactions.
               </p>
             </div>
           </section>

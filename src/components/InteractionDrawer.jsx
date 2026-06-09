@@ -746,7 +746,7 @@ function TranscriptSection({ form, update }) {
     const file = e.target.files?.[0]
     if (!file) return
     if (!isGeminiConfigured) {
-      toast.error('Gemini key not set — voice-memo transcription is disabled until VITE_GEMINI_API_KEY arrives.')
+      toast.error('Voice-memo transcription isn’t available yet — add an AI key in Settings → Integrations.')
       e.target.value = ''
       return
     }
@@ -877,7 +877,7 @@ function TranscriptSection({ form, update }) {
               {form.transcript_summary ? 'Re-summarise' : 'Generate summary'}
             </button>
             {!isGeminiConfigured && (
-              <span className="text-[10px] text-valence-muted">Summary needs a Gemini key on Vercel</span>
+              <span className="text-[10px] text-valence-muted">AI summary needs a key — add one in Settings</span>
             )}
           </div>
 

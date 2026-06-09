@@ -215,7 +215,7 @@ function MandateRow({ d, isDetailed, onUpdate }) {
         </div>
       </td>
       {isDetailed && <td className="px-3 py-3 text-valence-muted">{d.sector || '—'}</td>}
-      {isDetailed && <td className="px-3 py-3 text-valence-muted">{normalizeSide(d.side) || '—'}</td>}
+      {isDetailed && <td className="px-3 py-3 text-valence-muted">{normalizeSide(d.ma_side || d.side) || '—'}</td>}
       <td className="px-3 py-3 text-valence-muted">
         <InlineText
           value={d.lead_owner}

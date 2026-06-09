@@ -15,7 +15,7 @@ import { humanError } from '../lib/userError.js'
 function chequeRange(fund, money) {
   const lo = fund?.check_size_min_usd_m
   const hi = fund?.check_size_max_usd_m
-  if (lo == null && hi == null) return '? cheques'
+  if (lo == null && hi == null) return 'Cheque size n/a'
   if (lo != null && hi != null) return `${money(lo)}–${money(hi)} cheques`
   if (lo != null)               return `from ${money(lo)} cheques`
   return `up to ${money(hi)} cheques`
@@ -243,7 +243,7 @@ function FundTable({ rows, onOpen }) {
               <td className="px-3 py-3 text-valence-muted">{fundTypeLabel(f.fund_type)}</td>
               <td className="px-3 py-3 text-valence-muted">{[f.hq_city, f.hq_country].filter(Boolean).join(', ') || '—'}</td>
               <td className="px-3 py-3 tabular-nums text-valence-muted">{f.aum_usd_m ? f.aum_usd_m.toLocaleString() : '—'}</td>
-              <td className="px-3 py-3 tabular-nums text-valence-muted">{f.check_size_min_usd_m ?? '?'}–{f.check_size_max_usd_m ?? '?'}</td>
+              <td className="px-3 py-3 tabular-nums text-valence-muted">{f.check_size_min_usd_m == null && f.check_size_max_usd_m == null ? '—' : `${f.check_size_min_usd_m ?? '?'}–${f.check_size_max_usd_m ?? '?'}`}</td>
               <td className="px-3 py-3 text-valence-muted truncate max-w-[260px]">{(f.sectors || []).slice(0, 4).join(' · ') || '—'}</td>
               <td className="px-3 py-3"><span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold capitalize ${warmthTone(f.warmth)}`}>{f.warmth}</span></td>
               <td className="px-5 py-3 text-right">

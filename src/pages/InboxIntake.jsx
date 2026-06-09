@@ -143,7 +143,7 @@ function SubmissionCard({ row, onStatus, onConvert }) {
           </div>
           <p className="mt-1 text-[11px] text-valence-muted">
             From <span className="font-semibold text-valence-text">{row.contact_name}</span> &lt;{row.contact_email}&gt;
-            {row.contact_phone ? ` · ${row.contact_phone}` : ''} · {row.source || 'unknown source'} · {formatDistanceToNowStrict(new Date(row.created_at), { addSuffix: true })}
+            {row.contact_phone ? ` · ${row.contact_phone}` : ''} · {row.source || 'unknown source'}{row.created_at ? ` · ${formatDistanceToNowStrict(new Date(row.created_at), { addSuffix: true })}` : ''}
           </p>
         </div>
         <div className="flex items-center gap-2 text-[11px]">

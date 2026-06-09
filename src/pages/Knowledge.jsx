@@ -112,7 +112,7 @@ function SearchSection() {
         const merged = mergeAndRank(kb.results || [], entities || [])
         setResults(groupResults(merged))
       } catch (e) {
-        if (!cancelled) setError(e?.message || 'Search failed')
+        if (!cancelled) setError('Search is temporarily unavailable — try again in a moment.')
       } finally {
         if (!cancelled) setSearching(false)
       }
@@ -864,6 +864,7 @@ function DocForm({ onSubmit, onCancel }) {
 
 function CompForm({ onSubmit, onCancel }) {
   const [form, setForm] = useState({ target: '', acquirer: '', year: '', sector: '', deal_type: 'M&A', ev_usd_m: '', revenue_multiple: '', ebitda_multiple: '', notes: '' })
+  const entities = useWikilinkEntities()
   const set = (k, v) => setForm(s => ({ ...s, [k]: v }))
   async function submit(e) {
     e.preventDefault()

@@ -176,7 +176,7 @@ export default function Feed() {
           ))}
         </div>
       ) : filtered.length === 0 ? (
-        <EmptyState icon={ActivityIcon} title="No activity yet" description="As the team logs interactions, generates briefs, and moves deals, this stream lights up. Pop a sample firm in if you want to see what it looks like populated." />
+        <EmptyState icon={ActivityIcon} title="No activity yet" description="As the team logs interactions, generates briefs, and moves deals, this stream lights up. Load a sample firm from Settings → Data to preview a populated feed." />
       ) : (
         <ul className="space-y-1.5">
           {filtered.map(it => <FeedRow key={it.id} item={it} />)}
