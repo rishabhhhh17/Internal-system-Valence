@@ -147,13 +147,26 @@ export default function Deals() {
   // the inbound mandate so the partner only has to confirm + click save.
   useEffect(() => {
     if (params.get('new') !== '1') return
+    const dealTypes = (params.get('deal_types') || '').split(',').filter(Boolean)
     const prefill = {
       client_name:  params.get('client_name')  || '',
       sector:       params.get('sector')       || '',
       stage:        params.get('stage')        || 'Origination',
-      deal_types:   (params.get('deal_types')  || '').split(',').filter(Boolean),
-      deal_subtype: params.get('subtype')      || null,
-      ma_side:      params.get('ma_side')      || null,
+      // Only override the form's default ['transaction'] when the convert
+      // flow actually carried types.
+      ...(dealTypes.length ? { deal_types: dealTypes } : {}),
+      deal_subtype: params.get('deal_subtype')  || undefined,
+      ma_side:      params.get('ma_side')        || undefined,
+      // Thread the full mandate detail the intake captured so the partner
+      // confirms rather than re-keys (the DealForm supports all of these).
+      target_raise_usd_m:          params.get('target_raise_usd_m')          || '',
+      target_valuation_usd_m:      params.get('target_valuation_usd_m')      || '',
+      company_stage:               params.get('company_stage')               || '',
+      target_exit_usd_m:           params.get('target_exit_usd_m')           || '',
+      target_exit_valuation_usd_m: params.get('target_exit_valuation_usd_m') || '',
+      exit_investor_name:          params.get('exit_investor_name')          || '',
+      acquisition_brief:           params.get('acquisition_brief')           || '',
+      engagement_brief:            params.get('engagement_brief')            || '',
       notes:        params.get('notes')        || '',
       // Carry the intake deck URL through so the new-deal flow can attach it
       // to deal_files after the deal is created (handled in DealForm submit).
@@ -163,7 +176,7 @@ export default function Deals() {
     setModal({ prefill })
     // Drain the params so reload / back-nav doesn't keep re-opening the modal.
     const next = new URLSearchParams(params)
-    ;['new','client_name','sector','stage','deal_types','subtype','ma_side','notes','deck_url','deck_name'].forEach(k => next.delete(k))
+    ;['new','client_name','sector','stage','deal_types','deal_subtype','ma_side','target_raise_usd_m','target_valuation_usd_m','company_stage','target_exit_usd_m','target_exit_valuation_usd_m','exit_investor_name','acquisition_brief','engagement_brief','notes','deck_url','deck_name'].forEach(k => next.delete(k))
     setParams(next, { replace: true })
   }, [params])
 

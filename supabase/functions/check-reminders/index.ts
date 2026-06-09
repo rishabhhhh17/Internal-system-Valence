@@ -91,7 +91,7 @@ Deno.serve(async (_req) => {
       body: r.body,
       reminder_id: r.id,
       deal_id: r.deal_id,
-      link: r.link || (r.deal_id ? `/deals/${r.deal_id}` : "/today"),
+      link: r.link || (r.deal_id ? `/deals?open=${r.deal_id}` : "/"),
     }));
 
   if (notifs.length > 0) {

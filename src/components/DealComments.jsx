@@ -6,7 +6,7 @@ import { useAuth } from '../hooks/useAuth.js'
 import { humanError } from '../lib/userError.js'
 import { useToast } from './Toast.jsx'
 import WikilinkText from './WikilinkText.jsx'
-import MentionEditor from './MentionEditor.jsx'
+import MentionEditor, { extractMentionLabels } from './MentionEditor.jsx'
 import { notifyMentions } from '../lib/notifications.js'
 
 export default function DealComments({ deal }) {
@@ -129,7 +129,7 @@ export default function DealComments({ deal }) {
                     <span className="text-valence-subtle">· {formatDistanceToNow(new Date(c.created_at), { addSuffix: true })}</span>
                   </div>
                   <p className="mt-1 text-sm leading-relaxed text-valence-text whitespace-pre-wrap">
-                    {renderMentions(c.body)}
+                    {renderMentions(c.body, c.content_json)}
                   </p>
                 </div>
               </div>
@@ -160,10 +160,26 @@ export default function DealComments({ deal }) {
   )
 }
 
-function renderMentions(text) {
-  return text.split(/(@\w+)/g).map((p, i) =>
-    /^@\w+$/.test(p)
-      ? <span key={i} className="inline-flex items-center rounded-md bg-valence-blue-soft px-1 py-0 text-valence-blue-deep font-semibold">{p}</span>
+const MENTION_CLASS = "inline-flex items-center rounded-md bg-valence-blue-soft px-1 py-0 text-valence-blue-deep font-semibold"
+
+function renderMentions(text, contentJson) {
+  // Highlight the exact `@Full Name` strings from the comment's mention nodes
+  // so multi-word names aren't split mid-name. Falls back to the single-word
+  // @word pattern for legacy comments stored without content_json.
+  const labels = extractMentionLabels(contentJson)
+  if (!labels.length) {
+    return text.split(/(@\w+)/g).map((p, i) =>
+      /^@\w+$/.test(p)
+        ? <span key={i} className={MENTION_CLASS}>{p}</span>
+        : <span key={i}>{p}</span>
+    )
+  }
+  const tokens = new Set(labels.map(l => `@${l}`))
+  const escaped = [...tokens].map(t => t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
+  const re = new RegExp(`(${escaped.join('|')})`, 'g')
+  return text.split(re).map((p, i) =>
+    tokens.has(p)
+      ? <span key={i} className={MENTION_CLASS}>{p}</span>
       : <span key={i}>{p}</span>
   )
 }

@@ -40,6 +40,23 @@ export function extractMentionedUserIds(doc) {
   return Array.from(ids)
 }
 
+// Walks a TipTap doc to extract every mention node's display label, so
+// renderers can highlight the exact `@Full Name` string in the stored plain
+// text (which can contain spaces a naive @\w+ regex would split).
+export function extractMentionLabels(doc) {
+  if (!doc || typeof doc !== 'object') return []
+  const labels = new Set()
+  function walk(node) {
+    if (!node) return
+    if (node.type === 'mention' && (node.attrs?.label || node.attrs?.id)) {
+      labels.add(node.attrs.label || node.attrs.id)
+    }
+    if (Array.isArray(node.content)) node.content.forEach(walk)
+  }
+  walk(doc)
+  return Array.from(labels)
+}
+
 // Suggestion list — keyboard-navigable popup that opens when the user
 // types '@'. Renders inline as a tippy.js tooltip. We fetch teammates
 // once on first open and filter client-side (the team is small enough

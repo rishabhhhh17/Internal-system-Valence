@@ -195,17 +195,27 @@ async function insertEntity(e, orgId) {
       return data
     }
     case 'deal': {
+      // Map to the live deal model (deal_types[]/deal_subtype/ma_side) and use
+      // constraint-legal values: nda_status must be Signed/Pending/Not Required
+      // (was 'Unknown', which 400'd the whole insert); ma_side must normalise
+      // to buy/sell/undecided/null.
+      const maSide = (() => {
+        const s = String(f.ma_side || f.side || '').toLowerCase()
+        if (s.startsWith('sell')) return 'sell'
+        if (s.startsWith('buy'))  return 'buy'
+        return null
+      })()
       const payload = {
         org_id: orgId,
         client_name: f.client_name || 'Unnamed',
-        deal_type:   f.deal_type   || 'Advisory',
+        deal_types:  Array.isArray(f.deal_types) && f.deal_types.length ? f.deal_types : ['transaction'],
         deal_subtype: f.deal_subtype || null,
-        side:        f.side        || null,
+        ma_side:     maSide,
         sector:      f.sector      || null,
         stage:       f.stage       || 'Origination',
         ticket_size_usd_m: numOrNull(f.ticket_size_usd_m),
         notes:       f.notes       || null,
-        nda_status:  'Unknown'
+        nda_status:  'Pending'
       }
       const { data, error } = await supabase.from('deals').insert(payload).select().single()
       if (error) throw error
