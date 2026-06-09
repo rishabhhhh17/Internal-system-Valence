@@ -9,6 +9,65 @@
 
 import { supabase, isSupabaseConfigured } from './supabase.js'
 
+// ── Provider-token persistence ──────────────────────────────────────────
+// Supabase only exposes `provider_token` / `provider_refresh_token` on the
+// session object IN MEMORY right after the OAuth redirect — it strips them
+// from the session it persists to storage. So on the next page load (or
+// after a TOKEN_REFRESHED event, which hands back a session with no
+// provider_token), `session.provider_token` is null and the app wrongly
+// decides Google is "disconnected" and prompts a reconnect. We fix that by
+// stashing the Google token ourselves the moment it appears and serving it
+// from here until it expires. Stored under the `valence.` namespace so the
+// signOut() sweep clears it with everything else.
+const GT_KEY = 'valence.google.provider_token'
+const GR_KEY = 'valence.google.provider_refresh_token'
+const GE_KEY = 'valence.google.provider_expires_at'
+
+// Capture provider tokens off a freshly-minted session (SIGNED_IN / initial
+// callback / a refresh that happened to include them). No-op when the
+// session carries no provider_token, so it never clobbers a good stored
+// token with a blank one from a plain TOKEN_REFRESHED event.
+export function rememberGoogleTokens(session) {
+  try {
+    if (!session || typeof window === 'undefined' || !window.localStorage) return
+    if (session.provider_token) {
+      window.localStorage.setItem(GT_KEY, session.provider_token)
+      // Google access tokens live ~3600s. Stash a slightly-conservative
+      // expiry so we stop serving it just before Google would 401.
+      window.localStorage.setItem(GE_KEY, String(Date.now() + 55 * 60 * 1000))
+    }
+    if (session.provider_refresh_token) {
+      window.localStorage.setItem(GR_KEY, session.provider_refresh_token)
+    }
+  } catch { /* private mode / quota — graceful degrade */ }
+}
+
+// Returns the stored Google access token if we have one and it hasn't
+// expired, else null.
+export function storedGoogleToken() {
+  try {
+    if (typeof window === 'undefined' || !window.localStorage) return null
+    const t = window.localStorage.getItem(GT_KEY)
+    const exp = Number(window.localStorage.getItem(GE_KEY) || 0)
+    if (t && exp && Date.now() < exp) return t
+  } catch { /* ignore */ }
+  return null
+}
+
+export function clearGoogleTokens() {
+  try {
+    if (typeof window === 'undefined' || !window.localStorage) return
+    window.localStorage.removeItem(GT_KEY)
+    window.localStorage.removeItem(GR_KEY)
+    window.localStorage.removeItem(GE_KEY)
+  } catch { /* ignore */ }
+}
+
+// True when we either have a live in-session token or a valid stored one.
+export function hasGoogleConnection(session) {
+  return Boolean(session?.provider_token) || Boolean(storedGoogleToken())
+}
+
 // Scopes intentionally kept to Calendar + Drive + Tasks only. Gmail scopes
 // (gmail.send, gmail.metadata) are RESTRICTED scopes that trigger Google's
 // CASA security audit ($10-15k, 4-8 weeks) during OAuth verification. The
@@ -90,7 +149,13 @@ export async function currentSession() {
 
 export async function googleToken() {
   const s = await currentSession()
-  return s?.provider_token || null
+  // Prefer the live in-session token; fall back to the one we stashed at
+  // sign-in so the connection survives reloads + TOKEN_REFRESHED events.
+  if (s?.provider_token) {
+    rememberGoogleTokens(s)
+    return s.provider_token
+  }
+  return storedGoogleToken()
 }
 
 async function gfetch(url, { method = 'GET', headers = {}, body, json = true } = {}) {
@@ -118,10 +183,16 @@ async function gfetch(url, { method = 'GET', headers = {}, body, json = true } =
       const { data } = await supabase.auth.refreshSession()
       const refreshed = data?.session?.provider_token
       if (refreshed && refreshed !== initialToken) {
+        rememberGoogleTokens(data.session)
         res = await fetch(url, buildInit(refreshed))
       }
     } catch {/* fall through to GoogleAuthExpired */}
-    if (res.status === 401) throw new GoogleAuthExpired()
+    if (res.status === 401) {
+      // The Google token is genuinely dead — drop the stale stash so the UI
+      // correctly shows "Reconnect Google" instead of a phantom connection.
+      clearGoogleTokens()
+      throw new GoogleAuthExpired()
+    }
   }
 
   if (!res.ok) {

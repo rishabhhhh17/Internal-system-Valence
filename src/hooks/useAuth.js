@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback } from 'react'
 import { supabase, isSupabaseConfigured } from '../lib/supabase.js'
 import { setUserContext, clearUserContext } from '../lib/sentry.js'
+import { rememberGoogleTokens, hasGoogleConnection } from '../lib/google.js'
 
 // Returns the current Supabase session and profile derived from a Google sign-in.
 export function useAuth() {
@@ -16,6 +17,9 @@ export function useAuth() {
       if (!active || settled) return
       settled = true
       if (unavailable) setAuthUnavailable(true)
+      // Stash the Google provider token before React state drops it — this
+      // is often the only moment it's available (right off the OAuth callback).
+      rememberGoogleTokens(sess)
       setSession(sess)
       setLoading(false)
     }
@@ -49,6 +53,10 @@ export function useAuth() {
       })
     const { data: sub } = supabase.auth.onAuthStateChange((_event, s) => {
       if (active) {
+        // Capture provider tokens whenever they ride in on a session (the
+        // SIGNED_IN event carries them; later TOKEN_REFRESHED events don't,
+        // and rememberGoogleTokens no-ops on those so the stash survives).
+        rememberGoogleTokens(s)
         setSession(s)
         if (s) setAuthUnavailable(false)
       }
@@ -70,7 +78,9 @@ export function useAuth() {
     avatar: meta.avatar_url || meta.picture || null
   } : null
 
-  const googleConnected = Boolean(session?.provider_token)
+  // Survives reloads + TOKEN_REFRESHED by falling back to the stashed token,
+  // not just the (often-stripped) in-session provider_token.
+  const googleConnected = hasGoogleConnection(session)
   const provider = session?.user?.app_metadata?.provider || null
 
   const refresh = useCallback(async () => {
