@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { format, differenceInDays } from 'date-fns'
 import { ChevronRight, Clock } from 'lucide-react'
 import { supabase, isSupabaseConfigured } from '../lib/supabase.js'
-import { STAGES } from '../lib/stages.js'
+import { stagesForMode, stageLabel } from '../lib/stages.js'
 
 // Visible on the deal Overview directly under the progress bar. Answers the
 // partner's question at a glance: "When did we start with them, when did the
@@ -24,6 +24,11 @@ const STAGE_TONE = {
   'Analyst Call':        'border-valence-blue/30 bg-valence-blue-soft text-valence-text',
   'Partner Call':        'border-valence-blue/40 bg-valence-blue-soft text-valence-text',
   'Memo':                'border-valence-blue/40 bg-valence-blue-soft text-valence-text',
+  'LP Sourced':          'border-valence-border bg-valence-elevated text-valence-text',
+  'LP Introduced':       'border-valence-border bg-valence-elevated text-valence-text',
+  'LP Meeting':          'border-valence-blue/30 bg-valence-blue-soft text-valence-text',
+  'LP Due Diligence':    'border-valence-blue/40 bg-valence-blue-soft text-valence-text',
+  'LP Soft Circle':      'border-valence-blue/40 bg-valence-blue-soft text-valence-text',
   'Diligence':           'border-valence-success/40 bg-valence-success/10 text-valence-success',
   'Passed':              'border-valence-danger/40 bg-valence-danger/10 text-valence-danger'
 }
@@ -37,11 +42,13 @@ function stageFromBody(body) {
 }
 
 function buildHistory(deal, stageChanges) {
-  // Map<stage, Date> for first-entry timestamps.
+  // Map<stage, Date> for first-entry timestamps. The deal's own funnel
+  // (company vs LP) drives both the seed stage and the left-to-right order.
+  const funnel = stagesForMode(deal.kind)
   const entryAt = new Map()
 
-  // Sourced always seeded from deal.created_at.
-  if (deal.created_at) entryAt.set('Sourced', new Date(deal.created_at))
+  // The funnel's first stage (Sourced / LP Sourced) is seeded from created_at.
+  if (deal.created_at) entryAt.set(funnel[0].id, new Date(deal.created_at))
 
   for (const a of stageChanges) {
     const dest = stageFromBody(a.body)
@@ -57,7 +64,7 @@ function buildHistory(deal, stageChanges) {
   }
 
   // Order by canonical pipeline order so the spine reads left-to-right.
-  const canonical = STAGES.map(s => s.id)
+  const canonical = funnel.map(s => s.id)
   const ordered = Array.from(entryAt.entries())
     .sort((a, b) => canonical.indexOf(a[0]) - canonical.indexOf(b[0]))
 
@@ -118,7 +125,7 @@ export default function StageHistorySpine({ deal }) {
                 STAGE_TONE[n.stage] || 'border-valence-border bg-valence-elevated text-valence-text'
               } ${n.isCurrent ? CURRENT_RING : ''}`}
             >
-              <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-valence-muted">{n.stage}</p>
+              <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-valence-muted">{stageLabel(n.stage, deal.kind)}</p>
               <p className="mt-0.5 text-sm font-semibold tabular-nums">{format(n.at, 'd MMM yyyy')}</p>
               <p className="mt-0.5 text-[10px] text-valence-muted">
                 {n.isCurrent ? `${n.days}d so far · current` : `${n.days}d`}

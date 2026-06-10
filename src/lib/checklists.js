@@ -35,6 +35,31 @@ export const STAGE_CHECKLISTS = {
   Passed: [
     { key: 'pass_reason',      label: 'Pass reason captured for review',           required: true  },
     { key: 'relationship_logged', label: 'Relationship-maintenance next step logged', required: false }
+  ],
+
+  // ── LP fundraising funnel (deals.kind = 'lp') — same keyspace, LP stages ──
+  'LP Sourced': [
+    { key: 'lp_identified',     label: 'LP profile + likely appetite noted',        required: true  },
+    { key: 'intro_path',        label: 'Warm intro path identified',                required: false }
+  ],
+  'LP Introduced': [
+    { key: 'first_contact',     label: 'First contact made',                        required: true  },
+    { key: 'collateral_sent',   label: 'Investor collateral shared',                required: false }
+  ],
+  'LP Meeting': [
+    { key: 'pitch_meeting',     label: 'Pitch meeting held',                        required: true  },
+    { key: 'follow_up_sent',    label: 'Follow-up materials sent',                  required: true  },
+    { key: 'nda_signed',        label: 'NDA signed',                                required: false }
+  ],
+  'LP Due Diligence': [
+    { key: 'data_room_open',    label: 'Data room access granted',                  required: true  },
+    { key: 'ddq_returned',      label: 'DDQ completed and returned',                required: true  },
+    { key: 'reference_calls',   label: 'GP reference calls done',                   required: false }
+  ],
+  'LP Soft Circle': [
+    { key: 'allocation_agreed', label: 'Indicative allocation agreed',              required: true  },
+    { key: 'lpa_in_review',     label: 'LPA / side letter in review',               required: true  },
+    { key: 'kyc_started',       label: 'KYC / AML started',                         required: false }
   ]
 }
 

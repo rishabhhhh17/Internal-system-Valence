@@ -1,6 +1,7 @@
 import { useMemo } from 'react'
 import { format, parseISO } from 'date-fns'
 import { ArrowRight } from 'lucide-react'
+import { activeStagesForMode, stageLabel } from '../lib/stages.js'
 
 // Stage-history table for the Timeline page. One row per live deal,
 // columns for each stage in the canonical pre-diligence funnel. Each cell shows
@@ -9,10 +10,10 @@ import { ArrowRight } from 'lucide-react'
 // stage). The current stage cell is highlighted; never-entered cells are
 // shown as a quiet em-dash so the path through the funnel reads at a glance.
 
-// Stages in the order the partner wants to read them. Terminal stages
-// (Diligence / Passed) share a single rightmost "Outcome" column so
-// the main funnel reads as a clean path.
-const FUNNEL_STAGES = ['Sourced', 'Information Received', 'Analyst Call', 'Partner Call', 'Memo']
+// Stages in the order the partner wants to read them — the active funnel of
+// whichever pipeline is on screen (company or LP). Terminal stages
+// (Diligence/Committed, Passed) share ids across both funnels and live in a
+// single rightmost "Outcome" column so the main funnel reads as a clean path.
 const TERMINAL_STAGES = new Set(['Diligence', 'Passed'])
 
 // Parse the destination stage out of a stage_change activity body. The
@@ -26,11 +27,12 @@ function stageFromActivity(body) {
   return null
 }
 
-function buildStageMap(deal, activitiesByDeal) {
+function buildStageMap(deal, activitiesByDeal, firstStageId) {
   const out = {}
   const acts = (activitiesByDeal.get(deal.id) || []).filter(a => a.kind === 'stage_change')
-  // Initial stage timestamp = deal.created_at (seeded as Sourced).
-  if (deal.created_at) out['Sourced'] = new Date(deal.created_at)
+  // Initial stage timestamp = deal.created_at, seeded into the funnel's
+  // first stage (Sourced / LP Sourced).
+  if (deal.created_at) out[firstStageId] = new Date(deal.created_at)
   for (const a of acts) {
     const dest = stageFromActivity(a.body)
     if (!dest) continue
@@ -48,7 +50,8 @@ function buildStageMap(deal, activitiesByDeal) {
   return out
 }
 
-export default function TimelineTable({ deals, activities, onOpenDeal }) {
+export default function TimelineTable({ deals, activities, mode = 'company', onOpenDeal }) {
+  const FUNNEL_STAGES = useMemo(() => activeStagesForMode(mode).map(s => s.id), [mode])
   const activitiesByDeal = useMemo(() => {
     const map = new Map()
     for (const a of activities) {
@@ -60,13 +63,13 @@ export default function TimelineTable({ deals, activities, onOpenDeal }) {
 
   const rows = useMemo(() => deals.map(d => ({
     deal: d,
-    stageMap: buildStageMap(d, activitiesByDeal)
-  })), [deals, activitiesByDeal])
+    stageMap: buildStageMap(d, activitiesByDeal, FUNNEL_STAGES[0])
+  })), [deals, activitiesByDeal, FUNNEL_STAGES])
 
   if (rows.length === 0) {
     return (
       <div className="rounded-xl border border-dashed border-valence-border bg-valence-surface px-5 py-10 text-center text-sm text-valence-muted">
-        No mandates to chart yet. Log a deal to see its journey.
+        No deals to chart yet. Log a deal to see its journey.
       </div>
     )
   }
@@ -76,9 +79,9 @@ export default function TimelineTable({ deals, activities, onOpenDeal }) {
       <table className="w-full text-sm">
         <thead className="bg-valence-surface/60">
           <tr className="border-b border-valence-border">
-            <th className="sticky left-0 z-10 bg-valence-surface/60 px-4 py-3 text-left vl-eyebrow-ink">Mandate</th>
+            <th className="sticky left-0 z-10 bg-valence-surface/60 px-4 py-3 text-left vl-eyebrow-ink">{mode === 'lp' ? 'LP' : 'Company'}</th>
             {FUNNEL_STAGES.map(s => (
-              <th key={s} className="px-4 py-3 text-left vl-eyebrow-ink whitespace-nowrap">{s}</th>
+              <th key={s} className="px-4 py-3 text-left vl-eyebrow-ink whitespace-nowrap">{stageLabel(s, mode)}</th>
             ))}
             <th className="px-4 py-3 text-left vl-eyebrow-ink whitespace-nowrap">Outcome</th>
           </tr>
@@ -123,7 +126,7 @@ export default function TimelineTable({ deals, activities, onOpenDeal }) {
                         terminal === 'Diligence' ? 'text-valence-success' :
                         terminal === 'Passed'    ? 'text-valence-danger'  :
                                                     'text-valence-warning'
-                      }`}>{terminal}</span>
+                      }`}>{stageLabel(terminal, mode)}</span>
                       {terminalAt && <span className="text-[10px] text-valence-muted tabular-nums">{format(terminalAt, 'd MMM yyyy')}</span>}
                     </div>
                   ) : (

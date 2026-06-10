@@ -4,6 +4,7 @@ import { Filter, GanttChartSquare, Table as TableIcon, Activity, Clock, AlertTri
 import { supabase, isSupabaseConfigured } from '../lib/supabase.js'
 import { useViewMode } from '../hooks/useViewMode.jsx'
 import { usePipelineMode } from '../hooks/usePipelineMode.js'
+import { TERMINAL_STAGE_IDS, liveStagesForMode } from '../lib/stages.js'
 import ConfigBanner from '../components/ConfigBanner.jsx'
 import EmptyState from '../components/EmptyState.jsx'
 import TimelineGantt from '../components/TimelineGantt.jsx'
@@ -11,10 +12,12 @@ import TimelineTable from '../components/TimelineTable.jsx'
 import ViewModeToggle from '../components/ViewModeToggle.jsx'
 
 const ZOOM_OPTIONS = ['weeks', 'months', 'quarters']
-// Stages the Gantt chart treats as "in flight". Terminal stages get
-// surfaced in the Table view (with their close-out date) but aren't
-// drawn as bars on the timeline.
-const NON_TERMINAL_STAGES = new Set(['Sourced','Information Received','Analyst Call','Partner Call','Memo'])
+// Stages the Gantt chart treats as "in flight". Both funnels share the two
+// terminal ids (Diligence / Passed), so a terminal blacklist works for the
+// company AND the LP pipeline — terminal deals get surfaced in the Table
+// view (with their close-out date) but aren't drawn as bars.
+const TERMINAL_IDS = new Set(TERMINAL_STAGE_IDS)
+const isInFlight = (d) => !TERMINAL_IDS.has(d.stage)
 
 // Threshold below which we auto-default to Table — a Gantt with 3 rows
 // and lots of empty cells looks like a broken product. Table is denser.
@@ -83,7 +86,7 @@ export default function Timeline() {
   // Stats for the header strip. Computed off the FULL deal set, not the
   // filtered set, so the partner always sees the firm's actual position
   // even after narrowing the view.
-  const stats = useMemo(() => computeStats(deals, activities), [deals, activities])
+  const stats = useMemo(() => computeStats(deals, activities, pipelineMode), [deals, activities, pipelineMode])
 
   // Auto-select the better view for the data shape: Gantt is great when
   // there are enough live mandates with dates to draw a meaningful chart,
@@ -91,7 +94,7 @@ export default function Timeline() {
   // for a fresh customer with 1-4 mandates).
   const activeView = useMemo(() => {
     if (view) return view
-    const liveCount = filtered.filter(d => NON_TERMINAL_STAGES.has(d.stage)).length
+    const liveCount = filtered.filter(isInFlight).length
     return liveCount >= GANTT_MIN_USEFUL_ROWS ? 'gantt' : 'table'
   }, [view, filtered])
 
@@ -177,10 +180,10 @@ export default function Timeline() {
           action={deals.length === 0 ? <Link to="/deals" className="vl-btn-primary">Open Pipeline</Link> : null}
         />
       ) : activeView === 'table' ? (
-        <TimelineTable deals={filtered} activities={activities} onOpenDeal={openDeal} />
+        <TimelineTable deals={filtered} activities={activities} mode={pipelineMode} onOpenDeal={openDeal} />
       ) : (
         // Gantt keeps to in-flight stages; terminal ones live in the table view.
-        <TimelineGantt deals={filtered.filter(d => NON_TERMINAL_STAGES.has(d.stage))} activities={activities} zoom={zoom} onOpenDeal={openDeal} />
+        <TimelineGantt deals={filtered.filter(isInFlight)} activities={activities} zoom={zoom} mode={pipelineMode} onOpenDeal={openDeal} />
       )}
     </div>
   )
@@ -189,7 +192,11 @@ export default function Timeline() {
 // ============ STATS ============
 // Computed off the raw deals + activities, not the filtered ones, so the
 // partner always sees the firm's actual position.
-function computeStats(deals, activities) {
+function computeStats(deals, activities, mode) {
+  // Deepest actively-worked stage for this funnel (Memo / LP Soft Circle) —
+  // drives the "in execution" count.
+  const liveStages = liveStagesForMode(mode)
+  const deepestId = liveStages[liveStages.length - 1]
   const now = Date.now()
   const ms21d   = 21  * 86_400_000
   const ms90d   = 90  * 86_400_000
@@ -203,10 +210,10 @@ function computeStats(deals, activities) {
   }
   let live = 0, inMandate = 0, closingSoon = 0, stale = 0, closedQuarter = 0
   for (const d of deals) {
-    const isLive = NON_TERMINAL_STAGES.has(d.stage)
+    const isLive = isInFlight(d)
     if (isLive) {
       live += 1
-      if (d.stage === 'Memo') inMandate += 1
+      if (d.stage === deepestId) inMandate += 1
       const closeDate = d.expected_close_date || d.target_close
       if (closeDate) {
         const t = new Date(closeDate).getTime() - now

@@ -1,6 +1,7 @@
 import { useMemo, useRef, useEffect, useState } from 'react'
 import { format, parseISO, differenceInCalendarDays, addDays, startOfMonth, addMonths } from 'date-fns'
 import { Flag, Info } from 'lucide-react'
+import { activeStagesForMode, stageLabel } from '../lib/stages.js'
 
 // Per-sector palette. IB-grade treatment: bars are uniformly slate /
 // neutral. Sector identity shows only via a thin 3-px coloured left rail
@@ -55,12 +56,17 @@ export const STAGE_DEFAULT_DAYS = {
   'Information Received':  10,
   'Analyst Call':         14,
   'Partner Call':         14,
-  'Memo':                 21
+  'Memo':                 21,
+  'LP Sourced':           10,
+  'LP Introduced':        10,
+  'LP Meeting':           14,
+  'LP Due Diligence':     21,
+  'LP Soft Circle':       14
 }
 
-// The ordered list of active stages a deal progresses through. Used to
-// derive past / current / future segments deterministically.
-const LIVE_STAGES = ['Sourced', 'Information Received', 'Analyst Call', 'Partner Call', 'Memo']
+// The ordered list of active stages a deal progresses through — derived per
+// pipeline mode (company vs LP funnel). Used to derive past / current /
+// future segments deterministically.
 
 const ZOOMS = {
   weeks:    { px: 12,  monthLabel: false, weekLabel: true,  monthsRange: { back: 6, fwd: 9 } },
@@ -70,14 +76,13 @@ const ZOOMS = {
 
 // Build the past/current/future segments for a single deal. activitiesByDeal is
 // a Map<dealId, [stage_change activities sorted ascending by created_at]>.
-function buildSegments(deal, activitiesByDeal, today) {
-  const stageOrder = LIVE_STAGES
+function buildSegments(deal, activitiesByDeal, today, stageOrder) {
   const acts = activitiesByDeal.get(deal.id) || []
   const stageStartByStage = new Map()
 
   // Initial stage starts at deal.created_at (or today if missing).
   let cursor = deal.created_at ? new Date(deal.created_at) : new Date(today)
-  let lastStage = LIVE_STAGES[0]
+  let lastStage = stageOrder[0]
   stageStartByStage.set(lastStage, cursor)
 
   for (const a of acts) {
@@ -147,7 +152,8 @@ function buildMarkers(deal, activitiesByDeal, range) {
   return out.sort((a, b) => a.when - b.when)
 }
 
-export default function TimelineGantt({ deals, activities, zoom = 'months', onOpenDeal }) {
+export default function TimelineGantt({ deals, activities, zoom = 'months', mode = 'company', onOpenDeal }) {
+  const stageOrder = useMemo(() => activeStagesForMode(mode).map(s => s.id), [mode])
   const cfg = ZOOMS[zoom] || ZOOMS.months
   const today = useMemo(() => { const d = new Date(); d.setHours(0,0,0,0); return d }, [])
   const range = useMemo(() => ({
@@ -169,9 +175,9 @@ export default function TimelineGantt({ deals, activities, zoom = 'months', onOp
 
   const rows = useMemo(() => deals.map(d => ({
     deal: d,
-    segments: buildSegments(d, activitiesByDeal, today),
+    segments: buildSegments(d, activitiesByDeal, today, stageOrder),
     markers:  buildMarkers(d, activitiesByDeal, range)
-  })), [deals, activitiesByDeal, today, range])
+  })), [deals, activitiesByDeal, today, range, stageOrder])
 
   // Month grid lines + labels.
   const monthMarks = useMemo(() => {
@@ -293,10 +299,10 @@ export default function TimelineGantt({ deals, activities, zoom = 'months', onOp
                         <div key={i} className="absolute top-2 h-7" style={{ left: x, width: w }}>
                           <button
                             onClick={() => onOpenDeal?.(deal)}
-                            title={`${deal.client_name} · ${seg.stage} · ${format(seg.start, 'd MMM')} → ${format(seg.end, 'd MMM')}`}
+                            title={`${deal.client_name} · ${stageLabel(seg.stage, mode)} · ${format(seg.start, 'd MMM')} → ${format(seg.end, 'd MMM')}`}
                             className={`relative h-full w-full rounded-md text-[10px] font-semibold tracking-tight transition-all duration-150 hover:scale-[1.02] hover:brightness-105 ${segmentClass(seg, p)}`}
                           >
-                            {w > 60 && <span className="px-2 truncate block leading-7">{seg.stage}</span>}
+                            {w > 60 && <span className="px-2 truncate block leading-7">{stageLabel(seg.stage, mode)}</span>}
                           </button>
                         </div>
                       )

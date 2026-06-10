@@ -11,7 +11,7 @@ import { useToast } from '../components/Toast.jsx'
 import { useAuth } from '../hooks/useAuth.js'
 import { useSeat } from '../hooks/useSeat.js'
 import { usePipelineMode } from '../hooks/usePipelineMode.js'
-import { stageMeta, LIVE_MANDATE_STAGES } from '../lib/stages.js'
+import { stageMeta, liveStagesForMode, stageLabel } from '../lib/stages.js'
 import { listTodayEvents, GoogleAuthExpired } from '../lib/google.js'
 import ConfigBanner from '../components/ConfigBanner.jsx'
 import WikilinkTextarea from '../components/WikilinkTextarea.jsx'
@@ -256,7 +256,7 @@ export default function DailyNote() {
           id: `stale-${d.id}`,
           severity: 'warn',
           message: `${d.client_name} — no activity in ${days} days`,
-          detail: `Stage: ${d.stage}. Worth a touch.`,
+          detail: `Stage: ${stageLabel(d.stage, pipelineMode)}. Worth a touch.`,
           to: `/deals?open=${d.id}`,
           // Phase 32 signal_anchor — changes whenever this deal gets new
           // activity, so an override resolved against the previous quiet
@@ -266,12 +266,13 @@ export default function DailyNote() {
       }
     }
 
-    // Mandates with target close inside 30 days. Use the same live-stage
-    // set as the Live Mandates page (Pre-Mandate + Mandate) so a near-close
-    // Pre-Mandate deal isn't silently dropped from Today.
+    // Deals with target close inside 30 days. Use the live-stage set for the
+    // ACTIVE pipeline (company vs LP funnel) so a near-close deal isn't
+    // silently dropped from Today when the mode is LPs.
+    const liveStages = liveStagesForMode(pipelineMode)
     const horizon30 = addDays(today, 30)
     for (const d of deals) {
-      if (!LIVE_MANDATE_STAGES.includes(d.stage)) continue
+      if (!liveStages.includes(d.stage)) continue
       const iso = d.expected_close_date || d.target_close
       if (!iso) continue
       const t = parseISO(String(iso).slice(0, 10))
@@ -282,7 +283,7 @@ export default function DailyNote() {
           id: `closing-${d.id}`,
           severity: 'high',
           message: `${d.client_name} — target close in ${days} day${days === 1 ? '' : 's'}`,
-          detail: `Stage: ${d.stage}.`,
+          detail: `Stage: ${stageLabel(d.stage, pipelineMode)}.`,
           to: `/deals?open=${d.id}`,
           // If the target_close shifts the override should not silence
           // the new date. Anchor on the date itself.
@@ -426,7 +427,7 @@ export default function DailyNote() {
     // No hard cap — the Priorities card collapses the list to a small
     // preview by default and lets the user expand to see the rest.
     return { priorities }
-  }, [deals, activities, interactions, today])
+  }, [deals, activities, interactions, today, pipelineMode])
 
   // ─── Waiting On ─────────────────────────────────────────────────────────
   // Pulled from the compute_waiting_for_org SQL function. Refreshed when
@@ -672,7 +673,8 @@ export default function DailyNote() {
   // All computed from the data already in memory; no extra fetch.
   const stats = useMemo(() => {
     const weekAgo = addDays(today, -7)
-    const liveMandates = deals.filter(d => LIVE_MANDATE_STAGES.includes(d.stage)).length
+    const liveStages = liveStagesForMode(pipelineMode)
+    const liveMandates = deals.filter(d => liveStages.includes(d.stage)).length
     const week = interactions.filter(i => {
       if (!i.occurred_at) return false
       const t = new Date(i.occurred_at)
@@ -695,7 +697,7 @@ export default function DailyNote() {
       splitTotal: split.founder + split.investor + split.general,
       overdue
     }
-  }, [deals, interactions, today, visiblePriorities])
+  }, [deals, interactions, today, visiblePriorities, pipelineMode])
 
   // Pulse coach was removed — the partner asked for less visual noise on
   // the Today page. KPI strip + Priorities + Waiting On already surface
