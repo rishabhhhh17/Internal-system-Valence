@@ -18,7 +18,7 @@ import { liveStagesForMode, terminalIdsForMode } from '../lib/stages.js'
 const nav = [
   { to: '/',             label: 'Today',        icon: LayoutDashboard },
   { to: '/deals',        label: 'Pipeline',     icon: Briefcase,     badgeKey: 'activeDeals' },
-  { to: '/mandates',     label: 'Active Deals', icon: Handshake,     badgeKey: 'liveMandates' },
+  { to: '/mandates',     label: 'Document tracker', icon: Handshake, badgeKey: 'liveMandates' },
   { to: '/timeline',     label: 'Timeline',     icon: GanttChartSquare },
   { to: '/interactions', label: 'Interactions', icon: MessageSquare, badgeKey: 'pendingFollowUps', section: 'Relationships' },
   { to: '/people',       label: 'People',       icon: UserCircle,                                section: 'Relationships' },

@@ -1,28 +1,23 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { format, parseISO, differenceInCalendarDays, formatDistanceToNowStrict } from 'date-fns'
-import { Briefcase, Filter, Users, AlertTriangle, ArrowUpRight } from 'lucide-react'
+import { parseISO, differenceInCalendarDays } from 'date-fns'
+import { Briefcase, Filter, Users } from 'lucide-react'
 import { supabase, isSupabaseConfigured, subscribeTable } from '../lib/supabase.js'
-import { stagesForMode, liveStagesForMode, stageMeta, stageToneClasses, stageLabel } from '../lib/stages.js'
-import { useViewMode } from '../hooks/useViewMode.jsx'
+import { liveStagesForMode } from '../lib/stages.js'
 import { usePipelineMode } from '../hooks/usePipelineMode.js'
 import ConfigBanner from '../components/ConfigBanner.jsx'
 import EmptyState from '../components/EmptyState.jsx'
 import DocumentTracker from '../components/DocumentTracker.jsx'
-import ViewModeToggle from '../components/ViewModeToggle.jsx'
-import { InlineText, InlineSelect, InlineDate } from '../components/InlineEdit.jsx'
 import { useToast } from '../components/Toast.jsx'
 import { humanError } from '../lib/userError.js'
 
-// Active deals = the actively-worked middle of the funnel. For companies that's
-// Analyst Call → Partner Call → Memo; for LPs it's Meeting → Fund DD →
-// Soft-circled. The earliest stages are pre-pipeline (Interactions territory)
-// and the two terminals (Diligence/Committed, Passed) are after.
-const STALE_THRESHOLD_DAYS = 21
+// The Active Deals route is now the Document tracker: it lists the active deals
+// (the actively-worked middle of the funnel — Analyst/Partner/Memo for
+// companies, Meeting/Fund DD/Soft-circled for LPs) and, per deal, which
+// documents are in and which are still outstanding.
 
 export default function Mandates() {
   const toast = useToast()
-  const { isDetailed } = useViewMode('mandates')
   const [pipelineMode] = usePipelineMode()
   const isLp = pipelineMode === 'lp'
   const LIVE_STAGES = liveStagesForMode(pipelineMode)
@@ -126,17 +121,6 @@ export default function Mandates() {
     return enriched.filter(d => ownerFilter === 'All' || d.lead_owner === ownerFilter)
   }, [enriched, ownerFilter])
 
-  // Group by stage in canonical Live order, sort within group by days-in-stage desc.
-  const grouped = useMemo(() => {
-    const map = new Map(LIVE_STAGES.map(s => [s, []]))
-    for (const d of filtered) {
-      const bucket = map.get(d.stage)
-      if (bucket) bucket.push(d)
-    }
-    for (const arr of map.values()) arr.sort((a, b) => b._daysInStage - a._daysInStage)
-    return Array.from(map.entries()).filter(([, arr]) => arr.length > 0)
-  }, [filtered])
-
   const totalLive = filtered.length
 
   return (
@@ -145,13 +129,12 @@ export default function Mandates() {
 
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <p className="vl-eyebrow-ink">Active Deals</p>
+          <p className="vl-eyebrow-ink">Document tracker</p>
           <h1 className="mt-2 font-display text-feature font-bold text-valence-text">
-            Active pipeline — first call through diligence.
+            {isLp ? 'LP collateral — what’s shared, what’s pending.' : 'Diligence docs — what’s in, what’s outstanding.'}
           </h1>
         </div>
         <div className="flex items-center gap-3">
-          <ViewModeToggle pageKey="mandates" />
           <Link to="/deals" className="vl-btn-secondary"><Briefcase className="h-4 w-4" /> Open Pipeline</Link>
         </div>
       </div>
@@ -178,162 +161,13 @@ export default function Mandates() {
         <TableSkeleton />
       ) : loadError ? (
         <EmptyState icon={Briefcase} title="Couldn't load deals" description={loadError} action={<button onClick={load} className="vl-btn-primary">Retry</button>} />
-      ) : grouped.length === 0 ? (
-        <EmptyState icon={Briefcase} title="No active deals" description={isLp ? 'LPs appear here once they reach a pitch meeting or beyond.' : 'Deals appear here once they move into Analyst Call or beyond.'} action={<Link to="/deals" className="vl-btn-primary">Open Pipeline</Link>} />
+      ) : filtered.length === 0 ? (
+        <EmptyState icon={Briefcase} title="No active deals to track" description={isLp ? 'LPs appear here once they reach a pitch meeting or beyond.' : 'Companies appear here once a deal is in an active stage.'} action={<Link to="/deals" className="vl-btn-primary">Open Pipeline</Link>} />
       ) : (
-        <div className="space-y-6">
-          {grouped.map(([stage, rows]) => (
-            <section key={stage} className="vl-card overflow-hidden">
-              <header className="flex items-center justify-between border-b border-valence-border px-5 py-3 bg-valence-surface">
-                <div className="flex items-center gap-2">
-                  <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-semibold ${stageToneClasses(stage)}`}>{stageLabel(stage, pipelineMode)}</span>
-                  <span className="text-[11px] text-valence-muted">{stageMeta(stage).short}</span>
-                </div>
-                <span className="text-[11px] tabular-nums text-valence-muted">{rows.length} deal{rows.length === 1 ? '' : 's'}</span>
-              </header>
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="text-left text-[10px] font-semibold uppercase tracking-[0.16em] text-valence-subtle">
-                      <th className="px-5 py-2 font-semibold">Company</th>
-                      {isDetailed && <th className="px-3 py-2 font-semibold">Sector</th>}
-                      {isDetailed && <th className="px-3 py-2 font-semibold">Role</th>}
-                      <th className="px-3 py-2 font-semibold">Deal lead</th>
-                      <th className="px-3 py-2 font-semibold">Onboarding</th>
-                      <th className="px-3 py-2 font-semibold text-right">Days in stage</th>
-                      {isDetailed && <th className="px-3 py-2 font-semibold">Target close</th>}
-                      {isDetailed && <th className="px-3 py-2 font-semibold">Last activity</th>}
-                      <th className="px-5 py-2" />
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {rows.map(d => <MandateRow key={d.id} d={d} isDetailed={isDetailed} onUpdate={updateField} />)}
-                  </tbody>
-                </table>
-              </div>
-            </section>
-          ))}
-        </div>
-      )}
-
-      {/* Document tracker — which diligence docs each active deal has shared.
-          Uses the same filtered active-deal set so it respects the owner
-          filter above. Hidden while loading / on error / when empty. */}
-      {!loading && !loadError && filtered.length > 0 && (
         <DocumentTracker deals={filtered} mode={pipelineMode} onCycle={cycleDoc} />
       )}
     </div>
   )
-}
-
-function MandateRow({ d, isDetailed, onUpdate }) {
-  const stale = d._daysInStage > STALE_THRESHOLD_DAYS
-  const stageOptions = stagesForMode(d.kind).map(s => ({ value: s.id, label: s.label || s.id }))
-  return (
-    <tr className="border-t border-valence-border/60 hover:bg-valence-surface/60 transition">
-      <td className="px-5 py-3 font-semibold text-valence-text">
-        <div className="flex items-center gap-2">
-          <Link to={`/deals?open=${d.id}`} className="inline-flex items-center gap-1.5 hover:text-valence-blue">
-            {d.client_name}
-            {stale && <span title="More than three weeks in this stage" className="inline-flex"><AlertTriangle className="h-3 w-3 text-valence-warning" /></span>}
-          </Link>
-          <InlineSelect
-            value={d.stage}
-            options={stageOptions}
-            onCommit={v => onUpdate(d.id, 'stage', v)}
-          />
-        </div>
-      </td>
-      {isDetailed && <td className="px-3 py-3 text-valence-muted">{d.sector || '—'}</td>}
-      {isDetailed && <td className="px-3 py-3 text-valence-muted">{normalizeSide(d.ma_side || d.side) || '—'}</td>}
-      <td className="px-3 py-3 text-valence-muted">
-        <InlineText
-          value={d.lead_owner}
-          placeholder="Assign owner"
-          onCommit={v => onUpdate(d.id, 'lead_owner', v)}
-        />
-      </td>
-      <td className="px-3 py-3">
-        <OnboardingChecklist
-          value={d.onboarding}
-          onToggle={next => onUpdate(d.id, 'onboarding', next)}
-        />
-      </td>
-      <td className={`px-3 py-3 text-right tabular-nums ${stale ? 'font-semibold text-valence-warning' : 'text-valence-text'}`}>
-        {d._daysInStage}d
-      </td>
-      {isDetailed && (
-        <td className="px-3 py-3 text-valence-muted">
-          {/* Schema uses target_close. Older code paths read d.expected_close_date
-              as a fallback for demo data; writes must go to target_close
-              or the UPDATE 422-errors with 42703 "expected_close_date does not exist." */}
-          <InlineDate
-            value={(d.target_close || d.expected_close_date) ? String(d.target_close || d.expected_close_date).slice(0, 10) : ''}
-            onCommit={v => onUpdate(d.id, 'target_close', v)}
-          />
-          {d._daysToClose != null && d._closeIso && (
-            <span className="ml-1 text-[10px] text-valence-subtle">
-              ({d._daysToClose >= 0 ? `${d._daysToClose}d` : `${Math.abs(d._daysToClose)}d late`})
-            </span>
-          )}
-        </td>
-      )}
-      {isDetailed && <td className="px-3 py-3 text-[11px] text-valence-muted">{formatDistanceToNowStrict(d._stageSince, { addSuffix: true })}</td>}
-      <td className="px-5 py-3 text-right">
-        <Link to={`/deals?open=${d.id}`} className="inline-flex items-center gap-1 text-[11px] font-semibold text-valence-blue hover:text-valence-blue-hover">
-          Open <ArrowUpRight className="h-3 w-3" />
-        </Link>
-      </td>
-    </tr>
-  )
-}
-
-// Onboarding checklist — mirrors the partner's "Active Deals" tab in the
-// Mastersheet (NDA → Term sheet → Economics → Docs → Onboarding). Each step
-// is a clickable pill: click to toggle done. Writes the whole jsonb back via
-// onToggle. Shows an X/5 progress count.
-const ONBOARDING_STEPS = [
-  { key: 'nda',               label: 'NDA' },
-  { key: 'term_sheet',        label: 'Term sheet' },
-  { key: 'commercials',       label: 'Economics' },
-  { key: 'engagement_letter', label: 'Docs' },
-  { key: 'onboarding',        label: 'Onboarding' }
-]
-function OnboardingChecklist({ value, onToggle }) {
-  const ob = value || {}
-  const done = ONBOARDING_STEPS.filter(s => ob[s.key]).length
-  return (
-    <div className="flex items-center gap-1.5">
-      <div className="flex items-center gap-1">
-        {ONBOARDING_STEPS.map(s => {
-          const on = !!ob[s.key]
-          return (
-            <button
-              key={s.key}
-              type="button"
-              title={`${s.label}${on ? ' — done (click to undo)' : ' — pending (click to mark done)'}`}
-              onClick={() => onToggle({ ...ob, [s.key]: !on })}
-              className={`inline-flex items-center rounded px-1.5 py-0.5 text-[9.5px] font-semibold uppercase tracking-wide transition ${
-                on
-                  ? 'bg-valence-success/15 text-valence-success ring-1 ring-valence-success/30'
-                  : 'bg-valence-surface text-valence-subtle ring-1 ring-valence-border hover:text-valence-muted'
-              }`}
-            >
-              {s.label.split(' ').map(w => w[0]).join('')}
-            </button>
-          )
-        })}
-      </div>
-      <span className="text-[10px] tabular-nums text-valence-muted">{done}/5</span>
-    </div>
-  )
-}
-
-function normalizeSide(side) {
-  if (!side) return null
-  if (/^buy/i.test(side)) return 'Buy'
-  if (/^sell/i.test(side)) return 'Sell'
-  return side
 }
 
 function TableSkeleton() {
