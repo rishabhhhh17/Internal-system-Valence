@@ -7,7 +7,7 @@ import Layout from './components/Layout.jsx'
 // bundle drops from ~1.5 MB to the rough size of Today + Layout. Each
 // chunk is named via the /* @vite-ignore */-free dynamic-import path so
 // Rollup gives the partner-readable filenames in the dist.
-import DailyNote from './pages/DailyNote.jsx'
+import Home from './pages/Home.jsx'
 import Login from './pages/Login.jsx'
 
 const Deals               = lazy(() => import('./pages/Deals.jsx'))
@@ -22,8 +22,7 @@ const InboxIntake         = lazy(() => import('./pages/InboxIntake.jsx'))
 const Interactions        = lazy(() => import('./pages/Interactions.jsx'))
 const Knowledge           = lazy(() => import('./pages/Knowledge.jsx'))
 const KnowledgeLanding    = lazy(() => import('./pages/KnowledgeLanding.jsx'))
-const Planner             = lazy(() => import('./pages/Planner.jsx'))
-const Calendar            = lazy(() => import('./pages/Calendar.jsx'))
+const Workspace           = lazy(() => import('./pages/Workspace.jsx'))
 const Drive               = lazy(() => import('./pages/Drive.jsx'))
 const Team                = lazy(() => import('./pages/Team.jsx'))
 const Analytics           = lazy(() => import('./pages/Analytics.jsx'))
@@ -256,7 +255,7 @@ export default function App() {
     <Layout>
       <Suspense fallback={<BootSplash />}>
       <Routes>
-        <Route path="/" element={<DailyNote />} />
+        <Route path="/" element={<Home />} />
         <Route path="/deals" element={<Deals />} />
         <Route path="/mandates" element={<Mandates />} />
         <Route path="/timeline" element={<Timeline />} />
@@ -272,8 +271,12 @@ export default function App() {
         <Route path="/knowledge/shared" element={<Knowledge />} />
         <Route path="/knowledge/private" element={<Drive />} />
         <Route path="/drive" element={<Navigate to="/knowledge/private" replace />} />
-        <Route path="/planner" element={<Planner />} />
-        <Route path="/calendar" element={<Calendar />} />
+        {/* Workspace folds the old Today / Day Planner / Team Calendar into
+            one tab. Legacy paths still resolve into the matching segment. */}
+        <Route path="/workspace" element={<Workspace />} />
+        <Route path="/today" element={<Workspace />} />
+        <Route path="/planner" element={<Workspace />} />
+        <Route path="/calendar" element={<Workspace />} />
         <Route path="/analytics" element={<Analytics />} />
         <Route path="/feed" element={<Feed />} />
         <Route path="/team" element={<Team />} />

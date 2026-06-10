@@ -8,10 +8,10 @@ import {
 
 // Primary nav row — five entries that fit comfortably on a 375px iPhone.
 const primary = [
-  { to: '/',          label: 'Home',     icon: LayoutDashboard },
-  { to: '/deals',     label: 'Deals',    icon: Briefcase },
-  { to: '/knowledge', label: 'Knowledge',icon: BookOpen },
-  { to: '/planner',   label: 'Day',      icon: CalendarDays }
+  { to: '/',          label: 'Home',      icon: LayoutDashboard },
+  { to: '/workspace', label: 'Workspace', icon: CalendarDays },
+  { to: '/deals',     label: 'Deals',     icon: Briefcase },
+  { to: '/knowledge', label: 'Knowledge', icon: BookOpen }
 ]
 
 // Full route map — every sidebar entry. Anything not in `primary` lives in
@@ -21,7 +21,6 @@ const primary = [
 const more = [
   { to: '/mandates',    label: 'Active Deals',  icon: ListChecks },
   { to: '/timeline',    label: 'Timeline',      icon: Activity },
-  { to: '/calendar',    label: 'Team Calendar', icon: CalendarIcon },
   { to: '/interactions',label: 'Interactions',  icon: MessageSquare },
   { to: '/people',      label: 'People',        icon: Users },
   { to: '/funds',       label: 'Leads',         icon: Building2 },

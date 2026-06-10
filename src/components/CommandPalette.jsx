@@ -10,7 +10,7 @@ import { supabase, isSupabaseConfigured } from '../lib/supabase.js'
 import { searchKnowledge } from '../lib/knowledge.js'
 
 const QUICK_NAV = [
-  { type: 'nav', title: 'Today',          sub: 'Daily note · priorities · meetings',  to: '/',                  icon: LayoutDashboard },
+  { type: 'nav', title: 'Home',           sub: 'The fund at a glance — founders & LPs', to: '/',                icon: LayoutDashboard },
   { type: 'nav', title: 'Pipeline',       sub: 'Pipeline & files',                   to: '/deals',             icon: Briefcase },
   { type: 'nav', title: 'Active Deals',   sub: 'Active book by stage',               to: '/mandates',          icon: Briefcase },
   { type: 'nav', title: 'Timeline',       sub: 'Gantt of every active deal',         to: '/timeline',          icon: BarChart3 },
@@ -23,7 +23,7 @@ const QUICK_NAV = [
   { type: 'nav', title: 'Deal notes',     sub: 'Per-deal folder hierarchy',               to: '/knowledge/shared?tab=mandates', icon: BookOpen },
   { type: 'nav', title: 'Firm Knowledge', sub: 'Memos, files, comps, deal notes',         to: '/knowledge/shared',    icon: BookOpen },
   { type: 'nav', title: 'Private',        sub: 'Your personal Drive',                to: '/knowledge/private', icon: FolderOpen },
-  { type: 'nav', title: 'Day Planner',    sub: 'Meetings & tasks',                   to: '/planner',           icon: CalendarDays },
+  { type: 'nav', title: 'Workspace',      sub: 'Briefing · planner · team calendar', to: '/workspace',         icon: CalendarDays },
   { type: 'nav', title: 'Analytics',      sub: 'Pipeline, fees, velocity',           to: '/analytics',         icon: BarChart3 },
   { type: 'nav', title: 'Team',           sub: 'The Valence team',                   to: '/team',              icon: Users }
 ]

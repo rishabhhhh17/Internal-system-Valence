@@ -16,7 +16,8 @@ import { liveStagesForMode, terminalIdsForMode } from '../lib/stages.js'
 // Appearance). Routes still resolve — only the nav-entry is hidden so
 // existing deeplinks and the command palette keep working.
 const nav = [
-  { to: '/',             label: 'Today',        icon: LayoutDashboard },
+  { to: '/',             label: 'Home',         icon: LayoutDashboard },
+  { to: '/workspace',    label: 'Workspace',    icon: CalendarDays,  badgeKey: 'todayMeetings' },
   { to: '/deals',        label: 'Pipeline',     icon: Briefcase,     badgeKey: 'activeDeals' },
   { to: '/mandates',     label: 'Document tracker', icon: Handshake, badgeKey: 'liveMandates' },
   { to: '/timeline',     label: 'Timeline',     icon: GanttChartSquare },
@@ -30,8 +31,6 @@ const nav = [
   // from partners; route still resolves for the dev team.
   { to: '/admin/billing', label: 'Billing · admin', icon: Wallet,                                section: 'Admin', power: true },
   { to: '/knowledge',    label: 'Knowledge',    icon: BookOpen },
-  { to: '/planner',      label: 'Day Planner',  icon: CalendarDays,  badgeKey: 'todayMeetings' },
-  { to: '/calendar',     label: 'Team Calendar',icon: CalendarRange },
   { to: '/analytics',    label: 'Analytics',    icon: BarChart3 },
   // Aging Report is a useful tool but adds a "Reports" section with just
   // one item for first-time partners. Power-gated; reachable via the

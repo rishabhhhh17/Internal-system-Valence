@@ -18,7 +18,9 @@ import { usePipelineMode, PIPELINE_MODES } from '../hooks/usePipelineMode.js'
 // "ValenceOS" — which the user will read as a bug, so add an entry for
 // every route Layout actually renders.
 const titles = {
-  '/':                  { title: 'Today',           sub: 'Your morning briefing.' },
+  '/':                  { title: 'Home',            sub: 'The fund at a glance — founders & LPs.' },
+  '/workspace':         { title: 'Workspace',       sub: 'Briefing, planner, and the team calendar in one place.' },
+  '/today':             { title: 'Workspace',       sub: 'Briefing, planner, and the team calendar in one place.' },
   '/deals':             { title: 'Pipeline',        sub: 'Every live deal, tracked with institutional rigour.' },
   '/mandates':          { title: 'Document tracker', sub: 'Documents in and outstanding across active deals.' },
   '/timeline':          { title: 'Timeline',        sub: 'Every active deal, laid out in time.' },
@@ -30,8 +32,8 @@ const titles = {
   '/knowledge':         { title: 'Knowledge',       sub: 'Firm-shared or private — pick a track.' },
   '/knowledge/shared':  { title: 'Knowledge',       sub: 'Ask, search, memos, files, comps, and per-deal notes — one surface.' },
   '/knowledge/private': { title: 'Private',         sub: 'Your personal Google Drive. Private to you.' },
-  '/planner':           { title: 'Day Planner',     sub: 'Walk into your day prepared. Propose times in a tap.' },
-  '/calendar':          { title: 'Team Calendar',   sub: 'Everyone\'s week, in one view. Find a free slot in seconds.' },
+  '/planner':           { title: 'Workspace',       sub: 'Walk into your day prepared. Propose times in a tap.' },
+  '/calendar':          { title: 'Workspace',       sub: 'Everyone\'s week, in one view. Find a free slot in seconds.' },
   '/feed':              { title: 'Firm pulse',      sub: 'Everything the team did, in order — interactions, deals, inbound, daily notes.' },
   '/analytics':         { title: 'Analytics',       sub: 'Pipeline, conversion, fees, velocity — the firm in numbers.' },
   '/team':              { title: 'Team',            sub: 'Coverage across sectors and geographies.' },
