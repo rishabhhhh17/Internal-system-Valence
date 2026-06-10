@@ -23,7 +23,7 @@ const TUTORIALS = {
         body: 'Open the command palette from any page. Search deals, people, funds, memos — or hit a route directly.' },
       { target: '[data-tour="nav-deals"]',      placement: 'right',
         title: 'The sidebar is the firm',
-        body: 'Pipeline, Active Deals, Interactions, People, Investors — each one tab on the left.' },
+        body: 'Pipeline, Document tracker, Interactions, People, Founders — each one tab on the left.' },
       { target: '[data-tour="today-meetings"]', placement: 'right',
         title: 'Today\'s meetings',
         body: 'Pulled live from Google Calendar once you connect. Click a meeting to open the attendee personas.' },
@@ -109,13 +109,13 @@ const TUTORIALS = {
   },
 
   '/funds': {
-    title: 'Investors',
-    blurb: 'Funds and family offices Valence covers.',
+    title: 'Founders',
+    blurb: 'The founder relationships the fund covers.',
     steps: [
       { title: 'Warmth drives the ranking',
-        body: 'Hot · warm · cold · dormant — set it manually or let interactions update it. Match scoring weighs warmth highly.' },
-      { title: 'Shortlist a fund into any deal',
-        body: 'From the deal drawer: Funds tab → Find matching funds → shortlist in one click.' },
+        body: 'Hot · warm · cold · dormant — set it manually or let interactions update it.' },
+      { title: 'Filter by sector and stage',
+        body: 'The sectors you type on a founder become filters automatically; stage runs Pre-seed → Series E+.' },
       { title: 'Cheque size, sectors, stages',
         body: 'Every fund carries the metadata Deal-Fit needs to rank fast.' }
     ]

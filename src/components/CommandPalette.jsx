@@ -16,7 +16,7 @@ const QUICK_NAV = [
   { type: 'nav', title: 'Timeline',       sub: 'Gantt of every active deal',         to: '/timeline',          icon: BarChart3 },
   { type: 'nav', title: 'Interactions',   sub: 'Partner Call touchpoints',           to: '/interactions',      icon: MessageSquare },
   { type: 'nav', title: 'People',         sub: 'Persona-driven CRM',                 to: '/people',            icon: UserCircle },
-  { type: 'nav', title: 'Investors',      sub: 'Who writes the cheques',             to: '/funds',             icon: Building2 },
+  { type: 'nav', title: 'Founders',       sub: 'Founder relationships CRM',          to: '/funds',             icon: Building2 },
   { type: 'nav', title: 'Quick Screener', sub: 'AI fund-match or deal-fit',          to: '/screen',            icon: Sparkles },
   { type: 'nav', title: 'Inbound deals',  sub: 'Inbound deal submissions',           to: '/inbox/intake',      icon: BookOpen },
   { type: 'nav', title: 'Knowledge',      sub: 'Firm-shared + deal notes, or private', to: '/knowledge',           icon: BookOpen },

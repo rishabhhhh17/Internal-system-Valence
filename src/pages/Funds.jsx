@@ -2,9 +2,8 @@ import { useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { Plus, Search, Filter, LayoutGrid, Table as TableIcon, Building2, ArrowUpRight } from 'lucide-react'
 import { supabase, isSupabaseConfigured, subscribeTable } from '../lib/supabase.js'
-import { FUND_TYPES, WARMTH_LEVELS, warmthTone, fundTypeLabel, DEMO_FUNDS } from '../lib/funds.js'
+import { FOUNDER_STAGES, WARMTH_LEVELS, warmthTone, founderStage, DEMO_FOUNDERS } from '../lib/funds.js'
 import { useViewMode } from '../hooks/useViewMode.jsx'
-import { useCurrency } from '../hooks/useCurrency.jsx'
 import ConfigBanner from '../components/ConfigBanner.jsx'
 import EmptyState from '../components/EmptyState.jsx'
 import FundDrawer from '../components/FundDrawer.jsx'
@@ -12,25 +11,16 @@ import ViewModeToggle from '../components/ViewModeToggle.jsx'
 import { useToast } from '../components/Toast.jsx'
 import { humanError } from '../lib/userError.js'
 
-function chequeRange(fund, money) {
-  const lo = fund?.check_size_min_usd_m
-  const hi = fund?.check_size_max_usd_m
-  if (lo == null && hi == null) return 'Cheque size n/a'
-  if (lo != null && hi != null) return `${money(lo)}–${money(hi)} cheques`
-  if (lo != null)               return `from ${money(lo)} cheques`
-  return `up to ${money(hi)} cheques`
-}
-
 export default function Funds() {
   const toast = useToast()
   const { isSimple } = useViewMode('funds')
-  const { money } = useCurrency()
   const [rows, setRows] = useState([])
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState(null)
   const [view, setView] = useState('grid')
   const [q, setQ] = useState('')
-  const [typeFilter, setTypeFilter] = useState('All')
+  const [stageFilter, setStageFilter] = useState('All')
+  const [sectorFilter, setSectorFilter] = useState('All')
   const [warmthFilter, setWarmthFilter] = useState('All')
   const [drawer, setDrawer] = useState(null) // null | 'new' | { row }
   const [params, setParams] = useSearchParams()
@@ -57,7 +47,7 @@ export default function Funds() {
 
   async function load() {
     setLoading(true); setLoadError(null)
-    if (!isSupabaseConfigured) { setRows(DEMO_FUNDS); setLoading(false); return }
+    if (!isSupabaseConfigured) { setRows(DEMO_FOUNDERS); setLoading(false); return }
     try {
       const fetchPromise = supabase.from('funds').select('*').order('name', { ascending: true })
       const timeoutPromise = new Promise((_, reject) =>
@@ -93,16 +83,22 @@ export default function Funds() {
     setDrawer(null); load()
   }
 
+  // Sector chips are derived from the data, so whatever sectors the fund
+  // types into a founder row become filterable here automatically.
+  const sectorOptions = useMemo(() =>
+    [...new Set(rows.flatMap(r => r.sectors || []))].sort(), [rows])
+
   const filtered = useMemo(() => {
     const needle = q.trim().toLowerCase()
     return rows.filter(r => {
-      if (typeFilter !== 'All' && r.fund_type !== typeFilter) return false
+      if (stageFilter !== 'All' && founderStage(r) !== stageFilter) return false
+      if (sectorFilter !== 'All' && !(r.sectors || []).includes(sectorFilter)) return false
       if (warmthFilter !== 'All' && r.warmth !== warmthFilter) return false
       if (!needle) return true
       return [r.name, r.hq_city, r.hq_country, ...(r.sectors || []), ...(r.stages || []), ...(r.geographies || [])]
         .some(v => (v || '').toString().toLowerCase().includes(needle))
     })
-  }, [rows, q, typeFilter, warmthFilter])
+  }, [rows, q, stageFilter, sectorFilter, warmthFilter])
 
   return (
     <div className="space-y-6">
@@ -110,9 +106,9 @@ export default function Funds() {
 
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <p className="vl-eyebrow-ink">Investors</p>
+          <p className="vl-eyebrow-ink">Founders</p>
           <h1 className="mt-2 font-display text-feature font-bold text-valence-text">
-            Who writes the cheques.
+            The founders on our radar.
           </h1>
         </div>
         <div className="flex items-center gap-2">
@@ -123,31 +119,36 @@ export default function Funds() {
               <button onClick={() => setView('table')} className={`rounded-full px-2.5 py-1 transition ${view === 'table' ? 'bg-valence-ink text-white' : 'text-valence-muted hover:text-valence-text'}`} title="Table view"><TableIcon className="h-3.5 w-3.5" /></button>
             </div>
           )}
-          <button onClick={() => setDrawer('new')} className="vl-btn-primary"><Plus className="h-4 w-4" /> New fund</button>
+          <button onClick={() => setDrawer('new')} className="vl-btn-primary"><Plus className="h-4 w-4" /> New founder</button>
         </div>
       </div>
 
-      <div className="flex flex-wrap items-center gap-3">
-        <FilterRow label="Type" value={typeFilter} onChange={setTypeFilter} options={['All', ...FUND_TYPES]} />
-        <FilterRow label="Warmth" value={warmthFilter} onChange={setWarmthFilter} options={['All', ...WARMTH_LEVELS]} />
-        <div className="relative ml-auto">
-          <Search className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-valence-subtle" />
-          <input
-            value={q} onChange={e => setQ(e.target.value)}
-            placeholder="Search fund, city, sector…"
-            className="vl-input h-8 w-72 pl-8 text-xs"
-          />
+      <div className="space-y-2">
+        <div className="flex flex-wrap items-center gap-3">
+          <FilterRow label="Stage" value={stageFilter} onChange={setStageFilter} options={['All', ...FOUNDER_STAGES]} />
+          <div className="relative ml-auto">
+            <Search className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-valence-subtle" />
+            <input
+              value={q} onChange={e => setQ(e.target.value)}
+              placeholder="Search founder, company, sector…"
+              className="vl-input h-8 w-72 pl-8 text-xs"
+            />
+          </div>
         </div>
+        {sectorOptions.length > 0 && (
+          <FilterRow label="Sector" value={sectorFilter} onChange={setSectorFilter} options={['All', ...sectorOptions]} />
+        )}
+        <FilterRow label="Warmth" value={warmthFilter} onChange={setWarmthFilter} options={['All', ...WARMTH_LEVELS]} />
       </div>
 
       {loading ? (
         <GridSkeleton />
       ) : loadError ? (
-        <EmptyState icon={Building2} title="Couldn't load funds" description={loadError} action={<button onClick={load} className="vl-btn-primary">Retry</button>} sampleEligible={false} />
+        <EmptyState icon={Building2} title="Couldn't load founders" description={loadError} action={<button onClick={load} className="vl-btn-primary">Retry</button>} sampleEligible={false} />
       ) : rows.length === 0 ? (
-        <EmptyState icon={Building2} title="No funds yet" description="Add your first fund to start the relationship CRM." action={<button onClick={() => setDrawer('new')} className="vl-btn-primary"><Plus className="h-4 w-4" /> New fund</button>} />
+        <EmptyState icon={Building2} title="No funds yet" description="Add your first fund to start the relationship CRM." action={<button onClick={() => setDrawer('new')} className="vl-btn-primary"><Plus className="h-4 w-4" /> New founder</button>} />
       ) : filtered.length === 0 ? (
-        <EmptyState icon={Building2} title="No funds match your filters" description="Clear a filter or broaden your search." sampleEligible={false} />
+        <EmptyState icon={Building2} title="No founders match your filters" description="Clear a filter or broaden your search." sampleEligible={false} />
       ) : isSimple || view === 'grid' ? (
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
           {filtered.map(f => <FundCard key={f.id} fund={f} onOpen={() => setDrawer({ row: f })} />)}
@@ -195,23 +196,25 @@ function FilterRow({ label, value, onChange, options }) {
 }
 
 function FundCard({ fund, onOpen }) {
-  const { money } = useCurrency()
+  const stage = founderStage(fund)
+  const touched = fund.last_touched_at ? new Date(fund.last_touched_at) : null
   return (
     <button onClick={onOpen} className="vl-card vl-card-hover group block p-5 text-left">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0 flex-1">
           <p className="text-sm font-semibold text-valence-text truncate">{fund.name}</p>
-          <p className="mt-0.5 text-[11px] text-valence-muted">{fundTypeLabel(fund.fund_type)} · {[fund.hq_city, fund.hq_country].filter(Boolean).join(', ') || '—'}</p>
+          <p className="mt-0.5 text-[11px] text-valence-muted">{[stage, [fund.hq_city, fund.hq_country].filter(Boolean).join(', ')].filter(Boolean).join(' · ') || '—'}</p>
         </div>
         <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold capitalize shrink-0 ${warmthTone(fund.warmth)}`}>{fund.warmth}</span>
       </div>
       <div className="mt-3 flex flex-wrap gap-1">
+        {stage && <span className="rounded-full border border-valence-blue/30 bg-valence-blue-soft px-2 py-0.5 text-[10px] font-semibold text-valence-blue">{stage}</span>}
         {(fund.sectors || []).slice(0, 4).map(s => (
           <span key={s} className="rounded-full border border-valence-border bg-valence-surface px-2 py-0.5 text-[10px] text-valence-muted">{s}</span>
         ))}
       </div>
       <div className="mt-3 flex items-center justify-between text-[11px] text-valence-muted">
-        <span>{chequeRange(fund, money)}</span>
+        <span>{touched ? `Last touch ${touched.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}` : 'No touch logged'}</span>
         <span className="inline-flex items-center gap-1 text-valence-subtle group-hover:text-valence-blue transition">
           Open <ArrowUpRight className="h-3 w-3" />
         </span>
@@ -226,13 +229,12 @@ function FundTable({ rows, onOpen }) {
       <table className="w-full text-sm">
         <thead>
           <tr className="text-left text-[10px] font-semibold uppercase tracking-[0.16em] text-valence-subtle">
-            <th className="px-5 py-3">Fund</th>
-            <th className="px-3 py-3">Type</th>
+            <th className="px-5 py-3">Company</th>
+            <th className="px-3 py-3">Stage</th>
             <th className="px-3 py-3">HQ</th>
-            <th className="px-3 py-3">AUM (USD M)</th>
-            <th className="px-3 py-3">Cheque ($M)</th>
             <th className="px-3 py-3">Sectors</th>
             <th className="px-3 py-3">Warmth</th>
+            <th className="px-3 py-3">Last touched</th>
             <th className="px-5 py-3" />
           </tr>
         </thead>
@@ -240,12 +242,11 @@ function FundTable({ rows, onOpen }) {
           {rows.map(f => (
             <tr key={f.id} className="border-t border-valence-border/60 hover:bg-valence-surface/60">
               <td className="px-5 py-3 font-semibold text-valence-text">{f.name}</td>
-              <td className="px-3 py-3 text-valence-muted">{fundTypeLabel(f.fund_type)}</td>
+              <td className="px-3 py-3 text-valence-muted">{founderStage(f) || '—'}</td>
               <td className="px-3 py-3 text-valence-muted">{[f.hq_city, f.hq_country].filter(Boolean).join(', ') || '—'}</td>
-              <td className="px-3 py-3 tabular-nums text-valence-muted">{f.aum_usd_m ? f.aum_usd_m.toLocaleString() : '—'}</td>
-              <td className="px-3 py-3 tabular-nums text-valence-muted">{f.check_size_min_usd_m == null && f.check_size_max_usd_m == null ? '—' : `${f.check_size_min_usd_m ?? '?'}–${f.check_size_max_usd_m ?? '?'}`}</td>
               <td className="px-3 py-3 text-valence-muted truncate max-w-[260px]">{(f.sectors || []).slice(0, 4).join(' · ') || '—'}</td>
               <td className="px-3 py-3"><span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold capitalize ${warmthTone(f.warmth)}`}>{f.warmth}</span></td>
+              <td className="px-3 py-3 text-valence-muted tabular-nums">{f.last_touched_at ? new Date(f.last_touched_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : '—'}</td>
               <td className="px-5 py-3 text-right">
                 <button onClick={() => onOpen(f)} className="text-[11px] font-semibold text-valence-blue hover:text-valence-blue-hover">Open <ArrowUpRight className="inline h-3 w-3" /></button>
               </td>

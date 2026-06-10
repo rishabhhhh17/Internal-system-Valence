@@ -24,7 +24,7 @@ const titles = {
   '/timeline':          { title: 'Timeline',        sub: 'Every active deal, laid out in time.' },
   '/interactions':      { title: 'Interactions',    sub: 'The sourcing funnel — every touchpoint logged.' },
   '/people':            { title: 'People',          sub: 'Persona-driven CRM. Who they are, what they care about.' },
-  '/funds':             { title: 'Investors',       sub: 'Funds and family offices — who writes the cheques.' },
+  '/funds':             { title: 'Founders',        sub: 'Founder relationships — sector, stage, and warmth.' },
   '/screen':            { title: 'Quick Screener',  sub: 'AI deal-fit and thesis-match, one paste away.' },
   '/inbox/intake':      { title: 'Inbound deals',   sub: 'Inbound deals, AI-triaged.' },
   '/knowledge':         { title: 'Knowledge',       sub: 'Firm-shared or private — pick a track.' },

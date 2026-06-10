@@ -7,6 +7,28 @@ export const FUND_TYPES = [
 
 export const WARMTH_LEVELS = ['hot', 'warm', 'cold', 'dormant']
 
+// Funding rounds for the Founders relationship CRM (/funds). Stored in the
+// `stages` array column (first element = the company's current round).
+export const FOUNDER_STAGES = ['Pre-seed', 'Seed', 'Series A', 'Series B', 'Series C', 'Series D', 'Series E+']
+
+// Current funding round of a founder row — stages[0] by convention.
+export function founderStage(row) {
+  return Array.isArray(row?.stages) && row.stages.length ? row.stages[0] : null
+}
+
+// Demo fallback for the Founders CRM page when Supabase isn't configured.
+// (DEMO_FUNDS below stays as-is — the fund-match screener and its tests
+// still score against investor funds.)
+export const DEMO_FOUNDERS = [
+  { id: 'fc1',  name: 'HoV Mushrooms',     hq_city: 'Mumbai',    hq_country: 'India', sectors: ['Consumer','AgriTech'],      stages: ['Series A'], warmth: 'hot',     last_touched_at: daysAgo(3),   notes: 'Founder very responsive; expanding to Dubai.' },
+  { id: 'fc2',  name: 'Quantia Tech',      hq_city: 'Bengaluru', hq_country: 'India', sectors: ['Fintech','SaaS'],           stages: ['Series B'], warmth: 'hot',     last_touched_at: daysAgo(6),   notes: '' },
+  { id: 'fc3',  name: 'NovaHealth',        hq_city: 'Mumbai',    hq_country: 'India', sectors: ['Healthcare'],               stages: ['Series C'], warmth: 'warm',    last_touched_at: daysAgo(12),  notes: '' },
+  { id: 'fc4',  name: 'Lighthouse Capital',hq_city: 'Singapore', hq_country: 'Singapore', sectors: ['Fintech'],              stages: ['Seed'],     warmth: 'warm',    last_touched_at: daysAgo(18),  notes: '' },
+  { id: 'fc5',  name: 'Orbit Foods',       hq_city: 'Delhi',     hq_country: 'India', sectors: ['Consumer','D2C'],           stages: ['Pre-seed'], warmth: 'cold',    last_touched_at: daysAgo(40),  notes: '' },
+  { id: 'fc6',  name: 'Saffron Retail',    hq_city: 'Mumbai',    hq_country: 'India', sectors: ['Consumer Tech','Retail'],   stages: ['Series D'], warmth: 'cold',    last_touched_at: daysAgo(75),  notes: '' },
+  { id: 'fc7',  name: 'MedPlus Diagnostics', hq_city: 'Hyderabad', hq_country: 'India', sectors: ['Healthcare','Diagnostics'], stages: ['Series E+'], warmth: 'dormant', last_touched_at: daysAgo(140), notes: '' }
+]
+
 export function warmthTone(warmth) {
   return ({
     hot:     'bg-valence-danger/10 text-valence-danger border-valence-danger/30',

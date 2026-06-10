@@ -24,7 +24,7 @@ const more = [
   { to: '/calendar',    label: 'Team Calendar', icon: CalendarIcon },
   { to: '/interactions',label: 'Interactions',  icon: MessageSquare },
   { to: '/people',      label: 'People',        icon: Users },
-  { to: '/funds',       label: 'Investors',     icon: Building2 },
+  { to: '/funds',       label: 'Founders',      icon: Building2 },
   // Quick Screener hidden from nav for now — route still resolves.
   // { to: '/screen',      label: 'Quick Screener',icon: Sparkles },
   { to: '/inbox/intake',label: 'Inbound deals', icon: Inbox },

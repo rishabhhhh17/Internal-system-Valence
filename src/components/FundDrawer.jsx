@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom'
 import { Globe, Mail, Phone, ExternalLink, Sparkles, UserCircle } from 'lucide-react'
 import Drawer from './Drawer.jsx'
 import { supabase, isSupabaseConfigured } from '../lib/supabase.js'
-import { FUND_TYPES, WARMTH_LEVELS, warmthTone, fundTypeLabel } from '../lib/funds.js'
+import { FOUNDER_STAGES, WARMTH_LEVELS } from '../lib/funds.js'
 import { DEMO_PEOPLE } from '../lib/people.js'
 import EntityMentions from './EntityMentions.jsx'
 import WikilinkTextarea from './WikilinkTextarea.jsx'
@@ -20,11 +20,9 @@ const TABS = [
 ]
 
 const BLANK = {
-  name: '', fund_type: 'VC',
+  name: '',
   hq_city: '', hq_country: '',
-  aum_usd_m: '',
-  check_size_min_usd_m: '', check_size_max_usd_m: '',
-  sectors: '', stages: '', geographies: '',
+  sectors: '', stage: 'Seed',
   website: '',
   warmth: 'cold',
   last_touched_at: '',
@@ -87,15 +85,14 @@ export default function FundDrawer({ open, onClose, existing, onSubmit, onRename
     if (!form.name.trim()) return
     const payload = {
       name: form.name.trim(),
-      fund_type: form.fund_type,
+      // fund_type column is NOT NULL from the old investor-CRM schema;
+      // founder rows carry a neutral 'Other' (preserved on edit).
+      fund_type: existing?.fund_type || 'Other',
       hq_city: form.hq_city.trim() || null,
       hq_country: form.hq_country.trim() || null,
-      aum_usd_m: parseNumber(form.aum_usd_m),
-      check_size_min_usd_m: parseNumber(form.check_size_min_usd_m),
-      check_size_max_usd_m: parseNumber(form.check_size_max_usd_m),
       sectors: parseList(form.sectors),
-      stages: parseList(form.stages),
-      geographies: parseList(form.geographies),
+      // Funding round lives in stages[0].
+      stages: form.stage ? [form.stage] : [],
       website: form.website.trim() || null,
       warmth: form.warmth,
       last_touched_at: form.last_touched_at || null,
@@ -121,14 +118,14 @@ export default function FundDrawer({ open, onClose, existing, onSubmit, onRename
               onSave={async (next) => { if (onRename) await onRename(existing.id, next) }}
               disabled={!onRename}
             />
-          : 'New fund'
+          : 'New founder'
       }
       footer={
         tab === 'overview' || tab === 'notes' ? (
           <div className="flex items-center justify-end gap-3">
             <button type="button" onClick={onClose} disabled={submitting} className="vl-btn-secondary">Cancel</button>
             <button type="submit" form="fund-form" disabled={submitting} className="vl-btn-primary">
-              {submitting ? 'Saving…' : (existing ? 'Save changes' : 'Save fund')}
+              {submitting ? 'Saving…' : (existing ? 'Save changes' : 'Save founder')}
             </button>
           </div>
         ) : null
@@ -152,32 +149,29 @@ export default function FundDrawer({ open, onClose, existing, onSubmit, onRename
       {tab === 'overview' && (
         <form id="fund-form" onSubmit={submit} className="space-y-5">
           <div className="grid gap-4 sm:grid-cols-2">
-            <Field label="Fund name *">
-              <input className="vl-input" required value={form.name} onChange={e => update({ name: e.target.value })} placeholder="Peak XV Partners" />
+            <Field label="Company name *">
+              <input className="vl-input" required value={form.name} onChange={e => update({ name: e.target.value })} placeholder="HoV Mushrooms" />
             </Field>
-            <Field label="Type">
-              <select className="vl-input" value={form.fund_type} onChange={e => update({ fund_type: e.target.value })}>
-                {FUND_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+            <Field label="Stage">
+              <select className="vl-input" value={form.stage} onChange={e => update({ stage: e.target.value })}>
+                {FOUNDER_STAGES.map(t => <option key={t} value={t}>{t}</option>)}
               </select>
             </Field>
-            <Field label="HQ city"><input className="vl-input" value={form.hq_city} onChange={e => update({ hq_city: e.target.value })} placeholder="Bengaluru" /></Field>
-            <Field label="HQ country"><input className="vl-input" value={form.hq_country} onChange={e => update({ hq_country: e.target.value })} placeholder="India" /></Field>
-            <Field label="AUM (USD M)"><input type="number" className="vl-input" value={form.aum_usd_m} onChange={e => update({ aum_usd_m: e.target.value })} placeholder="9000" /></Field>
+            <Field label="City"><input className="vl-input" value={form.hq_city} onChange={e => update({ hq_city: e.target.value })} placeholder="Bengaluru" /></Field>
+            <Field label="Country"><input className="vl-input" value={form.hq_country} onChange={e => update({ hq_country: e.target.value })} placeholder="India" /></Field>
             <Field label="Warmth">
               <select className="vl-input" value={form.warmth} onChange={e => update({ warmth: e.target.value })}>
                 {WARMTH_LEVELS.map(w => <option key={w} value={w} className="capitalize">{w}</option>)}
               </select>
             </Field>
-            <Field label="Cheque size min ($M)"><input type="number" className="vl-input" value={form.check_size_min_usd_m} onChange={e => update({ check_size_min_usd_m: e.target.value })} placeholder="5" /></Field>
-            <Field label="Cheque size max ($M)"><input type="number" className="vl-input" value={form.check_size_max_usd_m} onChange={e => update({ check_size_max_usd_m: e.target.value })} placeholder="100" /></Field>
             <Field label="Last touched"><input type="date" className="vl-input" value={form.last_touched_at} onChange={e => update({ last_touched_at: e.target.value })} /></Field>
             <Field label="Website"><input className="vl-input" value={form.website} onChange={e => update({ website: e.target.value })} placeholder="https://…" /></Field>
           </div>
 
           <div className="grid gap-4">
-            <Field label="Sectors (comma-separated)"><input className="vl-input" value={form.sectors} onChange={e => update({ sectors: e.target.value })} placeholder="Fintech, Healthcare, Consumer" /></Field>
-            <Field label="Stages (comma-separated)"><input className="vl-input" value={form.stages} onChange={e => update({ stages: e.target.value })} placeholder="Seed, Series A, Growth" /></Field>
-            <Field label="Geographies (comma-separated)"><input className="vl-input" value={form.geographies} onChange={e => update({ geographies: e.target.value })} placeholder="India, SE Asia" /></Field>
+            <Field label="Sectors (comma-separated)" hint="Free entry — whatever sectors you track become filters on the Founders page">
+              <input className="vl-input" value={form.sectors} onChange={e => update({ sectors: e.target.value })} placeholder="Fintech, Healthcare, Consumer" />
+            </Field>
           </div>
         </form>
       )}
@@ -251,7 +245,7 @@ export default function FundDrawer({ open, onClose, existing, onSubmit, onRename
       {existing && tab === 'overview' && (
         <div className="mt-6 rounded-lg border border-valence-border bg-valence-surface px-4 py-3 text-[11px] text-valence-muted inline-flex items-start gap-2">
           <Sparkles className="h-3 w-3 mt-0.5 text-valence-blue" />
-          <span>Use the Funds tab inside any deal drawer to shortlist this fund for a live deal.</span>
+          <span>Log a deal for this company from Pipeline → New deal; it stays linked to this relationship.</span>
         </div>
       )}
     </Drawer>
@@ -329,17 +323,13 @@ function Field({ label, hint, children }) {
   )
 }
 
-function parseNumber(v) { if (v === '' || v == null) return null; const n = Number(v); return Number.isFinite(n) ? n : null }
 function parseList(v) { return (v || '').split(',').map(s => s.trim()).filter(Boolean) }
 function stringifyArrays(row) {
   return {
     ...row,
     sectors: Array.isArray(row.sectors) ? row.sectors.join(', ') : (row.sectors || ''),
-    stages: Array.isArray(row.stages) ? row.stages.join(', ') : (row.stages || ''),
-    geographies: Array.isArray(row.geographies) ? row.geographies.join(', ') : (row.geographies || ''),
-    aum_usd_m: row.aum_usd_m ?? '',
-    check_size_min_usd_m: row.check_size_min_usd_m ?? '',
-    check_size_max_usd_m: row.check_size_max_usd_m ?? '',
+    // Funding round = stages[0] (legacy rows may carry several; first wins).
+    stage: Array.isArray(row.stages) && row.stages.length ? row.stages[0] : 'Seed',
     last_touched_at: row.last_touched_at ? String(row.last_touched_at).slice(0, 10) : '',
     notes: row.notes ?? ''
   }
