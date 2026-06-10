@@ -152,7 +152,7 @@ export default function Timeline() {
           <StatCard icon={<Clock className="h-3.5 w-3.5" />}
             label="Closing in 90 days" value={stats.closingSoon} tone="blue" />
           <StatCard icon={<AlertTriangle className="h-3.5 w-3.5" />}
-            label="Stale (>21d no touch)" value={stats.stale}
+            label="Stale (>21d no interaction)" value={stats.stale}
             tone={stats.stale > 0 ? 'warning' : 'muted'} />
           <StatCard icon={<CheckCircle2 className="h-3.5 w-3.5" />}
             label={pipelineMode === 'lp' ? 'Committed' : 'Reached diligence'} value={stats.closedQuarter} tone="success" />

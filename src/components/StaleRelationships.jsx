@@ -118,7 +118,7 @@ export default function StaleRelationships() {
             <Snowflake className="h-3 w-3" /> Cooling relationships
           </p>
           <p className="mt-0.5 text-[11px] text-valence-muted">
-            Warm + Strong contacts you haven't touched in {STALE_AFTER_DAYS}+ days. Reach out before they slip to Cold.
+            Warm + Strong contacts you haven't interacted with in {STALE_AFTER_DAYS}+ days. Reach out before they slip to Cold.
           </p>
         </div>
         {rows.length > 0 && (
@@ -137,7 +137,7 @@ export default function StaleRelationships() {
         <p className="text-xs text-valence-danger">{error}</p>
       ) : rows.length === 0 ? (
         <p className="text-sm text-valence-muted">
-          Nothing slipping. Every warm or strong relationship has had a touch in the last {STALE_AFTER_DAYS} days.
+          Nothing slipping. Every warm or strong relationship has had an interaction in the last {STALE_AFTER_DAYS} days.
         </p>
       ) : (
         <>
@@ -153,7 +153,7 @@ export default function StaleRelationships() {
                   </div>
                   <p className="mt-0.5 text-[11px] text-valence-muted truncate">
                     {r.person.company && <>{r.person.company}<span className="text-valence-subtle"> · </span></>}
-                    last touch {humanDate(r.last_interaction_at)}
+                    last interaction {humanDate(r.last_interaction_at)}
                   </p>
                 </div>
                 <div className="flex items-center gap-1 shrink-0">

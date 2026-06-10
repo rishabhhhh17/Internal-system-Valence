@@ -136,7 +136,7 @@ function heuristicSummary({ meeting, people, deals, interactions }) {
   const co   = people[0]?.company   ? ` from ${people[0].company}` : ''
   const role = people[0]?.role      ? `, ${people[0].role}` : ''
   const lastTouch = interactions[0]?.created_at
-    ? ` Last touched ${daysAgo(interactions[0].created_at)} ago via ${labelType(interactions[0].type)}.`
+    ? ` Last interaction ${daysAgo(interactions[0].created_at)} ago via ${labelType(interactions[0].type)}.`
     : ''
   const dealLine = deals[0]?.client_name
     ? ` Open mandate context: ${deals[0].client_name} (${deals[0].stage || 'unstaged'}).`

@@ -22,7 +22,7 @@ const nav = [
   { to: '/timeline',     label: 'Timeline',     icon: GanttChartSquare },
   { to: '/interactions', label: 'Interactions', icon: MessageSquare, badgeKey: 'pendingFollowUps', section: 'Relationships' },
   { to: '/people',       label: 'People',       icon: UserCircle,                                section: 'Relationships' },
-  { to: '/funds',        label: 'Founders',     icon: Building2,                                 section: 'Relationships' },
+  { to: '/funds',        label: 'Leads',        icon: Building2,                                 section: 'Relationships' },
   // Import is a power-user CSV ingest — hidden from the demo nav.
   { to: '/import',       label: 'Import',       icon: Upload,                                    section: 'AI', power: true },
   { to: '/inbox/intake', label: 'Inbound deals',icon: Inbox,        badgeKey: 'newIntakes',     section: 'AI' },

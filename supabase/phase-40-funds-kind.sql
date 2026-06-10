@@ -34,7 +34,7 @@ select * from (values
   ('Lotus Family Office',     'lp', 'Family Office',     '{"India","MENA"}'::text[],             'warm',    '2026-05-30'::date, null, 'dec0ffee-0000-4000-8000-000000000001'::uuid),
   ('Horizon Fund-of-Funds',   'lp', 'Family Office',     '{"India","SE Asia"}'::text[],          'cold',    '2026-04-18'::date, null, 'dec0ffee-0000-4000-8000-000000000001'::uuid),
   ('Tata Corporate Ventures', 'lp', 'Corporate Venture', '{"India"}'::text[],                    'warm',    '2026-05-25'::date, null, 'dec0ffee-0000-4000-8000-000000000001'::uuid),
-  ('Sequoia Heritage',        'lp', 'Endowment',         '{"North America","Global"}'::text[],   'cold',    '2026-03-20'::date, null, 'dec0ffee-0000-4000-8000-000000000001'::uuid),
+  ('Sequoia Heritage',        'lp', 'Endowment',         '{"North America"}'::text[],   'cold',    '2026-03-20'::date, null, 'dec0ffee-0000-4000-8000-000000000001'::uuid),
   ('Crescent Endowment',      'lp', 'Endowment',         '{"MENA","Europe"}'::text[],            'cold',    '2026-04-05'::date, null, 'dec0ffee-0000-4000-8000-000000000001'::uuid),
   ('Banyan Foundation',       'lp', 'Foundation',        '{"India"}'::text[],                    'dormant', '2026-01-28'::date, null, 'dec0ffee-0000-4000-8000-000000000001'::uuid)
 ) as v(name, kind, fund_type, geographies, warmth, last_touched_at, notes, org_id)

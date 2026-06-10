@@ -138,9 +138,9 @@ export function scorePerson(person, interactions, deals) {
   const reasons = []
   if (lastTouchTs > 0) {
     if (daysSince <= 7)        reasons.push(`Talked ${daysSince === 0 ? 'today' : daysSince === 1 ? 'yesterday' : daysSince + ' days ago'}`)
-    else if (daysSince <= 30)  reasons.push(`Last touch ${daysSince} days ago — still fresh`)
-    else if (daysSince <= 90)  reasons.push(`Last touch ${daysSince} days ago — drifting`)
-    else                       reasons.push(`Last touch ${daysSince}+ days ago — gone cold`)
+    else if (daysSince <= 30)  reasons.push(`Last interaction ${daysSince} days ago — still fresh`)
+    else if (daysSince <= 90)  reasons.push(`Last interaction ${daysSince} days ago — drifting`)
+    else                       reasons.push(`Last interaction ${daysSince}+ days ago — gone cold`)
   }
   if (recentCount > 0)         reasons.push(`${recentCount} interaction${recentCount === 1 ? '' : 's'} in the last 90 days`)
   if (dealIds.size > 0)        reasons.push(`${dealIds.size} live deal${dealIds.size === 1 ? '' : 's'} as contact`)

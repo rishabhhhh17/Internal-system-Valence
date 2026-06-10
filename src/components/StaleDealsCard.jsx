@@ -44,7 +44,7 @@ export default function StaleDealsCard({ deals }) {
           {Array.from({ length: 3 }).map((_, i) => <div key={i} className="h-14 rounded-lg bg-valence-surface animate-pulse" />)}
         </div>
       ) : stale.length === 0 ? (
-        <p className="text-sm text-valence-muted py-2">Every active deal has been touched in the last week. Nice.</p>
+        <p className="text-sm text-valence-muted py-2">Every active deal has had an interaction in the last week. Nice.</p>
       ) : (
         <ul className="space-y-2">
           {stale.map(d => (

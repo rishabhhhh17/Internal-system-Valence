@@ -31,7 +31,7 @@ describe('scorePerson', () => {
     expect(r.components.pipeline).toBe(75)
   })
 
-  it('cold when last touch is over 6 months ago', () => {
+  it('cold when last interaction is over 6 months ago', () => {
     const r = scorePerson({ id: 'p1', full_name: 'Rohan' }, [
       { id: '1', counterparty_name: 'Rohan', outcome: 'interested', created_at: daysAgo(200) }
     ], [])

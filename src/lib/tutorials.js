@@ -23,7 +23,7 @@ const TUTORIALS = {
         body: 'Open the command palette from any page. Search deals, people, funds, memos — or hit a route directly.' },
       { target: '[data-tour="nav-deals"]',      placement: 'right',
         title: 'The sidebar is the firm',
-        body: 'Pipeline, Document tracker, Interactions, People, Founders — each one tab on the left.' },
+        body: 'Pipeline, Document tracker, Interactions, People, Leads — each one tab on the left.' },
       { target: '[data-tour="today-meetings"]', placement: 'right',
         title: 'Today\'s meetings',
         body: 'Pulled live from Google Calendar once you connect. Click a meeting to open the attendee personas.' },
@@ -84,7 +84,7 @@ const TUTORIALS = {
 
   '/interactions': {
     title: 'Interactions',
-    blurb: 'The Partner Call funnel — every touchpoint logged.',
+    blurb: 'The Partner Call funnel — every interaction logged.',
     steps: [
       { title: '12 interaction contexts',
         body: 'From "screening call" to "founder check-in" — the vocabulary a VC partner actually uses.' },
@@ -109,8 +109,8 @@ const TUTORIALS = {
   },
 
   '/funds': {
-    title: 'Founders',
-    blurb: 'The founder relationships the fund covers.',
+    title: 'Leads',
+    blurb: 'Your lead book — founder and LP relationships.',
     steps: [
       { title: 'Warmth drives the ranking',
         body: 'Hot · warm · cold · dormant — set it manually or let interactions update it.' },

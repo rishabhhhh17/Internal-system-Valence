@@ -220,7 +220,7 @@ export default function Interactions() {
         <div>
           <p className="vl-eyebrow-ink">Interactions</p>
           <h1 className="mt-2 font-display text-feature font-bold text-valence-text">
-            Every touchpoint, in one funnel.
+            Every interaction, in one funnel.
           </h1>
           <p className="mt-1.5 text-sm text-valence-muted tabular-nums">
             {summary.total} logged
@@ -292,9 +292,9 @@ export default function Interactions() {
       ) : loadError ? (
         <EmptyState icon={MessageSquare} title="Couldn't load interactions" description={loadError} action={<button onClick={load} className="vl-btn-primary">Retry</button>} sampleEligible={false} />
       ) : rows.length === 0 ? (
-        <EmptyState icon={MessageSquare} title="No interactions yet" description="Log your first touchpoint to start building the funnel." action={<button onClick={() => setDrawer('new')} className="vl-btn-primary"><Plus className="h-4 w-4" /> Log interaction</button>} />
+        <EmptyState icon={MessageSquare} title="No interactions yet" description="Log your first interaction to start building the funnel." action={<button onClick={() => setDrawer('new')} className="vl-btn-primary"><Plus className="h-4 w-4" /> Log interaction</button>} />
       ) : filtered.length === 0 ? (
-        <EmptyState icon={MessageSquare} title="No interactions match your filters" description="Clear a filter, or log a new touchpoint." action={<button onClick={() => setDrawer('new')} className="vl-btn-primary"><Plus className="h-4 w-4" /> Log interaction</button>} sampleEligible={false} />
+        <EmptyState icon={MessageSquare} title="No interactions match your filters" description="Clear a filter, or log a new interaction." action={<button onClick={() => setDrawer('new')} className="vl-btn-primary"><Plus className="h-4 w-4" /> Log interaction</button>} sampleEligible={false} />
       ) : (
         <ul className="vl-card divide-y divide-valence-border/60 overflow-hidden">
           {filtered.map(r => (

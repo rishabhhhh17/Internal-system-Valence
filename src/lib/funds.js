@@ -20,7 +20,7 @@ export function founderStage(row) {
 // LP archetype is stored in fund_type; geographies in the geographies[] array.
 export const LP_ARCHETYPES = ['Family Office', 'Endowment', 'Foundation', 'Pension Fund', 'Corporate Venture']
 // Basic geographies offered as a starting set — the user can free-type more.
-export const LP_GEOGRAPHIES = ['North America', 'Europe', 'India', 'MENA', 'SE Asia', 'China', 'LatAm', 'Global']
+export const LP_GEOGRAPHIES = ['North America', 'Europe', 'India', 'MENA', 'SE Asia', 'China', 'LatAm']
 
 export function lpArchetype(row) { return row?.fund_type || null }
 export function lpGeographies(row) { return Array.isArray(row?.geographies) ? row.geographies : [] }
@@ -174,7 +174,7 @@ export function scoreFundForDeal(fund, deal, mode) {
   // Recency: +6 if last_touched_at within 90 days.
   if (fund.last_touched_at) {
     const days = (Date.now() - new Date(fund.last_touched_at).getTime()) / 86_400_000
-    if (days <= 90) { score += 6; reasons.push('Touched in last 90d') }
+    if (days <= 90) { score += 6; reasons.push('Interacted in last 90d') }
   }
 
   return { score: Math.max(0, Math.min(100, Math.round(score))), reasons }

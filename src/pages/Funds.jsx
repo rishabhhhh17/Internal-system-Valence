@@ -250,7 +250,7 @@ function FundCard({ fund, isLp, onOpen }) {
         ))}
       </div>
       <div className="mt-3 flex items-center justify-between text-[11px] text-valence-muted">
-        <span>{touched ? `Last touch ${touched.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}` : 'No touch logged'}</span>
+        <span>{touched ? `Last interaction ${touched.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}` : 'No interaction logged'}</span>
         <span className="inline-flex items-center gap-1 text-valence-subtle group-hover:text-valence-blue transition">
           Open <ArrowUpRight className="h-3 w-3" />
         </span>
@@ -270,7 +270,7 @@ function FundTable({ rows, isLp, onOpen }) {
             <th className="px-3 py-3">{isLp ? 'Geographies' : 'HQ'}</th>
             {!isLp && <th className="px-3 py-3">Sectors</th>}
             <th className="px-3 py-3">Warmth</th>
-            <th className="px-3 py-3">Last touched</th>
+            <th className="px-3 py-3">Last interaction</th>
             <th className="px-5 py-3" />
           </tr>
         </thead>

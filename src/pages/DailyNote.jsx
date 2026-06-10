@@ -256,7 +256,7 @@ export default function DailyNote() {
           id: `stale-${d.id}`,
           severity: 'warn',
           message: `${d.client_name} — no activity in ${days} days`,
-          detail: `Stage: ${stageLabel(d.stage, pipelineMode)}. Worth a touch.`,
+          detail: `Stage: ${stageLabel(d.stage, pipelineMode)}. Worth an interaction.`,
           to: `/deals?open=${d.id}`,
           // Phase 32 signal_anchor — changes whenever this deal gets new
           // activity, so an override resolved against the previous quiet

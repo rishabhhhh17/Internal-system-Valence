@@ -180,7 +180,7 @@ export default function FundDrawer({ open, onClose, existing, onSubmit, onRename
                 {WARMTH_LEVELS.map(w => <option key={w} value={w} className="capitalize">{w}</option>)}
               </select>
             </Field>
-            <Field label="Last touched"><input type="date" className="vl-input" value={form.last_touched_at} onChange={e => update({ last_touched_at: e.target.value })} /></Field>
+            <Field label="Last interaction"><input type="date" className="vl-input" value={form.last_touched_at} onChange={e => update({ last_touched_at: e.target.value })} /></Field>
             <Field label="Website"><input className="vl-input" value={form.website} onChange={e => update({ website: e.target.value })} placeholder="https://…" /></Field>
           </div>
 
@@ -210,7 +210,7 @@ export default function FundDrawer({ open, onClose, existing, onSubmit, onRename
                 {WARMTH_LEVELS.map(w => <option key={w} value={w} className="capitalize">{w}</option>)}
               </select>
             </Field>
-            <Field label="Last touched"><input type="date" className="vl-input" value={form.last_touched_at} onChange={e => update({ last_touched_at: e.target.value })} /></Field>
+            <Field label="Last interaction"><input type="date" className="vl-input" value={form.last_touched_at} onChange={e => update({ last_touched_at: e.target.value })} /></Field>
             <Field label="Website"><input className="vl-input" value={form.website} onChange={e => update({ website: e.target.value })} placeholder="https://…" /></Field>
           </div>
 
