@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom'
 import { format, parseISO, differenceInCalendarDays, formatDistanceToNowStrict } from 'date-fns'
 import { Briefcase, Filter, Users, AlertTriangle, ArrowUpRight } from 'lucide-react'
 import { supabase, isSupabaseConfigured, subscribeTable } from '../lib/supabase.js'
-import { STAGES, LIVE_MANDATE_STAGES, stageMeta, stageToneClasses } from '../lib/stages.js'
+import { stagesForMode, liveStagesForMode, stageMeta, stageToneClasses, stageLabel } from '../lib/stages.js'
 import { useViewMode } from '../hooks/useViewMode.jsx'
 import { usePipelineMode } from '../hooks/usePipelineMode.js'
 import ConfigBanner from '../components/ConfigBanner.jsx'
@@ -13,16 +13,18 @@ import { InlineText, InlineSelect, InlineDate } from '../components/InlineEdit.j
 import { useToast } from '../components/Toast.jsx'
 import { humanError } from '../lib/userError.js'
 
-// Active deals = Analyst Call + Partner Call + Memo. Sourced and Information
-// Received are pre-pipeline (Interactions territory) and the terminal two
-// (Diligence, Passed) are after.
-const LIVE_STAGES = LIVE_MANDATE_STAGES
+// Active deals = the actively-worked middle of the funnel. For companies that's
+// Analyst Call → Partner Call → Memo; for LPs it's Meeting → Fund DD →
+// Soft-circled. The earliest stages are pre-pipeline (Interactions territory)
+// and the two terminals (Diligence/Committed, Passed) are after.
 const STALE_THRESHOLD_DAYS = 21
 
 export default function Mandates() {
   const toast = useToast()
   const { isDetailed } = useViewMode('mandates')
   const [pipelineMode] = usePipelineMode()
+  const isLp = pipelineMode === 'lp'
+  const LIVE_STAGES = liveStagesForMode(pipelineMode)
   const [deals, setDeals]           = useState([])
   const [activities, setActivities] = useState([])
   const [loading, setLoading]       = useState(true)
@@ -160,14 +162,14 @@ export default function Mandates() {
       ) : loadError ? (
         <EmptyState icon={Briefcase} title="Couldn't load deals" description={loadError} action={<button onClick={load} className="vl-btn-primary">Retry</button>} />
       ) : grouped.length === 0 ? (
-        <EmptyState icon={Briefcase} title="No active deals" description="Deals appear here once they move into Analyst Call or beyond." action={<Link to="/deals" className="vl-btn-primary">Open Pipeline</Link>} />
+        <EmptyState icon={Briefcase} title="No active deals" description={isLp ? 'LPs appear here once they reach a pitch meeting or beyond.' : 'Deals appear here once they move into Analyst Call or beyond.'} action={<Link to="/deals" className="vl-btn-primary">Open Pipeline</Link>} />
       ) : (
         <div className="space-y-6">
           {grouped.map(([stage, rows]) => (
             <section key={stage} className="vl-card overflow-hidden">
               <header className="flex items-center justify-between border-b border-valence-border px-5 py-3 bg-valence-surface">
                 <div className="flex items-center gap-2">
-                  <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-semibold ${stageToneClasses(stage)}`}>{stage}</span>
+                  <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-semibold ${stageToneClasses(stage)}`}>{stageLabel(stage, pipelineMode)}</span>
                   <span className="text-[11px] text-valence-muted">{stageMeta(stage).short}</span>
                 </div>
                 <span className="text-[11px] tabular-nums text-valence-muted">{rows.length} deal{rows.length === 1 ? '' : 's'}</span>
@@ -202,7 +204,7 @@ export default function Mandates() {
 
 function MandateRow({ d, isDetailed, onUpdate }) {
   const stale = d._daysInStage > STALE_THRESHOLD_DAYS
-  const stageOptions = STAGES.map(s => ({ value: s.id, label: s.id }))
+  const stageOptions = stagesForMode(d.kind).map(s => ({ value: s.id, label: s.label || s.id }))
   return (
     <tr className="border-t border-valence-border/60 hover:bg-valence-surface/60 transition">
       <td className="px-5 py-3 font-semibold text-valence-text">

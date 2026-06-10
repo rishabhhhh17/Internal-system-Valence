@@ -14,7 +14,10 @@ import { logActivity } from '../lib/activity.js'
 import { spawnMandateFolders, stripWikilinkTokens } from '../lib/kb.js'
 import { uploadDealFile } from '../lib/storage.js'
 import DealDocumentsUploader from '../components/DealDocumentsUploader.jsx'
-import { STAGES, STAGE_IDS, stageMeta, stageToneClasses, ACTIVE_STAGES } from '../lib/stages.js'
+import {
+  stageMeta, stageToneClasses, stageLabel,
+  stagesForMode, activeStagesForMode, stageIdsForMode, defaultNewStage
+} from '../lib/stages.js'
 import ConfigBanner from '../components/ConfigBanner.jsx'
 import Drawer from '../components/Drawer.jsx'
 import Modal from '../components/Modal.jsx'
@@ -95,6 +98,12 @@ export default function Deals() {
   const confirm = useConfirm()
   const { money } = useCurrency()
   const [pipelineMode] = usePipelineMode()
+  const isLp = pipelineMode === 'lp'
+  // Stage taxonomy for the active pipeline (company deal funnel vs LP
+  // fundraising funnel). Everything stage-shaped on this page reads off these.
+  const modeStages   = stagesForMode(pipelineMode)
+  const modeStageIds = stageIdsForMode(pipelineMode)
+  const modeActive   = activeStagesForMode(pipelineMode)
   const [params, setParams] = useSearchParams()
   const [deals, setDeals] = useState([])
   const [loading, setLoading] = useState(true)
@@ -169,7 +178,7 @@ export default function Deals() {
     const prefill = {
       client_name:  params.get('client_name')  || '',
       sector:       params.get('sector')       || '',
-      stage:        params.get('stage')        || 'Information Received',
+      stage:        params.get('stage')        || defaultNewStage(pipelineMode),
       // Only override the form's default ['transaction'] when the convert
       // flow actually carried types.
       ...(dealTypes.length ? { deal_types: dealTypes } : {}),
@@ -244,9 +253,13 @@ export default function Deals() {
   }, [deals, q, fStage, fTopType, fSubtype, fNda])
 
   const metrics = useMemo(() => {
+    // Per-funnel: top-of-funnel id and a representative "deep" id (the
+    // escalated stage just before graduation). Graduation = shared 'Diligence'.
+    const firstId = isLp ? 'LP Sourced' : 'Sourced'
+    const deepId  = isLp ? 'LP Due Diligence' : 'Partner Call'
     const active      = deals.filter(d => !stageMeta(d.stage).terminal)
-    const origination = deals.filter(d => d.stage === 'Sourced')
-    const preMandate  = deals.filter(d => d.stage === 'Partner Call')
+    const origination = deals.filter(d => d.stage === firstId)
+    const preMandate  = deals.filter(d => d.stage === deepId)
     const closed      = deals.filter(d => d.stage === 'Diligence')
     return {
       total: deals.length,
@@ -255,7 +268,7 @@ export default function Deals() {
       preMandate: preMandate.length,
       closed: closed.length
     }
-  }, [deals])
+  }, [deals, isLp])
 
   async function saveDeal(payload, id) {
     if (!isSupabaseConfigured) {
@@ -363,10 +376,10 @@ export default function Deals() {
 
       {/* Pipeline counters — operational, not money */}
       <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
-        <BigStat label="Active deals"     value={metrics.active} sub="In evaluation" accent icon={TrendingUp} />
-        <BigStat label="Sourced"          value={metrics.origination} sub="First contact made" icon={Briefcase} />
-        <BigStat label="In partner review" value={metrics.preMandate} sub="Escalated" icon={ActivityIcon} />
-        <BigStat label="In diligence"     value={metrics.closed} sub="Reached diligence" icon={FolderOpen} />
+        <BigStat label={isLp ? 'Active LPs' : 'Active deals'} value={metrics.active} sub="In evaluation" accent icon={TrendingUp} />
+        <BigStat label={isLp ? 'Identified' : 'Sourced'}      value={metrics.origination} sub="First contact made" icon={Briefcase} />
+        <BigStat label={isLp ? 'In Fund DD' : 'In partner review'} value={metrics.preMandate} sub="Escalated" icon={ActivityIcon} />
+        <BigStat label={isLp ? 'Committed' : 'In diligence'}  value={metrics.closed} sub={isLp ? 'Closed-won' : 'Reached diligence'} icon={FolderOpen} />
       </div>
 
       {/* Toolbar */}
@@ -381,7 +394,7 @@ export default function Deals() {
             />
           </div>
 
-          <FilterPill label="Stage"   value={fStage}   onChange={setFStage}   options={STAGE_IDS} />
+          <FilterPill label="Stage"   value={fStage}   onChange={setFStage}   options={modeStageIds} optionLabel={(id) => stageLabel(id, pipelineMode)} />
           <FilterPill label="Type"    value={fTopType} onChange={setFTopType} options={['transaction', 'advisory']} />
           <FilterPill label="Subtype" value={fSubtype} onChange={setFSubtype} options={['fundraise', 'm_and_a', 'exit']} />
           <FilterPill label="NDA"     value={fNda}     onChange={setFNda}     options={NDA} />
@@ -438,7 +451,7 @@ export default function Deals() {
           sampleEligible={false}
         />
       ) : view === 'board' ? (
-        <DealKanban deals={filtered} onOpen={setDrawer} onStageChange={changeStage} />
+        <DealKanban deals={filtered} onOpen={setDrawer} onStageChange={changeStage} stages={modeStages} />
       ) : (
         <DealTable deals={filtered} onOpen={setDrawer} focusedId={focusedDealId} onFocus={setFocusedDealId} />
       )}
@@ -513,6 +526,8 @@ export default function Deals() {
         )}
         <DealForm
           initial={modal?.edit || modal?.prefill}
+          stages={modeStages}
+          defaultStage={defaultNewStage(pipelineMode)}
           onCancel={closeModal}
           onSubmit={(payload) => saveDeal(payload, modal?.edit?.id)}
         />
@@ -693,7 +708,7 @@ function DealHeader({ deal, onEdit, onDelete, onCompose }) {
         <div className="flex-1 min-w-0">
           <div className="flex flex-wrap items-center gap-2">
             <span className={`inline-flex items-center rounded-full border px-2.5 py-1 text-[11px] font-semibold ${stageToneClasses(deal.stage)}`} title={meta.desc}>
-              {deal.stage}
+              {stageLabel(deal.stage, deal.kind)}
             </span>
             {(Array.isArray(deal.deal_types) ? deal.deal_types : []).map(t => (
               <span key={t} className="vl-chip capitalize">{t === 'm_and_a' ? 'M&A' : t}</span>
@@ -718,8 +733,9 @@ function DealHeader({ deal, onEdit, onDelete, onCompose }) {
 }
 
 function DealOverview({ deal }) {
-  const progressDeals = ACTIVE_STAGES.findIndex(s => s.id === deal.stage)
-  const progress = progressDeals >= 0 ? ((progressDeals + 1) / ACTIVE_STAGES.length) * 100 : 0
+  const activeStages = activeStagesForMode(deal.kind)
+  const progressDeals = activeStages.findIndex(s => s.id === deal.stage)
+  const progress = progressDeals >= 0 ? ((progressDeals + 1) / activeStages.length) * 100 : 0
 
   const types = Array.isArray(deal.deal_types) ? deal.deal_types : []
   const isTransaction = types.includes('transaction')
@@ -731,7 +747,7 @@ function DealOverview({ deal }) {
       <div>
         <div className="flex items-center justify-between text-[11px]">
           <span className="font-semibold uppercase tracking-wider text-valence-muted">Pipeline progress</span>
-          <span className="text-valence-muted">{stageMeta(deal.stage).terminal ? deal.stage : `${Math.round(progress)}%`}</span>
+          <span className="text-valence-muted">{stageMeta(deal.stage).terminal ? stageLabel(deal.stage, deal.kind) : `${Math.round(progress)}%`}</span>
         </div>
         <div className="mt-2 h-1.5 w-full rounded-full bg-valence-surface overflow-hidden">
           <div
@@ -870,7 +886,7 @@ function DealTable({ deals, onOpen, focusedId = null, onFocus = () => {} }) {
                 </td>
                 <td className="px-5 py-4">
                   <span className={`inline-flex items-center rounded-full border px-2.5 py-1 text-[11px] font-semibold ${stageToneClasses(d.stage)}`} title={stageMeta(d.stage).desc}>
-                    {d.stage}
+                    {stageLabel(d.stage, d.kind)}
                   </span>
                 </td>
                 <td className="px-5 py-4">
@@ -895,11 +911,11 @@ function DealTable({ deals, onOpen, focusedId = null, onFocus = () => {} }) {
 }
 
 // ============ FORM ============
-function DealForm({ initial, onSubmit, onCancel }) {
+function DealForm({ initial, onSubmit, onCancel, stages = stagesForMode('company'), defaultStage = 'Information Received' }) {
   const [form, setForm] = useState({
     client_name:                  initial?.client_name        || '',
     website:                      initial?.website            || '',
-    stage:                        initial?.stage              || 'Information Received',
+    stage:                        initial?.stage              || defaultStage,
     nda_status:                   initial?.nda_status         || 'Pending',
     sector:                       initial?.sector             || '',
     deal_types:                   initial?.deal_types         || ['transaction'],
@@ -996,7 +1012,7 @@ function DealForm({ initial, onSubmit, onCancel }) {
         <div>
           <label className="vl-label">Stage</label>
           <select className="vl-input" value={form.stage} onChange={e => set('stage', e.target.value)}>
-            {STAGES.map(s => <option key={s.id} className="bg-valence-surface" value={s.id} title={s.desc}>{s.id}</option>)}
+            {stages.map(s => <option key={s.id} className="bg-valence-surface" value={s.id} title={s.desc}>{s.label || s.id}</option>)}
           </select>
           <p className="mt-1 text-[10px] text-valence-subtle leading-relaxed">{stageMeta(form.stage).desc}</p>
         </div>
@@ -1212,14 +1228,14 @@ function BigStat({ label, value, sub, icon: Icon, accent = false }) {
   )
 }
 
-function FilterPill({ label, value, onChange, options }) {
+function FilterPill({ label, value, onChange, options, optionLabel }) {
   return (
     <label className="group relative flex items-center gap-2 rounded-lg border border-valence-border bg-valence-surface pl-3 pr-2 py-2 text-xs font-medium text-valence-muted transition focus-within:border-valence-blue focus-within:ring-2 focus-within:ring-valence-blue-ring">
       <FilterIcon className="h-3 w-3" />
       <span className="text-[11px] uppercase tracking-wider">{label}</span>
       <select value={value} onChange={e => onChange(e.target.value)} className="bg-transparent pr-1 text-sm font-semibold text-valence-text outline-none">
         <option className="bg-valence-surface text-valence-text" value="All">All</option>
-        {options.map(o => <option key={o} className="bg-valence-surface text-valence-text" value={o}>{o}</option>)}
+        {options.map(o => <option key={o} className="bg-valence-surface text-valence-text" value={o}>{optionLabel ? optionLabel(o) : o}</option>)}
       </select>
     </label>
   )

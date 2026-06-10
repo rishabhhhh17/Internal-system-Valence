@@ -2,21 +2,20 @@ import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { format } from 'date-fns'
 import {
-  BarChart3, TrendingUp, TrendingDown, DollarSign, Briefcase, Trophy,
-  Activity, MapPin, Sparkles, ArrowRight, Info, CalendarDays, PieChart,
-  AlertTriangle, Zap, Building2, Filter, Printer, Layers, Users,
-  Hourglass, Scale, ShieldAlert, Flame, Globe2, Crown,
-  Handshake, FileSearch, CalendarClock
+  BarChart3, TrendingUp, Briefcase, Trophy,
+  Activity, MapPin, ArrowRight, Info, CalendarDays, PieChart,
+  AlertTriangle, Building2, Filter, Printer, Layers, Users,
+  Hourglass, Scale, ShieldAlert, Flame, Globe2,
+  Handshake, CalendarClock
 } from 'lucide-react'
 import { supabase, isSupabaseConfigured } from '../lib/supabase.js'
-import { STAGES, ACTIVE_STAGES, stageMeta, stageToneClasses, migrateStage } from '../lib/stages.js'
+import { stageMeta, stageToneClasses, stageLabel, migrateStage, activeStagesForMode } from '../lib/stages.js'
 import {
-  forecastPipeline, expectedFee, distribution, conversionLadder, feeByQuarter,
+  distribution, conversionLadder,
   geographyMix, winRateTrend, activityHeatmap,
-  stageAgingList, dealSizeHistogram, sectorStageMatrix, feeComposition,
-  clientConcentration, bankerProductivity, bookBuildingCurve,
-  originationMix, sideMix, riskFlags, scopeDeals, STAGE_PROBABILITY,
-  dropoffByOwner, funnelSnapshot
+  stageAgingList, sectorStageMatrix, bookBuildingCurve,
+  originationMix, riskFlags, scopeDeals,
+  dropoffByOwner
 } from '../lib/insights.js'
 import { usePipelineMode } from '../hooks/usePipelineMode.js'
 import { useCurrency } from '../hooks/useCurrency.jsx'
@@ -82,8 +81,9 @@ export default function Analytics() {
   const [activities, setActivities] = useState([])
   const [sectorFilter, setSectorFilter] = useState('all')
   const [period, setPeriod]         = useState('LTM')
-  const [simMandateUplift, setSimMandateUplift]           = useState(15)
-  const [simPreMandateUplift, setSimPreMandateUplift]     = useState(5)
+  // Active-stage ids for the current pipeline (company vs LP) — drives the
+  // funnel ladder + sector×stage matrix so they reflect the right taxonomy.
+  const activeIds = activeStagesForMode(pipelineMode).map(s => s.id)
 
   useEffect(() => {
     if (!isSupabaseConfigured) return
@@ -107,8 +107,6 @@ export default function Analytics() {
 
   // ── Core aggregates ──
   const active         = useMemo(() => filteredDeals.filter(d => !stageMeta(d.stage).terminal),                         [filteredDeals])
-  const forecast       = useMemo(() => forecastPipeline(filteredDeals),                                                 [filteredDeals])
-  const composition    = useMemo(() => feeComposition(filteredDeals),                                                   [filteredDeals])
 
   // ── Distributions & deeper cuts ──
   const sectorDist   = useMemo(() => distribution(filteredDeals, d => d.sector),       [filteredDeals])
@@ -124,37 +122,16 @@ export default function Analytics() {
     if (types.includes('transaction'))  return 'Transaction'
     return d.deal_type || 'Uncategorised'
   }), [filteredDeals])
-  const ladder       = useMemo(() => conversionLadder(filteredDeals),                  [filteredDeals])
-  const quarters     = useMemo(() => feeByQuarter(filteredDeals, { quarters: 4 }),     [filteredDeals])
+  const ladder       = useMemo(() => conversionLadder(filteredDeals, { activeIds }),  [filteredDeals, activeIds])
   const geo          = useMemo(() => geographyMix(filteredDeals),                      [filteredDeals])
   const trend        = useMemo(() => winRateTrend(filteredDeals, activities, { windows: 6 }), [filteredDeals, activities])
   const heatmap      = useMemo(() => activityHeatmap(activities, { weeks: 12 }),       [activities])
   const aging        = useMemo(() => stageAgingList(filteredDeals, activities),        [filteredDeals, activities])
-  const sizeHist     = useMemo(() => dealSizeHistogram(filteredDeals),                 [filteredDeals])
-  const matrix       = useMemo(() => sectorStageMatrix(filteredDeals),                 [filteredDeals])
-  const side         = useMemo(() => sideMix(filteredDeals),                           [filteredDeals])
-  const concentration= useMemo(() => clientConcentration(filteredDeals, { top: 5 }),   [filteredDeals])
-  const productivity = useMemo(() => bankerProductivity(filteredDeals),                [filteredDeals])
+  const matrix       = useMemo(() => sectorStageMatrix(filteredDeals, { activeIds }),  [filteredDeals, activeIds])
   const curve        = useMemo(() => bookBuildingCurve(filteredDeals, { months: 12 }), [filteredDeals])
   const origin       = useMemo(() => originationMix(filteredDeals),                    [filteredDeals])
   const flags        = useMemo(() => riskFlags(filteredDeals),                         [filteredDeals])
   const dropoffRows  = useMemo(() => dropoffByOwner(filteredDeals),                    [filteredDeals])
-
-  // ── What-if: uplift on Partner Call + Memo conversion ──
-  // The first slider lifts in-Memo advance-rate, the second lifts
-  // Partner Call conversion.
-  const whatIf = useMemo(() => {
-    const baseline = forecast.weighted
-    let scenario = 0
-    for (const d of filteredDeals) {
-      const fee = expectedFee(d)
-      let p = STAGE_PROBABILITY[d.stage] ?? 0
-      if (d.stage === 'Memo')         p = Math.min(1, p * (1 + simMandateUplift / 100))
-      if (d.stage === 'Partner Call') p = Math.min(1, p * (1 + simPreMandateUplift / 100))
-      scenario += fee * p
-    }
-    return { baseline, scenario, delta: scenario - baseline }
-  }, [filteredDeals, forecast.weighted, simMandateUplift, simPreMandateUplift])
 
   const updatedLabel = format(new Date(), "d MMM yyyy · HH:mm")
 
@@ -278,7 +255,7 @@ export default function Analytics() {
 
       <section className="vl-card p-8">
         <CardTitle icon={BarChart3} title="Funnel & conversion" subtitle="Advance % = deals that moved past this stage. Where the funnel narrows is where you're losing deals." right={<Link to="/deals" className="text-xs font-semibold text-valence-blue hover:text-valence-blue-hover inline-flex items-center gap-1">Open board <ArrowRight className="h-3 w-3" /></Link>} />
-        <FunnelLadder ladder={ladder} />
+        <FunnelLadder ladder={ladder} mode={pipelineMode} />
       </section>
 
       <section className="vl-card p-8">
@@ -413,7 +390,7 @@ function IllustrativeBadge() {
 /* ═══════════════════════════════════════════════════════════════════════
    Funnel + conversion
    ═══════════════════════════════════════════════════════════════════════ */
-function FunnelLadder({ ladder }) {
+function FunnelLadder({ ladder, mode }) {
   const maxCount = Math.max(1, ...ladder.map(r => r.count))
   return (
     <div className="space-y-2.5">
@@ -423,7 +400,7 @@ function FunnelLadder({ ladder }) {
         return (
           <div key={r.stage}>
             <div className="flex items-center gap-4">
-              <span className={`inline-flex w-28 justify-center rounded-full border px-2 py-1 text-[10px] font-semibold shrink-0 ${stageToneClasses(r.stage)}`}>{r.stage}</span>
+              <span className={`inline-flex w-28 justify-center rounded-full border px-2 py-1 text-[10px] font-semibold shrink-0 ${stageToneClasses(r.stage)}`}>{stageLabel(r.stage, mode)}</span>
               <div className="relative flex-1 h-8 rounded-md bg-valence-surface overflow-hidden border border-valence-border">
                 <div className="h-full rounded-r-md bg-gradient-to-r from-valence-blue/40 to-valence-blue transition-all" style={{ width: `${width}%` }} />
                 <span className="absolute inset-0 flex items-center justify-between px-3 text-[11px] font-semibold tabular-nums text-valence-text">
@@ -438,7 +415,7 @@ function FunnelLadder({ ladder }) {
                 title={`${r.conversion != null ? Math.round(r.conversion * 100) : 0}% of deals in ${r.stage} have advanced to ${next.stage} or beyond.`}
               >
                 <span className="h-2 w-px bg-valence-border" />
-                <span>→ {next.stage}</span>
+                <span>→ {stageLabel(next.stage, mode)}</span>
                 <span className={`rounded-full px-1.5 py-0.5 font-semibold ${r.conversion >= 0.5 ? 'bg-valence-success/10 text-valence-success' : r.conversion >= 0.25 ? 'bg-valence-warning/10 text-valence-warning' : 'bg-valence-danger/10 text-valence-danger'}`}>
                   {r.conversion != null ? `${Math.round(r.conversion * 100)}% advance` : '—'}
                 </span>
@@ -563,123 +540,9 @@ function DistributionCard({ title, subtitle, items, money, icon: Icon }) {
   )
 }
 
-function SideSplitCard({ side }) {
-  const total = side.sell + side.buy + side.unknown || 1
-  const sellPct = Math.round((side.sell / total) * 100)
-  const buyPct  = Math.round((side.buy / total) * 100)
-  return (
-    <div className="vl-card p-6">
-      <CardTitle icon={Scale} title="Buy-side vs sell-side" subtitle="Who Valence is advising" />
-      <div className="grid grid-cols-2 gap-3">
-        <div className="rounded-lg border border-valence-border bg-valence-blue-soft p-4">
-          <p className="vl-eyebrow-ink">Sell-side</p>
-          <p className="mt-2 font-display text-3xl font-bold tabular-nums text-valence-text">{side.sell}</p>
-          <p className="text-[10px] text-valence-muted mt-0.5">{sellPct}% of book</p>
-        </div>
-        <div className="rounded-lg border border-valence-border bg-valence-surface p-4">
-          <p className="vl-eyebrow-ink">Buy-side</p>
-          <p className="mt-2 font-display text-3xl font-bold tabular-nums text-valence-text">{side.buy}</p>
-          <p className="text-[10px] text-valence-muted mt-0.5">{buyPct}% of book</p>
-        </div>
-      </div>
-      {side.unknown > 0 && (
-        <p className="mt-3 text-[10px] text-valence-subtle">
-          <AlertTriangle className="inline h-3 w-3 text-valence-warning mr-0.5" />
-          {side.unknown} deal{side.unknown === 1 ? '' : 's'} missing side tag.
-        </p>
-      )}
-    </div>
-  )
-}
-
-function SizeHistogramCard({ hist, money }) {
-  const maxCount = Math.max(1, ...hist.map(b => b.count))
-  return (
-    <div className="vl-card p-6">
-      <CardTitle icon={BarChart3} title="Deal size distribution" subtitle="Ticket sizes across the book — buckets in USD" />
-      <div className="grid grid-cols-4 gap-3">
-        {hist.map(b => (
-          <div key={b.label} className="rounded-xl border border-valence-border bg-valence-elevated p-3 text-center">
-            <p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-valence-muted">{b.label}</p>
-            <div className="relative mt-2 h-20 rounded bg-valence-surface overflow-hidden">
-              <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-valence-blue/30 to-valence-blue/70" style={{ height: `${(b.count / maxCount) * 100}%` }} />
-            </div>
-            <p className="mt-2 font-display text-2xl font-bold tabular-nums text-valence-text">{b.count}</p>
-            <p className="text-[10px] text-valence-muted">{money(b.valueUsdM)}</p>
-          </div>
-        ))}
-      </div>
-    </div>
-  )
-}
-
-function FeeCompositionCard({ composition, amount }) {
-  const { retainerShare, successShare, retainer, success } = composition
-  const retainerPct = Math.round(retainerShare * 100)
-  const successPct  = Math.round(successShare * 100)
-  return (
-    <div className="vl-card p-6">
-      <CardTitle icon={DollarSign} title="Fee composition" subtitle="How expected fees break down" />
-      <div className="flex items-end gap-6">
-        <svg viewBox="0 0 120 120" className="h-28 w-28 shrink-0">
-          <circle cx="60" cy="60" r="48" fill="none" stroke="currentColor" className="text-valence-border" strokeWidth="16" />
-          <circle cx="60" cy="60" r="48" fill="none" stroke="#3399FF" strokeWidth="16" strokeDasharray={`${successShare * 301.6} 301.6`} transform="rotate(-90 60 60)" />
-          <text x="60" y="62" textAnchor="middle" className="fill-valence-text" style={{ font: "700 20px var(--font-display, ui-sans-serif)" }}>{successPct}%</text>
-          <text x="60" y="78" textAnchor="middle" className="fill-valence-muted" style={{ font: "600 9px ui-sans-serif" }}>success</text>
-        </svg>
-        <div className="flex-1 space-y-3">
-          <div>
-            <div className="flex items-center justify-between text-xs">
-              <span className="inline-flex items-center gap-1.5 font-semibold text-valence-text"><span className="h-2 w-2 rounded-full bg-valence-blue" /> Success fee</span>
-              <span className="tabular-nums text-valence-muted">{amount(success)}</span>
-            </div>
-            <div className="mt-1 h-1.5 rounded-full bg-valence-surface overflow-hidden">
-              <div className="h-full bg-valence-blue" style={{ width: `${successPct}%` }} />
-            </div>
-          </div>
-          <div>
-            <div className="flex items-center justify-between text-xs">
-              <span className="inline-flex items-center gap-1.5 font-semibold text-valence-text"><span className="h-2 w-2 rounded-full bg-valence-ink" /> Retainer</span>
-              <span className="tabular-nums text-valence-muted">{amount(retainer)}</span>
-            </div>
-            <div className="mt-1 h-1.5 rounded-full bg-valence-surface overflow-hidden">
-              <div className="h-full bg-valence-ink" style={{ width: `${retainerPct}%` }} />
-            </div>
-          </div>
-          <p className="text-[10px] text-valence-subtle">Probability-weighted, across all non-terminal deals.</p>
-        </div>
-      </div>
-    </div>
-  )
-}
-
 /* ═══════════════════════════════════════════════════════════════════════
    Productivity
    ═══════════════════════════════════════════════════════════════════════ */
-function BankerProductivityCard({ productivity, amount }) {
-  const max = Math.max(1, ...productivity.map(p => p.weightedFee))
-  return (
-    <div className="vl-card p-6">
-      <CardTitle icon={Users} title="Partner productivity" subtitle="Weighted fees and active deals per deal lead" />
-      <ul className="space-y-3">
-        {productivity.map(p => (
-          <li key={p.owner}>
-            <div className="flex items-center justify-between text-xs mb-1">
-              <span className="font-semibold text-valence-text">{p.owner}</span>
-              <span className="tabular-nums text-valence-muted">
-                {p.active} active · {p.total} total{p.winRate != null ? ` · ${Math.round(p.winRate * 100)}% win` : ''}
-              </span>
-            </div>
-            <div className="relative h-2.5 rounded-full bg-valence-surface overflow-hidden">
-              <div className="absolute inset-y-0 left-0 rounded-full bg-gradient-to-r from-valence-blue/40 to-valence-blue" style={{ width: `${(p.weightedFee / max) * 100}%` }} />
-            </div>
-            <p className="mt-1 text-[10px] tabular-nums text-valence-subtle">{amount(p.weightedFee)} weighted</p>
-          </li>
-        ))}
-      </ul>
-    </div>
-  )
-}
 
 function DropoffByOwnerCard({ rows }) {
   if (!rows?.length) {
@@ -797,31 +660,6 @@ function WinRateTrendCard({ trend }) {
 /* ═══════════════════════════════════════════════════════════════════════
    Forward-looking
    ═══════════════════════════════════════════════════════════════════════ */
-function QuarterBars({ quarters, amount }) {
-  const max = Math.max(1, ...quarters.map(q => q.weightedFeeUsd))
-  return (
-    <div className="grid grid-cols-4 gap-4">
-      {quarters.map(q => {
-        const hWeighted = (q.weightedFeeUsd / max) * 100
-        const hCommitted = (q.committedFeeUsd / max) * 100
-        return (
-          <div key={q.label} className="rounded-xl border border-valence-border bg-valence-elevated p-4">
-            <div className="flex items-baseline justify-between">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-valence-muted">{q.label}</p>
-              <p className="text-[10px] text-valence-subtle">{q.dealCount} deal{q.dealCount === 1 ? '' : 's'}</p>
-            </div>
-            <div className="relative mt-3 h-32 rounded-md bg-valence-surface overflow-hidden">
-              <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-valence-blue/30 to-valence-blue/70" style={{ height: `${hWeighted}%` }} />
-              <div className="absolute bottom-0 left-0 right-0 bg-valence-blue/90" style={{ height: `${hCommitted}%` }} />
-            </div>
-            <p className="mt-3 font-display text-lg font-bold tabular-nums text-valence-text">{amount(q.weightedFeeUsd)}</p>
-            <p className="text-[10px] text-valence-muted">Committed {amount(q.committedFeeUsd)}</p>
-          </div>
-        )
-      })}
-    </div>
-  )
-}
 
 function BookCurve({ curve }) {
   const pts = curve.points
@@ -858,21 +696,6 @@ function BookCurve({ curve }) {
         ))}
       </div>
       <p className="mt-3 text-[10px] text-valence-subtle">Line · cumulative live deals. Bars · new deals added per month.</p>
-    </div>
-  )
-}
-
-function SimSlider({ label, value, onChange }) {
-  return (
-    <div>
-      <div className="flex items-center justify-between mb-2 text-sm">
-        <label className="text-valence-muted">{label}</label>
-        <span className="font-display text-xl font-bold tabular-nums text-valence-text">+{value}%</span>
-      </div>
-      <input type="range" min="0" max="40" step="1" value={value} onChange={e => onChange(Number(e.target.value))} className="w-full accent-valence-blue" />
-      <div className="mt-1 flex justify-between text-[10px] text-valence-subtle">
-        <span>0%</span><span>20%</span><span>40%</span>
-      </div>
     </div>
   )
 }
@@ -952,51 +775,6 @@ function HeatmapCard({ heatmap }) {
         <div className="h-2.5 w-2.5 rounded-sm bg-valence-blue border border-valence-blue/60" />
         <span>more</span>
       </div>
-    </div>
-  )
-}
-
-function ClientConcentrationCard({ concentration, amount }) {
-  const { top, total, hhi } = concentration
-  if (!top.length) {
-    return (
-      <div className="vl-card p-6">
-        <CardTitle icon={Crown} title="Company concentration" subtitle="Top companies by weighted fee contribution" />
-        <p className="mt-4 text-sm text-valence-muted">No weighted fees in scope.</p>
-      </div>
-    )
-  }
-  const topShare = top.reduce((s, x) => s + x.share, 0)
-  const concLabel = hhi > 0.25 ? 'High' : hhi > 0.15 ? 'Moderate' : 'Low'
-  const concTone  = hhi > 0.25 ? 'text-valence-danger bg-valence-danger/10' : hhi > 0.15 ? 'text-valence-warning bg-valence-warning/10' : 'text-valence-success bg-valence-success/10'
-  return (
-    <div className="vl-card p-6">
-      <CardTitle
-        icon={Crown}
-        title="Company concentration"
-        subtitle="Top 5 companies by probability-weighted fee contribution"
-        right={<span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold ${concTone}`}>{concLabel} · HHI {hhi.toFixed(2)}</span>}
-      />
-      <ul className="space-y-2">
-        {top.map((c, i) => (
-          <li key={c.client} className="flex items-center gap-3">
-            <span className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-valence-ink text-white text-[11px] font-bold">{i + 1}</span>
-            <div className="min-w-0 flex-1">
-              <div className="flex items-center justify-between text-xs">
-                <span className="font-semibold text-valence-text truncate">{c.client}</span>
-                <span className="tabular-nums text-valence-muted">{amount(c.weightedFee)} · {Math.round(c.share * 100)}%</span>
-              </div>
-              <div className="mt-1 h-1.5 rounded-full bg-valence-surface overflow-hidden">
-                <div className="h-full bg-gradient-to-r from-valence-blue/40 to-valence-blue" style={{ width: `${c.share * 100}%` }} />
-              </div>
-              <p className="mt-0.5 text-[10px] text-valence-subtle">{c.deals} deal{c.deals === 1 ? '' : 's'}</p>
-            </div>
-          </li>
-        ))}
-      </ul>
-      <p className="mt-4 text-[11px] text-valence-muted">
-        Top 5 represent <b className="tabular-nums text-valence-text">{Math.round(topShare * 100)}%</b> of weighted fees · total weighted book <b className="tabular-nums text-valence-text">{amount(total)}</b>.
-      </p>
     </div>
   )
 }

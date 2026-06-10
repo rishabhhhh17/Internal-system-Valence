@@ -1,6 +1,6 @@
 import { useMemo, useRef, useState } from 'react'
 import { MoreHorizontal, MoveRight } from 'lucide-react'
-import { STAGES, STAGE_IDS } from '../lib/stages.js'
+import { STAGES } from '../lib/stages.js'
 import { useCurrency } from '../hooks/useCurrency.jsx'
 
 // Soft column-background tint per stage tone — inspired by the DealVisor
@@ -18,24 +18,26 @@ function columnBgForTone(tone) {
   }
 }
 
-export default function DealKanban({ deals, onOpen, onStageChange }) {
+export default function DealKanban({ deals, onOpen, onStageChange, stages = STAGES }) {
   const [draggingId, setDraggingId] = useState(null)
   const [overStage, setOverStage]   = useState(null)
   const [stageMenu, setStageMenu]   = useState(null) // dealId for mobile stage picker
 
   // Build per-stage buckets. Any deal with an unknown stage gets safely
-  // bucketed into 'Sourced' so the funnel never silently loses cards.
+  // bucketed into the first stage so the funnel never silently loses cards.
   const byStage = useMemo(() => {
-    const g = Object.fromEntries(STAGES.map(s => [s.id, []]))
+    const ids = stages.map(s => s.id)
+    const fallback = ids[0]
+    const g = Object.fromEntries(stages.map(s => [s.id, []]))
     for (const d of deals) {
-      const bucket = STAGE_IDS.includes(d.stage) ? d.stage : 'Sourced'
+      const bucket = ids.includes(d.stage) ? d.stage : fallback
       g[bucket].push(d)
     }
     return g
-  }, [deals])
+  }, [deals, stages])
 
   const totalCount  = deals.length
-  const stagesShown = STAGES.length
+  const stagesShown = stages.length
 
   return (
     <div className="vl-card p-4">
@@ -51,7 +53,7 @@ export default function DealKanban({ deals, onOpen, onStageChange }) {
       </div>
 
       <div className="flex gap-3 overflow-x-auto pb-2 -mx-1 px-1 snap-x">
-        {STAGES.map(stage => {
+        {stages.map(stage => {
           const items  = byStage[stage.id] || []
           const isOver = overStage === stage.id
           const colBg  = columnBgForTone(stage.tone)
@@ -75,7 +77,7 @@ export default function DealKanban({ deals, onOpen, onStageChange }) {
               <div className="flex items-center justify-between px-3 py-2 border-b border-valence-border/60">
                 <div className="flex items-center gap-2 min-w-0">
                   <span className={`h-1.5 w-1.5 rounded-full shrink-0 ${dotForTone(stage.tone)}`} />
-                  <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-valence-text truncate" title={stage.desc}>{stage.id}</p>
+                  <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-valence-text truncate" title={stage.desc}>{stage.label || stage.id}</p>
                 </div>
                 <span className="rounded-md border border-valence-border bg-valence-elevated px-1.5 py-0 text-[10px] font-semibold tabular-nums text-valence-muted">
                   {items.length}
@@ -89,6 +91,7 @@ export default function DealKanban({ deals, onOpen, onStageChange }) {
                   <Card
                     key={d.id}
                     deal={d}
+                    stages={stages}
                     onOpen={onOpen}
                     onStageChange={onStageChange}
                     setDraggingId={setDraggingId}
@@ -106,7 +109,7 @@ export default function DealKanban({ deals, onOpen, onStageChange }) {
   )
 }
 
-function Card({ deal: d, onOpen, onStageChange, setDraggingId, setOverStage, openMenu, setOpenMenu }) {
+function Card({ deal: d, stages = STAGES, onOpen, onStageChange, setDraggingId, setOverStage, openMenu, setOpenMenu }) {
   const ref = useRef(null)
   const { money } = useCurrency()
   // EV signal — prefer ticket_size, then any of the type-specific
@@ -161,7 +164,7 @@ function Card({ deal: d, onOpen, onStageChange, setDraggingId, setOverStage, ope
         >
           <p className="px-3 pt-2 pb-1 text-[10px] font-semibold uppercase tracking-wider text-valence-subtle">Move to</p>
           <ul className="pb-1 max-h-60 overflow-y-auto">
-            {STAGES.map(s => (
+            {stages.map(s => (
               <li key={s.id}>
                 <button
                   disabled={s.id === d.stage}
@@ -173,7 +176,7 @@ function Card({ deal: d, onOpen, onStageChange, setDraggingId, setOverStage, ope
                   }`}
                 >
                   <span className={`h-1.5 w-1.5 rounded-full ${dotForTone(s.tone)}`} />
-                  {s.id}
+                  {s.label || s.id}
                   {s.id === d.stage && <span className="ml-auto text-[9px] text-valence-subtle">current</span>}
                 </button>
               </li>

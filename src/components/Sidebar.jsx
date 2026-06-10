@@ -7,12 +7,7 @@ import { useSavedViews, filtersFromUrl } from '../hooks/useSavedViews.js'
 import SaveViewDialog from './SaveViewDialog.jsx'
 import { useWorkspaceSetting } from '../hooks/useWorkspaceSetting.js'
 import { usePipelineMode } from '../hooks/usePipelineMode.js'
-import { TERMINAL_STAGES as TERMINAL_STAGE_DEFS, LIVE_MANDATE_STAGES as LIVE_MANDATE_STAGE_IDS } from '../lib/stages.js'
-
-// Derive from the canonical 7-stage taxonomy (src/lib/stages.js) so the
-// sidebar badge counts can never drift from what the destination pages show.
-const TERMINAL_STAGES  = new Set(TERMINAL_STAGE_DEFS.map(s => s.id))
-const LIVE_MANDATE_STAGES = new Set(LIVE_MANDATE_STAGE_IDS)
+import { liveStagesForMode, terminalIdsForMode } from '../lib/stages.js'
 
 // Items flagged `power` are internal-team / power-user surfaces that
 // clutter the sidebar for a 45-year-old IB partner on the first demo.
@@ -74,9 +69,13 @@ function useSidebarCounts() {
       supabase.from('interactions').select('id', { count: 'exact', head: true }).not('follow_up_date', 'is', null).lte('follow_up_date', todayIso).not('is_complete', 'is', true),
       supabase.from('intake_submissions').select('id', { count: 'exact', head: true }).eq('status', 'new')
     ])
+    // Terminal + live stage sets for the active pipeline (company vs LP) so
+    // the badge counts match what /deals and /mandates show for this mode.
+    const terminalSet = new Set(terminalIdsForMode(pipelineMode))
+    const liveSet     = new Set(liveStagesForMode(pipelineMode))
     const stageRows = d.data || []
-    const active = stageRows.filter(x => !TERMINAL_STAGES.has(x.stage)).length
-    const live = stageRows.filter(x => LIVE_MANDATE_STAGES.has(x.stage)).length
+    const active = stageRows.filter(x => !terminalSet.has(x.stage)).length
+    const live = stageRows.filter(x => liveSet.has(x.stage)).length
     setCounts({ activeDeals: active, todayMeetings: m.count || 0, pendingFollowUps: i.count || 0, liveMandates: live, newIntakes: ix.count || 0 })
   }
 

@@ -148,8 +148,8 @@ export function distribution(deals, keyFn, { fallback = 'Unspecified' } = {}) {
 // reached at least the NEXT stage (any stage deeper in the funnel, or Diligence).
 // This is a cohort-lite view: treats every deal that ever crossed a stage as
 // having been in it. Deals in Passed count as drop-offs.
-export function conversionLadder(deals) {
-  const order = ACTIVE_STAGES.map(s => s.id) // Sourced → Memo
+export function conversionLadder(deals, { activeIds } = {}) {
+  const order = activeIds || ACTIVE_STAGES.map(s => s.id) // company: Sourced → Memo
   const idxOf = Object.fromEntries(order.map((s, i) => [s, i]))
   // Assume the CURRENT stage is the furthest a deal has reached. Deals that
   // reached "Diligence" (graduated) crossed every active stage.
@@ -377,9 +377,9 @@ export function dealSizeHistogram(deals, buckets = [
 }
 
 // Sector × Stage concentration matrix. Rows = sectors, Cols = active stages.
-export function sectorStageMatrix(deals) {
+export function sectorStageMatrix(deals, { activeIds } = {}) {
   const sectors = [...new Set(deals.map(d => d.sector || 'Other'))]
-  const stages = ACTIVE_STAGES.map(s => s.id)
+  const stages = activeIds || ACTIVE_STAGES.map(s => s.id)
   const matrix = sectors.map(sector => ({
     sector,
     cells: stages.map(stage => ({

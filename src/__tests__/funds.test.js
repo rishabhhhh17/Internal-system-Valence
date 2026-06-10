@@ -66,19 +66,19 @@ describe('scoreFundForDeal — fundraise mode', () => {
     deal_subtype: 'fundraise',
     sector: 'Fintech',
     target_raise_usd_m: 80,
-    stage: 'Mandate'
+    stage: 'Series B'
   }
 
   it('rewards sector + stage + cheque match + warmth', () => {
     const r = scoreFundForDeal(peakXV, deal, 'fundraise')
-    // Peak XV: Fintech in sectors (35), 'Mandate' in stages (20), 80 in [5,100] (25), hot warmth (12), recent (6) = 98
+    // Peak XV: Fintech in sectors (35), 'Series B' in stages (20), 80 in [5,100] (25), hot warmth (12), recent (6) = 98
     expect(r.score).toBeGreaterThanOrEqual(80)
     expect(r.reasons).toEqual(expect.arrayContaining([expect.stringMatching(/Fintech/)]))
   })
 
   it('penalises cheque-band mismatch', () => {
     const r = scoreFundForDeal(accel, deal, 'fundraise')
-    // Accel: Fintech (35), Mandate (20), 80 outside [2,60] by 30% margin → -10, warm (8), no recency = 53
+    // Accel: Fintech (35), Series B (20), 80 outside [2,60] by 30% margin → -10, warm (8), no recency = 53
     expect(r.score).toBeLessThan(scoreFundForDeal(peakXV, deal, 'fundraise').score)
     expect(r.reasons).toEqual(expect.arrayContaining([expect.stringMatching(/Cheque size mismatch/)]))
   })
@@ -158,14 +158,14 @@ describe('matchFundsForDeal', () => {
   })
 
   it('infers mode from the deal when not passed', () => {
-    const deal = { deal_types: ['transaction'], deal_subtype: 'fundraise', sector: 'Fintech', target_raise_usd_m: 80, stage: 'Mandate' }
+    const deal = { deal_types: ['transaction'], deal_subtype: 'fundraise', sector: 'Fintech', target_raise_usd_m: 80, stage: 'Series B' }
     const matches = matchFundsForDeal(DEMO_FUNDS, deal)
     expect(matches.length).toBeGreaterThan(0)
     expect(matches[0].score).toBeGreaterThanOrEqual(matches[matches.length - 1].score)
   })
 
   it('respects the limit', () => {
-    const deal = { deal_types: ['transaction'], deal_subtype: 'fundraise', sector: 'Fintech', target_raise_usd_m: 80, stage: 'Mandate' }
+    const deal = { deal_types: ['transaction'], deal_subtype: 'fundraise', sector: 'Fintech', target_raise_usd_m: 80, stage: 'Series B' }
     expect(matchFundsForDeal(DEMO_FUNDS, deal, { limit: 3 })).toHaveLength(3)
   })
 
