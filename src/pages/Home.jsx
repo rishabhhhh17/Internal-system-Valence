@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom'
 import { format } from 'date-fns'
 import {
   TrendingDown, Flame, Banknote, Layers, ArrowRight, Briefcase, Building2,
-  AlertTriangle, FileWarning, Snowflake, Sparkles, Users, Target, ArrowUpRight
+  AlertTriangle, FileWarning, Snowflake, Users, Target, ArrowUpRight
 } from 'lucide-react'
 import { supabase, isSupabaseConfigured } from '../lib/supabase.js'
 import { useCurrency } from '../hooks/useCurrency.jsx'
@@ -19,6 +19,7 @@ const COLD_WARMTH = new Set(['cold', 'dormant'])
 // Home — the firm-level intelligence landing. Mode-agnostic: Founders (deal
 // flow) and LPs (fundraising) side by side so a GP opens the app and sees the
 // state of the fund. Read-only; derived from the same data the app writes.
+// Visual language is intentionally restrained — institutional, flat, neutral.
 export default function Home() {
   const { money } = useCurrency()
   const [company, setCompany] = useState([])
@@ -86,80 +87,74 @@ export default function Home() {
 
   const actions = useMemo(() => {
     const out = []
-    for (const d of founders.stalled.slice(0, 3)) out.push({ icon: AlertTriangle, tone: 'warning', text: `${d.client_name} — no movement in ${STALL_DAYS}+ days`, meta: 'Founder · stalled', to: `/deals?open=${d.id}` })
-    if (founders.outstanding > 0) out.push({ icon: FileWarning, tone: 'danger', text: `${founders.outstanding} diligence document${founders.outstanding === 1 ? '' : 's'} outstanding`, meta: 'Across active deals', to: '/mandates' })
-    for (const f of lps.cold.slice(0, 2)) out.push({ icon: Snowflake, tone: 'info', text: `${f.name} is going cold`, meta: 'LP · re-engage', to: '/funds' })
+    for (const d of founders.stalled.slice(0, 3)) out.push({ icon: AlertTriangle, text: `${d.client_name} — no movement in ${STALL_DAYS}+ days`, meta: 'Founder · stalled', to: `/deals?open=${d.id}` })
+    if (founders.outstanding > 0) out.push({ icon: FileWarning, text: `${founders.outstanding} diligence document${founders.outstanding === 1 ? '' : 's'} outstanding`, meta: 'Across active deals', to: '/mandates' })
+    for (const f of lps.cold.slice(0, 2)) out.push({ icon: Snowflake, text: `${f.name} is going cold`, meta: 'LP · re-engage', to: '/funds' })
     return out.slice(0, 6)
   }, [founders, lps])
 
   return (
-    <div className="space-y-8 pb-4">
+    <div className="space-y-8 pb-6">
       <ConfigBanner />
 
       {/* Hero */}
-      <header className="flex flex-wrap items-end justify-between gap-4">
+      <header className="flex flex-wrap items-end justify-between gap-4 border-b border-valence-border pb-6">
         <div>
-          <p className="vl-eyebrow inline-flex items-center gap-1.5"><Sparkles className="h-3 w-3" /> Firm overview</p>
-          <h1 className="mt-3 font-display text-feature font-bold tracking-tight text-valence-text">The fund, at a glance.</h1>
-          <p className="mt-2 max-w-xl text-sm leading-relaxed text-valence-muted">Where deals are leaking, where capital is landing, and what needs you — founders and LPs in one view.</p>
+          <p className="vl-eyebrow-ink">Firm overview</p>
+          <h1 className="mt-2.5 font-display text-3xl font-bold tracking-tight text-valence-text">The fund, at a glance</h1>
+          <p className="mt-2 max-w-xl text-sm leading-relaxed text-valence-muted">Where deals are moving, where capital is landing, and what needs attention — founders and LPs in one view.</p>
         </div>
-        <span className="hidden sm:inline-flex items-center gap-1.5 rounded-full border border-valence-border bg-valence-elevated px-3 py-1.5 text-[11px] text-valence-muted">
-          <span className="h-1.5 w-1.5 rounded-full bg-valence-success shadow-[0_0_6px_#22c55e]" /> Live · {format(new Date(), 'd MMM, HH:mm')}
-        </span>
+        <span className="text-[11px] text-valence-subtle">Updated {format(new Date(), 'd MMM yyyy · HH:mm')}</span>
       </header>
 
-      {/* KPI cards */}
+      {/* KPIs */}
       <section className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-        <Kpi icon={Briefcase} tint="blue"  label="Active deals"        value={founders.activeCount} sub="In evaluation" />
-        <Kpi icon={Target}    tint="violet" label="Reaching diligence"  value={founders.reached} sub={founders.dropoffRate != null ? `${founders.dropoffRate}% drop-off` : 'Graduated'} subTone={founders.dropoffRate >= 40 ? 'danger' : 'muted'} />
-        <Kpi icon={Banknote}  tint="emerald" label="Committed LP capital" value={money(lps.committedCapital)} sub={`${lps.committedCount} committed`} subTone="success" />
-        <Kpi icon={Layers}    tint="amber"  label="LP pipeline"          value={money(lps.pipelineCapital)} sub={`${lps.softCount} soft · ${lps.ddCount} in DD`} />
+        <Kpi icon={Briefcase} label="Active deals"         value={founders.activeCount} sub="In evaluation" />
+        <Kpi icon={Target}    label="Reaching diligence"    value={founders.reached} sub={founders.dropoffRate != null ? `${founders.dropoffRate}% drop-off` : 'Graduated'} alert={founders.dropoffRate >= 40} />
+        <Kpi icon={Banknote}  label="Committed LP capital"  value={money(lps.committedCapital)} sub={`${lps.committedCount} committed`} />
+        <Kpi icon={Layers}    label="LP pipeline"           value={money(lps.pipelineCapital)} sub={`${lps.softCount} soft · ${lps.ddCount} in DD`} />
       </section>
 
       {/* Two-column intelligence */}
-      <div className="grid gap-6 lg:grid-cols-2">
+      <div className="grid gap-5 lg:grid-cols-2">
 
         {/* FOUNDERS */}
-        <section className="vl-card vl-card-hover p-7 space-y-6">
-          <CardHead icon={Briefcase} tint="blue" title="Founders" subtitle="Deal flow & where it leaks" to="/deals" cta="Pipeline" />
-          <Funnel funnel={founders.funnel} gradLabel="Diligence" gradCount={founders.reached} accent="blue" />
-          <div className="grid grid-cols-3 gap-3">
-            <Tile label="Drop-off" value={founders.dropoffRate != null ? `${founders.dropoffRate}%` : '—'} tone={founders.dropoffRate >= 40 ? 'danger' : 'muted'} icon={TrendingDown} />
-            <Tile label="Data-room ready" value={`${founders.readiness}%`} tone={founders.readiness >= 60 ? 'success' : 'warning'} icon={FileWarning} />
-            <Tile label="Stalled" value={founders.stalled.length} tone={founders.stalled.length ? 'warning' : 'success'} icon={AlertTriangle} />
+        <section className="vl-card p-6">
+          <CardHead icon={Briefcase} title="Founders" subtitle="Deal flow & where it stalls" to="/deals" cta="Pipeline" />
+          <Funnel funnel={founders.funnel} gradLabel="Diligence" gradCount={founders.reached} />
+          <div className="mt-5 grid grid-cols-3 gap-px overflow-hidden rounded-lg border border-valence-border bg-valence-border">
+            <Tile label="Drop-off" value={founders.dropoffRate != null ? `${founders.dropoffRate}%` : '—'} alert={founders.dropoffRate >= 40} />
+            <Tile label="Data-room ready" value={`${founders.readiness}%`} />
+            <Tile label="Stalled" value={founders.stalled.length} alert={founders.stalled.length > 0} />
           </div>
           {founders.owners.length > 0 && (
-            <div className="space-y-2.5">
-              <p className="vl-eyebrow-ink inline-flex items-center gap-1.5"><Flame className="h-3 w-3" /> Where deals leak, by owner</p>
-              <ul className="space-y-2">
+            <div className="mt-6">
+              <p className="vl-eyebrow-ink mb-3">Where deals stall, by owner</p>
+              <ul className="space-y-2.5">
                 {founders.owners.map(o => (
                   <li key={o.owner} className="flex items-center gap-3">
-                    <span className="w-28 shrink-0 truncate text-[13px] font-medium text-valence-text">{o.owner}</span>
-                    <div className="relative h-2 flex-1 overflow-hidden rounded-full bg-valence-surface">
-                      <div className="absolute inset-y-0 left-0 rounded-full bg-valence-success/70" style={{ width: `${pct(o.reached, o.reached + o.passed)}%` }} />
+                    <span className="w-28 shrink-0 truncate text-[13px] text-valence-text">{o.owner}</span>
+                    <div className="relative h-1.5 flex-1 overflow-hidden rounded-full bg-valence-surface">
+                      <div className="absolute inset-y-0 left-0 rounded-full bg-valence-ink/70" style={{ width: `${pct(o.reached, o.reached + o.passed)}%` }} />
                     </div>
-                    <span className="shrink-0 text-[11px] tabular-nums text-valence-muted">
-                      <span className="font-semibold text-valence-success">{o.reached}</span> / <span className="font-semibold text-valence-danger">{o.passed}</span>
-                      {o.passRate != null && <span className={`ml-1.5 font-semibold ${o.passRate >= 50 ? 'text-valence-danger' : 'text-valence-subtle'}`}>{o.passRate}%</span>}
-                    </span>
+                    <span className="w-20 shrink-0 text-right text-[11px] tabular-nums text-valence-muted">{o.reached} reached · {o.passed} lost</span>
                   </li>
                 ))}
               </ul>
-              <p className="text-[10px] text-valence-subtle">Bar = reached diligence · numbers are reached / passed.</p>
             </div>
           )}
         </section>
 
         {/* LPs */}
-        <section className="vl-card vl-card-hover p-7 space-y-6">
-          <CardHead icon={Building2} tint="emerald" title="LPs" subtitle="Fundraising & capital" to="/funds" cta="LP book" />
-          <Funnel funnel={lps.funnel} gradLabel="Committed" gradCount={lps.committedCount} accent="emerald" />
-          <div className="grid grid-cols-3 gap-3">
-            <Tile label="Committed" value={money(lps.committedCapital)} tone="success" icon={Banknote} />
-            <Tile label="Soft-circled" value={money(lps.softCapital)} tone="muted" icon={Layers} />
-            <Tile label="Going cold" value={lps.cold.length} tone={lps.cold.length ? 'warning' : 'success'} icon={Snowflake} />
+        <section className="vl-card p-6">
+          <CardHead icon={Building2} title="LPs" subtitle="Fundraising & capital" to="/funds" cta="LP book" />
+          <Funnel funnel={lps.funnel} gradLabel="Committed" gradCount={lps.committedCount} />
+          <div className="mt-5 grid grid-cols-3 gap-px overflow-hidden rounded-lg border border-valence-border bg-valence-border">
+            <Tile label="Committed" value={money(lps.committedCapital)} />
+            <Tile label="Soft-circled" value={money(lps.softCapital)} />
+            <Tile label="Going cold" value={lps.cold.length} alert={lps.cold.length > 0} />
           </div>
-          <div className="grid grid-cols-2 gap-5">
+          <div className="mt-6 grid grid-cols-2 gap-6">
             <Breakdown title="By archetype" items={lps.byArchetype} />
             <Breakdown title="By geography" items={lps.byGeo} />
           </div>
@@ -167,73 +162,62 @@ export default function Home() {
       </div>
 
       {/* Relationship-intelligence band */}
-      <section className="overflow-hidden rounded-2xl border border-valence-blue/20 bg-valence-blue-soft/40">
-        <div className="flex flex-wrap items-center justify-between gap-4 p-5">
-          <div className="flex items-center gap-3.5">
-            <span className="grid h-11 w-11 place-items-center rounded-xl bg-white/70 text-valence-blue ring-1 ring-valence-blue/20"><Users className="h-5 w-5" /></span>
-            <div>
-              <p className="text-sm font-semibold text-valence-text">Relationship intelligence</p>
-              <p className="mt-0.5 text-[12px] text-valence-muted">
-                <b className="text-valence-text tabular-nums">{captures.total}</b> interactions auto-captured this week
-                <span className="mx-1.5 text-valence-subtle">·</span>
-                <b className="text-valence-text tabular-nums">{lps.cold.length}</b> LP relationship{lps.cold.length === 1 ? '' : 's'} at risk
-              </p>
-            </div>
-          </div>
-          <Link to="/interactions" className="vl-btn-secondary-sm shrink-0">Open relationships <ArrowRight className="h-3.5 w-3.5" /></Link>
+      <section className="vl-card flex flex-wrap items-center justify-between gap-4 px-6 py-4">
+        <div className="flex items-center gap-3">
+          <Users className="h-4 w-4 text-valence-subtle" />
+          <p className="text-[13px] text-valence-muted">
+            <b className="font-semibold text-valence-text tabular-nums">{captures.total}</b> interactions auto-captured this week
+            <span className="mx-2 text-valence-border">|</span>
+            <b className="font-semibold text-valence-text tabular-nums">{lps.cold.length}</b> LP relationship{lps.cold.length === 1 ? '' : 's'} at risk
+          </p>
         </div>
+        <Link to="/interactions" className="inline-flex items-center gap-1 text-xs font-semibold text-valence-blue hover:text-valence-blue-hover">Relationships <ArrowRight className="h-3 w-3" /></Link>
       </section>
 
-      {/* Needs you today */}
+      {/* Needs attention */}
       {actions.length > 0 && (
         <section>
-          <p className="vl-eyebrow-ink mb-3 inline-flex items-center gap-1.5"><Target className="h-3 w-3" /> Needs you today</p>
-          <div className="grid gap-2.5 sm:grid-cols-2">
+          <p className="vl-eyebrow-ink mb-3">Needs attention</p>
+          <div className="overflow-hidden rounded-xl border border-valence-border divide-y divide-valence-border">
             {actions.map((a, i) => (
-              <Link key={i} to={a.to} className="group vl-card vl-card-hover flex items-center gap-3.5 p-4">
-                <span className={`grid h-9 w-9 shrink-0 place-items-center rounded-xl ${toneBg(a.tone)}`}><a.icon className="h-4 w-4" /></span>
+              <Link key={i} to={a.to} className="group flex items-center gap-3.5 bg-valence-elevated px-4 py-3 transition hover:bg-valence-surface">
+                <a.icon className={`h-4 w-4 shrink-0 ${a.icon === AlertTriangle || a.icon === FileWarning ? 'text-valence-muted' : 'text-valence-subtle'}`} />
                 <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-medium text-valence-text">{a.text}</p>
+                  <p className="truncate text-[13px] text-valence-text">{a.text}</p>
                   <p className="text-[11px] text-valence-subtle">{a.meta}</p>
                 </div>
-                <ArrowUpRight className="h-4 w-4 shrink-0 text-valence-subtle transition group-hover:text-valence-blue" />
+                <ArrowUpRight className="h-3.5 w-3.5 shrink-0 text-valence-subtle transition group-hover:text-valence-text" />
               </Link>
             ))}
           </div>
         </section>
       )}
 
-      {loading && <p className="text-center text-xs text-valence-subtle">Loading the firm…</p>}
+      {loading && <p className="text-center text-xs text-valence-subtle">Loading…</p>}
     </div>
   )
 }
 
-const TINT = {
-  blue:    'bg-valence-blue-soft text-valence-blue',
-  violet:  'bg-violet-100 text-violet-600 dark:bg-violet-500/15 dark:text-violet-300',
-  emerald: 'bg-emerald-100 text-emerald-600 dark:bg-emerald-500/15 dark:text-emerald-300',
-  amber:   'bg-amber-100 text-amber-600 dark:bg-amber-500/15 dark:text-amber-300'
-}
-
-function Kpi({ icon: Icon, tint = 'blue', label, value, sub, subTone = 'muted' }) {
-  const st = subTone === 'danger' ? 'text-valence-danger' : subTone === 'success' ? 'text-valence-success' : 'text-valence-subtle'
+function Kpi({ icon: Icon, label, value, sub, alert = false }) {
   return (
-    <div className="vl-card vl-card-hover p-5">
-      <span className={`grid h-9 w-9 place-items-center rounded-xl ${TINT[tint]}`}><Icon className="h-4 w-4" /></span>
-      <p className="mt-4 text-[11px] font-semibold uppercase tracking-[0.12em] text-valence-muted">{label}</p>
-      <p className="mt-1 font-display text-[28px] font-bold leading-none tracking-[-0.02em] text-valence-text tabular-nums">{value}</p>
-      {sub && <p className={`mt-2 text-[11px] font-medium ${st}`}>{sub}</p>}
+    <div className="vl-card p-5">
+      <div className="flex items-center justify-between">
+        <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-valence-muted">{label}</p>
+        <Icon className="h-3.5 w-3.5 text-valence-subtle" />
+      </div>
+      <p className="mt-3 font-display text-[26px] font-bold leading-none tracking-[-0.02em] text-valence-text tabular-nums">{value}</p>
+      {sub && <p className={`mt-2.5 text-[11px] ${alert ? 'text-valence-danger' : 'text-valence-subtle'}`}>{sub}</p>}
     </div>
   )
 }
 
-function CardHead({ icon: Icon, tint = 'blue', title, subtitle, to, cta }) {
+function CardHead({ icon: Icon, title, subtitle, to, cta }) {
   return (
-    <div className="flex items-start justify-between">
-      <div className="flex items-center gap-3">
-        <span className={`grid h-10 w-10 place-items-center rounded-xl ${TINT[tint]}`}><Icon className="h-5 w-5" /></span>
+    <div className="mb-5 flex items-start justify-between">
+      <div className="flex items-center gap-2.5">
+        <Icon className="h-4 w-4 text-valence-subtle" />
         <div>
-          <h2 className="font-display text-lg font-bold tracking-tight text-valence-text">{title}</h2>
+          <h2 className="text-[15px] font-semibold text-valence-text">{title}</h2>
           <p className="text-[12px] text-valence-muted">{subtitle}</p>
         </div>
       </div>
@@ -242,19 +226,16 @@ function CardHead({ icon: Icon, tint = 'blue', title, subtitle, to, cta }) {
   )
 }
 
-function Funnel({ funnel, gradLabel, gradCount, accent = 'blue' }) {
+function Funnel({ funnel, gradLabel, gradCount }) {
   const rows = [...funnel, { id: '_grad', label: gradLabel, count: gradCount, grad: true }]
   const max = Math.max(1, ...rows.map(r => r.count))
-  const barCls = accent === 'emerald'
-    ? 'bg-gradient-to-r from-emerald-400/60 to-emerald-500'
-    : 'bg-gradient-to-r from-valence-blue/50 to-valence-blue'
   return (
     <div className="space-y-2">
       {rows.map(r => (
         <div key={r.id} className="flex items-center gap-3">
-          <span className="w-24 shrink-0 text-[11px] font-medium text-valence-muted truncate">{r.label}</span>
-          <div className="relative h-6 flex-1 overflow-hidden rounded-lg bg-valence-surface">
-            <div className={`h-full rounded-lg transition-all ${r.grad ? 'bg-valence-success' : barCls}`} style={{ width: `${Math.max(r.count > 0 ? 8 : 0, (r.count / max) * 100)}%` }} />
+          <span className="w-24 shrink-0 text-[11px] text-valence-muted truncate">{r.label}</span>
+          <div className="relative h-5 flex-1 overflow-hidden rounded bg-valence-surface">
+            <div className={`h-full rounded ${r.grad ? 'bg-valence-ink' : 'bg-valence-ink/45'}`} style={{ width: `${Math.max(r.count > 0 ? 6 : 0, (r.count / max) * 100)}%` }} />
             <span className="absolute inset-y-0 right-2.5 flex items-center text-[11px] font-semibold tabular-nums text-valence-text">{r.count}</span>
           </div>
         </div>
@@ -263,12 +244,11 @@ function Funnel({ funnel, gradLabel, gradCount, accent = 'blue' }) {
   )
 }
 
-function Tile({ label, value, tone = 'muted', icon: Icon }) {
-  const tc = tone === 'danger' ? 'text-valence-danger' : tone === 'success' ? 'text-valence-success' : tone === 'warning' ? 'text-valence-warning' : 'text-valence-text'
+function Tile({ label, value, alert = false }) {
   return (
-    <div className="rounded-xl bg-valence-surface px-3.5 py-3">
-      <p className="inline-flex items-center gap-1 text-[10px] font-semibold uppercase tracking-[0.1em] text-valence-muted"><Icon className="h-3 w-3" /> {label}</p>
-      <p className={`mt-1.5 font-display text-xl font-bold tabular-nums ${tc}`}>{value}</p>
+    <div className="bg-valence-elevated px-4 py-3">
+      <p className="text-[10px] font-semibold uppercase tracking-[0.1em] text-valence-muted">{label}</p>
+      <p className={`mt-1.5 font-display text-lg font-bold tabular-nums ${alert ? 'text-valence-danger' : 'text-valence-text'}`}>{value}</p>
     </div>
   )
 }
@@ -284,7 +264,7 @@ function Breakdown({ title, items }) {
           {top.map(i => (
             <li key={i.key} className="text-[11px]">
               <div className="flex items-center justify-between gap-2"><span className="truncate text-valence-text">{i.key}</span><span className="tabular-nums text-valence-subtle">{i.count}</span></div>
-              <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-valence-surface"><div className="h-full rounded-full bg-valence-blue/50" style={{ width: `${(i.count / max) * 100}%` }} /></div>
+              <div className="mt-1 h-1 overflow-hidden rounded-full bg-valence-surface"><div className="h-full rounded-full bg-valence-ink/40" style={{ width: `${(i.count / max) * 100}%` }} /></div>
             </li>
           ))}
         </ul>
@@ -298,10 +278,4 @@ function tally(values) {
   const m = new Map()
   for (const v of values) { if (!v) continue; m.set(v, (m.get(v) || 0) + 1) }
   return [...m.entries()].map(([key, count]) => ({ key, count })).sort((a, b) => b.count - a.count)
-}
-function toneBg(tone) {
-  if (tone === 'danger') return 'bg-valence-danger/10 text-valence-danger'
-  if (tone === 'warning') return 'bg-valence-warning/10 text-valence-warning'
-  if (tone === 'info') return 'bg-valence-blue-soft text-valence-blue'
-  return 'bg-valence-surface text-valence-muted'
 }
