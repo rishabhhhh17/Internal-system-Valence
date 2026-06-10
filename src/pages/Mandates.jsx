@@ -29,10 +29,13 @@ export default function Mandates() {
   // Re-load on mount and whenever the pipeline mode flips (company ↔ lp).
   useEffect(() => { load() }, [pipelineMode])
 
-  // Live sync — teammate's stage change / new mandate appears here without reload.
+  // Live sync — teammate's stage change / new doc status appears here without a
+  // reload. Refresh SILENTLY (no skeleton) so a realtime echo of our own click
+  // doesn't flash the whole table. subscribeTable fires on every deals write,
+  // including the dd_docs update we just made.
   useEffect(() => {
     if (!isSupabaseConfigured) return
-    const off = subscribeTable('deals', load)
+    const off = subscribeTable('deals', () => load({ silent: true }))
     return () => off()
   }, [])
 
@@ -63,8 +66,11 @@ export default function Mandates() {
     updateField(dealId, 'dd_docs', docs)
   }
 
-  async function load() {
-    setLoading(true); setLoadError(null)
+  // `silent` skips the skeleton flash — used for realtime refreshes (e.g. the
+  // echo of a doc-status click) so the table updates in place instead of
+  // blinking to a loader and back on every change.
+  async function load({ silent = false } = {}) {
+    if (!silent) { setLoading(true); setLoadError(null) }
     if (!isSupabaseConfigured) {
       setDeals(DEMO_MANDATES); setActivities([]); setLoading(false); return
     }
@@ -82,10 +88,12 @@ export default function Mandates() {
       setActivities(a.data || [])
     } catch (err) {
       console.error(err)
-      setLoadError(err?.message || 'Couldn\'t load deals.')
-      setDeals([]); setActivities([])
+      // On a silent background refresh, keep what's on screen rather than
+      // wiping the table for a transient blip — only surface errors on a
+      // foreground load.
+      if (!silent) { setLoadError(err?.message || 'Couldn\'t load deals.'); setDeals([]); setActivities([]) }
     } finally {
-      setLoading(false)
+      if (!silent) setLoading(false)
     }
   }
 
