@@ -34,8 +34,10 @@ export function docsForMode(mode) {
   return mode === 'lp' ? LP_DOCS : FOUNDER_DOCS
 }
 
-// The status a document cell shows. Click cycles through them in this order.
-export const DOC_STATUSES = ['received', 'pending', 'na']
+// The status a document cell shows. Click cycles through them in this order,
+// so the primary action (an outstanding doc arriving) is a single click:
+//   Pending → Received → N/A → Pending
+export const DOC_STATUSES = ['pending', 'received', 'na']
 
 export function nextDocStatus(status) {
   const i = DOC_STATUSES.indexOf(status || 'pending')
