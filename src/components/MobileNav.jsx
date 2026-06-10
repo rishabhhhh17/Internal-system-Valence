@@ -22,7 +22,7 @@ const more = [
   { to: '/mandates',    label: 'Active Deals',  icon: ListChecks },
   { to: '/timeline',    label: 'Timeline',      icon: Activity },
   { to: '/interactions',label: 'Interactions',  icon: MessageSquare },
-  { to: '/people',      label: 'People',        icon: Users },
+  { to: '/people',      label: 'Contacts',      icon: Users },
   { to: '/funds',       label: 'Leads',         icon: Building2 },
   // Quick Screener hidden from nav for now — route still resolves.
   // { to: '/screen',      label: 'Quick Screener',icon: Sparkles },

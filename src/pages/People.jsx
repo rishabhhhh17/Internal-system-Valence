@@ -171,7 +171,7 @@ export default function People() {
           feels like one product. */}
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <p className="vl-eyebrow-ink">People</p>
+          <p className="vl-eyebrow-ink">Contacts</p>
           <h1 className="mt-2 font-display text-feature font-bold text-valence-text">
             Who we know, and what they care about.
           </h1>

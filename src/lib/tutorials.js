@@ -23,7 +23,7 @@ const TUTORIALS = {
         body: 'Open the command palette from any page. Search deals, people, funds, memos — or hit a route directly.' },
       { target: '[data-tour="nav-deals"]',      placement: 'right',
         title: 'The sidebar is the firm',
-        body: 'Pipeline, Document tracker, Interactions, People, Leads — each one tab on the left.' },
+        body: 'Pipeline, Document tracker, Interactions, Contacts, Leads — each one tab on the left.' },
       { target: '[data-tour="today-meetings"]', placement: 'right',
         title: 'Today\'s meetings',
         body: 'Pulled live from Google Calendar once you connect. Click a meeting to open the attendee personas.' },
@@ -96,7 +96,7 @@ const TUTORIALS = {
   },
 
   '/people': {
-    title: 'People',
+    title: 'Contacts',
     blurb: 'Persona-driven CRM. Not a rolodex.',
     steps: [
       { title: 'Persona over phone number',

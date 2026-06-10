@@ -25,7 +25,7 @@ const titles = {
   '/mandates':          { title: 'Document tracker', sub: 'Documents in and outstanding across active deals.' },
   '/timeline':          { title: 'Timeline',        sub: 'Every active deal, laid out in time.' },
   '/interactions':      { title: 'Interactions',    sub: 'The sourcing funnel — every interaction logged.' },
-  '/people':            { title: 'People',          sub: 'Persona-driven CRM. Who they are, what they care about.' },
+  '/people':            { title: 'Contacts',        sub: 'Persona-driven CRM. Who they are, what they care about.' },
   '/funds':             { title: 'Leads',           sub: 'Founder & LP relationships — your full lead book.' },
   '/screen':            { title: 'Quick Screener',  sub: 'AI deal-fit and thesis-match, one paste away.' },
   '/inbox/intake':      { title: 'Inbound deals',   sub: 'Inbound deals, AI-triaged.' },

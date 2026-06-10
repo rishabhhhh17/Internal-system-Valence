@@ -15,7 +15,7 @@ const QUICK_NAV = [
   { type: 'nav', title: 'Active Deals',   sub: 'Active book by stage',               to: '/mandates',          icon: Briefcase },
   { type: 'nav', title: 'Timeline',       sub: 'Gantt of every active deal',         to: '/timeline',          icon: BarChart3 },
   { type: 'nav', title: 'Interactions',   sub: 'Partner Call interactions',           to: '/interactions',      icon: MessageSquare },
-  { type: 'nav', title: 'People',         sub: 'Persona-driven CRM',                 to: '/people',            icon: UserCircle },
+  { type: 'nav', title: 'Contacts',       sub: 'Persona-driven CRM',                 to: '/people',            icon: UserCircle },
   { type: 'nav', title: 'Leads',          sub: 'Founder & LP relationships CRM',     to: '/funds',             icon: Building2 },
   { type: 'nav', title: 'Quick Screener', sub: 'AI fund-match or deal-fit',          to: '/screen',            icon: Sparkles },
   { type: 'nav', title: 'Inbound deals',  sub: 'Inbound deal submissions',           to: '/inbox/intake',      icon: BookOpen },
