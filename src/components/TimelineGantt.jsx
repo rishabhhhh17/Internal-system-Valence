@@ -218,7 +218,7 @@ export default function TimelineGantt({ deals, activities, zoom = 'months', mode
           {/* Sticky left column — mandate list */}
           <div className="border-r border-valence-border bg-valence-elevated">
             <div className="h-12 border-b border-valence-border px-4 flex items-end pb-2">
-              <span className="vl-eyebrow-ink">Mandate</span>
+              <span className="vl-eyebrow-ink">{mode === 'lp' ? 'LP' : 'Company'}</span>
             </div>
             {rows.map(({ deal }, idx) => {
               const p = paletteFor(deal)

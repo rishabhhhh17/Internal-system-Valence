@@ -155,7 +155,7 @@ export default function Timeline() {
             label="Stale (>21d no touch)" value={stats.stale}
             tone={stats.stale > 0 ? 'warning' : 'muted'} />
           <StatCard icon={<CheckCircle2 className="h-3.5 w-3.5" />}
-            label="Reached diligence" value={stats.closedQuarter} tone="success" />
+            label={pipelineMode === 'lp' ? 'Committed' : 'Reached diligence'} value={stats.closedQuarter} tone="success" />
         </div>
       )}
 
