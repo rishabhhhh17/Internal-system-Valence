@@ -8,6 +8,7 @@ import { useViewMode } from '../hooks/useViewMode.jsx'
 import { usePipelineMode } from '../hooks/usePipelineMode.js'
 import ConfigBanner from '../components/ConfigBanner.jsx'
 import EmptyState from '../components/EmptyState.jsx'
+import DocumentTracker from '../components/DocumentTracker.jsx'
 import ViewModeToggle from '../components/ViewModeToggle.jsx'
 import { InlineText, InlineSelect, InlineDate } from '../components/InlineEdit.jsx'
 import { useToast } from '../components/Toast.jsx'
@@ -50,6 +51,22 @@ export default function Mandates() {
     if (error) toast.error(humanError(error, 'Could not update deal'))
     // re-pull the row in the background so derived fields (days-in-stage etc.) stay current
     if (field === 'stage') load()
+  }
+
+  // Toggle a single document's status in the deal's dd_docs jsonb. Marking a
+  // doc Received stamps today's date (keeps any earlier date if re-received);
+  // anything else clears the date.
+  function cycleDoc(dealId, docKey, nextStatus) {
+    const deal = deals.find(d => d.id === dealId)
+    if (!deal) return
+    const docs = { ...(deal.dd_docs || {}) }
+    const prev = docs[docKey] || {}
+    const todayIso = new Date().toISOString().slice(0, 10)
+    docs[docKey] = {
+      status: nextStatus,
+      date: nextStatus === 'received' ? (prev.date || todayIso) : null
+    }
+    updateField(dealId, 'dd_docs', docs)
   }
 
   async function load() {
@@ -197,6 +214,13 @@ export default function Mandates() {
             </section>
           ))}
         </div>
+      )}
+
+      {/* Document tracker — which diligence docs each active deal has shared.
+          Uses the same filtered active-deal set so it respects the owner
+          filter above. Hidden while loading / on error / when empty. */}
+      {!loading && !loadError && filtered.length > 0 && (
+        <DocumentTracker deals={filtered} mode={pipelineMode} onCycle={cycleDoc} />
       )}
     </div>
   )
