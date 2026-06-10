@@ -6,6 +6,7 @@ import {
   AlertTriangle, Clock, ArrowUpRight, ChevronDown, ChevronUp
 } from 'lucide-react'
 import MeetingPrepCard from '../components/MeetingPrepCard.jsx'
+import AutoCaptureCard from '../components/AutoCaptureCard.jsx'
 import { supabase, isSupabaseConfigured, subscribeTable } from '../lib/supabase.js'
 import { useToast } from '../components/Toast.jsx'
 import { useAuth } from '../hooks/useAuth.js'
@@ -720,6 +721,9 @@ export default function DailyNote() {
 
       {/* KPI command-center strip — the numbers that matter at a glance. */}
       {ready && <StatStrip stats={stats} />}
+
+      {/* Auto-capture — passive Gmail + Calendar logging keeps the CRM current. */}
+      <AutoCaptureCard />
 
       {/* Auto sections — read-only, regenerated every render */}
       <section className="grid gap-4 lg:grid-cols-2">

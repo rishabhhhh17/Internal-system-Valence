@@ -22,6 +22,7 @@ import { useViewMode } from '../hooks/useViewMode.jsx'
 import ConfigBanner from '../components/ConfigBanner.jsx'
 import EmptyState from '../components/EmptyState.jsx'
 import InteractionDrawer from '../components/InteractionDrawer.jsx'
+import AutoCaptureCard from '../components/AutoCaptureCard.jsx'
 import ViewModeToggle from '../components/ViewModeToggle.jsx'
 import { useToast } from '../components/Toast.jsx'
 import { humanError } from '../lib/userError.js'
@@ -286,6 +287,9 @@ export default function Interactions() {
         </div>
       </div>
 
+      {/* Auto-capture — passive Gmail + Calendar logging. */}
+      <AutoCaptureCard onCaptured={load} />
+
       {/* Main content */}
       {loading ? (
         <ListSkeleton />
@@ -411,6 +415,11 @@ function InteractionRow({ row, onOpen, onConvert, isDetailed = true }) {
             </span>
             <span className="text-valence-subtle">·</span>
             <span>{typeLabel(row.type)}</span>
+            {(row.source === 'calendar' || row.source === 'gmail') && (
+              <span className="inline-flex items-center gap-1 rounded-full border border-valence-blue/30 bg-valence-blue-soft px-2 py-0.5 font-semibold text-valence-blue" title="Captured automatically from your connected Google account">
+                <Sparkles className="h-2.5 w-2.5" /> Auto · {row.source === 'calendar' ? 'Calendar' : 'Gmail'}
+              </span>
+            )}
             {row.origination && (<><span className="text-valence-subtle">·</span><span className="capitalize">{row.origination}</span></>)}
             {row.is_complete && (<><span className="text-valence-subtle">·</span><span className="text-valence-success font-semibold">✓ Complete</span></>)}
             {row.lead_owner && <><span className="text-valence-subtle">·</span><span>{row.lead_owner}</span></>}
