@@ -16,6 +16,26 @@ export function founderStage(row) {
   return Array.isArray(row?.stages) && row.stages.length ? row.stages[0] : null
 }
 
+// ── LP relationships (the same /funds page in LP mode) ───────────────────
+// LP archetype is stored in fund_type; geographies in the geographies[] array.
+export const LP_ARCHETYPES = ['Family Office', 'Endowment', 'Foundation', 'Pension Fund', 'Corporate Venture']
+// Basic geographies offered as a starting set — the user can free-type more.
+export const LP_GEOGRAPHIES = ['North America', 'Europe', 'India', 'MENA', 'SE Asia', 'China', 'LatAm', 'Global']
+
+export function lpArchetype(row) { return row?.fund_type || null }
+export function lpGeographies(row) { return Array.isArray(row?.geographies) ? row.geographies : [] }
+
+// Demo fallback for the LP relationships view (no Supabase configured).
+export const DEMO_LPS = [
+  { id: 'lp1', kind: 'lp', name: 'Cedar Foundation',        fund_type: 'Foundation',       geographies: ['North America'],          warmth: 'hot',     last_touched_at: daysAgo(5),   notes: 'Anchor interest; wants quarterly updates.' },
+  { id: 'lp2', kind: 'lp', name: 'Evergreen Endowment',     fund_type: 'Endowment',        geographies: ['North America','Europe'], warmth: 'hot',     last_touched_at: daysAgo(8),   notes: '' },
+  { id: 'lp3', kind: 'lp', name: 'Maple Pension Fund',      fund_type: 'Pension Fund',     geographies: ['North America'],          warmth: 'warm',    last_touched_at: daysAgo(14),  notes: '' },
+  { id: 'lp4', kind: 'lp', name: 'Gulf Sovereign Capital',  fund_type: 'Family Office',    geographies: ['MENA'],                   warmth: 'warm',    last_touched_at: daysAgo(20),  notes: '' },
+  { id: 'lp5', kind: 'lp', name: 'Horizon Fund-of-Funds',   fund_type: 'Family Office',    geographies: ['India','SE Asia'],        warmth: 'cold',    last_touched_at: daysAgo(45),  notes: '' },
+  { id: 'lp6', kind: 'lp', name: 'Tata Corporate Ventures', fund_type: 'Corporate Venture', geographies: ['India'],                 warmth: 'warm',    last_touched_at: daysAgo(18),  notes: '' },
+  { id: 'lp7', kind: 'lp', name: 'Lotus Family Office',     fund_type: 'Family Office',    geographies: ['India','MENA'],           warmth: 'dormant', last_touched_at: daysAgo(120), notes: '' }
+]
+
 // Demo fallback for the Founders CRM page when Supabase isn't configured.
 // (DEMO_FUNDS below stays as-is — the fund-match screener and its tests
 // still score against investor funds.)

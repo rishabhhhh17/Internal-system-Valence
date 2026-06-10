@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom'
 import { Globe, Mail, Phone, ExternalLink, Sparkles, UserCircle } from 'lucide-react'
 import Drawer from './Drawer.jsx'
 import { supabase, isSupabaseConfigured } from '../lib/supabase.js'
-import { FOUNDER_STAGES, WARMTH_LEVELS } from '../lib/funds.js'
+import { FOUNDER_STAGES, LP_ARCHETYPES, WARMTH_LEVELS } from '../lib/funds.js'
 import { DEMO_PEOPLE } from '../lib/people.js'
 import EntityMentions from './EntityMentions.jsx'
 import WikilinkTextarea from './WikilinkTextarea.jsx'
@@ -23,13 +23,15 @@ const BLANK = {
   name: '',
   hq_city: '', hq_country: '',
   sectors: '', stage: 'Seed',
+  archetype: 'Family Office', geographies: '',
   website: '',
   warmth: 'cold',
   last_touched_at: '',
   notes: ''
 }
 
-export default function FundDrawer({ open, onClose, existing, onSubmit, onRename }) {
+export default function FundDrawer({ open, onClose, existing, onSubmit, onRename, mode = 'founder' }) {
+  const isLp = mode === 'lp'
   const [tab, setTab] = useState('overview')
   const [form, setForm] = useState(BLANK)
   const [contacts, setContacts] = useState([])
@@ -83,21 +85,37 @@ export default function FundDrawer({ open, onClose, existing, onSubmit, onRename
     e.preventDefault()
     if (submitting) return
     if (!form.name.trim()) return
-    const payload = {
-      name: form.name.trim(),
-      // fund_type column is NOT NULL from the old investor-CRM schema;
-      // founder rows carry a neutral 'Other' (preserved on edit).
-      fund_type: existing?.fund_type || 'Other',
-      hq_city: form.hq_city.trim() || null,
-      hq_country: form.hq_country.trim() || null,
-      sectors: parseList(form.sectors),
-      // Funding round lives in stages[0].
-      stages: form.stage ? [form.stage] : [],
-      website: form.website.trim() || null,
-      warmth: form.warmth,
-      last_touched_at: form.last_touched_at || null,
-      notes: form.notes.trim() || null
-    }
+    const payload = isLp
+      ? {
+          name: form.name.trim(),
+          kind: 'lp',
+          // LP archetype lives in fund_type (NOT NULL column).
+          fund_type: form.archetype || 'Family Office',
+          geographies: parseList(form.geographies),
+          sectors: [],
+          stages: [],
+          hq_city: null, hq_country: null,
+          website: form.website.trim() || null,
+          warmth: form.warmth,
+          last_touched_at: form.last_touched_at || null,
+          notes: form.notes.trim() || null
+        }
+      : {
+          name: form.name.trim(),
+          kind: 'founder',
+          // fund_type column is NOT NULL; founder rows carry a neutral 'Other'.
+          fund_type: existing?.fund_type || 'Other',
+          hq_city: form.hq_city.trim() || null,
+          hq_country: form.hq_country.trim() || null,
+          sectors: parseList(form.sectors),
+          // Funding round lives in stages[0].
+          stages: form.stage ? [form.stage] : [],
+          geographies: [],
+          website: form.website.trim() || null,
+          warmth: form.warmth,
+          last_touched_at: form.last_touched_at || null,
+          notes: form.notes.trim() || null
+        }
     setSubmitting(true)
     try {
       await Promise.resolve(onSubmit?.(payload, existing?.id))
@@ -118,14 +136,14 @@ export default function FundDrawer({ open, onClose, existing, onSubmit, onRename
               onSave={async (next) => { if (onRename) await onRename(existing.id, next) }}
               disabled={!onRename}
             />
-          : 'New founder'
+          : (isLp ? 'New LP' : 'New founder')
       }
       footer={
         tab === 'overview' || tab === 'notes' ? (
           <div className="flex items-center justify-end gap-3">
             <button type="button" onClick={onClose} disabled={submitting} className="vl-btn-secondary">Cancel</button>
             <button type="submit" form="fund-form" disabled={submitting} className="vl-btn-primary">
-              {submitting ? 'Saving…' : (existing ? 'Save changes' : 'Save founder')}
+              {submitting ? 'Saving…' : (existing ? 'Save changes' : (isLp ? 'Save LP' : 'Save founder'))}
             </button>
           </div>
         ) : null
@@ -146,7 +164,35 @@ export default function FundDrawer({ open, onClose, existing, onSubmit, onRename
         </div>
       )}
 
-      {tab === 'overview' && (
+      {tab === 'overview' && isLp && (
+        <form id="fund-form" onSubmit={submit} className="space-y-5">
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Field label="LP name *">
+              <input className="vl-input" required value={form.name} onChange={e => update({ name: e.target.value })} placeholder="Cedar Foundation" />
+            </Field>
+            <Field label="Archetype">
+              <select className="vl-input" value={form.archetype} onChange={e => update({ archetype: e.target.value })}>
+                {LP_ARCHETYPES.map(t => <option key={t} value={t}>{t}</option>)}
+              </select>
+            </Field>
+            <Field label="Warmth">
+              <select className="vl-input" value={form.warmth} onChange={e => update({ warmth: e.target.value })}>
+                {WARMTH_LEVELS.map(w => <option key={w} value={w} className="capitalize">{w}</option>)}
+              </select>
+            </Field>
+            <Field label="Last touched"><input type="date" className="vl-input" value={form.last_touched_at} onChange={e => update({ last_touched_at: e.target.value })} /></Field>
+            <Field label="Website"><input className="vl-input" value={form.website} onChange={e => update({ website: e.target.value })} placeholder="https://…" /></Field>
+          </div>
+
+          <div className="grid gap-4">
+            <Field label="Geographies (comma-separated)" hint="Free entry — e.g. North America, India, MENA. These become filters on the LP page">
+              <input className="vl-input" value={form.geographies} onChange={e => update({ geographies: e.target.value })} placeholder="North America, India, MENA" />
+            </Field>
+          </div>
+        </form>
+      )}
+
+      {tab === 'overview' && !isLp && (
         <form id="fund-form" onSubmit={submit} className="space-y-5">
           <div className="grid gap-4 sm:grid-cols-2">
             <Field label="Company name *">
@@ -330,6 +376,9 @@ function stringifyArrays(row) {
     sectors: Array.isArray(row.sectors) ? row.sectors.join(', ') : (row.sectors || ''),
     // Funding round = stages[0] (legacy rows may carry several; first wins).
     stage: Array.isArray(row.stages) && row.stages.length ? row.stages[0] : 'Seed',
+    // LP fields: archetype = fund_type, geographies = joined array.
+    archetype: row.fund_type && row.fund_type !== 'Other' ? row.fund_type : 'Family Office',
+    geographies: Array.isArray(row.geographies) ? row.geographies.join(', ') : (row.geographies || ''),
     last_touched_at: row.last_touched_at ? String(row.last_touched_at).slice(0, 10) : '',
     notes: row.notes ?? ''
   }
