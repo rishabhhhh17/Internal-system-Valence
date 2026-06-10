@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { parseISO, differenceInCalendarDays } from 'date-fns'
-import { Briefcase, Filter, Users } from 'lucide-react'
+import { Briefcase, Users } from 'lucide-react'
 import { supabase, isSupabaseConfigured, subscribeTable } from '../lib/supabase.js'
 import { liveStagesForMode } from '../lib/stages.js'
 import { usePipelineMode } from '../hooks/usePipelineMode.js'
@@ -25,7 +25,6 @@ export default function Mandates() {
   const [activities, setActivities] = useState([])
   const [loading, setLoading]       = useState(true)
   const [loadError, setLoadError]   = useState(null)
-  const [ownerFilter, setOwnerFilter] = useState('All')
 
   // Re-load on mount and whenever the pipeline mode flips (company ↔ lp).
   useEffect(() => { load() }, [pipelineMode])
@@ -111,17 +110,7 @@ export default function Mandates() {
     })
   }, [deals, activities])
 
-  const owners = useMemo(() => {
-    const set = new Set()
-    for (const d of enriched) if (d.lead_owner) set.add(d.lead_owner)
-    return ['All', ...Array.from(set).sort()]
-  }, [enriched])
-
-  const filtered = useMemo(() => {
-    return enriched.filter(d => ownerFilter === 'All' || d.lead_owner === ownerFilter)
-  }, [enriched, ownerFilter])
-
-  const totalLive = filtered.length
+  const totalLive = enriched.length
 
   return (
     <div className="space-y-6">
@@ -135,36 +124,21 @@ export default function Mandates() {
           </h1>
         </div>
         <div className="flex items-center gap-3">
+          <span className="inline-flex items-center gap-1.5 rounded-full border border-valence-border bg-valence-elevated px-2.5 py-1 text-[11px] text-valence-muted">
+            <Users className="h-3 w-3" /> {totalLive} active deal{totalLive === 1 ? '' : 's'}
+          </span>
           <Link to="/deals" className="vl-btn-secondary"><Briefcase className="h-4 w-4" /> Open Pipeline</Link>
         </div>
-      </div>
-
-      <div className="flex flex-wrap items-center gap-2">
-        <span className="vl-eyebrow-ink inline-flex items-center gap-1.5"><Filter className="h-3 w-3" /> Deal lead</span>
-        {owners.map(o => (
-          <button
-            key={o}
-            onClick={() => setOwnerFilter(o)}
-            className={`rounded-full border px-2.5 py-1 text-[11px] font-semibold transition ${
-              ownerFilter === o
-                ? 'border-valence-blue/40 bg-valence-blue-soft text-valence-text'
-                : 'border-valence-border bg-valence-elevated text-valence-muted hover:text-valence-text'
-            }`}
-          >{o}</button>
-        ))}
-        <span className="ml-auto inline-flex items-center gap-1.5 rounded-full border border-valence-border bg-valence-elevated px-2.5 py-1 text-[11px] text-valence-muted">
-          <Users className="h-3 w-3" /> {totalLive} active deal{totalLive === 1 ? '' : 's'}
-        </span>
       </div>
 
       {loading ? (
         <TableSkeleton />
       ) : loadError ? (
         <EmptyState icon={Briefcase} title="Couldn't load deals" description={loadError} action={<button onClick={load} className="vl-btn-primary">Retry</button>} />
-      ) : filtered.length === 0 ? (
+      ) : enriched.length === 0 ? (
         <EmptyState icon={Briefcase} title="No active deals to track" description={isLp ? 'LPs appear here once they reach a pitch meeting or beyond.' : 'Companies appear here once a deal is in an active stage.'} action={<Link to="/deals" className="vl-btn-primary">Open Pipeline</Link>} />
       ) : (
-        <DocumentTracker deals={filtered} mode={pipelineMode} onCycle={cycleDoc} />
+        <DocumentTracker deals={enriched} mode={pipelineMode} onCycle={cycleDoc} />
       )}
     </div>
   )

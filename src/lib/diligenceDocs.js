@@ -10,24 +10,26 @@
 // An absent key defaults to 'pending' so a fresh deal reads as "nothing in yet"
 // without needing every key pre-seeded.
 
+// `short` is the column header in the matrix view; `label` is the full name
+// (used in tooltips / the legend).
 export const FOUNDER_DOCS = [
-  { key: 'nda',                label: 'NDA' },
-  { key: 'pitch_deck',         label: 'Pitch Deck' },
-  { key: 'financial_model',    label: 'Financial Model' },
-  { key: 'cap_table',          label: 'Cap Table (fully diluted)' },
-  { key: 'customer_contracts', label: 'Customer Contracts' },
-  { key: 'ip_assignment',      label: 'IP Assignment Agreements' },
-  { key: 'incorporation',      label: 'Incorporation Documents' },
-  { key: 'option_plan',        label: 'Option / Equity Plan' }
+  { key: 'nda',                short: 'NDA',       label: 'NDA' },
+  { key: 'pitch_deck',         short: 'Deck',      label: 'Pitch Deck' },
+  { key: 'financial_model',    short: 'Model',     label: 'Financial Model' },
+  { key: 'cap_table',          short: 'Cap Table', label: 'Cap Table (fully diluted)' },
+  { key: 'customer_contracts', short: 'Contracts', label: 'Customer Contracts' },
+  { key: 'ip_assignment',      short: 'IP',        label: 'IP Assignment Agreements' },
+  { key: 'incorporation',      short: 'Incorp.',   label: 'Incorporation Documents' },
+  { key: 'option_plan',        short: 'Options',   label: 'Option / Equity Plan' }
 ]
 
 export const LP_DOCS = [
-  { key: 'nda',                 label: 'NDA' },
-  { key: 'investor_collateral', label: 'Investor Collateral (Deck / PPM)' },
-  { key: 'lpa_side_letter',     label: 'Fund LPA / Side Letter' },
-  { key: 'track_record',        label: 'Track Record / Performance' },
-  { key: 'ddq',                 label: 'DDQ (Due Diligence Questionnaire)' },
-  { key: 'kyc_aml',             label: 'KYC / AML Docs' }
+  { key: 'nda',                 short: 'NDA',        label: 'NDA' },
+  { key: 'investor_collateral', short: 'Collateral', label: 'Investor Collateral (Deck / PPM)' },
+  { key: 'lpa_side_letter',     short: 'LPA',        label: 'Fund LPA / Side Letter' },
+  { key: 'track_record',        short: 'Track Rec.', label: 'Track Record / Performance' },
+  { key: 'ddq',                 short: 'DDQ',        label: 'DDQ (Due Diligence Questionnaire)' },
+  { key: 'kyc_aml',             short: 'KYC / AML',  label: 'KYC / AML Docs' }
 ]
 
 export function docsForMode(mode) {
