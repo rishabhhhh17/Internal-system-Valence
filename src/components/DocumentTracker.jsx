@@ -1,8 +1,9 @@
 import { format, parseISO } from 'date-fns'
-import { Check, Minus, FileCheck2 } from 'lucide-react'
+import { Check, Minus, FileCheck2, Send } from 'lucide-react'
 import {
   docsForMode, docState, nextDocStatus, docCompletion
 } from '../lib/diligenceDocs.js'
+import { openGmailCompose } from '../lib/google.js'
 
 // Document tracker, matrix view. One row per company / LP, one column per
 // document — so the fund can read across a single row to see who's missing
@@ -51,6 +52,7 @@ export default function DocumentTracker({ deals = [], mode = 'company', onCycle 
                 <th key={d.key} title={d.label} className="px-2 py-3 text-center font-semibold whitespace-nowrap">{d.short}</th>
               ))}
               <th className="px-4 py-3 text-right font-semibold whitespace-nowrap">Complete</th>
+              <th className="px-4 py-3" aria-label="Request" />
             </tr>
           </thead>
           <tbody>
@@ -88,6 +90,18 @@ export default function DocumentTracker({ deals = [], mode = 'company', onCycle 
                       {received}/{applicable}
                     </span>
                   </td>
+                  <td className="px-4 py-3 text-right whitespace-nowrap">
+                    {applicable - received > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => requestDocs(deal, docs)}
+                        title="Email the founder the outstanding documents"
+                        className="inline-flex items-center gap-1 text-[11px] font-semibold text-valence-blue hover:text-valence-blue-hover"
+                      >
+                        <Send className="h-3 w-3" /> Request
+                      </button>
+                    )}
+                  </td>
                 </tr>
               )
             })}
@@ -96,6 +110,18 @@ export default function DocumentTracker({ deals = [], mode = 'company', onCycle 
       </div>
     </section>
   )
+}
+
+// One-click "request outstanding docs": drafts a Gmail message listing exactly
+// the pending documents for this deal. Opens a compose window — the user
+// reviews and sends (we never auto-send).
+function requestDocs(deal, docs) {
+  const outstanding = docs.filter(d => docState(deal, d.key).status === 'pending')
+  if (!outstanding.length) return
+  const lines = outstanding.map(d => `• ${d.label}`).join('\n')
+  const subject = `Outstanding documents — ${deal.client_name}`
+  const body = `Hi,\n\nThanks for the time so far. To keep things moving on our side, could you share the following outstanding items for the data room when you get a chance?\n\n${lines}\n\nHappy to hop on a quick call if that's easier.\n\nBest regards,`
+  openGmailCompose({ subject, body })
 }
 
 // The per-cell status glyph: green check = received, red dot = pending
