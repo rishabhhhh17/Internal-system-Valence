@@ -11,7 +11,8 @@ export const WORKSPACE_KEYS = Object.freeze({
   density:         'density',           // 'comfortable' | 'compact'
   browserTitle:    'browserTitle',
   theme:           'theme',             // 'light' | 'dark' | 'auto'
-  sidebarCollapsed:'sidebarCollapsed'   // '' (default = expanded) | 'true'
+  sidebarCollapsed:'sidebarCollapsed',  // '' (default = expanded) | 'true'
+  documentHandling:'documentHandling'   // 'reference' (link, don't store) | 'upload'
 })
 
 export const WORKSPACE_DEFAULTS = Object.freeze({
@@ -20,11 +21,13 @@ export const WORKSPACE_DEFAULTS = Object.freeze({
   density: 'comfortable',
   browserTitle: '',  // empty = use the firm name
   theme: 'light',
-  sidebarCollapsed: ''
+  sidebarCollapsed: '',
+  documentHandling: 'reference'   // secure default — sensitive files stay in the firm's Drive
 })
 
 const VALID_DENSITY = new Set(['comfortable', 'compact'])
 const VALID_THEME = new Set(['light', 'dark', 'auto'])
+const VALID_DOC_HANDLING = new Set(['reference', 'upload'])
 
 function safeStorage() {
   try {
@@ -63,6 +66,7 @@ export function setWorkspaceSetting(key, value) {
   // Density / theme only accept their known tokens.
   if (key === WORKSPACE_KEYS.density && value && !VALID_DENSITY.has(value)) return false
   if (key === WORKSPACE_KEYS.theme && value && !VALID_THEME.has(value)) return false
+  if (key === WORKSPACE_KEYS.documentHandling && value && !VALID_DOC_HANDLING.has(value)) return false
   try {
     const v = value === null || value === undefined ? '' : String(value).trim()
     if (v === '' || v === WORKSPACE_DEFAULTS[key]) {

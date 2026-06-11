@@ -1,5 +1,7 @@
+import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { ShieldCheck, Lock, Database, Cpu, KeyRound, FileText, Users, ArrowRight } from 'lucide-react'
+import { getWorkspaceSetting, setWorkspaceSetting, WORKSPACE_KEYS } from '../lib/workspace.js'
 
 // Security & AI — the trust surface. Every claim here is something the
 // architecture actually does (or an honestly-tagged roadmap item). This is
@@ -32,10 +34,11 @@ const POSTURE = [
     cta: 'Configure model'
   },
   {
+    id: 'docs',
     icon: FileText,
     title: 'Reference documents — don’t upload them',
-    body: 'Sensitive files (NDAs, LP agreements) can stay in your own Drive / data room. We index status in place and store a pointer plus extracted facts — the file itself never has to be copied into the platform.',
-    tag: 'Rolling out'
+    body: 'Sensitive files (NDAs, LP agreements) stay in your own Drive / data room. In reference-only mode the platform links to them and tracks status — the file itself is never copied in.',
+    tag: 'Active'
   },
   {
     icon: Users,
@@ -46,6 +49,11 @@ const POSTURE = [
 ]
 
 export default function SecurityPanel() {
+  const [docMode, setDocMode] = useState(getWorkspaceSetting(WORKSPACE_KEYS.documentHandling, 'reference'))
+  function chooseDocMode(mode) {
+    setWorkspaceSetting(WORKSPACE_KEYS.documentHandling, mode)
+    setDocMode(mode)
+  }
   return (
     <div className="space-y-4">
       <div className="vl-card p-6">
@@ -69,6 +77,17 @@ export default function SecurityPanel() {
             </div>
             <h3 className="mt-3 text-[13px] font-semibold text-valence-text">{p.title}</h3>
             <p className="mt-1.5 text-[12px] leading-relaxed text-valence-muted">{p.body}</p>
+            {p.id === 'docs' && (
+              <div className="mt-3 inline-flex items-center rounded-lg border border-valence-border bg-valence-surface p-0.5">
+                {[['reference', 'Reference-only'], ['upload', 'Allow uploads']].map(([m, label]) => (
+                  <button
+                    key={m}
+                    onClick={() => chooseDocMode(m)}
+                    className={`rounded-md px-2.5 py-1 text-[11px] font-semibold transition ${docMode === m ? 'bg-valence-ink text-white' : 'text-valence-muted hover:text-valence-text'}`}
+                  >{label}</button>
+                ))}
+              </div>
+            )}
             {p.to && (
               <Link to={p.to} className="mt-3 inline-flex items-center gap-1 text-[11px] font-semibold text-valence-blue hover:text-valence-blue-hover">
                 {p.cta} <ArrowRight className="h-3 w-3" />
