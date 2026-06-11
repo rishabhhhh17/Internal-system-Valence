@@ -18,6 +18,7 @@ describe('SETTINGS_SECTIONS', () => {
       'team',
       'appearance',
       'scoring',
+      'security',
       'integrations',
       'data'
     ])

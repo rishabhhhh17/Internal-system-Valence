@@ -39,6 +39,12 @@ export const SETTINGS_SECTIONS = [
     description: 'Define the deal types, sectors, ticket sizes, and geographies your firm is actively screening for. AI surfaces use this to score inbound mandates.'
   },
   {
+    id: 'security',
+    tier: 'advanced',
+    label: 'Security & AI',
+    description: 'How your founder and LP data is isolated, encrypted, and kept out of AI training.'
+  },
+  {
     id: 'integrations',
     tier: 'advanced',
     label: 'Integrations',

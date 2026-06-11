@@ -14,6 +14,7 @@ import { PITCH_MODE } from '../lib/featureFlags.js'
 import GoogleWorkspacePanel from '../components/GoogleWorkspacePanel.jsx'
 import SampleDataPanel from '../components/SampleDataPanel.jsx'
 import LlmProviderPanel from '../components/LlmProviderPanel.jsx'
+import SecurityPanel from '../components/SecurityPanel.jsx'
 import TeamPanel from '../components/TeamPanel.jsx'
 import CsvContactImport from '../components/CsvContactImport.jsx'
 import ScoringCriteriaPanel from '../components/ScoringCriteriaPanel.jsx'
@@ -166,6 +167,8 @@ function SectionBody({ id }) {
       return <TeamPanel />
     case 'scoring':
       return <ScoringSection />
+    case 'security':
+      return <SecurityPanel />
     case 'integrations':
       return <IntegrationsSection />
     case 'data':
