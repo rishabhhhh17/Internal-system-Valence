@@ -1,6 +1,6 @@
 import { useMemo, useRef, useState } from 'react'
 import { MoreHorizontal, MoveRight } from 'lucide-react'
-import { STAGES } from '../lib/stages.js'
+import { STAGES, stageLabel } from '../lib/stages.js'
 import { useCurrency } from '../hooks/useCurrency.jsx'
 
 // Soft column-background tint per stage tone — inspired by the DealVisor
@@ -18,7 +18,7 @@ function columnBgForTone(tone) {
   }
 }
 
-export default function DealKanban({ deals, onOpen, onStageChange, stages = STAGES }) {
+export default function DealKanban({ deals, onOpen, onStageChange, stages = STAGES, mode = 'company' }) {
   const [draggingId, setDraggingId] = useState(null)
   const [overStage, setOverStage]   = useState(null)
   const [stageMenu, setStageMenu]   = useState(null) // dealId for mobile stage picker
@@ -77,7 +77,7 @@ export default function DealKanban({ deals, onOpen, onStageChange, stages = STAG
               <div className="flex items-center justify-between px-3 py-2 border-b border-valence-border/60">
                 <div className="flex items-center gap-2 min-w-0">
                   <span className={`h-1.5 w-1.5 rounded-full shrink-0 ${dotForTone(stage.tone)}`} />
-                  <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-valence-text truncate" title={stage.desc}>{stage.label || stage.id}</p>
+                  <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-valence-text truncate" title={stage.desc}>{stageLabel(stage.id, mode)}</p>
                 </div>
                 <span className="rounded-md border border-valence-border bg-valence-elevated px-1.5 py-0 text-[10px] font-semibold tabular-nums text-valence-muted">
                   {items.length}
@@ -96,6 +96,7 @@ export default function DealKanban({ deals, onOpen, onStageChange, stages = STAG
                     onStageChange={onStageChange}
                     setDraggingId={setDraggingId}
                     setOverStage={setOverStage}
+                    mode={mode}
                     openMenu={stageMenu === d.id}
                     setOpenMenu={(open) => setStageMenu(open ? d.id : null)}
                   />
@@ -109,7 +110,7 @@ export default function DealKanban({ deals, onOpen, onStageChange, stages = STAG
   )
 }
 
-function Card({ deal: d, stages = STAGES, onOpen, onStageChange, setDraggingId, setOverStage, openMenu, setOpenMenu }) {
+function Card({ deal: d, stages = STAGES, mode = 'company', onOpen, onStageChange, setDraggingId, setOverStage, openMenu, setOpenMenu }) {
   const ref = useRef(null)
   const { money } = useCurrency()
   // EV signal — prefer ticket_size, then any of the type-specific
@@ -176,7 +177,7 @@ function Card({ deal: d, stages = STAGES, onOpen, onStageChange, setDraggingId, 
                   }`}
                 >
                   <span className={`h-1.5 w-1.5 rounded-full ${dotForTone(s.tone)}`} />
-                  {s.label || s.id}
+                  {stageLabel(s.id, mode)}
                   {s.id === d.stage && <span className="ml-auto text-[9px] text-valence-subtle">current</span>}
                 </button>
               </li>

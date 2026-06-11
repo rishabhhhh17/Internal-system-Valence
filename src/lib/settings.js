@@ -39,6 +39,12 @@ export const SETTINGS_SECTIONS = [
     description: 'Define the deal types, sectors, ticket sizes, and geographies your firm is actively screening for. AI surfaces use this to score inbound mandates.'
   },
   {
+    id: 'terminology',
+    tier: 'advanced',
+    label: 'Terminology',
+    description: 'Rename pipeline stages and document titles to your fund’s own language.'
+  },
+  {
     id: 'security',
     tier: 'advanced',
     label: 'Security & AI',

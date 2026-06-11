@@ -1,7 +1,7 @@
 import { format, parseISO } from 'date-fns'
 import { Check, Minus, FileCheck2, Send } from 'lucide-react'
 import {
-  docsForMode, docState, nextDocStatus, docCompletion
+  docsForMode, docState, nextDocStatus, docCompletion, docLabel, docShort
 } from '../lib/diligenceDocs.js'
 import { openGmailCompose } from '../lib/google.js'
 
@@ -49,7 +49,7 @@ export default function DocumentTracker({ deals = [], mode = 'company', onCycle 
             <tr className="border-b border-valence-border text-[10px] font-semibold uppercase tracking-[0.1em] text-valence-subtle">
               <th className="sticky left-0 z-10 bg-valence-elevated px-5 py-3 text-left font-semibold">{nameHeader}</th>
               {docs.map(d => (
-                <th key={d.key} title={d.label} className="px-2 py-3 text-center font-semibold whitespace-nowrap">{d.short}</th>
+                <th key={d.key} title={docLabel(d.key, mode)} className="px-2 py-3 text-center font-semibold whitespace-nowrap">{docShort(d.key, mode)}</th>
               ))}
               <th className="px-4 py-3 text-right font-semibold whitespace-nowrap">Complete</th>
               <th className="px-4 py-3" aria-label="Request" />
@@ -65,7 +65,7 @@ export default function DocumentTracker({ deals = [], mode = 'company', onCycle 
                   </td>
                   {docs.map(doc => {
                     const { status, date } = docState(deal, doc.key)
-                    const tip = `${doc.label}: ${status === 'received' ? `Received${date ? ' · ' + format(parseISO(String(date).slice(0, 10)), 'd MMM yyyy') : ''}` : status === 'na' ? 'N/A' : 'Pending'}`
+                    const tip = `${docLabel(doc.key, mode)}: ${status === 'received' ? `Received${date ? ' · ' + format(parseISO(String(date).slice(0, 10)), 'd MMM yyyy') : ''}` : status === 'na' ? 'N/A' : 'Pending'}`
                     return (
                       <td key={doc.key} className="px-2 py-2 text-center">
                         <button
@@ -94,7 +94,7 @@ export default function DocumentTracker({ deals = [], mode = 'company', onCycle 
                     {applicable - received > 0 && (
                       <button
                         type="button"
-                        onClick={() => requestDocs(deal, docs)}
+                        onClick={() => requestDocs(deal, docs, mode)}
                         title="Email the founder the outstanding documents"
                         className="inline-flex items-center gap-1 text-[11px] font-semibold text-valence-blue hover:text-valence-blue-hover"
                       >
@@ -115,10 +115,10 @@ export default function DocumentTracker({ deals = [], mode = 'company', onCycle 
 // One-click "request outstanding docs": drafts a Gmail message listing exactly
 // the pending documents for this deal. Opens a compose window — the user
 // reviews and sends (we never auto-send).
-function requestDocs(deal, docs) {
+function requestDocs(deal, docs, mode) {
   const outstanding = docs.filter(d => docState(deal, d.key).status === 'pending')
   if (!outstanding.length) return
-  const lines = outstanding.map(d => `• ${d.label}`).join('\n')
+  const lines = outstanding.map(d => `• ${docLabel(d.key, mode)}`).join('\n')
   const subject = `Outstanding documents — ${deal.client_name}`
   const body = `Hi,\n\nThanks for the time so far. To keep things moving on our side, could you share the following outstanding items for the data room when you get a chance?\n\n${lines}\n\nHappy to hop on a quick call if that's easier.\n\nBest regards,`
   openGmailCompose({ subject, body })

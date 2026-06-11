@@ -10,6 +10,8 @@
 // An absent key defaults to 'pending' so a fresh deal reads as "nothing in yet"
 // without needing every key pre-seeded.
 
+import { overrideFor, docOverrideKey } from './labels.js'
+
 // `short` is the column header in the matrix view; `label` is the full name
 // (used in tooltips / the legend).
 export const FOUNDER_DOCS = [
@@ -34,6 +36,21 @@ export const LP_DOCS = [
 
 export function docsForMode(mode) {
   return mode === 'lp' ? LP_DOCS : FOUNDER_DOCS
+}
+
+// Per-firm renamable titles. A rename overrides both the full label and the
+// short column header (one custom name is used everywhere).
+export function docLabel(key, mode) {
+  const ov = overrideFor(docOverrideKey(mode, key))
+  if (ov) return ov
+  const d = docsForMode(mode).find(x => x.key === key)
+  return d ? d.label : key
+}
+export function docShort(key, mode) {
+  const ov = overrideFor(docOverrideKey(mode, key))
+  if (ov) return ov
+  const d = docsForMode(mode).find(x => x.key === key)
+  return d ? d.short : key
 }
 
 // The status a document cell shows. Click cycles through them in this order,

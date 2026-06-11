@@ -451,7 +451,7 @@ export default function Deals() {
           sampleEligible={false}
         />
       ) : view === 'board' ? (
-        <DealKanban deals={filtered} onOpen={setDrawer} onStageChange={changeStage} stages={modeStages} />
+        <DealKanban deals={filtered} onOpen={setDrawer} onStageChange={changeStage} stages={modeStages} mode={pipelineMode} />
       ) : (
         <DealTable deals={filtered} onOpen={setDrawer} focusedId={focusedDealId} onFocus={setFocusedDealId} />
       )}
@@ -527,6 +527,7 @@ export default function Deals() {
         <DealForm
           initial={modal?.edit || modal?.prefill}
           stages={modeStages}
+          mode={pipelineMode}
           defaultStage={defaultNewStage(pipelineMode)}
           onCancel={closeModal}
           onSubmit={(payload) => saveDeal(payload, modal?.edit?.id)}
@@ -911,7 +912,7 @@ function DealTable({ deals, onOpen, focusedId = null, onFocus = () => {} }) {
 }
 
 // ============ FORM ============
-function DealForm({ initial, onSubmit, onCancel, stages = stagesForMode('company'), defaultStage = 'Information Received' }) {
+function DealForm({ initial, onSubmit, onCancel, stages = stagesForMode('company'), mode = 'company', defaultStage = 'Information Received' }) {
   const [form, setForm] = useState({
     client_name:                  initial?.client_name        || '',
     website:                      initial?.website            || '',
@@ -1012,7 +1013,7 @@ function DealForm({ initial, onSubmit, onCancel, stages = stagesForMode('company
         <div>
           <label className="vl-label">Stage</label>
           <select className="vl-input" value={form.stage} onChange={e => set('stage', e.target.value)}>
-            {stages.map(s => <option key={s.id} className="bg-valence-surface" value={s.id} title={s.desc}>{s.label || s.id}</option>)}
+            {stages.map(s => <option key={s.id} className="bg-valence-surface" value={s.id} title={s.desc}>{stageLabel(s.id, mode)}</option>)}
           </select>
           <p className="mt-1 text-[10px] text-valence-subtle leading-relaxed">{stageMeta(form.stage).desc}</p>
         </div>

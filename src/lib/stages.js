@@ -1,3 +1,5 @@
+import { overrideFor, stageOverrideKey } from './labels.js'
+
 // Canonical pre-diligence pipeline for an investor (VC / PE / family office).
 // This tool tracks a potential portfolio company from first contact up to the
 // point formal due diligence begins — "Diligence" is the final tracked stage
@@ -172,8 +174,11 @@ export function defaultNewStage(mode) { return isLp(mode) ? 'LP Introduced' : 'I
 
 // Resolve a stage id to its human label for a given mode/kind. The two
 // terminal ids are shared, so the mode disambiguates 'Diligence' →
-// 'Committed' (LP) vs 'Diligence' (company).
+// 'Committed' (LP) vs 'Diligence' (company). A per-firm rename (label
+// override) wins over the built-in label.
 export function stageLabel(id, mode) {
+  const ov = overrideFor(stageOverrideKey(mode, id))
+  if (ov) return ov
   const set = stagesForMode(mode)
   const m = set.find(s => s.id === id)
   return m ? (m.label || m.id) : id
