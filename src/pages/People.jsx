@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { Plus, Search, Filter, LayoutGrid, Table as TableIcon, UserCircle, ArrowUpRight, MapPin, Mail, Phone, Building2, GripVertical, UserPlus, X } from 'lucide-react'
+import { Plus, Search, Filter, LayoutGrid, Table as TableIcon, UserCircle, ArrowUpRight, MapPin, Mail, Phone, Building2, GripVertical, UserPlus, X, Sparkles } from 'lucide-react'
 import BulkAddPeoplePanel from '../components/BulkAddPeoplePanel.jsx'
 import { supabase, isSupabaseConfigured, subscribeTable } from '../lib/supabase.js'
 import {
@@ -43,9 +43,15 @@ export default function People() {
 
   // Per-person warmth score — derived from interactions + deal involvement.
   // Recomputed only when one of the three source arrays changes.
+  // Suggested contacts (auto-surfaced from email/calendar, not yet confirmed)
+  // live as people rows tagged 'Suggested'. Keep them OUT of the main CRM
+  // surfaces — they only appear in the review queue until accepted.
+  const suggested = useMemo(() => rows.filter(p => (p.tags || []).includes('Suggested')), [rows])
+  const realRows  = useMemo(() => rows.filter(p => !(p.tags || []).includes('Suggested')), [rows])
+
   const scoreMap = useMemo(
-    () => scoreAllPeople(rows, interactions, deals),
-    [rows, interactions, deals]
+    () => scoreAllPeople(realRows, interactions, deals),
+    [realRows, interactions, deals]
   )
 
   useEffect(() => { load() }, [])
@@ -145,23 +151,43 @@ export default function People() {
     setDrawer(null); load()
   }
 
+  // Accept a suggestion → drop the 'Suggested' tag so it joins the CRM.
+  async function addSuggested(p) {
+    const nextTags = (p.tags || []).filter(t => t !== 'Suggested')
+    setRows(prev => prev.map(x => x.id === p.id ? { ...x, tags: nextTags } : x))
+    if (isSupabaseConfigured) {
+      const { error } = await supabase.from('people').update({ tags: nextTags }).eq('id', p.id)
+      if (error) { toast.error(humanError(error, 'Could not add contact')); load(); return }
+    }
+    toast.success(`${p.full_name} added to Contacts`)
+  }
+  // Dismiss a suggestion → remove the row entirely.
+  async function dismissSuggested(p) {
+    setRows(prev => prev.filter(x => x.id !== p.id))
+    if (isSupabaseConfigured) {
+      const { error } = await supabase.from('people').delete().eq('id', p.id)
+      if (error) { toast.error(humanError(error, 'Could not dismiss')); load(); return }
+    }
+    toast.success('Dismissed')
+  }
+
   const allTags = useMemo(() => {
     const set = new Set()
-    for (const p of rows) for (const t of (p.tags || [])) set.add(t)
+    for (const p of realRows) for (const t of (p.tags || [])) set.add(t)
     return Array.from(set).sort()
-  }, [rows])
+  }, [realRows])
 
-  const companies = useMemo(() => extractCompanies(rows), [rows])
+  const companies = useMemo(() => extractCompanies(realRows), [realRows])
 
   const filtered = useMemo(() => {
     const needle = q.trim().toLowerCase()
-    return rows.filter(p => {
+    return realRows.filter(p => {
       if (tagFilter !== 'All' && !(p.tags || []).includes(tagFilter)) return false
       if (!needle) return true
       return [p.full_name, p.role, p.company, p.city, p.country, p.email, p.how_to_talk, p.what_they_care_about]
         .some(v => (v || '').toString().toLowerCase().includes(needle))
     })
-  }, [rows, q, tagFilter])
+  }, [realRows, q, tagFilter])
 
   // Sort by relationship strength (the 0–100 score) when asked, else keep the
   // name order the query returned in.
@@ -198,6 +224,8 @@ export default function People() {
           <button onClick={() => setDrawer('new')} className="vl-btn-primary-sm"><Plus className="h-4 w-4" /> Add person</button>
         </div>
       </div>
+
+      <ReviewQueue suggested={suggested} onAdd={addSuggested} onDismiss={dismissSuggested} />
 
       <div className="flex flex-wrap items-center gap-3">
         <span className="vl-eyebrow-ink inline-flex items-center gap-1.5"><Filter className="h-3 w-3" /> Tag</span>
@@ -264,6 +292,37 @@ export default function People() {
         }}
       />
     </div>
+  )
+}
+
+// Suggested-contacts review queue — the zero-entry surface. People we saw in
+// the firm's email/calendar who aren't in the CRM yet; one tap to add, one to
+// dismiss. No manual data entry.
+function ReviewQueue({ suggested, onAdd, onDismiss }) {
+  if (!suggested.length) return null
+  return (
+    <section className="rounded-2xl border border-valence-blue/20 bg-valence-blue-soft/30 p-5">
+      <div className="mb-3 flex items-center gap-2">
+        <Sparkles className="h-4 w-4 text-valence-blue" />
+        <h2 className="text-sm font-semibold text-valence-text">Suggested contacts</h2>
+        <span className="text-[11px] text-valence-muted">— {suggested.length} seen in your email &amp; calendar, not yet in your CRM</span>
+      </div>
+      <ul className="grid gap-2 sm:grid-cols-2">
+        {suggested.map(p => (
+          <li key={p.id} className="flex items-center gap-3 rounded-lg border border-valence-border bg-valence-elevated px-3 py-2">
+            <div className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-valence-surface text-[11px] font-semibold text-valence-muted">
+              {(p.full_name || '?').split(' ').map(w => w[0]).slice(0, 2).join('')}
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-sm font-medium text-valence-text">{p.full_name}</p>
+              <p className="truncate text-[11px] text-valence-muted">{[p.company, p.email].filter(Boolean).join(' · ')}</p>
+            </div>
+            <button onClick={() => onAdd(p)} className="vl-btn-primary-sm shrink-0"><Plus className="h-3.5 w-3.5" /> Add</button>
+            <button onClick={() => onDismiss(p)} title="Dismiss" aria-label="Dismiss" className="grid h-7 w-7 shrink-0 place-items-center rounded-md text-valence-subtle hover:bg-valence-surface hover:text-valence-text"><X className="h-3.5 w-3.5" /></button>
+          </li>
+        ))}
+      </ul>
+    </section>
   )
 }
 
