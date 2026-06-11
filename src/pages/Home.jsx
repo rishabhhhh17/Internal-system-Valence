@@ -1,9 +1,9 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { format } from 'date-fns'
 import {
   TrendingDown, Flame, Banknote, Layers, ArrowRight, Briefcase, Building2,
-  AlertTriangle, FileWarning, Snowflake, Users, Target, ArrowUpRight
+  AlertTriangle, FileWarning, Snowflake, Users, Target, ArrowUpRight, Sparkles
 } from 'lucide-react'
 import { supabase, isSupabaseConfigured } from '../lib/supabase.js'
 import { useCurrency } from '../hooks/useCurrency.jsx'
@@ -11,6 +11,7 @@ import { stageMeta, activeStagesForMode } from '../lib/stages.js'
 import { dropoffByOwner } from '../lib/insights.js'
 import { docCompletion } from '../lib/diligenceDocs.js'
 import { countRecentCaptures } from '../lib/autoCapture.js'
+import { generateFirmBrief, isGeminiConfigured } from '../lib/gemini.js'
 import ConfigBanner from '../components/ConfigBanner.jsx'
 
 const STALL_DAYS = 21
@@ -85,6 +86,13 @@ export default function Home() {
     }
   }, [lp, lpFunds])
 
+  const briefSummary = useMemo(() => ({
+    activeCount: founders.activeCount, reached: founders.reached, dropoffRate: founders.dropoffRate,
+    readiness: founders.readiness, stalled: founders.stalled.length, outstanding: founders.outstanding,
+    committedCapital: lps.committedCapital, committedCount: lps.committedCount, pipelineCapital: lps.pipelineCapital,
+    cold: lps.cold.length, captures: captures.total
+  }), [founders, lps, captures])
+
   const actions = useMemo(() => {
     const out = []
     for (const d of founders.stalled.slice(0, 3)) out.push({ icon: AlertTriangle, text: `${d.client_name} — no movement in ${STALL_DAYS}+ days`, meta: 'Founder · stalled', to: `/deals?open=${d.id}` })
@@ -106,6 +114,9 @@ export default function Home() {
         </div>
         <span className="text-[11px] text-valence-subtle">Updated {format(new Date(), 'd MMM yyyy · HH:mm')}</span>
       </header>
+
+      {/* AI daily brief */}
+      <FirmBrief summary={briefSummary} ready={!loading} />
 
       {/* KPIs */}
       <section className="grid grid-cols-2 gap-4 lg:grid-cols-4">
@@ -195,6 +206,42 @@ export default function Home() {
 
       {loading && <p className="text-center text-xs text-valence-subtle">Loading…</p>}
     </div>
+  )
+}
+
+function FirmBrief({ summary, ready }) {
+  const [text, setText] = useState('')
+  const done = useRef(false)
+  useEffect(() => {
+    if (!ready || done.current) return
+    done.current = true
+    const cacheKey = `valence.firmbrief.${new Date().toISOString().slice(0, 10)}`
+    let cached = null
+    try { cached = localStorage.getItem(cacheKey) } catch { /* private */ }
+    if (cached) { setText(cached); return }
+    let alive = true
+    generateFirmBrief(summary).then(t => {
+      if (!alive || !t) return
+      setText(t)
+      try { localStorage.setItem(cacheKey, t) } catch { /* private */ }
+    }).catch(() => {})
+    return () => { alive = false }
+  }, [ready, summary])
+
+  if (!text) return null
+  return (
+    <section className="rounded-2xl border border-valence-border bg-valence-elevated p-5">
+      <div className="flex items-start gap-3">
+        <span className="mt-0.5 grid h-7 w-7 shrink-0 place-items-center rounded-lg bg-valence-blue-soft text-valence-blue"><Sparkles className="h-3.5 w-3.5" /></span>
+        <div>
+          <p className="mb-1 inline-flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-valence-muted">
+            Daily brief
+            {isGeminiConfigured && <span className="rounded-full bg-valence-blue-soft px-1.5 py-0 text-[9px] font-semibold tracking-normal text-valence-blue">AI</span>}
+          </p>
+          <p className="text-[15px] leading-relaxed text-valence-text">{text}</p>
+        </div>
+      </div>
+    </section>
   )
 }
 

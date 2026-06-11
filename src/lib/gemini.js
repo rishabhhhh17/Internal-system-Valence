@@ -504,6 +504,50 @@ Write the brief now.`
   return gemini(prompt, { temperature: 0.45, maxOutputTokens: 620, actionType: 'deal_brief' })
 }
 
+// ============ FIRM BRIEF (Home) ============
+// A GP's morning brief — 2-3 sentences over the firm's live figures. Falls
+// back to a deterministic narrative when no LLM is configured, so Home always
+// shows something coherent.
+export async function generateFirmBrief(summary = {}) {
+  if (!isGeminiConfigured) return heuristicFirmBrief(summary)
+  const s = summary
+  const prompt = `You are the chief of staff at ${firmDisplayName('the fund')}, writing the GP's morning brief. From the figures below, write 2–3 crisp sentences: what's moving in deal flow, where LP capital stands, and the single most important thing to act on today. Factual and specific, no preamble, no markdown, no bullet points, under 70 words.
+
+FOUNDERS / DEAL FLOW
+Active deals: ${s.activeCount}
+Reaching diligence: ${s.reached}${s.dropoffRate != null ? ` (${s.dropoffRate}% drop-off)` : ''}
+Data-room readiness: ${s.readiness}%
+Stalled deals: ${s.stalled}
+Diligence docs outstanding: ${s.outstanding}
+
+LPs / FUNDRAISING
+Committed capital: $${s.committedCapital}M (${s.committedCount} LPs)
+Pipeline capital: $${s.pipelineCapital}M
+LP relationships going cold: ${s.cold}
+
+Auto-captured interactions this week: ${s.captures}
+
+Write the brief now.`
+  try {
+    const text = await gemini(prompt, { temperature: 0.5, maxOutputTokens: 160, actionType: 'firm_brief' })
+    return (text || '').trim() || heuristicFirmBrief(summary)
+  } catch {
+    return heuristicFirmBrief(summary)
+  }
+}
+
+function heuristicFirmBrief(s = {}) {
+  const parts = []
+  parts.push(`${s.activeCount || 0} active deal${s.activeCount === 1 ? '' : 's'} in evaluation, ${s.reached || 0} reaching diligence${s.dropoffRate != null ? ` at a ${s.dropoffRate}% drop-off rate` : ''}.`)
+  parts.push(`$${s.committedCapital || 0}M committed from LPs, with $${s.pipelineCapital || 0}M still in the pipeline.`)
+  const watch = []
+  if (s.outstanding > 0) watch.push(`${s.outstanding} diligence doc${s.outstanding === 1 ? '' : 's'} outstanding`)
+  if (s.stalled > 0) watch.push(`${s.stalled} stalled deal${s.stalled === 1 ? '' : 's'}`)
+  if (s.cold > 0) watch.push(`${s.cold} LP${s.cold === 1 ? '' : 's'} going cold`)
+  if (watch.length) parts.push(`Watch today: ${watch.join(', ')}.`)
+  return parts.join(' ')
+}
+
 // ============ EMAIL SCENARIOS ============
 const EMAIL_SCENARIOS = {
   intro: {
