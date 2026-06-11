@@ -5,6 +5,7 @@ import { supabase, isSupabaseConfigured, subscribeTable } from '../lib/supabase.
 import { FOUNDER_STAGES, LP_ARCHETYPES, WARMTH_LEVELS, warmthTone, founderStage, lpArchetype, lpGeographies, DEMO_FOUNDERS, DEMO_LPS } from '../lib/funds.js'
 import { useViewMode } from '../hooks/useViewMode.jsx'
 import { usePipelineMode } from '../hooks/usePipelineMode.js'
+import { scoreAllPeople } from '../lib/relationships.js'
 import ConfigBanner from '../components/ConfigBanner.jsx'
 import EmptyState from '../components/EmptyState.jsx'
 import FundDrawer from '../components/FundDrawer.jsx'
@@ -34,8 +35,27 @@ export default function Funds() {
   const [archetypeFilter, setArchetypeFilter] = useState('All')
   // Shared
   const [warmthFilter, setWarmthFilter] = useState('All')
+  const [people, setPeople] = useState([])
+  const [interactions, setInteractions] = useState([])
   const [drawer, setDrawer] = useState(null) // null | 'new' | { row }
   const [params, setParams] = useSearchParams()
+
+  // Warmest "way in" per Lead: among People at that company, the highest
+  // relationship-strength contact — your strongest path to the room. Reuses
+  // the same scorer the Contacts page uses.
+  const bestContactByCompany = useMemo(() => {
+    const scores = scoreAllPeople(people, interactions, [])
+    const out = new Map()
+    for (const p of people) {
+      const co = (p.company || '').toLowerCase().trim()
+      if (!co) continue
+      const sc = scores.get(p.id)
+      if (!sc) continue
+      const cur = out.get(co)
+      if (!cur || sc.score > cur.score) out.set(co, { name: p.full_name, warmth: sc.warmth, score: sc.score })
+    }
+    return out
+  }, [people, interactions])
 
   // Reload + reset filters when the audience toggle flips.
   useEffect(() => {
@@ -72,6 +92,12 @@ export default function Funds() {
       const { data, error } = await Promise.race([fetchPromise, timeoutPromise])
       if (error) throw error
       setRows(data || [])
+      // Side-load People + interactions to compute the warmest contact per
+      // company. Best-effort — never blocks the Leads list.
+      Promise.all([
+        supabase.from('people').select('id, full_name, company'),
+        supabase.from('interactions').select('id, counterparty_name, outcome, created_at').order('created_at', { ascending: false }).limit(2000)
+      ]).then(([pp, ii]) => { setPeople(pp.data || []); setInteractions(ii.data || []) }).catch(() => {})
     } catch (err) {
       console.error(err)
       setLoadError(err?.message || 'Couldn\'t load funds.')
@@ -180,7 +206,7 @@ export default function Funds() {
         <EmptyState icon={Building2} title={isLp ? 'No LPs match your filters' : 'No founders match your filters'} description="Clear a filter or broaden your search." sampleEligible={false} />
       ) : isSimple || view === 'grid' ? (
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-          {filtered.map(f => <FundCard key={f.id} fund={f} isLp={isLp} onOpen={() => setDrawer({ row: f })} />)}
+          {filtered.map(f => <FundCard key={f.id} fund={f} isLp={isLp} bestContact={bestContactByCompany.get((f.name || '').toLowerCase().trim())} onOpen={() => setDrawer({ row: f })} />)}
         </div>
       ) : (
         <FundTable rows={filtered} isLp={isLp} onOpen={f => setDrawer({ row: f })} />
@@ -225,7 +251,7 @@ function FilterRow({ label, value, onChange, options }) {
   )
 }
 
-function FundCard({ fund, isLp, onOpen }) {
+function FundCard({ fund, isLp, bestContact, onOpen }) {
   const touched = fund.last_touched_at ? new Date(fund.last_touched_at) : null
   // Founder: lead chip = funding round, tags = sectors.
   // LP: lead chip = archetype, tags = geographies.
@@ -249,6 +275,12 @@ function FundCard({ fund, isLp, onOpen }) {
           <span key={s} className="rounded-full border border-valence-border bg-valence-surface px-2 py-0.5 text-[10px] text-valence-muted">{s}</span>
         ))}
       </div>
+      {bestContact && (
+        <p className="mt-3 text-[11px] text-valence-muted">
+          Warmest in: <span className="font-semibold text-valence-text">{bestContact.name}</span>
+          <span className={`ml-1.5 inline-flex items-center rounded-full border px-1.5 py-0 text-[9px] font-semibold capitalize ${warmthTone(bestContact.warmth)}`}>{bestContact.warmth}</span>
+        </p>
+      )}
       <div className="mt-3 flex items-center justify-between text-[11px] text-valence-muted">
         <span>{touched ? `Last interaction ${touched.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}` : 'No interaction logged'}</span>
         <span className="inline-flex items-center gap-1 text-valence-subtle group-hover:text-valence-blue transition">

@@ -37,6 +37,7 @@ export default function People() {
   const [view, setView]           = useState('grid')
   const [q, setQ]                 = useState('')
   const [tagFilter, setTagFilter] = useState('All')
+  const [sortBy, setSortBy]       = useState('name') // 'name' | 'strength'
   const [drawer, setDrawer]       = useState(null) // null | 'new' | { row }
   const [params, setParams]       = useSearchParams()
 
@@ -162,6 +163,13 @@ export default function People() {
     })
   }, [rows, q, tagFilter])
 
+  // Sort by relationship strength (the 0–100 score) when asked, else keep the
+  // name order the query returned in.
+  const sorted = useMemo(() => {
+    if (sortBy !== 'strength') return filtered
+    return [...filtered].sort((a, b) => (scoreMap.get(b.id)?.score ?? 0) - (scoreMap.get(a.id)?.score ?? 0))
+  }, [filtered, sortBy, scoreMap])
+
   return (
     <div className="space-y-6">
       <ConfigBanner />
@@ -197,7 +205,14 @@ export default function People() {
         {allTags.map(t => (
           <button key={t} onClick={() => setTagFilter(t)} className={chipClass(tagFilter === t)}>{t}</button>
         ))}
-        <div className="relative ml-auto">
+        <div className="ml-auto inline-flex items-center gap-1.5">
+          <span className="vl-eyebrow-ink">Sort</span>
+          <div className="inline-flex items-center rounded-full border border-valence-border bg-valence-elevated p-0.5">
+            <button onClick={() => setSortBy('name')} className={`rounded-full px-2.5 py-1 text-[11px] font-semibold transition ${sortBy === 'name' ? 'bg-valence-ink text-white' : 'text-valence-muted hover:text-valence-text'}`}>Name</button>
+            <button onClick={() => setSortBy('strength')} className={`rounded-full px-2.5 py-1 text-[11px] font-semibold transition ${sortBy === 'strength' ? 'bg-valence-ink text-white' : 'text-valence-muted hover:text-valence-text'}`}>Strength</button>
+          </div>
+        </div>
+        <div className="relative">
           <Search className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-valence-subtle" />
           <input
             value={q} onChange={e => setQ(e.target.value)}
@@ -219,7 +234,7 @@ export default function People() {
         <>
           <CompaniesRail companies={companies} onDropPerson={assignCompany} onAfterBulkAdd={load} />
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-            {filtered.map(p => (
+            {sorted.map(p => (
               <PersonCard
                 key={p.id}
                 person={p}
@@ -230,7 +245,7 @@ export default function People() {
           </div>
         </>
       ) : (
-        <PersonTable rows={filtered} scoreMap={scoreMap} onOpen={p => setDrawer({ row: p })} />
+        <PersonTable rows={sorted} scoreMap={scoreMap} onOpen={p => setDrawer({ row: p })} />
       )}
 
       <PersonDrawer
