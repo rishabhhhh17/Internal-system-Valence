@@ -6,6 +6,7 @@ import { FOUNDER_STAGES, LP_ARCHETYPES, WARMTH_LEVELS, warmthTone, founderStage,
 import { useViewMode } from '../hooks/useViewMode.jsx'
 import { usePipelineMode } from '../hooks/usePipelineMode.js'
 import { scoreAllPeople } from '../lib/relationships.js'
+import RelationshipChip from '../components/RelationshipChip.jsx'
 import ConfigBanner from '../components/ConfigBanner.jsx'
 import EmptyState from '../components/EmptyState.jsx'
 import FundDrawer from '../components/FundDrawer.jsx'
@@ -52,7 +53,9 @@ export default function Funds() {
       const sc = scores.get(p.id)
       if (!sc) continue
       const cur = out.get(co)
-      if (!cur || sc.score > cur.score) out.set(co, { name: p.full_name, warmth: sc.warmth, score: sc.score })
+      // sc.warmth is a bucket OBJECT ({min,key,label,tone}); keep the key
+      // string for the chip — never render the object itself.
+      if (!cur || sc.score > cur.score) out.set(co, { name: p.full_name, warmth: sc.warmth?.key || 'cold', score: sc.score })
     }
     return out
   }, [people, interactions])
@@ -276,9 +279,9 @@ function FundCard({ fund, isLp, bestContact, onOpen }) {
         ))}
       </div>
       {bestContact && (
-        <p className="mt-3 text-[11px] text-valence-muted">
+        <p className="mt-3 inline-flex items-center gap-1.5 text-[11px] text-valence-muted">
           Warmest in: <span className="font-semibold text-valence-text">{bestContact.name}</span>
-          <span className={`ml-1.5 inline-flex items-center rounded-full border px-1.5 py-0 text-[9px] font-semibold capitalize ${warmthTone(bestContact.warmth)}`}>{bestContact.warmth}</span>
+          <RelationshipChip bucket={bestContact.warmth} compact />
         </p>
       )}
       <div className="mt-3 flex items-center justify-between text-[11px] text-valence-muted">
