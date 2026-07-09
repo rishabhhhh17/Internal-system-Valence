@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { NavLink, useSearchParams } from 'react-router-dom'
-import { LayoutDashboard, Briefcase, BookOpen, CalendarDays, CalendarRange, Users, BarChart3, MessageSquare, Handshake, GanttChartSquare, Building2, Sparkles, Inbox, UserCircle, Settings as SettingsIcon, Wallet, Upload, ChevronDown, ChevronRight, Eye, Trash2, Plus, Clock } from 'lucide-react'
+import { LayoutDashboard, Briefcase, BookOpen, CalendarDays, CalendarRange, Users, BarChart3, MessageSquare, Handshake, GanttChartSquare, Building2, Sparkles, Inbox, UserCircle, Settings as SettingsIcon, Wallet, Upload, ChevronDown, ChevronRight, Eye, Trash2, Plus, Clock, Plug } from 'lucide-react'
 import Logo from './Logo.jsx'
 import { supabase, isSupabaseConfigured, subscribeTable } from '../lib/supabase.js'
 import { useSavedViews, filtersFromUrl } from '../hooks/useSavedViews.js'
@@ -27,6 +27,7 @@ const nav = [
   // Import is a power-user CSV ingest — hidden from the demo nav.
   { to: '/import',       label: 'Import',       icon: Upload,                                    section: 'AI', power: true },
   { to: '/inbox/intake', label: 'Inbound deals',icon: Inbox,        badgeKey: 'newIntakes',     section: 'AI' },
+  { to: '/connectors',   label: 'Connectors',   icon: Plug,                                     section: 'AI' },
   // Billing · admin — internal cost-tracking dashboard. Always hidden
   // from partners; route still resolves for the dev team.
   { to: '/admin/billing', label: 'Billing · admin', icon: Wallet,                                section: 'Admin', power: true },

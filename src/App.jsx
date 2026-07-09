@@ -11,6 +11,7 @@ import Home from './pages/Home.jsx'
 import Login from './pages/Login.jsx'
 
 const Deals               = lazy(() => import('./pages/Deals.jsx'))
+const Connectors          = lazy(() => import('./pages/Connectors.jsx'))
 const Mandates            = lazy(() => import('./pages/Mandates.jsx'))
 const Timeline            = lazy(() => import('./pages/Timeline.jsx'))
 const Funds               = lazy(() => import('./pages/Funds.jsx'))
@@ -264,6 +265,7 @@ export default function App() {
         <Route path="/screen" element={<Screener />} />
         <Route path="/inbox/intake" element={<InboxIntake />} />
         <Route path="/interactions" element={<Interactions />} />
+        <Route path="/connectors" element={<Connectors />} />
         <Route path="/knowledge" element={<KnowledgeLanding />} />
         {/* Per-mandate folder tree was folded into the unified Knowledge surface.
             Keep the legacy URL working — and preserve any `?m=<mandateId>` deep link. */}
