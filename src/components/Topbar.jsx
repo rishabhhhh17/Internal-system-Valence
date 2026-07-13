@@ -83,7 +83,6 @@ export default function Topbar() {
 
         <div className="min-w-0 flex items-center gap-2">
           <h1 className="truncate text-[15px] font-semibold tracking-tight text-valence-text">{meta.title}</h1>
-          <BranchBadge />
         </div>
 
         <PipelineModeToggle />
