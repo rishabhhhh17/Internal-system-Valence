@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { NavLink, useSearchParams } from 'react-router-dom'
-import { LayoutDashboard, Briefcase, BookOpen, CalendarDays, CalendarRange, Users, BarChart3, MessageSquare, Handshake, GanttChartSquare, Building2, Sparkles, Inbox, UserCircle, Settings as SettingsIcon, Wallet, Upload, ChevronDown, ChevronRight, Eye, Trash2, Plus, Clock, Plug } from 'lucide-react'
+import { LayoutDashboard, LayoutGrid, Briefcase, BookOpen, CalendarDays, CalendarRange, Users, BarChart3, MessageSquare, Handshake, GanttChartSquare, Building2, Sparkles, Inbox, UserCircle, Settings as SettingsIcon, Wallet, Upload, ChevronDown, ChevronRight, Eye, Trash2, Plus, Clock, Plug } from 'lucide-react'
 import Logo from './Logo.jsx'
 import { supabase, isSupabaseConfigured, subscribeTable } from '../lib/supabase.js'
 import { useSavedViews, filtersFromUrl } from '../hooks/useSavedViews.js'
@@ -30,22 +30,25 @@ const nav = [
   // Billing · admin — internal cost-tracking dashboard. Always hidden
   // from partners; route still resolves for the dev team.
   { to: '/admin/billing', label: 'Billing · admin', icon: Wallet,                                section: 'Admin', power: true },
-  { to: '/knowledge',    label: 'Knowledge',    icon: BookOpen },
-  { to: '/planner',      label: 'Day Planner',  icon: CalendarDays,  badgeKey: 'todayMeetings' },
-  { to: '/calendar',     label: 'Team Calendar',icon: CalendarRange },
+  // Workspace folds the three "day surfaces" — Day Planner, Team Calendar,
+  // and Knowledge — into one nav row with an in-page toggle. Fewer tabs on
+  // the left; same tools one click in. Meeting-count badge carried over
+  // from the old Day Planner row so the day's load still shows at a glance.
+  { to: '/workspace',    label: 'Workspace',    icon: LayoutGrid,    badgeKey: 'todayMeetings' },
   { to: '/analytics',    label: 'Analytics',    icon: BarChart3 },
   // Aging Report is a useful tool but adds a "Reports" section with just
   // one item for first-time partners. Power-gated; reachable via the
   // Analytics page once we cross-link.
-  { to: '/reports/aging',label: 'Aging Report', icon: Clock,        section: 'Reports', power: true },
-  { to: '/team',         label: 'Team',         icon: Users }
+  { to: '/reports/aging',label: 'Aging Report', icon: Clock,        section: 'Reports', power: true }
+  // Team moved into Settings → Team (members + invite codes). The /team
+  // coverage page still resolves by URL and via the command palette.
 ]
 
 function groupNav(items) {
   const out = []
   const seen = new Map()
   for (const item of items) {
-    const section = item.section || 'Workspace'
+    const section = item.section || 'Home'
     if (!seen.has(section)) { seen.set(section, out.length); out.push([section, []]) }
     out[seen.get(section)][1].push(item)
   }

@@ -25,6 +25,7 @@ const Knowledge           = lazy(() => import('./pages/Knowledge.jsx'))
 const KnowledgeLanding    = lazy(() => import('./pages/KnowledgeLanding.jsx'))
 const Planner             = lazy(() => import('./pages/Planner.jsx'))
 const Calendar            = lazy(() => import('./pages/Calendar.jsx'))
+const Workspace           = lazy(() => import('./pages/Workspace.jsx'))
 const Drive               = lazy(() => import('./pages/Drive.jsx'))
 const Team                = lazy(() => import('./pages/Team.jsx'))
 const Analytics           = lazy(() => import('./pages/Analytics.jsx'))
@@ -274,6 +275,7 @@ export default function App() {
         <Route path="/knowledge/shared" element={<Knowledge />} />
         <Route path="/knowledge/private" element={<Drive />} />
         <Route path="/drive" element={<Navigate to="/knowledge/private" replace />} />
+        <Route path="/workspace" element={<Workspace />} />
         <Route path="/planner" element={<Planner />} />
         <Route path="/calendar" element={<Calendar />} />
         <Route path="/analytics" element={<Analytics />} />

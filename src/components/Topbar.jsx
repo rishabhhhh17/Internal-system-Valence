@@ -27,6 +27,7 @@ const titles = {
   '/funds':             { title: 'Investors',       sub: 'Funds and family offices — who writes the cheques.' },
   '/screen':            { title: 'Quick Screener',  sub: 'AI deal-fit and thesis-match, one paste away.' },
   '/inbox/intake':      { title: 'Inbound deals',   sub: 'Inbound deals, AI-triaged.' },
+  '/workspace':         { title: 'Workspace',       sub: 'Your day, the team\'s week, and shared knowledge — one place.' },
   '/knowledge':         { title: 'Knowledge',       sub: 'Firm-shared or private — pick a track.' },
   '/knowledge/shared':  { title: 'Knowledge',       sub: 'Ask, search, memos, files, comps, and per-deal notes — one surface.' },
   '/knowledge/private': { title: 'Private',         sub: 'Your personal Google Drive. Private to you.' },

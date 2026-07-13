@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom'
 import { format, parseISO, differenceInCalendarDays, differenceInDays, startOfToday, addDays } from 'date-fns'
 import {
   Sparkles, Briefcase, Handshake, MessageSquare, Pencil, Calendar,
-  AlertTriangle, Clock, ArrowUpRight, ChevronDown, ChevronUp
+  AlertTriangle, Clock, ArrowUpRight, ChevronDown, ChevronUp, BarChart3
 } from 'lucide-react'
 import MeetingPrepCard from '../components/MeetingPrepCard.jsx'
 import { supabase, isSupabaseConfigured, subscribeTable } from '../lib/supabase.js'
@@ -11,7 +11,7 @@ import { useToast } from '../components/Toast.jsx'
 import { useAuth } from '../hooks/useAuth.js'
 import { useSeat } from '../hooks/useSeat.js'
 import { usePipelineMode } from '../hooks/usePipelineMode.js'
-import { stageMeta, liveStagesForMode, stageLabel } from '../lib/stages.js'
+import { stageMeta, liveStagesForMode, activeStagesForMode, stageLabel } from '../lib/stages.js'
 import { listTodayEvents, GoogleAuthExpired } from '../lib/google.js'
 import ConfigBanner from '../components/ConfigBanner.jsx'
 import WikilinkTextarea from '../components/WikilinkTextarea.jsx'
@@ -699,6 +699,34 @@ export default function DailyNote() {
     }
   }, [deals, interactions, today, visiblePriorities, pipelineMode])
 
+  // Pipeline snapshot — a live funnel of the active pipeline for whichever
+  // mode is on (Founders deal flow vs LP fundraising). Same `deals` slice
+  // the KPI strip uses (already scoped to kind = pipelineMode), so no extra
+  // fetch. Gives Today real analytics instead of just meetings + priorities.
+  const funnel = useMemo(() => {
+    const active = activeStagesForMode(pipelineMode)
+    const counts = active.map(s => ({
+      id: s.id,
+      label: s.label,
+      count: deals.filter(d => d.stage === s.id).length
+    }))
+    const won    = deals.filter(d => d.stage === 'Diligence').length
+    const passed = deals.filter(d => d.stage === 'Passed').length
+    const inPipeline = counts.reduce((a, b) => a + b.count, 0)
+    const resolved = won + passed
+    const winRate = resolved ? Math.round((won / resolved) * 100) : null
+    const max = Math.max(1, ...counts.map(c => c.count))
+    // Deals with a target close inside the next 30 days that haven't already
+    // graduated or dropped — the "act now" window.
+    const soon = deals.filter(d => {
+      if (d.stage === 'Diligence' || d.stage === 'Passed') return false
+      if (!d.target_close) return false
+      const t = new Date(d.target_close)
+      return !Number.isNaN(t.getTime()) && t >= today && t <= addDays(today, 30)
+    }).length
+    return { counts, won, passed, inPipeline, winRate, max, soon }
+  }, [deals, pipelineMode, today])
+
   // Pulse coach was removed — the partner asked for less visual noise on
   // the Today page. KPI strip + Priorities + Waiting On already surface
   // everything the Pulse banner used to nudge about.
@@ -720,6 +748,10 @@ export default function DailyNote() {
 
       {/* KPI command-center strip — the numbers that matter at a glance. */}
       {ready && <StatStrip stats={stats} />}
+
+      {/* Pipeline snapshot — live funnel + headline analytics, reshaped by
+          the Founders / LPs toggle. */}
+      {ready && <PipelinePulse funnel={funnel} mode={pipelineMode} />}
 
       {/* Auto sections — read-only, regenerated every render */}
       <section className="grid gap-4 lg:grid-cols-2">
@@ -1072,6 +1104,73 @@ function StatTile({ to, icon: Icon, label, value, sub, danger }) {
   return to
     ? <Link to={to} className="vl-card vl-card-hover p-4 block">{inner}</Link>
     : <div className="vl-card p-4">{inner}</div>
+}
+
+// ============================================================================
+// PipelinePulse — the Today page's analytics block. A live funnel of the
+// active pipeline plus four headline numbers, all reshaped by the Founders /
+// LPs toggle: Founders shows deal flow (Sourced → Memo, → Diligence); LPs
+// shows fundraising (Identified → Soft-circled, → Committed). Read-only,
+// links out to /analytics for the full picture.
+// ============================================================================
+function PipelinePulse({ funnel, mode }) {
+  const isLp = mode === 'lp'
+  const title    = isLp ? 'LP fundraising' : 'Founders pipeline'
+  const noun     = isLp ? 'LP' : 'deal'
+  const nounPl   = isLp ? 'LPs' : 'deals'
+  const wonLabel = stageLabel('Diligence', mode)   // "Committed" (LP) / "Diligence" (company)
+
+  return (
+    <section className="vl-card p-5">
+      <div className="mb-4 flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="vl-eyebrow-ink inline-flex items-center gap-1.5"><BarChart3 className="h-3 w-3" /> {title}</p>
+          <p className="mt-0.5 text-[11px] text-valence-muted">Where every {noun} sits in the funnel right now.</p>
+        </div>
+        <Link to="/analytics" className="shrink-0 inline-flex items-center gap-1 text-[11px] font-semibold text-valence-blue hover:text-valence-blue-hover">
+          Full analytics <ArrowUpRight className="h-3 w-3" />
+        </Link>
+      </div>
+
+      <div className="mb-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <Mini label="In pipeline" value={funnel.inPipeline} />
+        <Mini label={wonLabel}    value={funnel.won} accent="success" />
+        <Mini label="Win rate"    value={funnel.winRate == null ? '—' : `${funnel.winRate}%`} />
+        <Mini label="Closing ≤30d" value={funnel.soon} accent={funnel.soon > 0 ? 'blue' : undefined} />
+      </div>
+
+      {funnel.inPipeline === 0 ? (
+        <Empty>No {nounPl} in the active funnel yet.</Empty>
+      ) : (
+        <ul className="space-y-2">
+          {funnel.counts.map(s => (
+            <li key={s.id} className="flex items-center gap-3">
+              <span className="w-28 shrink-0 truncate text-[11px] font-medium text-valence-muted" title={s.label}>{s.label}</span>
+              <div className="h-5 flex-1 overflow-hidden rounded-md bg-valence-surface">
+                <div
+                  className="h-full rounded-md bg-valence-blue/70 transition-all"
+                  style={{ width: `${Math.round((s.count / funnel.max) * 100)}%` }}
+                />
+              </div>
+              <span className="w-8 shrink-0 text-right text-xs font-semibold tabular-nums text-valence-text">{s.count}</span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
+  )
+}
+
+function Mini({ label, value, accent }) {
+  const color = accent === 'success' ? 'text-valence-success'
+    : accent === 'blue' ? 'text-valence-blue'
+    : 'text-valence-text'
+  return (
+    <div className="rounded-lg border border-valence-border bg-valence-elevated px-3 py-2.5">
+      <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-valence-subtle">{label}</p>
+      <p className={`mt-0.5 font-display text-2xl font-bold tabular-nums ${color}`}>{value}</p>
+    </div>
+  )
 }
 
 // Lightweight read-only card shown when a Priority row is tapped. Surfaces
