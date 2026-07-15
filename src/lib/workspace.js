@@ -5,6 +5,30 @@
 
 const PREFIX = 'valence.workspace.'
 
+// Read-only cache of the signed-in tenant's org name (public.orgs.name),
+// written by useSeat when the seat resolves. It lets the SYNCHRONOUS
+// helpers below (browser title, firmDisplayName for AI/email templates)
+// fall back to the real firm name — e.g. "Valence Growth Partners" — instead
+// of the stock "Valence" brand, without each of them doing a DB round-trip.
+// Namespaced under `valence.` so the signOut sweep clears it too.
+const ORG_NAME_KEY = 'valence.workspace.orgName'
+
+export function cacheOrgName(name) {
+  const store = safeStorage()
+  if (!store) return
+  try {
+    const v = (name || '').trim()
+    if (v) store.setItem(ORG_NAME_KEY, v)
+    else store.removeItem(ORG_NAME_KEY)
+  } catch { /* private mode / quota */ }
+}
+
+export function cachedOrgName() {
+  const store = safeStorage()
+  if (!store) return ''
+  try { return (store.getItem(ORG_NAME_KEY) || '').trim() } catch { return '' }
+}
+
 export const WORKSPACE_KEYS = Object.freeze({
   firmName:        'firmName',
   firmKicker:      'firmKicker',
@@ -107,6 +131,12 @@ export function effectiveBrowserTitle() {
   const explicit = getWorkspaceSetting(WORKSPACE_KEYS.browserTitle, '')
   if (explicit && explicit.trim()) return explicit.trim()
   const firmName = getWorkspaceSetting(WORKSPACE_KEYS.firmName, WORKSPACE_DEFAULTS.firmName)
+  // When the firm name is still the stock brand, prefer the tenant's real
+  // org name (e.g. "Valence Growth Partners") over "ValenceOS".
+  if (!firmName || firmName === WORKSPACE_DEFAULTS.firmName) {
+    const org = cachedOrgName()
+    if (org) return org
+  }
   return `${firmName}OS`
 }
 

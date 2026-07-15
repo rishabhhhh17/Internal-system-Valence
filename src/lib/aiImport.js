@@ -71,6 +71,7 @@ FUND fields (investor universe — VCs, PE firms, sovereigns, family offices):
 
 INTERACTION fields (logged touchpoints with a counterparty):
   counterparty_name    — required
+  counterparty_email   — the counterparty's email if present (used to link this touchpoint to the right person)
   counterparty_company — string
   type                 — 'meeting','call','email','intro','pitch','followup','other'
   outcome              — 'positive','neutral','negative','unknown'
@@ -181,18 +182,17 @@ async function insertEntity(e, orgId) {
   const f = e.fields || {}
   switch (e.kind) {
     case 'person': {
-      const payload = {
-        org_id: orgId,
+      // Dedup on email so re-importing the same contact (or a contact the
+      // Gmail sync already captured) updates rather than duplicates.
+      const { row, isNew } = await findOrCreatePerson(orgId, {
         full_name: f.full_name || 'Unnamed',
-        email: f.email || null,
-        phone: f.phone || null,
-        company: f.company || null,
-        role: f.role || null,
-        notes: f.notes || null
-      }
-      const { data, error } = await supabase.from('people').insert(payload).select().single()
-      if (error) throw error
-      return data
+        email: f.email,
+        phone: f.phone,
+        company: f.company,
+        role: f.role,
+        notes: f.notes
+      })
+      return { ...row, _dedup: isNew ? 'created' : 'matched' }
     }
     case 'deal': {
       // Map to the live deal model (deal_types[]/deal_subtype/ma_side) and use
@@ -238,14 +238,25 @@ async function insertEntity(e, orgId) {
       return data
     }
     case 'interaction': {
+      // Link this touchpoint to a real person: by email (find-or-create) when
+      // we have one, else by an unambiguous name match. person_id is what a
+      // contact's profile reads to show their interaction history.
+      const link = await linkInteractionPerson(orgId, f)
+      const when = f.date ? isoFromDate(f.date) : new Date().toISOString()
       const payload = {
         org_id: orgId,
+        person_id: link?.id || null,
         counterparty_name: f.counterparty_name || 'Unnamed',
         counterparty_company: f.counterparty_company || null,
-        type:    f.type    || 'other',
-        outcome: f.outcome || 'unknown',
+        // Map the model's loose enums onto the table's CHECK-constrained
+        // vocabulary — the old 'other'/'unknown' pair violated the outcome
+        // constraint and failed every interaction import.
+        type:    mapInteractionType(f.type),
+        outcome: mapInteractionOutcome(f.outcome),
+        source:  'import',
         notes:   f.notes   || null,
-        created_at: f.date ? isoFromDate(f.date) : new Date().toISOString()
+        occurred_at: when,
+        created_at:  when
       }
       const { data, error } = await supabase.from('interactions').insert(payload).select().single()
       if (error) throw error
@@ -286,6 +297,108 @@ function isoFromDate(dateLike) {
   if (!dateLike) return new Date().toISOString()
   const d = new Date(String(dateLike))
   return Number.isNaN(d.getTime()) ? new Date().toISOString() : d.toISOString()
+}
+
+// ============ DEDUP / LINK HELPERS ============
+// Find a person by email (case-insensitive, via the unique index on
+// lower(trim(email))) or create one. Returns { row, isNew }. We set
+// email_normalised on insert so the normalised index + future dedup work —
+// there's no DB trigger that backfills it. A concurrent insert that trips
+// the unique index (23505) is handled by re-fetching the winning row.
+async function findOrCreatePerson(orgId, { full_name, email, phone, company, role, notes }) {
+  const rawEmail = (email || '').trim()
+  const norm = rawEmail.toLowerCase()
+  const hasEmail = /@.+\./.test(norm)
+
+  if (hasEmail) {
+    const existing = await fetchPersonByEmail(orgId, rawEmail)
+    if (existing) return { row: existing, isNew: false }
+  }
+
+  const payload = {
+    org_id: orgId,
+    full_name: full_name || (hasEmail ? rawEmail.split('@')[0] : 'Unnamed'),
+    email: rawEmail || null,
+    email_normalised: hasEmail ? norm : null,
+    phone: phone || null,
+    company: company || null,
+    role: role || null,
+    notes: notes || null
+  }
+  const { data, error } = await supabase.from('people').insert(payload).select().single()
+  if (!error) return { row: data, isNew: true }
+  // Lost a race (or a case-variant already exists) — fetch the winner.
+  if (error.code === '23505' && hasEmail) {
+    const existing = await fetchPersonByEmail(orgId, rawEmail)
+    if (existing) return { row: existing, isNew: false }
+  }
+  throw error
+}
+
+async function fetchPersonByEmail(orgId, rawEmail) {
+  // ilike with no wildcards = case-insensitive exact match, mirroring the
+  // functional unique index lower(trim(email)). Escape LIKE metacharacters
+  // so an address with % or _ can't turn into a wildcard.
+  const escaped = rawEmail.replace(/[\\%_]/g, m => `\\${m}`)
+  const { data } = await supabase.from('people')
+    .select('*').eq('org_id', orgId).ilike('email', escaped).limit(1).maybeSingle()
+  return data || null
+}
+
+// Resolve the person a touchpoint belongs to. Prefer the counterparty's
+// email (find-or-create); otherwise link only when a single person shares
+// the counterparty name (never guess between namesakes).
+async function linkInteractionPerson(orgId, f) {
+  const email = (f.counterparty_email || f.email || '').trim()
+  if (/@.+\./.test(email)) {
+    const { row } = await findOrCreatePerson(orgId, {
+      full_name: f.counterparty_name,
+      email,
+      company: f.counterparty_company
+    })
+    return row
+  }
+  const name = (f.counterparty_name || '').trim()
+  if (!name) return null
+  const escaped = name.replace(/[\\%_]/g, m => `\\${m}`)
+  const { data } = await supabase.from('people')
+    .select('id').eq('org_id', orgId).ilike('full_name', escaped).limit(2)
+  return (data && data.length === 1) ? data[0] : null
+}
+
+// The interactions table CHECK-constrains type + outcome to a fixed
+// vocabulary. Map the model's friendly enums onto legal values (unknown
+// tokens fall back to safe defaults) so imports never 23514.
+const INTERACTION_TYPES = new Set([
+  'intro_call', 'pitch_meeting', 'coffee', 'email_thread', 'referral_in',
+  'referral_out', 'event', 'phone_call', 'whatsapp', 'other'
+])
+const TYPE_ALIASES = {
+  meeting: 'pitch_meeting', pitch: 'pitch_meeting', call: 'phone_call',
+  phone: 'phone_call', email: 'email_thread', intro: 'intro_call',
+  introduction: 'intro_call', referral: 'referral_in', followup: 'other',
+  'follow-up': 'other', 'follow up': 'other'
+}
+function mapInteractionType(t) {
+  const s = String(t || '').toLowerCase().trim()
+  if (INTERACTION_TYPES.has(s)) return s
+  return TYPE_ALIASES[s] || 'other'
+}
+
+const INTERACTION_OUTCOMES = new Set([
+  'to_followup', 'in_progress', 'converted_to_mandate', 'pitched_lost',
+  'interested', 'passed', 'referred_out', 'stay_warm', 'closed',
+  'action_required', 'completed', 'blocked', 'signed'
+])
+const OUTCOME_ALIASES = {
+  positive: 'interested', good: 'interested', neutral: 'in_progress',
+  negative: 'passed', lost: 'pitched_lost', unknown: 'in_progress',
+  followup: 'to_followup', 'follow-up': 'to_followup', done: 'completed'
+}
+function mapInteractionOutcome(o) {
+  const s = String(o || '').toLowerCase().trim()
+  if (INTERACTION_OUTCOMES.has(s)) return s
+  return OUTCOME_ALIASES[s] || 'in_progress'
 }
 
 // ============ KIND METADATA ============

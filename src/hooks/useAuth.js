@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback } from 'react'
 import { supabase, isSupabaseConfigured } from '../lib/supabase.js'
 import { setUserContext, clearUserContext } from '../lib/sentry.js'
-import { rememberGoogleTokens, hasGoogleConnection } from '../lib/google.js'
+import { rememberGoogleTokens, hasGoogleConnection, persistGoogleRefreshToken } from '../lib/google.js'
 
 // Returns the current Supabase session and profile derived from a Google sign-in.
 export function useAuth() {
@@ -57,6 +57,9 @@ export function useAuth() {
         // SIGNED_IN event carries them; later TOKEN_REFRESHED events don't,
         // and rememberGoogleTokens no-ops on those so the stash survives).
         rememberGoogleTokens(s)
+        // Also persist the refresh token server-side for the Gmail-sync cron
+        // (no-op unless the sync is enabled and a refresh token is present).
+        persistGoogleRefreshToken(s)
         setSession(s)
         if (s) setAuthUnavailable(false)
       }

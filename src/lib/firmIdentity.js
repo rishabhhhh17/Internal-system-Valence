@@ -16,15 +16,20 @@
 // tenant product. This helper makes them tenant-aware.
 
 import { useWorkspaceSetting } from '../hooks/useWorkspaceSetting.js'
-import { getWorkspaceSetting, WORKSPACE_KEYS } from './workspace.js'
+import { getWorkspaceSetting, WORKSPACE_KEYS, WORKSPACE_DEFAULTS, cachedOrgName } from './workspace.js'
 
 // Synchronous getter — safe to call from non-React contexts (lib/*).
-// Returns the firmName workspace setting, or `fallback` if unset.
-// Trim because users sometimes paste with stray whitespace.
+// Precedence: an explicit firm-name override the partner typed in Settings,
+// then the tenant's real org name (cached from Supabase by useSeat — e.g.
+// "Valence Growth Partners"), then the neutral fallback. This keeps AI
+// prompts / email signatures / CIM headers on the real firm name instead of
+// "your firm", while staying tenant-aware for the demo.
 export function firmDisplayName(fallback = 'your firm') {
-  const raw = getWorkspaceSetting(WORKSPACE_KEYS.firmName, '')
-  const cleaned = (raw || '').trim()
-  return cleaned || fallback
+  const raw = (getWorkspaceSetting(WORKSPACE_KEYS.firmName, '') || '').trim()
+  if (raw && raw !== WORKSPACE_DEFAULTS.firmName) return raw
+  const org = cachedOrgName()
+  if (org) return org
+  return raw || fallback
 }
 
 // React hook variant — re-renders when the partner edits firm name in

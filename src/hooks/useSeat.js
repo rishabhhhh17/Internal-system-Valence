@@ -15,6 +15,7 @@
 
 import { useEffect, useState, useCallback } from 'react'
 import { supabase, isSupabaseConfigured } from '../lib/supabase.js'
+import { cacheOrgName } from '../lib/workspace.js'
 import { useAuth } from './useAuth.js'
 
 export function useSeat() {
@@ -87,6 +88,9 @@ export function useSeat() {
         const { orgs, ...rest } = data
         setSeat(rest)
         setOrg(orgs || null)
+        // Cache the org name for the synchronous firm-name helpers (browser
+        // title, AI/email templates) so they show the real firm, not stock.
+        cacheOrgName(orgs?.name || '')
       }
     } catch (e) {
       setError(e?.message || 'Failed to load seat')

@@ -19,5 +19,8 @@
         { "key": "Cache-Control", "value": "no-store, max-age=0, must-revalidate" }
       ]
     }
+  ],
+  "crons": [
+    { "path": "/api/gmail-sync", "schedule": "0 6 * * *" }
   ]
 }

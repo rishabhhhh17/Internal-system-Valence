@@ -110,22 +110,45 @@ export async function refreshGoogleAccessToken() {
   try { return await _refreshInflight } finally { _refreshInflight = null }
 }
 
-// Scopes intentionally kept to Calendar + Drive + Tasks only. Gmail scopes
-// (gmail.send, gmail.metadata) are RESTRICTED scopes that trigger Google's
-// CASA security audit ($10-15k, 4-8 weeks) during OAuth verification. The
-// Chrome extension covers Gmail capture by reading the user's open Gmail
-// tab (DOM, not API), and EmailComposer / Planner / FreeSlots now open
-// Gmail's compose URL in a new tab instead of sending via the API — no
-// scope needed for either path. If a future feature genuinely needs the
-// Gmail API, re-add the scope here AND budget for CASA before re-submitting.
+// Server-side Gmail sync (auto-add unknown senders to People) is gated on
+// VITE_GMAIL_SYNC so the restricted gmail scope is only ever requested once
+// the OAuth consent screen actually lists it. Requesting a scope Google
+// doesn't recognise fails the whole sign-in with invalid_scope — so this
+// flag MUST stay off until the Internal OAuth app has the scope added.
+// For a Google Workspace *Internal* app the restricted scope needs no CASA
+// audit; that's the deployment path here (valencegrowthpartners.com).
+export const GMAIL_SYNC_ENABLED = import.meta.env.VITE_GMAIL_SYNC === 'true'
+
+// Scopes: Calendar + Drive + Tasks always; gmail.readonly only when the
+// server-side sync is switched on. We read only message *metadata* (From /
+// To / Date headers) in the cron — never message bodies.
 export const GOOGLE_SCOPES = [
   'https://www.googleapis.com/auth/calendar',
   'https://www.googleapis.com/auth/drive.readonly',
   // Read + write the user's Google Tasks so the Day Planner Tasks panel
   // can be the source of truth for the partner's to-do list.
   'https://www.googleapis.com/auth/tasks',
+  ...(GMAIL_SYNC_ENABLED ? ['https://www.googleapis.com/auth/gmail.readonly'] : []),
   'openid', 'email', 'profile'
 ].join(' ')
+
+// Persist the Google refresh token server-side (locked-down
+// google_credentials table via a SECURITY DEFINER RPC) so the background
+// Gmail-sync cron can mint access tokens without the user's browser open.
+// Only runs when the sync is enabled and Google actually returned a refresh
+// token on this session (it does on the SIGNED_IN event after offline
+// consent). Best-effort: a failure here never blocks sign-in.
+export async function persistGoogleRefreshToken(session) {
+  try {
+    if (!GMAIL_SYNC_ENABLED || !isSupabaseConfigured) return
+    const refresh = session?.provider_refresh_token
+    if (!refresh) return
+    await supabase.rpc('save_google_credential', {
+      p_refresh_token: refresh,
+      p_google_email: session?.user?.email || null
+    })
+  } catch { /* best-effort — never break auth on a token-save hiccup */ }
+}
 
 export class GoogleAuthExpired extends Error {
   constructor() { super('Google session expired. Please reconnect.') }
