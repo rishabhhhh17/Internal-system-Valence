@@ -271,7 +271,9 @@ async function insertEntity(e, orgId) {
         full_name: f.name || 'Unnamed Company',
         company:   f.name || null,
         role:      'company',
-        notes:     [
+        // `people` has no `notes` column — company context lands in the
+        // free-text relationship_history field instead.
+        relationship_history: [
           f.sector ? `Sector: ${f.sector}` : null,
           f.size_employees ? `~${f.size_employees} employees` : null,
           f.hq_city ? `HQ: ${f.hq_city}` : null,
@@ -315,15 +317,17 @@ async function findOrCreatePerson(orgId, { full_name, email, phone, company, rol
     if (existing) return { row: existing, isNew: false }
   }
 
+  // NB: `people` has no `notes` column and `email_normalised` is a GENERATED
+  // column — inserting either errors. Notes land in `relationship_history`
+  // (the table's free-text persona field); email_normalised computes itself.
   const payload = {
     org_id: orgId,
     full_name: full_name || (hasEmail ? rawEmail.split('@')[0] : 'Unnamed'),
     email: rawEmail || null,
-    email_normalised: hasEmail ? norm : null,
     phone: phone || null,
     company: company || null,
     role: role || null,
-    notes: notes || null
+    relationship_history: notes || null
   }
   const { data, error } = await supabase.from('people').insert(payload).select().single()
   if (!error) return { row: data, isNew: true }
