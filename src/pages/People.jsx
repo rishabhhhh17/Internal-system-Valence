@@ -247,6 +247,24 @@ export default function People() {
           setDrawer(prev => prev && prev.row?.id === id ? { ...prev, row: { ...prev.row, full_name } } : prev)
           toast.success('Renamed.')
         }}
+        onDelete={async (id) => {
+          if (isSupabaseConfigured) {
+            const { error } = await supabase.from('people').delete().eq('id', id)
+            if (error) { toast.error(humanError(error, 'Could not delete contact')); throw error }
+          }
+          setRows(prev => prev.filter(p => p.id !== id))
+          setDrawer(null)
+          toast.success('Contact deleted')
+        }}
+        onMerge={async (primaryId, dupeIds) => {
+          if (isSupabaseConfigured) {
+            const { data, error } = await supabase.rpc('merge_people', { p_primary: primaryId, p_dupes: dupeIds })
+            if (error) { toast.error(humanError(error, 'Could not merge')); throw error }
+            toast.success(`Merged ${dupeIds.length} in · ${data?.moved || 0} interactions moved`)
+          }
+          setDrawer(null)
+          load()
+        }}
       />
     </div>
   )

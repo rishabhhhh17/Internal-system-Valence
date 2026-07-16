@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Mail, Phone, Linkedin, MessageSquare, MapPin, Building2, Briefcase, Sparkles, ArrowUpRight, Hash } from 'lucide-react'
+import { Mail, Phone, Linkedin, MessageSquare, MapPin, Building2, Briefcase, Sparkles, ArrowUpRight, Hash, GitMerge, Trash2, X } from 'lucide-react'
 import Drawer from './Drawer.jsx'
 import { supabase, isSupabaseConfigured } from '../lib/supabase.js'
 import { TAG_SUGGESTIONS, extractCompanies } from '../lib/people.js'
@@ -28,13 +28,19 @@ const BLANK = {
   tags: '', last_touched_at: '', fund_id: ''
 }
 
-export default function PersonDrawer({ open, onClose, existing, onSubmit, onRename }) {
+export default function PersonDrawer({ open, onClose, existing, onSubmit, onRename, onDelete, onMerge }) {
   const [tab, setTab] = useState('overview')
   const [form, setForm] = useState(BLANK)
   const [funds, setFunds] = useState([])
   const [companies, setCompanies] = useState([])
   const [interactions, setInteractions] = useState([])
   const [deals, setDeals] = useState([])
+  // Merge / delete (data cleanup, right inside the drawer)
+  const [mergeOpen, setMergeOpen] = useState(false)
+  const [mergeQ, setMergeQ]       = useState('')
+  const [peopleList, setPeopleList] = useState([])
+  const [selDupes, setSelDupes]   = useState([])   // [{id, full_name, company}]
+  const [busy, setBusy]           = useState(false)
   // Double-submit guard: a partner accidentally clicks Save twice (touch
   // mishit, slow network, etc) and the parent fires insert() twice →
   // two people rows with identical content. The submitting state
@@ -45,7 +51,40 @@ export default function PersonDrawer({ open, onClose, existing, onSubmit, onRena
     if (!open) return
     setTab('overview')
     setForm(existing ? { ...BLANK, ...stringify(existing) } : BLANK)
+    setMergeOpen(false); setMergeQ(''); setSelDupes([]); setBusy(false)
   }, [open, existing])
+
+  // Load the contact roster (for the merge picker) only when the user opens
+  // the merge tool — keeps the drawer light for the common edit case.
+  useEffect(() => {
+    if (!mergeOpen || !isSupabaseConfigured || !existing?.id) return
+    supabase.from('people').select('id, full_name, company, email').order('full_name')
+      .then(({ data }) => setPeopleList((data || []).filter(p => p.id !== existing.id)))
+  }, [mergeOpen, existing?.id])
+
+  const mergeCandidates = useMemo(() => {
+    const n = mergeQ.trim().toLowerCase()
+    const picked = new Set(selDupes.map(d => d.id))
+    return peopleList
+      .filter(p => !picked.has(p.id) && (!n || (p.full_name || '').toLowerCase().includes(n) || (p.company || '').toLowerCase().includes(n)))
+      .slice(0, 8)
+  }, [peopleList, mergeQ, selDupes])
+
+  async function doMerge() {
+    if (!selDupes.length || busy) return
+    setBusy(true)
+    try { await onMerge?.(existing.id, selDupes.map(d => d.id)) }
+    catch { /* parent toasts */ }
+    finally { setBusy(false) }
+  }
+  async function doDelete() {
+    if (busy || !existing?.id) return
+    if (!window.confirm(`Delete ${existing.full_name}? Their logged interactions stay, but get unlinked from this contact.`)) return
+    setBusy(true)
+    try { await onDelete?.(existing.id) }
+    catch { /* parent toasts */ }
+    finally { setBusy(false) }
+  }
 
   // Reference data — funds for the dropdown, plus the distinct list of
   // existing companies so the Company field can autocomplete the user's
@@ -150,11 +189,16 @@ export default function PersonDrawer({ open, onClose, existing, onSubmit, onRena
       }
       footer={
         tab === 'overview' ? (
-          <div className="flex items-center justify-end gap-3">
-            <button type="button" onClick={onClose} disabled={submitting} className="vl-btn-secondary">Cancel</button>
-            <button type="submit" form="person-form" disabled={submitting} className="vl-btn-primary">
-              {submitting ? 'Saving…' : (existing ? 'Save changes' : 'Save person')}
-            </button>
+          <div className="flex items-center justify-between gap-3">
+            {existing
+              ? <button type="button" onClick={doDelete} disabled={busy} className="inline-flex items-center gap-1 text-xs font-semibold text-valence-danger hover:underline disabled:opacity-50"><Trash2 className="h-3.5 w-3.5" /> Delete</button>
+              : <span />}
+            <div className="flex items-center gap-3">
+              <button type="button" onClick={onClose} disabled={submitting} className="vl-btn-secondary">Cancel</button>
+              <button type="submit" form="person-form" disabled={submitting} className="vl-btn-primary">
+                {submitting ? 'Saving…' : (existing ? 'Save changes' : 'Save person')}
+              </button>
+            </div>
           </div>
         ) : null
       }
@@ -289,6 +333,51 @@ export default function PersonDrawer({ open, onClose, existing, onSubmit, onRena
           {existing.phone    && <Linklet icon={Phone}    href={`tel:${existing.phone.replace(/\s+/g,'')}`} label={existing.phone} />}
           {existing.linkedin_url && <Linklet icon={Linkedin} href={existing.linkedin_url} label="LinkedIn" external />}
           {existing.whatsapp && <Linklet icon={MessageSquare} href={`https://wa.me/${existing.whatsapp.replace(/[^0-9]/g,'')}`} label="WhatsApp" external />}
+        </div>
+      )}
+
+      {/* Merge duplicates — fold another contact into this one. Keeps this as
+          the surviving record; the other's interactions move here, empty
+          fields fill in, then it's removed. */}
+      {existing?.id && tab === 'overview' && (
+        <div className="mt-6 rounded-xl border border-valence-border bg-valence-surface/40 p-4">
+          <button type="button" onClick={() => setMergeOpen(o => !o)} className="inline-flex items-center gap-2 text-xs font-semibold text-valence-muted hover:text-valence-text">
+            <GitMerge className="h-3.5 w-3.5" /> Merge a duplicate into this contact
+          </button>
+          {mergeOpen && (
+            <div className="mt-3 space-y-2">
+              {selDupes.length > 0 && (
+                <div className="flex flex-wrap gap-1.5">
+                  {selDupes.map(d => (
+                    <span key={d.id} className="inline-flex items-center gap-1 rounded-full bg-valence-blue-soft px-2 py-0.5 text-[11px] font-medium text-valence-blue">
+                      {d.full_name}{d.company ? ` · ${d.company}` : ''}
+                      <button type="button" onClick={() => setSelDupes(s => s.filter(x => x.id !== d.id))} aria-label="Remove"><X className="h-3 w-3" /></button>
+                    </span>
+                  ))}
+                </div>
+              )}
+              <input value={mergeQ} onChange={e => setMergeQ(e.target.value)} placeholder="Search the duplicate to fold in…" className="vl-input h-8 text-xs" />
+              {mergeQ.trim() && (
+                <ul className="max-h-48 divide-y divide-valence-border/60 overflow-y-auto rounded-lg border border-valence-border bg-valence-elevated">
+                  {mergeCandidates.map(p => (
+                    <li key={p.id}>
+                      <button type="button" onClick={() => { setSelDupes(s => [...s, p]); setMergeQ('') }} className="flex w-full items-center justify-between gap-2 px-3 py-2 text-sm hover:bg-valence-surface">
+                        <span className="text-valence-text truncate">{p.full_name}</span>
+                        <span className="shrink-0 text-[11px] text-valence-muted">{p.company || p.email || ''}</span>
+                      </button>
+                    </li>
+                  ))}
+                  {mergeCandidates.length === 0 && <li className="px-3 py-2 text-xs text-valence-subtle">No matches.</li>}
+                </ul>
+              )}
+              {selDupes.length > 0 && (
+                <button type="button" onClick={doMerge} disabled={busy} className="vl-btn-primary-sm">
+                  {busy ? 'Merging…' : `Merge ${selDupes.length} into ${existing.full_name}`}
+                </button>
+              )}
+              <p className="text-[11px] text-valence-subtle leading-relaxed">The duplicate's interactions move onto this contact and empty fields here fill from it — then the duplicate is removed. Nothing is lost.</p>
+            </div>
+          )}
         </div>
       )}
     </Drawer>
