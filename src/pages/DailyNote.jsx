@@ -18,6 +18,7 @@ import WikilinkTextarea from '../components/WikilinkTextarea.jsx'
 import WikilinkText from '../components/WikilinkText.jsx'
 import StaleRelationships from '../components/StaleRelationships.jsx'
 import ExtensionStatus from '../components/ExtensionStatus.jsx'
+import DailyTasks from '../components/DailyTasks.jsx'
 import { dotClass as ctyDot, labelFor as ctyLabel, barFillClass as ctyBar } from '../lib/counterpartyColors.js'
 
 // The Daily Note replaces the previous Overview page. One row per (user, date)
@@ -745,6 +746,10 @@ export default function DailyNote() {
         </h1>
         <p className="mt-2 text-sm text-valence-muted">{dateLabel}</p>
       </header>
+
+      {/* Daily tasks — the first thing to run through each morning: add, assign,
+          sub-bullet, tick. Unfinished items carry over; ticking archives them. */}
+      <DailyTasks />
 
       {/* KPI command-center strip — the numbers that matter at a glance. */}
       {ready && <StatStrip stats={stats} />}
