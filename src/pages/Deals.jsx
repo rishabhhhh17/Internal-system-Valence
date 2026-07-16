@@ -365,6 +365,18 @@ export default function Deals() {
     toast.success(`${deal.client_name} → ${newStage}`)
   }
 
+  // Inline edit of any deal field from the Table view (optimistic + save).
+  async function updateDealField(id, patch) {
+    const before = deals.find(d => d.id === id)
+    setDeals(prev => prev.map(d => d.id === id ? { ...d, ...patch } : d))
+    if (!isSupabaseConfigured) return
+    const { error } = await supabase.from('deals').update(patch).eq('id', id)
+    if (error) { toast.error(humanError(error, 'Could not save — try again.')); load({ silent: true }); return }
+    if (patch.stage && before && before.stage !== patch.stage) {
+      await logActivity({ dealId: id, kind: 'stage_change', body: `${before.stage} → ${patch.stage}` })
+    }
+  }
+
   return (
     <div className="space-y-6">
       <ConfigBanner />
@@ -453,7 +465,7 @@ export default function Deals() {
       ) : view === 'board' ? (
         <DealKanban deals={filtered} onOpen={setDrawer} onStageChange={changeStage} stages={modeStages} />
       ) : (
-        <DealTable deals={filtered} onOpen={setDrawer} focusedId={focusedDealId} onFocus={setFocusedDealId} />
+        <DealTable deals={filtered} onOpen={setDrawer} focusedId={focusedDealId} onFocus={setFocusedDealId} onUpdate={updateDealField} stages={modeStages} mode={pipelineMode} />
       )}
 
       {/* Power-user keyboard nav scoped to /deals Table view. j/k moves the
@@ -842,26 +854,30 @@ function Field({ label, value, accent = false }) {
 }
 
 // ============ TABLE VIEW ============
-function DealTable({ deals, onOpen, focusedId = null, onFocus = () => {} }) {
+function DealTable({ deals, onOpen, focusedId = null, onFocus = () => {}, onUpdate = () => {}, stages = stagesForMode('company'), mode = 'company' }) {
   // Auto-scroll focused row into view when the partner navigates with j/k.
   const rowRefs = useRef({})
   useEffect(() => {
     const el = focusedId ? rowRefs.current[focusedId] : null
     if (el) el.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
   }, [focusedId])
+  const stop = e => e.stopPropagation()   // keep cell edits from bubbling to row focus
   return (
     <div className="vl-card overflow-hidden">
+      <div className="mb-1 flex items-center gap-2 px-5 pt-4 text-[11px] text-valence-subtle">
+        <Edit3 className="h-3 w-3" /> Edit any field inline — click a dropdown or cell. Click the deal name to open the full editor.
+      </div>
       <div className="overflow-x-auto">
         <table className="min-w-full">
           <thead>
             <tr className="border-b border-valence-border text-left text-[11px] font-semibold uppercase tracking-wider text-valence-muted">
-              <th className="px-5 py-3.5">Client</th>
-              <th className="px-5 py-3.5">Stage</th>
-              <th className="px-5 py-3.5">Type</th>
-              <th className="px-5 py-3.5">Subtype</th>
-              <th className="px-5 py-3.5">Sector</th>
-              <th className="px-5 py-3.5">Lead</th>
-              <th className="px-5 py-3.5">NDA</th>
+              <th className="px-5 py-3">Client</th>
+              <th className="px-4 py-3">Stage</th>
+              <th className="px-4 py-3">Type</th>
+              <th className="px-4 py-3">Subtype</th>
+              <th className="px-4 py-3">Sector</th>
+              <th className="px-4 py-3">Lead</th>
+              <th className="px-4 py-3">NDA</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-valence-border">
@@ -869,27 +885,29 @@ function DealTable({ deals, onOpen, focusedId = null, onFocus = () => {} }) {
               <tr
                 key={d.id}
                 ref={el => { if (el) rowRefs.current[d.id] = el }}
-                onClick={() => { onFocus(d.id); onOpen(d) }}
                 onMouseEnter={() => onFocus(d.id)}
-                className={`cursor-pointer transition ${focusedId === d.id ? 'bg-valence-blue-soft/50 ring-2 ring-valence-blue/30 ring-inset' : 'hover:bg-valence-surface'}`}
+                className={`transition ${focusedId === d.id ? 'bg-valence-blue-soft/40' : 'hover:bg-valence-surface/60'}`}
               >
-                <td className="px-5 py-4">
+                {/* Client — click to open the full deal editor */}
+                <td className="px-5 py-2.5">
                   <div className="flex items-center gap-3">
                     <div className="grid h-9 w-9 place-items-center rounded-lg bg-valence-blue-soft ring-1 ring-valence-blue/20">
                       <Briefcase className="h-4 w-4 text-valence-blue" />
                     </div>
-                    <div>
-                      <p className="text-sm font-semibold text-valence-text">{d.client_name}</p>
-                      <p className="text-[11px] text-valence-muted line-clamp-1 max-w-[260px]">{stripWikilinkTokens(d.notes) || '—'}</p>
-                    </div>
+                    <button type="button" onClick={() => onOpen(d)} className="min-w-0 text-left">
+                      <p className="text-sm font-semibold text-valence-text hover:text-valence-blue transition">{d.client_name}</p>
+                      <p className="text-[11px] text-valence-muted line-clamp-1 max-w-[220px]">{stripWikilinkTokens(d.notes) || 'Open to edit details →'}</p>
+                    </button>
                   </div>
                 </td>
-                <td className="px-5 py-4">
-                  <span className={`inline-flex items-center rounded-full border px-2.5 py-1 text-[11px] font-semibold ${stageToneClasses(d.stage)}`} title={stageMeta(d.stage).desc}>
-                    {stageLabel(d.stage, d.kind)}
-                  </span>
+                {/* Stage */}
+                <td className="px-4 py-2.5" onClick={stop}>
+                  <select value={d.stage} onChange={e => onUpdate(d.id, { stage: e.target.value })} className="vl-input h-8 w-[150px] text-xs">
+                    {stages.map(s => <option key={s.id} value={s.id}>{s.label || s.id}</option>)}
+                  </select>
                 </td>
-                <td className="px-5 py-4">
+                {/* Type — read-only chips (multi-select lives in the drawer) */}
+                <td className="px-4 py-2.5">
                   <div className="flex flex-wrap gap-1">
                     {(Array.isArray(d.deal_types) ? d.deal_types : []).map(t => (
                       <span key={t} className="vl-chip capitalize">{t === 'm_and_a' ? 'M&A' : t}</span>
@@ -897,14 +915,39 @@ function DealTable({ deals, onOpen, focusedId = null, onFocus = () => {} }) {
                     {(!d.deal_types || d.deal_types.length === 0) && <span className="text-xs text-valence-subtle">—</span>}
                   </div>
                 </td>
-                <td className="px-5 py-4 text-xs text-valence-muted">{d.deal_subtype === 'm_and_a' ? 'M&A' : (d.deal_subtype ? d.deal_subtype.replace(/_/g, ' ') : '—')}</td>
-                <td className="px-5 py-4 text-xs text-valence-muted">{d.sector || '—'}</td>
-                <td className="px-5 py-4 text-xs text-valence-muted">{d.lead_owner || '—'}</td>
-                <td className="px-5 py-4"><NdaBadge status={d.nda_status} /></td>
+                {/* Subtype */}
+                <td className="px-4 py-2.5" onClick={stop}>
+                  <select value={d.deal_subtype || ''} onChange={e => onUpdate(d.id, { deal_subtype: e.target.value || null })} className="vl-input h-8 w-[120px] text-xs">
+                    <option value="">—</option>
+                    {SUBTYPES.map(s => <option key={s.id} value={s.id}>{s.label}</option>)}
+                  </select>
+                </td>
+                {/* Sector — free text with sector suggestions */}
+                <td className="px-4 py-2.5" onClick={stop}>
+                  <input list="deal-sectors" defaultValue={d.sector || ''}
+                    onBlur={e => { const v = e.target.value.trim(); if (v !== (d.sector || '')) onUpdate(d.id, { sector: v || null }) }}
+                    onKeyDown={e => { if (e.key === 'Enter') e.currentTarget.blur() }}
+                    className="vl-input h-8 w-[130px] text-xs" placeholder="—" />
+                </td>
+                {/* Lead owner */}
+                <td className="px-4 py-2.5" onClick={stop}>
+                  <input defaultValue={d.lead_owner || ''}
+                    onBlur={e => { const v = e.target.value.trim(); if (v !== (d.lead_owner || '')) onUpdate(d.id, { lead_owner: v || null }) }}
+                    onKeyDown={e => { if (e.key === 'Enter') e.currentTarget.blur() }}
+                    className="vl-input h-8 w-[120px] text-xs" placeholder="—" />
+                </td>
+                {/* NDA */}
+                <td className="px-4 py-2.5" onClick={stop}>
+                  <select value={d.nda_status || ''} onChange={e => onUpdate(d.id, { nda_status: e.target.value || null })} className="vl-input h-8 w-[120px] text-xs">
+                    <option value="">—</option>
+                    {NDA.map(n => <option key={n} value={n}>{n}</option>)}
+                  </select>
+                </td>
               </tr>
             ))}
           </tbody>
         </table>
+        <datalist id="deal-sectors">{SECTORS.map(s => <option key={s} value={s} />)}</datalist>
       </div>
     </div>
   )
