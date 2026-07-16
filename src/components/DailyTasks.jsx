@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, useCallback, useRef } from 'react'
 import { format } from 'date-fns'
-import { Check, Plus, Archive, X, CornerDownRight, ListTodo, Trash2, ChevronDown, ChevronUp } from 'lucide-react'
+import { Check, Plus, Archive, X, CornerDownRight, ListTodo, Trash2, ChevronDown, ChevronUp, Pencil } from 'lucide-react'
 import { supabase, isSupabaseConfigured, subscribeTable } from '../lib/supabase.js'
 import { useToast } from './Toast.jsx'
 import { useAuth } from '../hooks/useAuth.js'
@@ -101,6 +101,14 @@ export default function DailyTasks() {
     if (error) { toast.error('Could not update task'); load() }
   }
 
+  async function rename(t, title) {
+    const clean = (title || '').trim()
+    if (!clean || clean === t.title) return
+    setTasks(prev => prev.map(x => x.id === t.id ? { ...x, title: clean } : x))
+    const { error } = await supabase.from('tasks').update({ title: clean }).eq('id', t.id)
+    if (error) { toast.error('Could not rename task'); load() }
+  }
+
   async function setAssignees(t, ids) {
     setTasks(prev => prev.map(x => x.id === t.id ? { ...x, assignee_ids: ids } : x))
     const { error } = await supabase.from('tasks').update({ assignee_ids: ids }).eq('id', t.id)
@@ -171,6 +179,7 @@ export default function DailyTasks() {
               onToggleAssignee={uid => toggleAssignee(t, uid)}
               onToggle={() => toggle(t)} onToggleChild={c => toggle(c)}
               onRemove={() => remove(t)} onRemoveChild={c => remove(c)}
+              onRename={title => rename(t, title)}
               subOpen={subFor === t.id} onSubOpen={() => { setSubFor(subFor === t.id ? null : t.id); setSubTitle('') }}
               subTitle={subTitle} onSubTitle={setSubTitle} onSubmitSub={() => submitSub(t.id)}
             />
@@ -206,9 +215,13 @@ export default function DailyTasks() {
   )
 }
 
-function TaskRow({ t, me, roster, today, nameFor, subtasks, assignOpen, onAssignOpen, onToggleAssignee, onToggle, onToggleChild, onRemove, onRemoveChild, subOpen, onSubOpen, subTitle, onSubTitle, onSubmitSub }) {
+function TaskRow({ t, me, roster, today, nameFor, subtasks, assignOpen, onAssignOpen, onToggleAssignee, onToggle, onToggleChild, onRemove, onRemoveChild, onRename, subOpen, onSubOpen, subTitle, onSubTitle, onSubmitSub }) {
   const carried = t.due_date && t.due_date < today
   const a = t.assignee_ids || []
+  const [editing, setEditing] = useState(false)
+  const [draft, setDraft] = useState(t.title)
+  function beginEdit() { setDraft(t.title); setEditing(true) }
+  function saveEdit() { setEditing(false); onRename?.(draft) }
   return (
     <li className="group rounded-lg px-1 py-1 hover:bg-valence-surface/60 transition">
       <div className="flex items-start gap-2.5">
@@ -218,8 +231,19 @@ function TaskRow({ t, me, roster, today, nameFor, subtasks, assignOpen, onAssign
         </button>
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
-            <span className="text-sm text-valence-text">{t.title}</span>
-            {carried && <span className="shrink-0 rounded-full bg-amber-50 px-1.5 py-px text-[9px] font-semibold text-amber-700" title={`Carried over from ${format(new Date(t.due_date), 'd MMM')}`}>carried</span>}
+            {editing ? (
+              <input
+                autoFocus
+                value={draft}
+                onChange={e => setDraft(e.target.value)}
+                onBlur={saveEdit}
+                onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); saveEdit() } if (e.key === 'Escape') { setEditing(false) } }}
+                className="w-full border-b border-valence-blue/40 bg-transparent text-sm text-valence-text focus:outline-none"
+              />
+            ) : (
+              <span className="text-sm text-valence-text" onDoubleClick={beginEdit}>{t.title}</span>
+            )}
+            {carried && !editing && <span className="shrink-0 rounded-full bg-amber-50 px-1.5 py-px text-[9px] font-semibold text-amber-700" title={`Carried over from ${format(new Date(t.due_date), 'd MMM')}`}>carried</span>}
           </div>
         </div>
 
@@ -255,6 +279,7 @@ function TaskRow({ t, me, roster, today, nameFor, subtasks, assignOpen, onAssign
 
         {/* row actions */}
         <div className="flex shrink-0 items-center gap-1 opacity-0 group-hover:opacity-100 transition">
+          <button onClick={beginEdit} title="Edit task" className="grid h-6 w-6 place-items-center rounded text-valence-subtle hover:text-valence-blue"><Pencil className="h-3.5 w-3.5" /></button>
           <button onClick={onSubOpen} title="Add sub-bullet" className="grid h-6 w-6 place-items-center rounded text-valence-subtle hover:text-valence-blue"><CornerDownRight className="h-3.5 w-3.5" /></button>
           <button onClick={onRemove} title="Delete" className="grid h-6 w-6 place-items-center rounded text-valence-subtle hover:text-valence-danger"><Trash2 className="h-3.5 w-3.5" /></button>
         </div>

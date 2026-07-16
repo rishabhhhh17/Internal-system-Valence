@@ -50,9 +50,13 @@ export default function CompleteProfile() {
         : { p_full_name: fullName, p_title: title, p_phone: phone }
       )
       if (error) throw error
-      await refresh()
-      if (!skipped) toast.success('Profile saved.')
-      navigate('/', { replace: true })
+      // Hard-reload into the app instead of a client-side navigate. The
+      // top-level seat gate in App.jsx uses its OWN useSeat instance (hooks
+      // don't share state), so a soft navigate would re-check a STALE seat —
+      // profile_completed_at still null — and bounce right back here: the
+      // onboarding soft-lock. A full reload re-reads the freshly stamped seat
+      // and drops the user straight into the tool.
+      window.location.replace('/')
     } catch (err) {
       toast.error(humanError(err, 'Could not save profile'))
     } finally {
