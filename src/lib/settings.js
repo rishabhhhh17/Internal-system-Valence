@@ -49,6 +49,12 @@ export const SETTINGS_SECTIONS = [
     tier: 'advanced',
     label: 'Data',
     description: 'AI-assisted import, CSV upload, drag-to-attach on People, sample data.'
+  },
+  {
+    id: 'cleanup',
+    tier: 'advanced',
+    label: 'Data cleanup',
+    description: 'Fix contact records in place — merge the same person split across companies, split several people captured as one row, and add missing surnames.'
   }
 ]
 

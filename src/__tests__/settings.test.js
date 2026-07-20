@@ -19,7 +19,8 @@ describe('SETTINGS_SECTIONS', () => {
       'appearance',
       'scoring',
       'integrations',
-      'data'
+      'data',
+      'cleanup'
     ])
   })
 

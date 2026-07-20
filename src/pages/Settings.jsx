@@ -15,6 +15,7 @@ import GoogleWorkspacePanel from '../components/GoogleWorkspacePanel.jsx'
 import SampleDataPanel from '../components/SampleDataPanel.jsx'
 import LlmProviderPanel from '../components/LlmProviderPanel.jsx'
 import TeamPanel from '../components/TeamPanel.jsx'
+import DataCleanup from '../components/DataCleanup.jsx'
 import CsvContactImport from '../components/CsvContactImport.jsx'
 import ScoringCriteriaPanel from '../components/ScoringCriteriaPanel.jsx'
 import BulkAddPeoplePanel from '../components/BulkAddPeoplePanel.jsx'
@@ -170,6 +171,8 @@ function SectionBody({ id }) {
       return <IntegrationsSection />
     case 'data':
       return <DataSection />
+    case 'cleanup':
+      return <DataCleanup />
     case 'appearance':
       return <AppearancePanel />
     default:
