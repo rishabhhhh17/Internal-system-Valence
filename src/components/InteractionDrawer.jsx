@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Sparkles, UserCircle, Plus, FileText, Mic, Upload, Wand2, Trash2, Loader2, ExternalLink, ChevronDown, ChevronRight, Briefcase, TrendingUp, Users } from 'lucide-react'
+import { Sparkles, UserCircle, Plus, FileText, Mic, Upload, Wand2, Trash2, Loader2, ExternalLink, ChevronDown, ChevronRight, Briefcase, TrendingUp, Users, X } from 'lucide-react'
 import Drawer from './Drawer.jsx'
 import { supabase, isSupabaseConfigured } from '../lib/supabase.js'
 import { humanError } from '../lib/userError.js'
@@ -118,6 +118,10 @@ export default function InteractionDrawer({ open, onClose, existing, onSubmit })
   const [seats, setSeats] = useState([])
   const [personQuery, setPersonQuery] = useState('')
   const [creatingPerson, setCreatingPerson] = useState(false)
+  // Everyone who was in this interaction. The first is the "primary"
+  // (mirrored to person_id / counterparty_name for back-compat); all of them
+  // go into person_ids so the interaction shows on each person's profile.
+  const [attendees, setAttendees] = useState([])   // [{ id, full_name, company, role }]
   // Double-submit guard — see PersonDrawer for the rationale.
   const [submitting, setSubmitting] = useState(false)
 
@@ -126,6 +130,33 @@ export default function InteractionDrawer({ open, onClose, existing, onSubmit })
     setForm(existing ? { ...BLANK, ...normalize(existing) } : BLANK)
     setPersonQuery('')
   }, [open, existing])
+
+  // Seed the attendee list from an existing interaction's person_ids (or its
+  // single person_id), resolving names against the loaded People roster.
+  // Re-runs when People finishes loading so chips get real names.
+  useEffect(() => {
+    if (!open) { setAttendees([]); return }
+    const ids = existing?.person_ids?.length
+      ? existing.person_ids
+      : (existing?.person_id ? [existing.person_id] : [])
+    setAttendees(ids.map((id, i) => {
+      const p = people.find(x => x.id === id)
+      return p
+        ? { id: p.id, full_name: p.full_name, company: p.company, role: p.role }
+        : { id, full_name: i === 0 ? (existing?.counterparty_name || 'Contact') : 'Contact', company: null, role: null }
+    }))
+  }, [open, existing, people])
+
+  // Keep the primary (person_id + counterparty fields) in sync with the first
+  // attendee, so back-compat readers and the header still work.
+  useEffect(() => {
+    const first = attendees[0]
+    setForm(f => first
+      ? { ...f, person_id: first.id, counterparty_name: first.full_name,
+          counterparty_company: first.company || f.counterparty_company,
+          counterparty_role: first.role || f.counterparty_role }
+      : { ...f, person_id: '' })
+  }, [attendees])
 
   // Pull deal options for the optional "Linked deal" picker + people for autocomplete.
   useEffect(() => {
@@ -183,30 +214,30 @@ export default function InteractionDrawer({ open, onClose, existing, onSubmit })
   const filteredPeople = useMemo(() => {
     const q = personQuery.trim().toLowerCase()
     if (!q) return []
+    const picked = new Set(attendees.map(a => a.id))
     return people.filter(p =>
-      (p.full_name || '').toLowerCase().includes(q) ||
-      (p.company   || '').toLowerCase().includes(q)
+      !picked.has(p.id) && (
+        (p.full_name || '').toLowerCase().includes(q) ||
+        (p.company   || '').toLowerCase().includes(q))
     ).slice(0, 8)
-  }, [people, personQuery])
+  }, [people, personQuery, attendees])
 
-  function pickPerson(p) {
-    // Default the counterparty type from the person's CRM tags so People
-    // (which colours from tags) and this interaction agree out of the box.
-    // Only fills when the partner hasn't already chosen a type — never
-    // overrides an explicit pick.
-    const derived = typeFromPersonTags(p.tags)
-    update({
-      person_id: p.id,
-      counterparty_name: p.full_name,
-      counterparty_company: p.company || form.counterparty_company,
-      counterparty_role: p.role || form.counterparty_role,
-      counterparty_type: form.counterparty_type || derived || null
+  function addAttendee(p) {
+    setAttendees(prev => {
+      if (prev.some(a => a.id === p.id)) return prev
+      // First attendee seeds the counterparty type from their CRM tags (unless
+      // the user already picked one) so People colour-coding stays consistent.
+      if (prev.length === 0) {
+        const derived = typeFromPersonTags(p.tags)
+        if (derived) setForm(f => ({ ...f, counterparty_type: f.counterparty_type || derived }))
+      }
+      return [...prev, { id: p.id, full_name: p.full_name, company: p.company, role: p.role }]
     })
     setPersonQuery('')
   }
 
-  function clearPerson() {
-    update({ person_id: '' })
+  function removeAttendee(id) {
+    setAttendees(prev => prev.filter(a => a.id !== id))
   }
 
   async function createPersonInline() {
@@ -217,7 +248,7 @@ export default function InteractionDrawer({ open, onClose, existing, onSubmit })
       if (!isSupabaseConfigured) {
         const local = { id: `local-person-${Date.now()}`, full_name: name, company: form.counterparty_company || null, role: form.counterparty_role || null }
         setPeople(prev => [local, ...prev])
-        pickPerson(local)
+        addAttendee(local)
         return
       }
       const { data, error } = await supabase.from('people').insert({
@@ -227,7 +258,7 @@ export default function InteractionDrawer({ open, onClose, existing, onSubmit })
       }).select().single()
       if (error) throw error
       setPeople(prev => [data, ...prev])
-      pickPerson(data)
+      addAttendee(data)
       toast.success(`${name} added to People`)
     } catch (err) {
       toast.error(humanError(err, 'Could not create that person — try again.'))
@@ -287,8 +318,10 @@ export default function InteractionDrawer({ open, onClose, existing, onSubmit })
       // source='manual' below so this can stay null without violating.
       interaction_purpose: existing?.interaction_purpose || null,
       type: form.type,
-      person_id: form.person_id || null,
-      counterparty_name: form.counterparty_name.trim(),
+      person_id: attendees[0]?.id || form.person_id || null,
+      // Everyone who was there — shows this interaction on each of their profiles.
+      person_ids: attendees.map(a => a.id).filter(Boolean),
+      counterparty_name: (attendees[0]?.full_name || form.counterparty_name).trim(),
       counterparty_company: form.counterparty_company.trim() || null,
       counterparty_role: form.counterparty_role.trim() || null,
       counterparty_type: form.counterparty_type || null,
@@ -370,46 +403,52 @@ export default function InteractionDrawer({ open, onClose, existing, onSubmit })
         {/* Person picker — typed search → dropdown → Create Person fallback */}
         <div className="rounded-xl border border-valence-border bg-valence-surface p-4 space-y-3">
           <div className="flex items-center justify-between">
-            <label className="vl-label inline-flex items-center gap-1.5"><UserCircle className="h-3.5 w-3.5 text-valence-blue" /> Contact</label>
-            {form.person_id && (
-              <button type="button" onClick={clearPerson} className="text-[11px] font-semibold text-valence-muted hover:text-valence-danger">Unlink person</button>
+            <label className="vl-label inline-flex items-center gap-1.5"><UserCircle className="h-3.5 w-3.5 text-valence-blue" /> Who was there</label>
+            {attendees.length > 0 && <span className="text-[11px] text-valence-muted tabular-nums">{attendees.length} linked</span>}
+          </div>
+
+          {attendees.length > 0 && (
+            <div className="flex flex-wrap gap-1.5">
+              {attendees.map((a, i) => (
+                <span key={a.id} className="inline-flex items-center gap-1.5 rounded-full bg-valence-blue-soft px-2.5 py-1 text-xs font-medium text-valence-blue">
+                  {a.full_name}
+                  {i === 0 && attendees.length > 1 && <span className="text-[9px] uppercase tracking-wider opacity-70">primary</span>}
+                  <button type="button" onClick={() => removeAttendee(a.id)} aria-label={`Remove ${a.full_name}`} className="hover:text-valence-danger"><X className="h-3 w-3" /></button>
+                </span>
+              ))}
+            </div>
+          )}
+
+          <div className="relative">
+            <input
+              className="vl-input bg-valence-elevated"
+              value={personQuery}
+              onChange={e => { setPersonQuery(e.target.value); if (attendees.length === 0) update({ counterparty_name: e.target.value }) }}
+              placeholder={attendees.length ? 'Add another person…' : 'Search People CRM, or type a new name to add'}
+            />
+            {filteredPeople.length > 0 && (
+              <ul className="absolute z-10 mt-1 w-full max-h-56 overflow-y-auto rounded-lg border border-valence-border bg-valence-elevated shadow-valence">
+                {filteredPeople.map(p => (
+                  <li key={p.id}>
+                    <button type="button" onClick={() => addAttendee(p)} className="block w-full px-3 py-2 text-left hover:bg-valence-blue-soft">
+                      <p className="text-sm font-semibold text-valence-text">{p.full_name}</p>
+                      <p className="text-[11px] text-valence-muted">{[p.role, p.company].filter(Boolean).join(' · ') || '—'}</p>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+            {personQuery && filteredPeople.length === 0 && (
+              <div className="mt-2 flex items-center justify-between rounded-lg border border-dashed border-valence-border bg-valence-elevated px-3 py-2 text-xs text-valence-muted">
+                <span>No match for "{personQuery}".</span>
+                <button type="button" disabled={creatingPerson} onClick={createPersonInline} className="vl-btn-ghost text-[11px]">
+                  <Plus className="h-3 w-3" /> {creatingPerson ? 'Adding…' : 'Create Person'}
+                </button>
+              </div>
             )}
           </div>
-          {form.person_id ? (
-            <div className="rounded-lg border border-valence-blue/30 bg-valence-elevated px-3 py-2.5 text-sm">
-              <p className="font-semibold text-valence-text">{form.counterparty_name}</p>
-              <p className="mt-0.5 text-[11px] text-valence-muted">{[form.counterparty_role, form.counterparty_company].filter(Boolean).join(' · ') || '—'}</p>
-              <p className="mt-1 text-[10px] uppercase tracking-[0.16em] text-valence-blue">Linked to People</p>
-            </div>
-          ) : (
-            <div className="relative">
-              <input
-                className="vl-input bg-valence-elevated"
-                value={personQuery}
-                onChange={e => { setPersonQuery(e.target.value); update({ counterparty_name: e.target.value }) }}
-                placeholder="Search People CRM, or type a new name to add"
-              />
-              {filteredPeople.length > 0 && (
-                <ul className="absolute z-10 mt-1 w-full max-h-56 overflow-y-auto rounded-lg border border-valence-border bg-valence-elevated shadow-valence">
-                  {filteredPeople.map(p => (
-                    <li key={p.id}>
-                      <button type="button" onClick={() => pickPerson(p)} className="block w-full px-3 py-2 text-left hover:bg-valence-blue-soft">
-                        <p className="text-sm font-semibold text-valence-text">{p.full_name}</p>
-                        <p className="text-[11px] text-valence-muted">{[p.role, p.company].filter(Boolean).join(' · ') || '—'}</p>
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              )}
-              {personQuery && filteredPeople.length === 0 && (
-                <div className="mt-2 flex items-center justify-between rounded-lg border border-dashed border-valence-border bg-valence-elevated px-3 py-2 text-xs text-valence-muted">
-                  <span>No match for "{personQuery}".</span>
-                  <button type="button" disabled={creatingPerson} onClick={createPersonInline} className="vl-btn-ghost text-[11px]">
-                    <Plus className="h-3 w-3" /> {creatingPerson ? 'Adding…' : 'Create Person'}
-                  </button>
-                </div>
-              )}
-            </div>
+          {attendees.length > 0 && (
+            <p className="text-[10px] uppercase tracking-[0.16em] text-valence-blue">Linked to People · shows on each of their profiles</p>
           )}
 
           <div className="grid gap-3 sm:grid-cols-2">

@@ -108,7 +108,9 @@ export default function PersonDrawer({ open, onClose, existing, onSubmit, onRena
     }
     ;(async () => {
       const [i, d] = await Promise.all([
-        supabase.from('interactions').select('*').eq('person_id', existing.id).order('created_at', { ascending: false }),
+        // person_ids holds every attendee (and always includes the single
+        // person_id via a DB trigger), so this catches multi-person meetings too.
+        supabase.from('interactions').select('*').contains('person_ids', [existing.id]).order('created_at', { ascending: false }),
         // Deals where this person's email matches a counterparty (loose link until contacts.person_id exists).
         existing.email
           ? supabase.from('contacts').select('deal_id, deals(id, client_name, stage)').eq('email', existing.email)
