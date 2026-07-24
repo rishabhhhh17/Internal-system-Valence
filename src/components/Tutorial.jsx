@@ -369,7 +369,15 @@ function SpotlightRunner({ kind, pathname, onClose }) {
 
   useEffect(() => {
     const onKey = (e) => {
-      if (e.key === 'Escape')     onClose(scripted ? null : pathname)
+      // Never hijack keys while the user is typing in a field. Arrow keys move
+      // the text cursor — without this guard, editing any form and pressing
+      // ← / → advanced the tour and navigated the user to another page
+      // mid-input (the "form kicks me out while typing" bug). Escape still
+      // closes the tour from anywhere.
+      const el = e.target
+      const typing = el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.tagName === 'SELECT' || el.isContentEditable)
+      if (e.key === 'Escape') { onClose(scripted ? null : pathname); return }
+      if (typing) return
       if (e.key === 'ArrowRight') setStep(s => Math.min(s + 1, total - 1))
       if (e.key === 'ArrowLeft')  setStep(s => Math.max(s - 1, 0))
     }

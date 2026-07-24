@@ -223,8 +223,10 @@ export default function InteractionDrawer({ open, onClose, existing, onSubmit })
   }, [people, personQuery, attendees])
 
   function addAttendee(p) {
+    let added = false
     setAttendees(prev => {
-      if (prev.some(a => a.id === p.id)) return prev
+      if (prev.some(a => a.id === p.id)) return prev   // already attached — no dupes
+      added = true
       // First attendee seeds the counterparty type from their CRM tags (unless
       // the user already picked one) so People colour-coding stays consistent.
       if (prev.length === 0) {
@@ -233,7 +235,9 @@ export default function InteractionDrawer({ open, onClose, existing, onSubmit })
       }
       return [...prev, { id: p.id, full_name: p.full_name, company: p.company, role: p.role }]
     })
-    setPersonQuery('')
+    setPersonQuery('')   // clear + reset the mini-form for the next person
+    if (added) toast.success(`Added ${p.full_name}`)
+    else toast.info?.(`${p.full_name} is already attached`)
   }
 
   function removeAttendee(id) {
@@ -430,9 +434,12 @@ export default function InteractionDrawer({ open, onClose, existing, onSubmit })
               <ul className="absolute z-10 mt-1 w-full max-h-56 overflow-y-auto rounded-lg border border-valence-border bg-valence-elevated shadow-valence">
                 {filteredPeople.map(p => (
                   <li key={p.id}>
-                    <button type="button" onClick={() => addAttendee(p)} className="block w-full px-3 py-2 text-left hover:bg-valence-blue-soft">
-                      <p className="text-sm font-semibold text-valence-text">{p.full_name}</p>
-                      <p className="text-[11px] text-valence-muted">{[p.role, p.company].filter(Boolean).join(' · ') || '—'}</p>
+                    <button type="button" onClick={() => addAttendee(p)} className="group flex w-full items-center justify-between gap-2 px-3 py-2 text-left hover:bg-valence-blue-soft">
+                      <span className="min-w-0">
+                        <p className="truncate text-sm font-semibold text-valence-text">{p.full_name}</p>
+                        <p className="truncate text-[11px] text-valence-muted">{[p.role, p.company].filter(Boolean).join(' · ') || '—'}</p>
+                      </span>
+                      <span className="shrink-0 inline-flex items-center gap-1 rounded-full bg-valence-blue-soft px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-valence-blue opacity-0 group-hover:opacity-100"><Plus className="h-3 w-3" /> Add</span>
                     </button>
                   </li>
                 ))}

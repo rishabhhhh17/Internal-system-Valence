@@ -1351,7 +1351,7 @@ function DealsKeyboardNav({ enabled, deals, focusedId, setFocusedId, onOpen }) {
     if (!enabled) return
     const onKey = (e) => {
       const tag = (e.target?.tagName || '').toLowerCase()
-      if (tag === 'input' || tag === 'textarea' || tag === 'select') return
+      if (tag === 'input' || tag === 'textarea' || tag === 'select' || e.target?.isContentEditable) return
       if (e.metaKey || e.ctrlKey || e.altKey) return
 
       const idx = deals.findIndex(d => d.id === focusedId)
