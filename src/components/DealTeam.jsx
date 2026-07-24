@@ -164,16 +164,20 @@ function AddForm({ onSubmit, onCancel, suggestedLead }) {
     email: '',
     share_pct: ''
   })
+  const [submitting, setSubmitting] = useState(false)
   const set = (k, v) => setForm(s => ({ ...s, [k]: v }))
   async function submit(e) {
     e.preventDefault()
-    if (!form.name.trim()) return
-    await onSubmit({
-      name: form.name.trim(),
-      role: form.role,
-      email: form.email.trim() || null,
-      share_pct: form.share_pct === '' ? null : Number(form.share_pct)
-    })
+    if (submitting || !form.name.trim()) return   // guard against double-submit → duplicate members
+    setSubmitting(true)
+    try {
+      await onSubmit({
+        name: form.name.trim(),
+        role: form.role,
+        email: form.email.trim() || null,
+        share_pct: form.share_pct === '' ? null : Number(form.share_pct)
+      })
+    } finally { setSubmitting(false) }
   }
   return (
     <form onSubmit={submit} className="rounded-lg border border-valence-border bg-valence-surface p-3 space-y-2">
@@ -186,8 +190,8 @@ function AddForm({ onSubmit, onCancel, suggestedLead }) {
         <input value={form.share_pct} onChange={e => set('share_pct', e.target.value)} placeholder="Credit %" type="number" min="0" max="100" step="5" className="vl-input" />
       </div>
       <div className="flex items-center justify-end gap-2">
-        <button type="button" onClick={onCancel} className="vl-btn-secondary-sm">Cancel</button>
-        <button type="submit" className="vl-btn-primary-sm">Add</button>
+        <button type="button" onClick={onCancel} disabled={submitting} className="vl-btn-secondary-sm">Cancel</button>
+        <button type="submit" disabled={submitting} className="vl-btn-primary-sm">{submitting ? 'Adding…' : 'Add'}</button>
       </div>
     </form>
   )

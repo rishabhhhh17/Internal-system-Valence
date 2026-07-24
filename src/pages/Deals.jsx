@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { format, parseISO } from 'date-fns'
+import { fmtDate } from '../lib/formatDate.js'
 import {
   Plus, Search, Briefcase, FileText, ExternalLink, Edit3, Trash2,
   Filter as FilterIcon, Circle, Table as TableIcon, LayoutGrid, TrendingUp,
@@ -780,8 +781,8 @@ function DealOverview({ deal }) {
         <Field label="Deal lead"    value={deal.lead_owner || '—'} />
         <Field label="Type"         value={types.length ? types.map(t => t === 'm_and_a' ? 'M&A' : (t.charAt(0).toUpperCase() + t.slice(1))).join(' + ') : '—'} accent />
         <Field label="Subtype"      value={deal.deal_subtype ? humanSubtype(deal.deal_subtype) : '—'} />
-        <Field label="Target close" value={deal.target_close ? format(parseISO(String(deal.target_close).slice(0,10)), 'd MMM yyyy') : '—'} />
-        <Field label="Logged"       value={format(new Date(deal.created_at), 'd MMM yyyy')} />
+        <Field label="Target close" value={fmtDate(deal.target_close, 'd MMM yyyy')} />
+        <Field label="Logged"       value={fmtDate(deal.created_at, 'd MMM yyyy')} />
       </div>
 
       {/* Transaction-conditional blocks */}

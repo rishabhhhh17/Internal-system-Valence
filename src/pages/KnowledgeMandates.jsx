@@ -193,10 +193,17 @@ export function MandatesPanel() {
 
   async function deleteNote(note) {
     if (!confirm(`Delete "${note.title}"?`)) return
+    const prevNotes = notes
     setNotes(prev => prev.filter(n => n.id !== note.id))
     if (selectedNote?.id === note.id) setSelectedNote(null)
     if (!isSupabaseConfigured) return
-    await supabase.from('kb_notes').delete().eq('id', note.id)
+    // Check the error — a swallowed RLS/constraint failure would leave the UI
+    // showing the note gone while it silently persists (returns on reload).
+    const { error } = await supabase.from('kb_notes').delete().eq('id', note.id)
+    if (error) {
+      setNotes(prevNotes)   // rollback the optimistic removal
+      toast.error(humanError(error, 'Could not delete note'))
+    }
   }
 
   // Auto-spawn folders for a mandate that doesn't have any yet — useful for

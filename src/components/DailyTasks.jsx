@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState, useCallback, useRef } from 'react'
 import { format } from 'date-fns'
+import { fmtDate } from '../lib/formatDate.js'
 import { Check, Plus, Archive, X, CornerDownRight, ListTodo, Trash2, ChevronDown, ChevronUp, Pencil } from 'lucide-react'
 import { supabase, isSupabaseConfigured, subscribeTable } from '../lib/supabase.js'
 import { useToast } from './Toast.jsx'
@@ -243,7 +244,7 @@ function TaskRow({ t, me, roster, today, nameFor, subtasks, assignOpen, onAssign
             ) : (
               <span className="text-sm text-valence-text" onDoubleClick={beginEdit}>{t.title}</span>
             )}
-            {carried && !editing && <span className="shrink-0 rounded-full bg-amber-50 px-1.5 py-px text-[9px] font-semibold text-amber-700" title={`Carried over from ${format(new Date(t.due_date), 'd MMM')}`}>carried</span>}
+            {carried && !editing && <span className="shrink-0 rounded-full bg-amber-50 px-1.5 py-px text-[9px] font-semibold text-amber-700" title={`Carried over from ${fmtDate(t.due_date, 'd MMM')}`}>carried</span>}
           </div>
         </div>
 

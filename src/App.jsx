@@ -46,6 +46,7 @@ const CompleteProfile     = lazy(() => import('./pages/CompleteProfile.jsx'))
 const RelationshipTimeline = lazy(() => import('./pages/RelationshipTimeline.jsx'))
 import { useAuth } from './hooks/useAuth.js'
 import { useSeat } from './hooks/useSeat.js'
+import ErrorBoundary from './components/ErrorBoundary.jsx'
 import { isSupabaseConfigured } from './lib/supabase.js'
 import { useWorkspaceSetting } from './hooks/useWorkspaceSetting.js'
 import { WORKSPACE_KEYS, effectiveBrowserTitle, resolveTheme } from './lib/workspace.js'
@@ -256,6 +257,10 @@ export default function App() {
 
   return (
     <Layout>
+      {/* Per-page error boundary, keyed by route so a crash in one page shows
+          a recoverable fallback (nav stays) and navigating away resets it —
+          instead of the root boundary taking down the whole app. */}
+      <ErrorBoundary key={pathname}>
       <Suspense fallback={<BootSplash />}>
       <Routes>
         <Route path="/" element={<DailyNote />} />
@@ -291,6 +296,7 @@ export default function App() {
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
       </Suspense>
+      </ErrorBoundary>
     </Layout>
   )
 }

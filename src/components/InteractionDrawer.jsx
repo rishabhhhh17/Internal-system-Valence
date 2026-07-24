@@ -949,6 +949,9 @@ function normalize(row) {
     lead_owner: row.lead_owner || '',
     deal_id: row.deal_id || '',
     person_id: row.person_id || '',
+    // Default to '' so submit()'s .trim() can't throw on a legacy row that has
+    // no linked person and a null counterparty_name (would no-op Save silently).
+    counterparty_name: row.counterparty_name || '',
     // Phase 4 — structured Mastersheet columns. occurred_at (timestamptz)
     // → occurred_on (yyyy-mm-dd) for the date input. If the row predates
     // the split (context/next_steps both null), fall back to showing the

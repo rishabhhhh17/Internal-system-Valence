@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { format, formatDistanceToNowStrict, parseISO, differenceInCalendarDays } from 'date-fns'
+import { fmtDate } from '../lib/formatDate.js'
 import { Plus, Search, Sparkles, ArrowRight, AlertCircle, MessageSquare, Download } from 'lucide-react'
 import { supabase, isSupabaseConfigured, subscribeTable } from '../lib/supabase.js'
 import { DEMO_INTERACTIONS, typeLabel } from '../lib/interactions.js'
@@ -348,14 +349,18 @@ function CounterpartyName({ row, className = '' }) {
 }
 
 function InteractionRow({ row, onOpen, onConvert, isDetailed = true }) {
-  const ago = row.created_at ? formatDistanceToNowStrict(new Date(row.created_at), { addSuffix: true }) : ''
-  const due = row.follow_up_date ? format(parseISO(row.follow_up_date), 'd MMM') : null
-  const overdue = row.follow_up_date ? differenceInCalendarDays(parseISO(row.follow_up_date), new Date()) < 0 : false
+  // Date-fns throws on Invalid Date — guard each site so one bad value can't
+  // white-screen the whole interactions list.
+  const created = row.created_at ? new Date(row.created_at) : null
+  const ago = created && !Number.isNaN(created.getTime()) ? formatDistanceToNowStrict(created, { addSuffix: true }) : ''
+  const due = fmtDate(row.follow_up_date, 'd MMM', null)
+  const fuDate = row.follow_up_date ? new Date(row.follow_up_date) : null
+  const overdue = fuDate && !Number.isNaN(fuDate.getTime()) ? differenceInCalendarDays(fuDate, new Date()) < 0 : false
   // Phase 26 — counterparty-type accent on the left rail + chip on the
   // metadata row. Lets the partner skim a list and pattern-match against
   // founder vs investor density at a glance.
   const railCls = ctyRail(row.counterparty_type)
-  const when = row.occurred_at ? format(new Date(row.occurred_at), 'd MMM') : null
+  const when = fmtDate(row.occurred_at, 'd MMM', null)
 
   // SIMPLE view (default) — deliberately sparse so the list is scannable:
   //   row 1: colour dot · Name · Company        type-chip      date

@@ -115,9 +115,16 @@ export default function Contacts({ dealId, onOpenComposer }) {
 
 function AddForm({ onSubmit, onCancel }) {
   const [form, setForm] = useState({ name: '', email: '', phone: '', company: '', role: 'Founder / CEO', notes: '' })
+  const [submitting, setSubmitting] = useState(false)
   const set = (k, v) => setForm(s => ({ ...s, [k]: v }))
+  async function submit(e) {
+    e.preventDefault()
+    if (submitting || !form.name.trim()) return   // guard against double-submit → duplicate contacts
+    setSubmitting(true)
+    try { await onSubmit(form) } finally { setSubmitting(false) }
+  }
   return (
-    <form onSubmit={(e) => { e.preventDefault(); if (form.name.trim()) onSubmit(form) }} className="space-y-3 rounded-lg border border-valence-border bg-valence-surface p-4">
+    <form onSubmit={submit} className="space-y-3 rounded-lg border border-valence-border bg-valence-surface p-4">
       <div className="grid grid-cols-2 gap-3">
         <input className="vl-input" value={form.name}    onChange={e => set('name', e.target.value)} placeholder="Full name" required autoFocus />
         <select className="vl-input" value={form.role}   onChange={e => set('role', e.target.value)}>
@@ -129,8 +136,8 @@ function AddForm({ onSubmit, onCancel }) {
       </div>
       <WikilinkTextarea className="vl-input min-h-[60px]" value={form.notes} onChange={v => set('notes', v)} placeholder="Quick note on this person (type [[ to link an entity)" />
       <div className="flex items-center justify-end gap-2">
-        <button type="button" onClick={onCancel} className="vl-btn-secondary">Cancel</button>
-        <button type="submit" className="vl-btn-primary">Add</button>
+        <button type="button" onClick={onCancel} disabled={submitting} className="vl-btn-secondary">Cancel</button>
+        <button type="submit" disabled={submitting} className="vl-btn-primary">{submitting ? 'Adding…' : 'Add'}</button>
       </div>
     </form>
   )

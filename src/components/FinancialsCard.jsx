@@ -42,7 +42,10 @@ export default function FinancialsCard({ deal, onUpdated }) {
   async function clear() {
     if (!isSupabaseConfigured || !deal?.id) { setFinancials(null); return }
     try {
-      await supabase.from('deals').update({ financials: null }).eq('id', deal.id)
+      // supabase-js resolves (doesn't throw) on RLS/constraint failures, so
+      // the try/catch alone would falsely report success — check error.
+      const { error } = await supabase.from('deals').update({ financials: null }).eq('id', deal.id)
+      if (error) throw error
       setFinancials(null)
       toast.success('Cleared.')
       onUpdated?.(null)
