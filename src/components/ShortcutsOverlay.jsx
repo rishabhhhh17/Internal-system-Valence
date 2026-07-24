@@ -48,23 +48,26 @@ export default function ShortcutsOverlay() {
 
   useEffect(() => {
     const onKey = (e) => {
+      // Never hijack keys while the user is typing — including contentEditable
+      // rich-text note editors (tiptap / WikilinkTextarea). Without the
+      // isContentEditable check, typing "g" then "d" in a note jumped to
+      // /deals and "?" toggled this overlay. Escape still closes from anywhere.
+      const el = e.target
+      const typing = el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.tagName === 'SELECT' || el.isContentEditable)
+      if (e.key === 'Escape') { setOpen(false); return }
+      if (typing) return
+
       // Open on `?` (shift+/)
       if (e.key === '?' && !e.metaKey && !e.ctrlKey) {
-        const tag = (e.target?.tagName || '').toLowerCase()
-        if (tag === 'input' || tag === 'textarea' || tag === 'select') return
         e.preventDefault()
         setOpen(o => !o)
+        return
       }
-      if (e.key === 'Escape') setOpen(false)
 
       // g-then-X navigation
       if (!e.metaKey && !e.ctrlKey && e.key.toLowerCase() === 'g') {
-        const tag = (e.target?.tagName || '').toLowerCase()
-        if (tag === 'input' || tag === 'textarea' || tag === 'select') return
         window._valenceLastG = Date.now()
       } else if (window._valenceLastG && Date.now() - window._valenceLastG < 1200) {
-        const tag = (e.target?.tagName || '').toLowerCase()
-        if (tag === 'input' || tag === 'textarea' || tag === 'select') return
         const map = { d: '/deals', k: '/knowledge', p: '/planner', a: '/analytics', v: '/knowledge/private', t: '/team', o: '/' }
         const path = map[e.key.toLowerCase()]
         if (path) {

@@ -207,11 +207,10 @@ async function upsertPerson(sb, orgId, email, name) {
   const { error } = await sb.from('people').insert({
     org_id: orgId,
     full_name: (name && name.trim()) || norm.split('@')[0],
-    email: norm,
-    email_normalised: norm,
+    email: norm,                       // email_normalised is a GENERATED column — never insert it
     company: companyFromEmail(norm),
     is_valence_team: false,
-    notes: 'Auto-added from Gmail.'
+    relationship_history: 'Auto-added from Gmail.'  // people has no `notes` column
   })
   if (error) {
     if (error.code === '23505') return 'matched' // lost a race — already exists

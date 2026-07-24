@@ -124,9 +124,12 @@ export default function Onboarding() {
       // to block them at onboarding. Same logic for the cycle_anchor_day
       // bump — having it default to 1 is sensible if today's update fails.
       try {
+        // orgs_cycle_anchor_day_check requires 1..28 — clamp so onboarding on
+        // the 29th/30th/31st doesn't silently fail the plan/anchor update.
+        const anchor = Math.min(new Date().getDate(), 28)
         const updates = plan !== PLANS.WE_RUN_AI
-          ? { plan, cycle_anchor_day: new Date().getDate() }
-          : { cycle_anchor_day: new Date().getDate() }
+          ? { plan, cycle_anchor_day: anchor }
+          : { cycle_anchor_day: anchor }
         const { error: planErr } = await supabase.from('orgs').update(updates).eq('id', newOrgId)
         if (planErr) console.warn('[onboarding] plan/anchor update failed (non-fatal):', planErr.message)
       } catch (e) {

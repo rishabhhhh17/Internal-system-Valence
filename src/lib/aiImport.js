@@ -209,10 +209,12 @@ async function insertEntity(e, orgId) {
         org_id: orgId,
         client_name: f.client_name || 'Unnamed',
         deal_types:  Array.isArray(f.deal_types) && f.deal_types.length ? f.deal_types : ['transaction'],
-        deal_subtype: f.deal_subtype || null,
+        // Guard the CHECK-constrained columns against the model returning a
+        // label outside the allowed set (which would 400 the whole insert).
+        deal_subtype: ['fundraise', 'm_and_a', 'exit'].includes(f.deal_subtype) ? f.deal_subtype : null,
         ma_side:     maSide,
         sector:      f.sector      || null,
-        stage:       f.stage       || 'Sourced',
+        stage:       ['Sourced','Information Received','Analyst Call','Partner Call','Memo','LP Sourced','LP Introduced','LP Meeting','LP Due Diligence','LP Soft Circle','Diligence','Passed'].includes(f.stage) ? f.stage : 'Sourced',
         ticket_size_usd_m: numOrNull(f.ticket_size_usd_m),
         notes:       f.notes       || null,
         nda_status:  'Pending'

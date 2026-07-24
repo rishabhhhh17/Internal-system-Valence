@@ -25,7 +25,9 @@ export default function DealTeam({ deal }) {
     const { data, error } = await supabase
       .from('deal_team').select('*').eq('deal_id', deal.id).order('created_at')
     if (error) toast.error(humanError(error, 'Could not load team'))
-    setRows(data || [])
+    // DB columns are member_name/member_email; the UI uses name/email. Alias
+    // on the way in so the render + form stay simple.
+    setRows((data || []).map(r => ({ ...r, name: r.member_name, email: r.member_email })))
     setLoading(false)
   }
 
@@ -35,9 +37,16 @@ export default function DealTeam({ deal }) {
       setAdding(false)
       return
     }
-    const { data, error } = await supabase.from('deal_team').insert({ deal_id: deal.id, ...form }).select().single()
+    // Map the UI's name/email onto the real columns member_name/member_email.
+    const { data, error } = await supabase.from('deal_team').insert({
+      deal_id: deal.id,
+      member_name: (form.name || '').trim(),
+      member_email: (form.email || '').trim() || null,
+      role: form.role || null,
+      share_pct: form.share_pct
+    }).select().single()
     if (error) return toast.error(humanError(error, 'Could not add team member'))
-    setRows(prev => [...prev, data])
+    setRows(prev => [...prev, { ...data, name: data.member_name, email: data.member_email }])
     setAdding(false)
     toast.success(`${form.name} added to the team.`)
   }
