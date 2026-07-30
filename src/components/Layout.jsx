@@ -4,7 +4,6 @@ import MobileNav from './MobileNav.jsx'
 import CommandPalette from './CommandPalette.jsx'
 import ShortcutsOverlay from './ShortcutsOverlay.jsx'
 import WelcomeOverlay from './WelcomeOverlay.jsx'
-import AskSidebar from './AskSidebar.jsx'
 import { useWorkspaceSetting } from '../hooks/useWorkspaceSetting.js'
 import { WORKSPACE_KEYS } from '../lib/workspace.js'
 
@@ -34,7 +33,6 @@ export default function Layout({ children }) {
       <CommandPalette />
       <ShortcutsOverlay />
       <WelcomeOverlay />
-      <AskSidebar />
     </div>
   )
 }
