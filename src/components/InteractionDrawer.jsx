@@ -118,6 +118,11 @@ export default function InteractionDrawer({ open, onClose, existing, onSubmit })
   const [seats, setSeats] = useState([])
   const [personQuery, setPersonQuery] = useState('')
   const [creatingPerson, setCreatingPerson] = useState(false)
+  // Company + role for a brand-new person being created inline. Each attendee
+  // keeps their OWN company/role (two people from different firms stay distinct),
+  // so a new person captures theirs here at creation.
+  const [newCompany, setNewCompany] = useState('')
+  const [newRole, setNewRole] = useState('')
   // Everyone who was in this interaction. The first is the "primary"
   // (mirrored to person_id / counterparty_name for back-compat); all of them
   // go into person_ids so the interaction shows on each person's profile.
@@ -173,22 +178,20 @@ export default function InteractionDrawer({ open, onClose, existing, onSubmit })
     })
   }, [people])
 
-  // Keep the PRIMARY link + headline name in sync with the first attendee.
-  // Company/role: for a SINGLE linked person the counterparty IS them, so prefill
-  // their company/role when those fields are still empty (saves a re-type). With
-  // 2+ attendees we NEVER copy — that's the case that collapsed distinct founders
-  // into one company/role. Prefill only fills blanks; it never overwrites what the
-  // user typed, and each linked person always keeps their own identity elsewhere.
+  // Keep the interaction's denormalised headline (person_id + name + company/role)
+  // in sync with the PRIMARY attendee. Each attendee still keeps their OWN
+  // company/role in the list below and on their profile — this is just the single
+  // headline the list row / CSV / search use. Guarded with `|| f.…` so it never
+  // wipes an existing value with a not-yet-resolved null while editing.
   useEffect(() => {
     const first = attendees[0]
-    setForm(f => {
-      const next = { ...f, person_id: first?.id || '', counterparty_name: first?.full_name || f.counterparty_name }
-      if (attendees.length === 1) {
-        if (!f.counterparty_company && first.company) next.counterparty_company = first.company
-        if (!f.counterparty_role && first.role) next.counterparty_role = first.role
-      }
-      return next
-    })
+    setForm(f => ({
+      ...f,
+      person_id: first?.id || '',
+      counterparty_name:    first?.full_name || f.counterparty_name,
+      counterparty_company: first?.company   || f.counterparty_company,
+      counterparty_role:    first?.role      || f.counterparty_role
+    }))
   }, [attendees])
 
   // Pull deal options for the optional "Linked deal" picker + people for autocomplete.
@@ -280,23 +283,25 @@ export default function InteractionDrawer({ open, onClose, existing, onSubmit })
   async function createPersonInline() {
     const name = personQuery.trim() || form.counterparty_name.trim()
     if (!name) return toast.error('Type a name first')
+    const company = newCompany.trim() || null
+    const role    = newRole.trim() || null
     setCreatingPerson(true)
     try {
       if (!isSupabaseConfigured) {
-        const local = { id: `local-person-${Date.now()}`, full_name: name, company: form.counterparty_company || null, role: form.counterparty_role || null }
+        const local = { id: `local-person-${Date.now()}`, full_name: name, company, role }
         setPeople(prev => [local, ...prev])
         addAttendee(local)
+        setNewCompany(''); setNewRole('')
         return
       }
       const { data, error } = await supabase.from('people').insert({
-        full_name: name,
-        company:   form.counterparty_company || null,
-        role:      form.counterparty_role    || null
+        full_name: name, company, role
       }).select().single()
       if (error) throw error
       setPeople(prev => [data, ...prev])
       addAttendee(data)
-      toast.success(`${name} added to People`)
+      setNewCompany(''); setNewRole('')
+      toast.success(`${name}${company ? ` · ${company}` : ''} added to People`)
     } catch (err) {
       toast.error(humanError(err, 'Could not create that person — try again.'))
     } finally {
@@ -445,13 +450,22 @@ export default function InteractionDrawer({ open, onClose, existing, onSubmit })
           </div>
 
           {attendees.length > 0 && (
-            <div className="flex flex-wrap gap-1.5">
+            <div className="space-y-1.5">
               {attendees.map((a, i) => (
-                <span key={a.id} className="inline-flex items-center gap-1.5 rounded-full bg-valence-blue-soft px-2.5 py-1 text-xs font-medium text-valence-blue">
-                  {a.full_name}
-                  {i === 0 && attendees.length > 1 && <span className="text-[9px] uppercase tracking-wider opacity-70">primary</span>}
-                  <button type="button" onClick={() => removeAttendee(a.id)} aria-label={`Remove ${a.full_name}`} className="hover:text-valence-danger"><X className="h-3 w-3" /></button>
-                </span>
+                <div key={a.id} className="flex items-center justify-between gap-2 rounded-lg border border-valence-border bg-valence-elevated px-3 py-2">
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-semibold text-valence-text">
+                      {a.full_name}
+                      {i === 0 && attendees.length > 1 && <span className="ml-1.5 text-[9px] uppercase tracking-wider text-valence-subtle">primary</span>}
+                    </p>
+                    {/* Each attendee's OWN company · role — so two people from
+                        different firms read as different people, not one company. */}
+                    <p className="truncate text-[11px] text-valence-muted">
+                      {[a.role, a.company].filter(Boolean).join(' · ') || 'No company / role on file'}
+                    </p>
+                  </div>
+                  <button type="button" onClick={() => removeAttendee(a.id)} aria-label={`Remove ${a.full_name}`} className="shrink-0 text-valence-subtle hover:text-valence-danger"><X className="h-4 w-4" /></button>
+                </div>
               ))}
             </div>
           )}
@@ -488,63 +502,40 @@ export default function InteractionDrawer({ open, onClose, existing, onSubmit })
               </ul>
             )}
             {personQuery && filteredPeople.length === 0 && (
-              <div className="mt-2 flex items-center justify-between rounded-lg border border-dashed border-valence-border bg-valence-elevated px-3 py-2 text-xs text-valence-muted">
-                <span>No match for "{personQuery}".</span>
-                <button type="button" disabled={creatingPerson} onClick={createPersonInline} className="vl-btn-ghost text-[11px]">
-                  <Plus className="h-3 w-3" /> {creatingPerson ? 'Adding…' : 'Create Person'}
+              <div className="mt-2 space-y-2 rounded-lg border border-dashed border-valence-blue/40 bg-valence-blue-soft/30 p-3">
+                <p className="text-[11px] text-valence-muted">
+                  No match — add <span className="font-semibold text-valence-text">"{personQuery.trim()}"</span> as a new person with their own company &amp; role:
+                </p>
+                <div className="grid gap-2 sm:grid-cols-2">
+                  <input
+                    className="vl-input bg-valence-elevated"
+                    value={newCompany}
+                    onChange={e => setNewCompany(e.target.value)}
+                    onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); createPersonInline() } }}
+                    placeholder="Company (e.g. Peak XV Partners)"
+                  />
+                  <input
+                    className="vl-input bg-valence-elevated"
+                    value={newRole}
+                    onChange={e => setNewRole(e.target.value)}
+                    onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); createPersonInline() } }}
+                    placeholder="Role (e.g. Partner)"
+                  />
+                </div>
+                <button type="button" disabled={creatingPerson} onClick={createPersonInline} className="vl-btn-primary-sm w-full justify-center">
+                  <Plus className="h-3.5 w-3.5" /> {creatingPerson ? 'Adding…' : `Add ${personQuery.trim()}`}
                 </button>
               </div>
             )}
           </div>
           {attendees.length > 0 && (
             <p className="text-[11px] text-valence-muted">
-              This interaction shows on {attendees.length === 1 ? 'their' : `each of these ${attendees.length} people's`} profile. Each keeps their own company &amp; role from People — the fields below describe the <span className="font-semibold text-valence-text">meeting's counterparty</span>, not the attendees.
+              {attendees.length === 1
+                ? 'Each person keeps their own company & role. This interaction shows on their profile.'
+                : `These ${attendees.length} people are logged as distinct attendees — each keeps their own company & role, and this interaction shows on each of their profiles.`}
             </p>
           )}
 
-          <div>
-            <p className="vl-label mb-1.5">{attendees.length ? 'Counterparty context' : 'Who was this with?'} <span className="font-normal text-valence-subtle">· optional</span></p>
-          </div>
-          <div className="grid gap-3 sm:grid-cols-2">
-            <div>
-              <label className="vl-label">Company</label>
-              {/* Autocomplete against both the funds universe AND known
-                  client companies (from people.company). Picking a fund
-                  also stamps the company name — partners shouldn't type
-                  "Kedaara Capital" by hand if it's already in the firm. */}
-              <Typeahead
-                value={form.counterparty_company}
-                onChange={v => update({ counterparty_company: v })}
-                placeholder="Nimbus Health"
-                className="vl-input mt-1.5 bg-valence-elevated"
-                fetcher={async q => {
-                  if (!isSupabaseConfigured) return []
-                  const [{ data: fundsRes }, { data: peopleRes }] = await Promise.all([
-                    supabase.from('funds').select('id, name, fund_type, hq_city').ilike('name', `%${q}%`).limit(6),
-                    supabase.from('people').select('company').ilike('company', `%${q}%`).not('company', 'is', null).limit(20)
-                  ])
-                  const out = []
-                  for (const f of (fundsRes || [])) {
-                    out.push({ id: `fund-${f.id}`, label: f.name, sub: [f.fund_type, f.hq_city].filter(Boolean).join(' · '), type: 'Fund' })
-                  }
-                  // De-dupe client companies and skip ones already covered by a fund name.
-                  const seen = new Set(out.map(o => o.label.toLowerCase()))
-                  for (const p of (peopleRes || [])) {
-                    const co = (p.company || '').trim()
-                    if (!co || seen.has(co.toLowerCase())) continue
-                    seen.add(co.toLowerCase())
-                    out.push({ id: `client-${co}`, label: co, sub: 'Company', type: 'Company' })
-                  }
-                  return out.slice(0, 10)
-                }}
-                onPick={s => update({ counterparty_company: s.label })}
-              />
-            </div>
-            <div>
-              <label className="vl-label">Role</label>
-              <input className="vl-input mt-1.5 bg-valence-elevated" value={form.counterparty_role} onChange={e => update({ counterparty_role: e.target.value })} placeholder="CEO" />
-            </div>
-          </div>
           <div>
             <label className="vl-label">Deal lead</label>
             {/* Phase 3 redesign — dropdown of active seats. Removes the
