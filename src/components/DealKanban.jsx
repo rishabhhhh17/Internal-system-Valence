@@ -149,7 +149,7 @@ function Card({ deal: d, stages = STAGES, onOpen, onStageChange, setDraggingId, 
         <button
           data-menu-trigger
           onClick={(e) => { e.stopPropagation(); setOpenMenu(!openMenu) }}
-          className="-mr-1 -mt-1 grid h-5 w-5 place-items-center rounded text-valence-subtle hover:bg-valence-surface hover:text-valence-text lg:opacity-0 lg:group-hover:opacity-100 transition shrink-0"
+          className="-mr-1 -mt-1 grid h-5 w-5 place-items-center rounded text-valence-subtle hover:bg-valence-surface hover:text-valence-text transition shrink-0"
           aria-label="Move stage"
         >
           <MoreHorizontal className="h-3 w-3" />

@@ -8,6 +8,7 @@ import EntityMentions from './EntityMentions.jsx'
 import WikilinkTextarea from './WikilinkTextarea.jsx'
 import WikilinkText from './WikilinkText.jsx'
 import InlineEditableText from './InlineEditableText.jsx'
+import { useConfirm } from './ConfirmDialog.jsx'
 import ValenceConnectionsPanel from './ValenceConnectionsPanel.jsx'
 import ValenceTeamProfilePanel from './ValenceTeamProfilePanel.jsx'
 import { typeFromPersonTags, chipClass as ctyChip, labelFor as ctyLabel } from '../lib/counterpartyColors.js'
@@ -30,6 +31,7 @@ const BLANK = {
 }
 
 export default function PersonDrawer({ open, onClose, existing, onSubmit, onRename, onDelete, onMerge }) {
+  const confirm = useConfirm()
   const [tab, setTab] = useState('overview')
   const [form, setForm] = useState(BLANK)
   const [funds, setFunds] = useState([])
@@ -80,7 +82,13 @@ export default function PersonDrawer({ open, onClose, existing, onSubmit, onRena
   }
   async function doDelete() {
     if (busy || !existing?.id) return
-    if (!window.confirm(`Delete ${existing.full_name}? Their logged interactions stay, but get unlinked from this contact.`)) return
+    const ok = await confirm({
+      title: 'Delete this contact?',
+      body: `${existing.full_name} — their logged interactions stay, but get unlinked from this contact.`,
+      destructive: true,
+      confirmLabel: 'Delete contact'
+    })
+    if (!ok) return
     setBusy(true)
     try { await onDelete?.(existing.id) }
     catch { /* parent toasts */ }

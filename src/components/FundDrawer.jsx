@@ -67,22 +67,34 @@ export default function FundDrawer({ open, onClose, existing, onSubmit, onRename
       //     autocomplete — what most users actually do today).
       // Match on both so a person typed as "Lightspeed India" in the
       // Company field shows up under the Lightspeed India fund.
-      const fundName = String(existing.name || '').replace(/,/g, '')  // PostgREST or() splits on commas
-      const peopleFilter = supabase
-        .from('people')
-        .select('*')
-        .or(`fund_id.eq.${existing.id},company.ilike.${fundName}`)
-        .order('full_name')
-
-      const [c, p, pp] = await Promise.all([
+      // Two separate queries instead of one `.or('...company.ilike.<name>...')`:
+      // embedding the fund name in the or() string breaks when the name contains
+      // PostgREST syntax like parentheses ("Peak XV (India)", "…(KKR)") or commas
+      // — the filter goes malformed, returns an error, and the People tab falsely
+      // shows "none linked". `.eq`/`.ilike` as first-class methods escape safely.
+      const [c, p, byFund, byCompany] = await Promise.all([
         supabase.from('fund_contacts').select('*').eq('fund_id', existing.id).order('created_at', { ascending: false }),
         supabase.from('deal_fund_pings').select('*, deals(client_name, stage)').eq('fund_id', existing.id).order('pinged_at', { ascending: false }),
-        peopleFilter
+        supabase.from('people').select('*').eq('fund_id', existing.id).order('full_name'),
+        existing.name
+          ? supabase.from('people').select('*').ilike('company', existing.name).order('full_name')
+          : Promise.resolve({ data: [], error: null })
       ])
       if (cancelled) return
       setContacts(c.data || [])
       setPings(p.data || [])
-      setPeopleAtFund(pp.data || [])
+      // Merge fund_id matches + company-name matches, de-duped by id. If BOTH
+      // queries errored, keep whatever was showing rather than flashing empty.
+      if (byFund.error && byCompany.error) {
+        // leave peopleAtFund as-is
+      } else {
+        const seen = new Set()
+        const merged = [...(byFund.data || []), ...(byCompany.data || [])].filter(pr => {
+          if (seen.has(pr.id)) return false
+          seen.add(pr.id); return true
+        })
+        setPeopleAtFund(merged)
+      }
     })()
     return () => { cancelled = true }
   }, [open, existing?.id, existing?.name])

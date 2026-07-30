@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { Sparkles, Upload, Plus, ArrowRight, Check, Lock, Mic, Loader2 } from 'lucide-react'
 import { supabase, isSupabaseConfigured } from '../lib/supabase.js'
 import { extractText } from '../lib/fileParse.js'
@@ -43,6 +44,7 @@ const initialManual = {
 }
 
 export default function Screener() {
+  const navigate = useNavigate()
   const toast = useToast()
   const [mode, setMode] = useState('fund_match')
 
@@ -188,7 +190,7 @@ export default function Screener() {
       stage: 'Information Received',
       notes: composedDeal.notes || ''
     })
-    window.location.href = `/deals?${params.toString()}`
+    navigate(`/deals?${params.toString()}`)
   }
 
   const runLabel = mode === 'mandate_fit'

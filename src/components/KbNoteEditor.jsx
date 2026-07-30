@@ -68,13 +68,16 @@ export default function KbNoteEditor({ note, folder, onSaved }) {
     return () => { cancelled = true }
   }, [note?.id, savedAt])
 
-  // Debounced auto-save. 700 ms of idle and we save.
+  // Debounced auto-save. 700 ms of idle and we save. `saving` is in the deps so
+  // that edits landing DURING an in-flight save re-arm the timer once it clears —
+  // otherwise the last keystrokes before a save completed were only persisted on
+  // the next unrelated keystroke.
   useEffect(() => {
     if (!note || saving) return
     if (title === note.title && body === note.body) return
     const t = setTimeout(() => save(), 700)
     return () => clearTimeout(t)
-  }, [title, body])
+  }, [title, body, saving])
 
   async function save() {
     if (!note || saving) return

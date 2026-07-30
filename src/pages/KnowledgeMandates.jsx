@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { format } from 'date-fns'
 import { FilePlus, Search, FolderTree, Trash2, Globe2, Hash, X, Library } from 'lucide-react'
@@ -79,13 +79,20 @@ export function MandatesPanel() {
     setParams(next, { replace: true })
   }, [selectedMandateId])
 
-  // Reset folder + note when mandate changes
+  // A cross-mandate search hit stashes its target here so the reset below applies
+  // it instead of wiping it (the note it clicked would otherwise never open).
+  const pendingSelectionRef = useRef(null)
+
+  // Reset folder + note when mandate changes — unless a search hit is mid-switch,
+  // in which case adopt its folder/note after the reset.
   useEffect(() => {
-    setSelectedFolder(null)
-    setSelectedNote(null)
+    const pending = pendingSelectionRef.current
+    pendingSelectionRef.current = null
     setNotes([])
     setSearchResults(null)
     setSearchQuery('')
+    setSelectedFolder(pending?.folder ?? null)
+    setSelectedNote(pending?.note ?? null)
   }, [selectedMandateId])
 
   // Pull all folder IDs for the active scope so we can narrow search.
@@ -124,17 +131,19 @@ export function MandatesPanel() {
     // Hopping to a search hit: switch the selected folder + note + auto-load notes list.
     if (!isSupabaseConfigured) return
     const { data: folder } = await supabase.from('kb_folders').select('*').eq('id', row.folder_id).single()
-    if (folder) {
-      // If this note belongs to a different mandate, switch mandates first.
-      if (folder.mandate_id && folder.mandate_id !== selectedMandateId) {
-        setSelectedMandateId(folder.mandate_id)
-      }
-      setSelectedFolder(folder)
-      const { data: full } = await supabase.from('kb_notes').select('*').eq('id', row.id).single()
-      if (full) setSelectedNote(full)
-      setSearchResults(null)
-      setSearchQuery('')
+    if (!folder) return
+    const { data: full } = await supabase.from('kb_notes').select('*').eq('id', row.id).single()
+    // Cross-mandate hit: stash the target and switch mandate — the reset effect
+    // adopts the stash instead of clearing it. Otherwise set folder/note directly.
+    if (folder.mandate_id && folder.mandate_id !== selectedMandateId) {
+      pendingSelectionRef.current = { folder, note: full || null }
+      setSelectedMandateId(folder.mandate_id)
+      return
     }
+    setSelectedFolder(folder)
+    if (full) setSelectedNote(full)
+    setSearchResults(null)
+    setSearchQuery('')
   }
 
   // ---------- Notes for the selected folder ----------

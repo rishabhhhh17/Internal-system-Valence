@@ -458,9 +458,9 @@ function Documents() {
       (sector === 'All' || d.sector === sector) &&
       (tag === 'All' || (d.tags || []).includes(tag)) &&
       (!needle ||
-        d.title.toLowerCase().includes(needle) ||
-        d.content.toLowerCase().includes(needle) ||
-        (d.tags || []).some(t => t.toLowerCase().includes(needle)))
+        (d.title || '').toLowerCase().includes(needle) ||
+        (d.content || '').toLowerCase().includes(needle) ||
+        (d.tags || []).some(t => (t || '').toLowerCase().includes(needle)))
     )
   }, [docs, q, sector, tag])
 

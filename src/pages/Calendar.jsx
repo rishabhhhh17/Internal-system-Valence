@@ -159,12 +159,15 @@ export default function Calendar() {
     catch (err) { toast.error(humanError(err, 'Could not sign out')) }
   }
 
-  async function syncFromGoogle() {
+  async function syncFromGoogle(calList = calendars) {
     if (!googleConnected) {
       toast.error('Connect a Google account first.')
       return
     }
-    const eligible = calendars.filter(c => c.google_calendar_id)
+    // Accept an explicit list so the post-import first-sync can pass the freshly
+    // inserted rows — reading `calendars` from state there is stale (setState
+    // hasn't applied yet), so the just-imported calendars were skipped.
+    const eligible = calList.filter(c => c.google_calendar_id)
     if (eligible.length === 0) {
       toast.info('No calendars have a Google Calendar ID yet. Add one with "Add Google calendar".')
       return
@@ -228,8 +231,9 @@ export default function Calendar() {
     setShowImport(false)
     toast.success(`Imported ${data?.length || 0} calendar${data?.length === 1 ? '' : 's'} — running first sync…`)
     // Kick off an immediate sync so the new rows show events rather than
-    // empty columns until the user manually clicks Sync.
-    if (data?.length) syncFromGoogle()
+    // empty columns until the user manually clicks Sync. Pass the merged list
+    // explicitly — `calendars` state hasn't updated with the inserts yet.
+    if (data?.length) syncFromGoogle([...calendars, ...data])
   }
 
   async function addGoogleCalendar({ name, owner_email, google_calendar_id, color }) {

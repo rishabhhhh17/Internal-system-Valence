@@ -28,6 +28,14 @@ const QUICK_NAV = [
   { type: 'nav', title: 'Team',           sub: 'The Valence team',                   to: '/team',              icon: Users }
 ]
 
+// Create-from-anywhere actions — open the relevant drawer via a ?new=1 deep link
+// so the most frequent actions no longer require navigating to the page first.
+const QUICK_ACTIONS = [
+  { type: 'action', title: 'Log interaction', sub: 'New touchpoint',   to: '/interactions?new=1', icon: MessageSquare, group: 'Create' },
+  { type: 'action', title: 'New deal',        sub: 'Add to pipeline',  to: '/deals?new=1',        icon: Briefcase,      group: 'Create' },
+  { type: 'action', title: 'Add person',      sub: 'New CRM contact',  to: '/people?new=1',       icon: UserCircle,     group: 'Create' }
+]
+
 export default function CommandPalette() {
   const [open, setOpen] = useState(false)
   const [q, setQ]       = useState('')
@@ -104,15 +112,20 @@ export default function CommandPalette() {
   const results = useMemo(() => {
     const needle = q.trim().toLowerCase()
     const nav = QUICK_NAV.filter(x => !needle || x.title.toLowerCase().includes(needle))
+    const actions = QUICK_ACTIONS.filter(x => !needle || x.title.toLowerCase().includes(needle))
 
-    if (!needle) return [...nav.map(x => ({ ...x, group: 'Jump to' }))]
+    // Create-actions first (empty palette shows them at the top), then nav.
+    if (!needle) return [...actions, ...nav.map(x => ({ ...x, group: 'Jump to' }))]
 
     const out = []
+    out.push(...actions)
     out.push(...nav.map(x => ({ ...x, group: 'Jump to' })))
 
     for (const d of data.deals) {
-      if (match(d.client_name, needle) || match(d.sector, needle) || match(d.deal_type, needle))
-        out.push({ type: 'deal', title: d.client_name, sub: `${d.deal_type} · ${d.stage}${d.sector ? ' · ' + d.sector : ''}`, to: `/deals?open=${d.id}`, icon: Briefcase, group: 'Deals' })
+      // `deal_type` is a dead legacy column (not selected, no longer written) —
+      // reading it printed "undefined · <stage>" in every deal subtitle.
+      if (match(d.client_name, needle) || match(d.sector, needle))
+        out.push({ type: 'deal', title: d.client_name, sub: `${d.stage}${d.sector ? ' · ' + d.sector : ''}`, to: `/deals?open=${d.id}`, icon: Briefcase, group: 'Deals' })
     }
     for (const doc of data.docs) {
       if (match(doc.title, needle) || match(doc.sector, needle) || (doc.tags || []).some(t => match(t, needle)))

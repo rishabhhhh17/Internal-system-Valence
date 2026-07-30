@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { format, formatDistanceToNowStrict } from 'date-fns'
 import { Inbox, Filter, Sparkles, Check, X, AlertTriangle, ArrowRight, ExternalLink } from 'lucide-react'
 import { supabase, isSupabaseConfigured } from '../lib/supabase.js'
@@ -12,6 +13,7 @@ const STATUSES = ['new', 'reviewed', 'converted', 'passed', 'spam']
 
 export default function InboxIntake() {
   const toast = useToast()
+  const navigate = useNavigate()
   const [rows, setRows] = useState([])
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState(null)
@@ -43,7 +45,7 @@ export default function InboxIntake() {
     toast.success(`Marked ${status}`)
   }
 
-  function convertToDeal(row) {
+  async function convertToDeal(row) {
     const params = new URLSearchParams({
       new: '1',
       client_name: row.company_name || '',
@@ -70,8 +72,11 @@ export default function InboxIntake() {
         row.deck_url ? `Deck: ${row.deck_url}` : ''
       ].filter(Boolean).join('\n')
     })
-    setStatus(row, 'converted')
-    window.location.href = `/deals?${params.toString()}`
+    // Await the status write BEFORE navigating — a synchronous window.location
+    // reload used to tear the page down before the UPDATE resolved, so the intake
+    // row often stayed 'new' and reappeared in the queue after the deal was made.
+    await setStatus(row, 'converted')
+    navigate(`/deals?${params.toString()}`)
   }
 
   const filtered = useMemo(() => rows.filter(r => statusFilter === 'all' || r.status === statusFilter), [rows, statusFilter])

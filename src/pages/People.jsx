@@ -63,6 +63,12 @@ export default function People() {
   // Deep-link from clickable wikilink chips: /people?open=<uuid>
   // Drains the param so back/forward doesn't keep re-opening the drawer.
   useEffect(() => {
+    // ?new=1 — open a blank Add-person drawer (Cmd-K "Add person" from anywhere).
+    if (params.get('new') === '1') {
+      setDrawer('new')
+      const next = new URLSearchParams(params); next.delete('new'); setParams(next, { replace: true })
+      return
+    }
     const id = params.get('open')
     if (!id || rows.length === 0) return
     const person = rows.find(p => p.id === id)

@@ -205,13 +205,26 @@ async function insertEntity(e, orgId) {
         if (s.startsWith('buy'))  return 'buy'
         return null
       })()
+      // The preview editor still exposes a single free-text `deal_type` — fold it
+      // into the live deal_types[]/deal_subtype model so the user's correction (or
+      // the classifier's own deal_type) isn't silently discarded on commit.
+      const dtype = String(f.deal_type || '').toLowerCase()
+      const derivedSubtype =
+        ['fundraise', 'm_and_a', 'exit'].includes(f.deal_subtype) ? f.deal_subtype
+        : ['fundraise', 'm_and_a', 'exit'].includes(dtype)        ? dtype
+        : /m&a|m and a|acqui|merger/.test(dtype)                  ? 'm_and_a'
+        : /raise|fund/.test(dtype)                                ? 'fundraise'
+        : /exit|sale/.test(dtype)                                 ? 'exit'
+        : null
       const payload = {
         org_id: orgId,
         client_name: f.client_name || 'Unnamed',
-        deal_types:  Array.isArray(f.deal_types) && f.deal_types.length ? f.deal_types : ['transaction'],
+        deal_types:  Array.isArray(f.deal_types) && f.deal_types.length
+          ? f.deal_types
+          : (/advis/.test(dtype) ? ['advisory'] : ['transaction']),
         // Guard the CHECK-constrained columns against the model returning a
         // label outside the allowed set (which would 400 the whole insert).
-        deal_subtype: ['fundraise', 'm_and_a', 'exit'].includes(f.deal_subtype) ? f.deal_subtype : null,
+        deal_subtype: derivedSubtype,
         ma_side:     maSide,
         sector:      f.sector      || null,
         stage:       ['Sourced','Information Received','Analyst Call','Partner Call','Memo','LP Sourced','LP Introduced','LP Meeting','LP Due Diligence','LP Soft Circle','Diligence','Passed'].includes(f.stage) ? f.stage : 'Sourced',

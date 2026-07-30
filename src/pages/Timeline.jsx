@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { Filter, GanttChartSquare, Table as TableIcon, Activity, Clock, AlertTriangle, CheckCircle2 } from 'lucide-react'
 import { supabase, isSupabaseConfigured } from '../lib/supabase.js'
 import { useViewMode } from '../hooks/useViewMode.jsx'
@@ -25,6 +25,7 @@ const GANTT_MIN_USEFUL_ROWS = 5
 const STALE_DAYS_THRESHOLD  = 21
 
 export default function Timeline() {
+  const navigate = useNavigate()
   const { isDetailed } = useViewMode('timeline')
   const [pipelineMode] = usePipelineMode()
   const [deals, setDeals]           = useState([])
@@ -99,7 +100,9 @@ export default function Timeline() {
   }, [view, filtered])
 
   function openDeal(deal) {
-    if (deal?.id) window.location.href = `/deals?open=${deal.id}`
+    // Client-side nav — a full window.location reload here white-flashed and
+    // dumped all in-memory state (pipeline mode, filters, auth cache).
+    if (deal?.id) navigate(`/deals?open=${deal.id}`)
   }
 
   return (

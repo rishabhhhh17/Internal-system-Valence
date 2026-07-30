@@ -127,7 +127,10 @@ export default function InteractionDrawer({ open, onClose, existing, onSubmit })
 
   useEffect(() => {
     if (!open) return
-    setForm(existing ? { ...BLANK, ...normalize(existing) } : BLANK)
+    // New interactions default the date to TODAY (visible + one-tap editable)
+    // instead of a blank box the user has to open and click through.
+    const todayStr = new Date().toISOString().slice(0, 10)
+    setForm(existing ? { ...BLANK, ...normalize(existing) } : { ...BLANK, occurred_on: todayStr })
     setPersonQuery('')
   }, [open, existing])
 
@@ -170,15 +173,22 @@ export default function InteractionDrawer({ open, onClose, existing, onSubmit })
     })
   }, [people])
 
-  // Keep only the PRIMARY link + headline name in sync with the first attendee.
-  // Do NOT copy an attendee's own company/role onto the interaction — those are
-  // the meeting's counterparty *context* (set explicitly by the user), and each
-  // linked person keeps their own identity on their own profile. Copying them
-  // here collapsed multiple attendees into one company/role and rewrote the
-  // real counterparty on every re-save.
+  // Keep the PRIMARY link + headline name in sync with the first attendee.
+  // Company/role: for a SINGLE linked person the counterparty IS them, so prefill
+  // their company/role when those fields are still empty (saves a re-type). With
+  // 2+ attendees we NEVER copy — that's the case that collapsed distinct founders
+  // into one company/role. Prefill only fills blanks; it never overwrites what the
+  // user typed, and each linked person always keeps their own identity elsewhere.
   useEffect(() => {
     const first = attendees[0]
-    setForm(f => ({ ...f, person_id: first?.id || '', counterparty_name: first?.full_name || f.counterparty_name }))
+    setForm(f => {
+      const next = { ...f, person_id: first?.id || '', counterparty_name: first?.full_name || f.counterparty_name }
+      if (attendees.length === 1) {
+        if (!f.counterparty_company && first.company) next.counterparty_company = first.company
+        if (!f.counterparty_role && first.role) next.counterparty_role = first.role
+      }
+      return next
+    })
   }, [attendees])
 
   // Pull deal options for the optional "Linked deal" picker + people for autocomplete.
@@ -451,6 +461,15 @@ export default function InteractionDrawer({ open, onClose, existing, onSubmit })
               className="vl-input bg-valence-elevated"
               value={personQuery}
               onChange={e => { setPersonQuery(e.target.value); if (attendees.length === 0) update({ counterparty_name: e.target.value }) }}
+              onKeyDown={e => {
+                // Enter here should ADD the person (top match, else create), not
+                // submit the whole interaction mid-entry. Keeps add-a-person
+                // fully keyboard-driven.
+                if (e.key !== 'Enter') return
+                e.preventDefault()
+                if (filteredPeople.length > 0) addAttendee(filteredPeople[0])
+                else if (personQuery.trim()) createPersonInline()
+              }}
               placeholder={attendees.length ? 'Add another person…' : 'Search People CRM, or type a new name to add'}
             />
             {filteredPeople.length > 0 && (

@@ -58,6 +58,14 @@ export default function Interactions() {
   // (realtime tick, save→load) re-fires this effect and reopens a drawer
   // the user already dismissed.
   useEffect(() => {
+    // ?new=1 — open a blank Log-interaction drawer (Cmd-K "Log interaction" from
+    // anywhere lands here). Drain the param so a realtime tick doesn't reopen it.
+    if (searchParams.get('new') === '1') {
+      setDrawer('new')
+      searchParams.delete('new')
+      setSearchParams(searchParams, { replace: true })
+      return
+    }
     const openId = searchParams.get('open')
     if (!openId || rows.length === 0) return
     const row = rows.find(r => String(r.id) === String(openId))
@@ -486,8 +494,11 @@ function InteractionRow({ row, onOpen, onConvert, isDetailed = true, peopleById 
         </div>
         <div className="flex flex-col items-end gap-2 shrink-0 text-[11px] text-valence-subtle">
           <span>{ago}</span>
-          {row.outcome === 'converted_to_mandate' && (
-            <button onClick={onConvert} className="vl-btn-ghost text-[11px]">
+          {/* Offer convert for any touchpoint not already tied to a deal (the old
+              gate — outcome === 'converted_to_mandate' — was never set after the
+              Phase-3 form redesign, so this button never appeared at all). */}
+          {!row.deal_id && (
+            <button onClick={e => { e.stopPropagation(); onConvert() }} className="vl-btn-ghost text-[11px] opacity-0 group-hover:opacity-100 focus:opacity-100 transition">
               <Sparkles className="h-3 w-3" /> Convert to deal <ArrowRight className="h-3 w-3" />
             </button>
           )}

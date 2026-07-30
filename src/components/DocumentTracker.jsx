@@ -1,4 +1,4 @@
-import { format, parseISO } from 'date-fns'
+import { fmtDate } from '../lib/formatDate.js'
 import { Check, Minus, FileCheck2 } from 'lucide-react'
 import {
   docsForMode, docState, nextDocStatus, docCompletion
@@ -63,7 +63,7 @@ export default function DocumentTracker({ deals = [], mode = 'company', onCycle 
                   </td>
                   {docs.map(doc => {
                     const { status, date } = docState(deal, doc.key)
-                    const tip = `${doc.label}: ${status === 'received' ? `Received${date ? ' · ' + format(parseISO(String(date).slice(0, 10)), 'd MMM yyyy') : ''}` : status === 'na' ? 'N/A' : 'Pending'}`
+                    const tip = `${doc.label}: ${status === 'received' ? `Received${date ? ' · ' + fmtDate(String(date).slice(0, 10), 'd MMM yyyy', '') : ''}` : status === 'na' ? 'N/A' : 'Pending'}`
                     return (
                       <td key={doc.key} className="px-2 py-2 text-center">
                         <button

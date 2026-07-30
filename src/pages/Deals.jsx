@@ -146,9 +146,17 @@ export default function Deals() {
   // Re-load whenever the global pipeline mode flips (company ↔ lp) so the
   // board/table re-scopes to the active pipeline's kind.
   useEffect(() => { load() }, [pipelineMode])
+
+  // Keep a ref to the latest load() so the once-mounted realtime subscription
+  // always calls the CURRENT closure. Otherwise, after the user flips the
+  // pipeline (company↔LP), any realtime deals write — including the echo of
+  // their own drag/inline-edit — refetched with the STALE mount-time
+  // pipelineMode and silently repopulated the board with the wrong pipeline.
+  const loadRef = useRef(load)
+  loadRef.current = load
   useEffect(() => {
     if (!isSupabaseConfigured) return
-    return subscribeTable('deals', () => load({ silent: true }))
+    return subscribeTable('deals', () => loadRef.current({ silent: true }))
   }, [])
 
   // Keep the drawer's deal object in sync when the underlying data changes

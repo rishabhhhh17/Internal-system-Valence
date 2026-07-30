@@ -237,23 +237,12 @@ export default function App() {
     )
   }
 
-  // FIRST-LOAD WELCOME LANDING
-  // If a seated user lands at "/" without having visited /welcome yet
-  // this browser session, redirect them to /welcome once. Once they've
-  // clicked "Continue to your firm" → /, the sessionStorage flag is set
-  // (above) and this redirect is a no-op for the rest of the session.
-  //
-  // Why this matters: the OAuth-callback redirect to /welcome only fires
-  // on a fresh sign-in. Users with a persistent Supabase session from
-  // before this code landed would keep going straight to / and miss the
-  // Welcome screen entirely. This adds a session-scoped second chance.
-  if (session && hasSeat && profileComplete && pathname === '/') {
-    let welcomeShown = false
-    try { welcomeShown = sessionStorage.getItem('valence.welcome.shown') === '1' } catch {}
-    if (!welcomeShown) {
-      return <Navigate to="/welcome" replace />
-    }
-  }
+  // Seated, profile-complete users ALWAYS land on Home (Today) at "/".
+  // We used to force a redirect to /welcome once per browser session (gated by a
+  // sessionStorage flag). But sessionStorage is cleared whenever the tab/session
+  // ends, so a returning daily user got the "you're in this org / Continue to your
+  // firm" interstitial every time they reopened the tool — the opposite of
+  // seamless. /welcome is still reachable by URL/nav if anyone wants it.
 
   return (
     <Layout>
