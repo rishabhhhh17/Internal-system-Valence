@@ -1,0 +1,390 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  /* ============ THEME TOKENS ============
+     RGB triplets so Tailwind's `<alpha-value>` modifier works (e.g.
+     `bg-valence-blue/20`). Tailwind config reads these via
+     `rgb(var(--valence-x) / <alpha-value>)`. Toggling the `dark` class
+     on <html> swaps to the dark palette. */
+  :root {
+    color-scheme: light;
+    --valence-bg:           255 255 255;
+    --valence-surface:      246 247 247;
+    --valence-elevated:     255 255 255;
+    --valence-ink:           13  30  58;
+    --valence-ink-soft:      23  49  90;
+    --valence-text:          13  30  58;
+    --valence-muted:         75  88 114;
+    --valence-subtle:       148 163 184;
+    --valence-faint:        203 213 225;
+    --valence-blue:          51 153 255;
+    --valence-blue-hover:    26 133 255;
+    --valence-blue-deep:     26 102 204;
+    --valence-blue-soft:    230 242 255;
+    --valence-success:       53 123  73;
+    --valence-success-soft: 220 234 223;
+    --valence-warning:      180  83   9;
+    --valence-warning-soft: 254 243 199;
+    --valence-danger:       220  38  38;
+    --valence-danger-soft:  254 226 226;
+    --valence-border:        rgba(0, 0, 0, 0.06);
+    --valence-border-strong: rgba(0, 0, 0, 0.16);
+    --valence-border-ink:    rgba(255, 255, 255, 0.10);
+    --valence-blue-ring:     rgba(51, 153, 255, 0.22);
+    /* Used by hardcoded scrollbar / selection / focus-ring offsets that
+       can't read Tailwind classes. */
+    --vl-selection-bg:    rgba(51, 153, 255, 0.22);
+    --vl-selection-text:  #0D1E3A;
+    --vl-scrollbar-thumb: rgba(13, 30, 58, 0.12);
+    --vl-scrollbar-hover: rgba(13, 30, 58, 0.22);
+    --vl-focus-offset:    #ffffff;
+    /* Glass surfaces — translucent overlays whose RGBA can't read
+       per-channel vars. Define the rgba directly per theme. */
+    --vl-glass-base:    rgba(255, 255, 255, 0.62);
+    --vl-glass-bar:     rgba(255, 255, 255, 0.72);
+    --vl-glass-side:    rgba(255, 255, 255, 0.78);
+    --vl-glass-border:  rgba(255, 255, 255, 0.45);
+  }
+
+  html.dark {
+    color-scheme: dark;
+    /* True-black-ish surfaces. Neutral grays, no navy tint. The brand
+       blue stays as the only chromatic accent. */
+    --valence-bg:            0   0   0;   /* pure black */
+    --valence-surface:      20  20  23;
+    --valence-elevated:     28  28  32;
+    --valence-ink:          18  18  22;   /* button bg — sits a notch above bg */
+    --valence-ink-soft:     34  34  38;
+    --valence-text:        236 236 240;
+    --valence-muted:       175 175 182;
+    --valence-subtle:      128 128 138;
+    --valence-faint:        80  80  88;
+    --valence-blue:         91 173 255;
+    --valence-blue-hover:  125 192 255;
+    --valence-blue-deep:    51 153 255;
+    --valence-blue-soft:    24  36  52;   /* dark slate with a hint of blue */
+    --valence-success:     124 199 144;
+    --valence-success-soft: 24  44  32;
+    --valence-warning:     246 167  64;
+    --valence-warning-soft: 50  36  16;
+    --valence-danger:      240 100 100;
+    --valence-danger-soft:  50  20  20;
+    --valence-border:        rgba(255, 255, 255, 0.08);
+    --valence-border-strong: rgba(255, 255, 255, 0.18);
+    --valence-border-ink:    rgba(255, 255, 255, 0.12);
+    --valence-blue-ring:     rgba(91, 173, 255, 0.32);
+    --vl-selection-bg:    rgba(91, 173, 255, 0.30);
+    --vl-selection-text:  #ffffff;
+    --vl-scrollbar-thumb: rgba(255, 255, 255, 0.16);
+    --vl-scrollbar-hover: rgba(255, 255, 255, 0.28);
+    --vl-focus-offset:    #08080a;
+    --vl-glass-base:    rgba(18, 18, 22, 0.62);
+    --vl-glass-bar:     rgba(14, 14, 18, 0.72);
+    --vl-glass-side:    rgba(14, 14, 18, 0.78);
+    --vl-glass-border:  rgba(255, 255, 255, 0.08);
+  }
+
+  html, body, #root {
+    height: 100%;
+  }
+
+  body {
+    @apply bg-valence-bg text-valence-text font-sans antialiased;
+    letter-spacing: -0.005em;
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  ::selection {
+    background: var(--vl-selection-bg);
+    color: var(--vl-selection-text);
+  }
+
+  /* Editorial focus rings — soft, branded */
+  *:focus-visible {
+    outline: none;
+    box-shadow:
+      0 0 0 2px var(--vl-focus-offset),
+      0 0 0 4px var(--valence-blue-ring);
+  }
+  button:focus:not(:focus-visible) { outline: none; }
+
+  /* Scrollbar — subtle */
+  ::-webkit-scrollbar        { width: 10px; height: 10px; }
+  ::-webkit-scrollbar-track  { background: transparent; }
+  ::-webkit-scrollbar-thumb  { background: var(--vl-scrollbar-thumb); border-radius: 8px; }
+  ::-webkit-scrollbar-thumb:hover { background: var(--vl-scrollbar-hover); }
+
+  /* Display type — Manrope (primary face on valencegrowth.com) */
+  .font-display {
+    font-family: 'Manrope', ui-sans-serif, system-ui, -apple-system, sans-serif;
+    letter-spacing: -0.025em;
+  }
+
+  /* Main content fades in on each navigation — sets demo polish */
+  main { animation: fadeIn 0.32s cubic-bezier(0.22, 1, 0.36, 1); }
+
+  /* Nicer image fade on load */
+  img { animation: fadeIn 0.4s ease-out; }
+
+  /* Details marker hide for custom summaries */
+  details > summary { list-style: none; }
+  details > summary::-webkit-details-marker { display: none; }
+}
+
+@layer components {
+  /* ============ SURFACES ============ */
+  .vl-card {
+    @apply rounded-xl border border-valence-border bg-valence-elevated;
+  }
+  .vl-card-subtle {
+    @apply rounded-xl border border-valence-border bg-valence-surface;
+  }
+  .vl-card-hover {
+    @apply transition-all duration-200 hover:border-valence-ink/20 hover:shadow-valence hover:-translate-y-px;
+  }
+  .vl-card-tap {
+    @apply transition-all duration-150 active:scale-[0.99];
+  }
+
+  /* ============ LIQUID GLASS — Apple-style translucent surfaces ============
+     Used on chrome (topbar/sidebar) and overlay surfaces (modals/drawers).
+     Data tables/cards stay solid for readability — glass on dense data
+     hurts more than it helps. */
+  .vl-glass {
+    @apply rounded-2xl border;
+    border-color: var(--vl-glass-border);
+    background-color: var(--vl-glass-base);
+    backdrop-filter: blur(24px) saturate(180%);
+    -webkit-backdrop-filter: blur(24px) saturate(180%);
+    box-shadow:
+      inset 0 1px 0 0 rgba(255, 255, 255, 0.75),
+      0 0 0 0.5px rgba(13, 30, 58, 0.06),
+      0 12px 32px -10px rgba(13, 30, 58, 0.18);
+  }
+  .vl-glass-bar {
+    background-color: var(--vl-glass-bar);
+    backdrop-filter: blur(20px) saturate(180%);
+    -webkit-backdrop-filter: blur(20px) saturate(180%);
+  }
+  .vl-glass-side {
+    background-color: var(--vl-glass-side);
+    backdrop-filter: blur(18px) saturate(180%);
+    -webkit-backdrop-filter: blur(18px) saturate(180%);
+  }
+  .vl-glass-ink {
+    @apply rounded-2xl border border-white/10;
+    background-color: rgba(13, 30, 58, 0.62);
+    backdrop-filter: blur(24px) saturate(180%);
+    -webkit-backdrop-filter: blur(24px) saturate(180%);
+    box-shadow:
+      inset 0 1px 0 0 rgba(255, 255, 255, 0.08),
+      0 12px 32px -10px rgba(0, 0, 0, 0.45);
+  }
+  .vl-glass-overlay {
+    background-color: rgba(13, 30, 58, 0.32);
+    backdrop-filter: blur(16px) saturate(140%);
+    -webkit-backdrop-filter: blur(16px) saturate(140%);
+  }
+
+  /* ============ INPUTS ============ */
+  .vl-input {
+    @apply w-full rounded-lg border border-valence-border bg-valence-elevated px-3.5 py-2.5 text-sm text-valence-text placeholder:text-valence-subtle outline-none transition focus:border-valence-blue focus:ring-2 focus:ring-valence-blue-ring;
+  }
+  .vl-label {
+    @apply block text-[10px] font-semibold uppercase tracking-[0.14em] text-valence-muted mb-1.5;
+  }
+
+  /* ============ BUTTONS ============
+     Sentence case, rounded-lg, normal tracking. The old uppercase pill
+     treatment matched the marketing site but read as consumer-SaaS in
+     an IB pipeline tool. This style aligns the in-app buttons with how
+     Bloomberg / Capital IQ / Affinity render their primary actions —
+     clear hierarchy without shouting. */
+  .vl-btn-primary {
+    @apply inline-flex items-center justify-center gap-2 rounded-lg bg-valence-ink px-4 py-2.5 text-sm font-semibold text-white transition-colors duration-150 hover:bg-valence-ink-soft focus:outline-none focus:ring-2 focus:ring-valence-blue-ring disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+  .vl-btn-accent {
+    @apply inline-flex items-center justify-center gap-2 rounded-lg bg-valence-blue px-4 py-2.5 text-sm font-semibold text-white transition-colors duration-150 hover:bg-valence-blue-hover focus:outline-none focus:ring-2 focus:ring-valence-blue-ring disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+  .vl-btn-secondary {
+    @apply inline-flex items-center justify-center gap-2 rounded-lg border border-valence-border bg-valence-elevated px-4 py-2.5 text-sm font-semibold text-valence-text transition-colors duration-150 hover:border-valence-ink/40 hover:bg-valence-surface focus:outline-none focus:ring-2 focus:ring-valence-blue-ring;
+  }
+  .vl-btn-ghost {
+    @apply inline-flex items-center justify-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-valence-muted transition hover:bg-valence-surface hover:text-valence-text;
+  }
+  /* Compact utility variants for dense UI (drawers, forms) where we still
+     want labels in sentence case at smaller sizes. */
+  .vl-btn-primary-sm {
+    @apply inline-flex items-center justify-center gap-2 rounded-lg bg-valence-ink px-3.5 py-2 text-sm font-semibold text-white transition hover:bg-valence-ink-soft focus:outline-none focus:ring-2 focus:ring-valence-blue-ring disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+  .vl-btn-secondary-sm {
+    @apply inline-flex items-center justify-center gap-2 rounded-lg border border-valence-border bg-valence-elevated px-3.5 py-2 text-sm font-semibold text-valence-text transition hover:border-valence-ink/30 hover:bg-valence-surface;
+  }
+
+  /* Square icon-only button — 36×36, used in the topbar (sidebar toggle,
+     bell, etc). Extracted so the topbar doesn't reinvent the same block
+     three times. Pass `position: relative` if you need an absolute child
+     like the unread-count pip. */
+  .vl-icon-btn {
+    @apply inline-flex h-9 w-9 items-center justify-center rounded-lg border border-valence-border bg-valence-elevated text-valence-muted transition hover:text-valence-text hover:border-valence-ink/30 focus:outline-none focus:ring-2 focus:ring-valence-blue-ring disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+
+  /* ============ CHIPS ============ */
+  .vl-chip {
+    @apply inline-flex items-center gap-1.5 rounded-full border border-valence-border bg-valence-elevated px-2.5 py-1 text-xs font-medium text-valence-muted;
+  }
+  .vl-chip-blue {
+    @apply inline-flex items-center gap-1.5 rounded-full border border-valence-blue/30 bg-valence-blue-soft px-2.5 py-1 text-xs font-semibold text-valence-blue-deep;
+  }
+  .vl-chip-ink {
+    @apply inline-flex items-center gap-1.5 rounded-full border border-valence-ink bg-valence-ink px-2.5 py-1 text-xs font-semibold text-white;
+  }
+
+  /* ============ DIVIDERS / MARKS ============ */
+  .vl-divider {
+    @apply h-px w-full bg-valence-border;
+  }
+  .vl-eyebrow {
+    @apply inline-flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-valence-blue;
+  }
+  .vl-eyebrow-ink {
+    @apply inline-flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-valence-muted;
+  }
+  .vl-section-title {
+    @apply font-display text-2xl font-bold tracking-[-0.025em] text-valence-text;
+  }
+  .vl-section-kicker {
+    @apply text-sm text-valence-muted mt-1 leading-relaxed;
+  }
+
+  /* ============ KBD ============ */
+  .vl-kbd {
+    @apply rounded border border-valence-border bg-valence-elevated px-1.5 py-0.5 text-[10px] font-medium text-valence-muted;
+  }
+
+  /* ============ INK PANELS (dark contrast sections like site footer) ============ */
+  .vl-ink {
+    @apply bg-valence-ink text-white;
+  }
+  .vl-ink-card {
+    @apply rounded-xl bg-valence-ink text-white;
+  }
+
+  /* ============ DOT DIVIDER ============ */
+  .vl-dot::before {
+    content: '·';
+    @apply mx-2 text-valence-subtle;
+  }
+}
+
+/* ============ DENSITY ============
+   Compact density tightens the common chrome surfaces. Card / chip /
+   input get a hair smaller; main layout padding is unchanged because
+   pages already pack a lot of vertical content. Triggered by
+   `<html data-density='compact'>` from App.jsx. */
+html[data-density='compact'] .vl-card { padding: 1rem; }
+html[data-density='compact'] .vl-card-subtle { padding: 0.875rem; }
+html[data-density='compact'] .vl-input { padding-top: 0.4rem; padding-bottom: 0.4rem; }
+html[data-density='compact'] .vl-chip,
+html[data-density='compact'] .vl-chip-blue,
+html[data-density='compact'] .vl-chip-ink { padding-top: 0.125rem; padding-bottom: 0.125rem; }
+
+/* Arrow glide inside CTA buttons — mirrors the animateButton pattern on the
+   Valence site. Opt-in: add a child with class="vl-arrow" to any button. */
+.vl-btn-primary .vl-arrow,
+.vl-btn-accent .vl-arrow,
+.vl-btn-secondary .vl-arrow {
+  display: inline-block;
+  transition: transform 0.2s ease-out;
+}
+.vl-btn-primary:hover .vl-arrow,
+.vl-btn-accent:hover .vl-arrow,
+.vl-btn-secondary:hover .vl-arrow {
+  transform: translateX(3px);
+}
+
+/* Hide scrollbars on horizontal nav tabs */
+.scrollbar-hide { scrollbar-width: none; -ms-overflow-style: none; }
+.scrollbar-hide::-webkit-scrollbar { display: none; }
+
+/* Shimmer skeleton — use .vl-skeleton instead of animate-pulse for a premium feel */
+.vl-skeleton {
+  background: linear-gradient(
+    90deg,
+    rgba(10, 15, 30, 0.04) 0%,
+    rgba(10, 15, 30, 0.09) 50%,
+    rgba(10, 15, 30, 0.04) 100%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.6s linear infinite;
+  border-radius: 0.5rem;
+}
+
+/* Subtle grid on hero surfaces — barely visible, editorial */
+.bg-valence-grid {
+  background-image:
+    linear-gradient(rgba(13,30,58,0.025) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(13,30,58,0.025) 1px, transparent 1px);
+  background-size: 40px 40px;
+  background-position: -1px -1px;
+}
+
+/* ============ BLUE ORB DECORATION ============
+   Matches the signature of valencegrowth.com — soft, floating blue
+   semi-transparent orbs that sit behind hero content. Always pointer-events
+   none so they never block clicks. */
+.vl-circles {
+  isolation: isolate;
+}
+.vl-circles::before,
+.vl-circles::after {
+  content: '';
+  position: absolute;
+  pointer-events: none;
+  border-radius: 9999px;
+  background: radial-gradient(circle, rgba(51,153,255,0.55) 0%, rgba(51,153,255,0.18) 40%, rgba(51,153,255,0) 72%);
+  filter: blur(28px);
+  z-index: 0;
+}
+.vl-circles::before {
+  width: 680px; height: 680px;
+  right: -220px; top: -220px;
+}
+.vl-circles::after {
+  width: 520px; height: 520px;
+  left: -180px; bottom: -240px;
+  opacity: 0.55;
+}
+
+/* A smaller, mid-section orb for rhythm breaks */
+.vl-orb-mid {
+  position: relative;
+  isolation: isolate;
+}
+.vl-orb-mid::after {
+  content: '';
+  position: absolute;
+  pointer-events: none;
+  right: -80px; top: 50%;
+  transform: translateY(-50%);
+  width: 320px; height: 320px;
+  border-radius: 9999px;
+  background: radial-gradient(circle, rgba(51,153,255,0.35) 0%, rgba(51,153,255,0.08) 50%, rgba(51,153,255,0) 75%);
+  filter: blur(32px);
+  z-index: 0;
+}
+
+/* ============ DECLUTTER ============
+   Page heroes used a huge `text-feature` size (clamp 28-40px) which
+   competed with the topbar's page title. Shrink globally so the
+   topbar stays the source of truth — heroes still set context but
+   don't dominate vertical real estate. */
+.font-display.text-feature {
+  font-size: 1.25rem;
+  letter-spacing: -0.012em;
+  line-height: 1.3;
+}

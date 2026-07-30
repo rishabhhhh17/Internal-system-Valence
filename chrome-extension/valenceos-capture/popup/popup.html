@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>ValenceOS Capture</title>
+  <link rel="stylesheet" href="popup.css" />
+</head>
+<body>
+  <header>
+    <div class="brand">
+      <div class="brand-mark"></div>
+      <div>
+        <div class="eyebrow">VALENCEOS</div>
+        <div class="title">Capture</div>
+      </div>
+    </div>
+    <span id="status-chip" class="status status-unknown">Checking…</span>
+  </header>
+
+  <main>
+    <section id="connected" class="card" hidden>
+      <p class="card-eyebrow">CONNECTED AS</p>
+      <p id="user-email" class="card-value">—</p>
+      <p class="card-hint">
+        Open any thread in <b>Gmail</b> or an event in <b>Calendar</b> and click
+        <span class="kbd">Save to ValenceOS</span> to capture it.
+      </p>
+      <div class="actions">
+        <a class="btn btn-secondary" href="https://valenceos.vercel.app" target="_blank" rel="noopener">Open workspace</a>
+        <button id="disconnect" class="btn btn-ghost">Disconnect</button>
+      </div>
+    </section>
+
+    <section id="disconnected" class="card" hidden>
+      <p class="card-eyebrow">NOT CONNECTED</p>
+      <p class="card-hint">
+        Sign in to your ValenceOS workspace once and this extension will
+        capture into your team's data automatically. No separate setup.
+      </p>
+      <div class="actions">
+        <a id="connect-link" class="btn btn-primary" href="https://valenceos.vercel.app" target="_blank" rel="noopener">Open ValenceOS to connect</a>
+      </div>
+    </section>
+
+    <details class="tip">
+      <summary>How it works</summary>
+      <p>
+        Gmail thread → creates a person record for each participant + logs the conversation
+        as an interaction. Calendar event → creates a person for each attendee + logs the
+        meeting. Duplicates are deduped by email and event id. Everything lands scoped to
+        your team's workspace.
+      </p>
+    </details>
+  </main>
+  <script src="popup.js"></script>
+</body>
+</html>

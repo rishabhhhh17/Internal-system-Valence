@@ -1,0 +1,443 @@
+import { useEffect, useMemo, useState } from 'react'
+import { Mail, Phone, Linkedin, MessageSquare, MapPin, Building2, Briefcase, Sparkles, ArrowUpRight, Hash, GitMerge, Trash2, X } from 'lucide-react'
+import Drawer from './Drawer.jsx'
+import { supabase, isSupabaseConfigured } from '../lib/supabase.js'
+import { TAG_SUGGESTIONS, extractCompanies } from '../lib/people.js'
+import { Link } from 'react-router-dom'
+import EntityMentions from './EntityMentions.jsx'
+import WikilinkTextarea from './WikilinkTextarea.jsx'
+import WikilinkText from './WikilinkText.jsx'
+import InlineEditableText from './InlineEditableText.jsx'
+import ValenceConnectionsPanel from './ValenceConnectionsPanel.jsx'
+import ValenceTeamProfilePanel from './ValenceTeamProfilePanel.jsx'
+import { typeFromPersonTags, chipClass as ctyChip, labelFor as ctyLabel } from '../lib/counterpartyColors.js'
+
+const TABS = [
+  { id: 'overview',    label: 'Overview' },
+  { id: 'interactions',label: 'Interactions' },
+  { id: 'deals',       label: 'Deals' },
+  { id: 'notes',       label: 'Notes' }
+  // 'Files' tab removed — it was a permanent "No files yet" stub with no
+  // uploader. Re-add once per-person file attachments actually exist.
+]
+
+const BLANK = {
+  full_name: '', role: '', company: '', email: '', phone: '', linkedin_url: '', whatsapp: '',
+  city: '', country: '',
+  how_to_talk: '', relationship_history: '', what_they_care_about: '',
+  favours_bank: '', things_to_avoid: '', mutuals: '',
+  tags: '', last_touched_at: '', fund_id: ''
+}
+
+export default function PersonDrawer({ open, onClose, existing, onSubmit, onRename, onDelete, onMerge }) {
+  const [tab, setTab] = useState('overview')
+  const [form, setForm] = useState(BLANK)
+  const [funds, setFunds] = useState([])
+  const [companies, setCompanies] = useState([])
+  const [interactions, setInteractions] = useState([])
+  const [deals, setDeals] = useState([])
+  // Merge / delete (data cleanup, right inside the drawer)
+  const [mergeOpen, setMergeOpen] = useState(false)
+  const [mergeQ, setMergeQ]       = useState('')
+  const [peopleList, setPeopleList] = useState([])
+  const [selDupes, setSelDupes]   = useState([])   // [{id, full_name, company}]
+  const [busy, setBusy]           = useState(false)
+  // Double-submit guard: a partner accidentally clicks Save twice (touch
+  // mishit, slow network, etc) and the parent fires insert() twice →
+  // two people rows with identical content. The submitting state
+  // disables the Save button + the form so the second click is inert.
+  const [submitting, setSubmitting] = useState(false)
+
+  useEffect(() => {
+    if (!open) return
+    setTab('overview')
+    setForm(existing ? { ...BLANK, ...stringify(existing) } : BLANK)
+    setMergeOpen(false); setMergeQ(''); setSelDupes([]); setBusy(false)
+  }, [open, existing])
+
+  // Load the contact roster (for the merge picker) only when the user opens
+  // the merge tool — keeps the drawer light for the common edit case.
+  useEffect(() => {
+    if (!mergeOpen || !isSupabaseConfigured || !existing?.id) return
+    supabase.from('people').select('id, full_name, company, email').order('full_name')
+      .then(({ data }) => setPeopleList((data || []).filter(p => p.id !== existing.id)))
+  }, [mergeOpen, existing?.id])
+
+  const mergeCandidates = useMemo(() => {
+    const n = mergeQ.trim().toLowerCase()
+    const picked = new Set(selDupes.map(d => d.id))
+    return peopleList
+      .filter(p => !picked.has(p.id) && (!n || (p.full_name || '').toLowerCase().includes(n) || (p.company || '').toLowerCase().includes(n)))
+      .slice(0, 8)
+  }, [peopleList, mergeQ, selDupes])
+
+  async function doMerge() {
+    if (!selDupes.length || busy) return
+    setBusy(true)
+    try { await onMerge?.(existing.id, selDupes.map(d => d.id)) }
+    catch { /* parent toasts */ }
+    finally { setBusy(false) }
+  }
+  async function doDelete() {
+    if (busy || !existing?.id) return
+    if (!window.confirm(`Delete ${existing.full_name}? Their logged interactions stay, but get unlinked from this contact.`)) return
+    setBusy(true)
+    try { await onDelete?.(existing.id) }
+    catch { /* parent toasts */ }
+    finally { setBusy(false) }
+  }
+
+  // Reference data — funds for the dropdown, plus the distinct list of
+  // existing companies so the Company field can autocomplete the user's
+  // current roster (no typos like "Peak XV" vs "Peak Xv").
+  useEffect(() => {
+    if (!open || !isSupabaseConfigured) return
+    ;(async () => {
+      const [{ data: fundData }, { data: peopleData }] = await Promise.all([
+        supabase.from('funds').select('id, name').order('name'),
+        supabase.from('people').select('company')
+      ])
+      setFunds(fundData || [])
+      setCompanies(extractCompanies(peopleData || []).map(c => c.name))
+    })()
+  }, [open])
+
+  // When viewing an existing person, pull related interactions + deals.
+  useEffect(() => {
+    // Always clear the previous person's related data first — otherwise opening
+    // person B briefly shows person A's interactions/deals under B's name.
+    setInteractions([]); setDeals([])
+    if (!open || !existing?.id || !isSupabaseConfigured) return
+    let cancelled = false
+    ;(async () => {
+      const [i, d] = await Promise.all([
+        // person_ids holds every attendee (and always includes the single
+        // person_id via a DB trigger), so this catches multi-person meetings too.
+        supabase.from('interactions').select('*').contains('person_ids', [existing.id]).order('created_at', { ascending: false }),
+        // Deals where this person's email matches a counterparty (loose link until contacts.person_id exists).
+        existing.email
+          ? supabase.from('contacts').select('deal_id, deals(id, client_name, stage)').eq('email', existing.email)
+          : Promise.resolve({ data: [] })
+      ])
+      if (cancelled) return
+      setInteractions(i.data || [])
+      setDeals((d.data || []).map(c => c.deals).filter(Boolean))
+    })()
+    return () => { cancelled = true }
+  }, [open, existing?.id, existing?.email])
+
+  function update(patch) { setForm(f => ({ ...f, ...patch })) }
+
+  async function submit(e) {
+    e.preventDefault()
+    if (submitting) return  // second click while first is in flight — ignore
+    if (!form.full_name.trim()) return
+    const payload = {
+      full_name: form.full_name.trim(),
+      role: txt(form.role),
+      company: txt(form.company),
+      fund_id: form.fund_id || null,
+      email: txt(form.email),
+      phone: txt(form.phone),
+      linkedin_url: txt(form.linkedin_url),
+      whatsapp: txt(form.whatsapp),
+      city: txt(form.city),
+      country: txt(form.country),
+      how_to_talk: txt(form.how_to_talk),
+      relationship_history: txt(form.relationship_history),
+      what_they_care_about: txt(form.what_they_care_about),
+      favours_bank: txt(form.favours_bank),
+      things_to_avoid: txt(form.things_to_avoid),
+      mutuals: txt(form.mutuals),
+      tags: parseTags(form.tags),
+      last_touched_at: form.last_touched_at || null
+    }
+    setSubmitting(true)
+    try {
+      // Parent onSubmit may be sync or async; await unconditionally so
+      // either shape gives us a single observable settle point.
+      await Promise.resolve(onSubmit?.(payload, existing?.id))
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  return (
+    <Drawer
+      open={open}
+      onClose={onClose}
+      // Title is click-to-edit on existing rows so the user can rename in
+      // place. New-person flow stays static — name comes from the form.
+      title={
+        existing
+          ? (
+            <span className="inline-flex items-center gap-2">
+              <InlineEditableText
+                value={existing.full_name}
+                onSave={async (next) => { if (onRename) await onRename(existing.id, next) }}
+                disabled={!onRename}
+              />
+              {/* Phase 26 — Founder/Investor/General chip next to the
+                  drawer title so the user knows what kind of contact
+                  they're looking at the instant the sheet opens.
+                  Derived from person.tags via the shared helper. */}
+              {(() => {
+                const cty = typeFromPersonTags(existing.tags)
+                if (!cty) return null
+                return (
+                  <span className={`inline-flex items-center rounded-full border px-2 py-0 text-[10px] font-semibold ${ctyChip(cty)}`}>
+                    {ctyLabel(cty)}
+                  </span>
+                )
+              })()}
+            </span>
+          )
+          : 'Add person'
+      }
+      footer={
+        tab === 'overview' ? (
+          <div className="flex items-center justify-between gap-3">
+            {existing
+              ? <button type="button" onClick={doDelete} disabled={busy} className="inline-flex items-center gap-1 text-xs font-semibold text-valence-danger hover:underline disabled:opacity-50"><Trash2 className="h-3.5 w-3.5" /> Delete</button>
+              : <span />}
+            <div className="flex items-center gap-3">
+              <button type="button" onClick={onClose} disabled={submitting} className="vl-btn-secondary">Cancel</button>
+              <button type="submit" form="person-form" disabled={submitting} className="vl-btn-primary">
+                {submitting ? 'Saving…' : (existing ? 'Save changes' : 'Save person')}
+              </button>
+            </div>
+          </div>
+        ) : null
+      }
+    >
+      {existing && (
+        <div className="mb-5 -mx-1 flex items-center gap-1 border-b border-valence-border overflow-x-auto">
+          {TABS.map(t => (
+            <button
+              key={t.id}
+              onClick={() => setTab(t.id)}
+              className={`relative px-3 py-2 text-xs font-semibold transition shrink-0 ${tab === t.id ? 'text-valence-text' : 'text-valence-muted hover:text-valence-text'}`}
+            >
+              {t.label}
+              {tab === t.id && <span className="absolute bottom-[-1px] left-2 right-2 h-0.5 rounded-full bg-valence-blue" />}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {tab === 'overview' && (
+        <form id="person-form" onSubmit={submit} className="space-y-5">
+          {/* Relationship layer panels. Both gated on existing.id (no
+              point on the create form) and mutually exclusive on
+              is_valence_team — external people see who at Valence knows
+              them, team members see their own network breakdown. */}
+          {existing?.id && !existing?.is_valence_team && (
+            <ValenceConnectionsPanel externalPersonId={existing.id} />
+          )}
+          {existing?.id && existing?.is_valence_team && (
+            <ValenceTeamProfilePanel valencePersonId={existing.id} />
+          )}
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Field label="Full name *">
+              <input className="vl-input" required value={form.full_name} onChange={e => update({ full_name: e.target.value })} placeholder="Anand Iyer" />
+            </Field>
+            <Field label="Role">
+              <input className="vl-input" value={form.role} onChange={e => update({ role: e.target.value })} placeholder="Principal" />
+            </Field>
+            <Field label="Company">
+              <input
+                className="vl-input"
+                list="person-company-suggestions"
+                value={form.company}
+                onChange={e => update({ company: e.target.value })}
+                placeholder="Peak XV Partners"
+                autoComplete="organization"
+              />
+              <datalist id="person-company-suggestions">
+                {companies.map(c => <option key={c} value={c} />)}
+              </datalist>
+            </Field>
+            <Field label="Fund (if applicable)">
+              <select className="vl-input" value={form.fund_id || ''} onChange={e => update({ fund_id: e.target.value })}>
+                <option value="">— None —</option>
+                {funds.map(f => <option key={f.id} value={f.id}>{f.name}</option>)}
+              </select>
+            </Field>
+            <Field label="City"><input className="vl-input" value={form.city} onChange={e => update({ city: e.target.value })} placeholder="Bengaluru" /></Field>
+            <Field label="Country"><input className="vl-input" value={form.country} onChange={e => update({ country: e.target.value })} placeholder="India" /></Field>
+            <Field label="Email"><input className="vl-input" value={form.email} onChange={e => update({ email: e.target.value })} placeholder="anand@peakxv.com" /></Field>
+            <Field label="Phone"><input className="vl-input" value={form.phone} onChange={e => update({ phone: e.target.value })} placeholder="+91 98201 …" /></Field>
+            <Field label="LinkedIn"><input className="vl-input" value={form.linkedin_url} onChange={e => update({ linkedin_url: e.target.value })} placeholder="https://linkedin.com/in/…" /></Field>
+            <Field label="WhatsApp"><input className="vl-input" value={form.whatsapp} onChange={e => update({ whatsapp: e.target.value })} placeholder="+91 98201 …" /></Field>
+            <Field label="Last touched"><input type="date" className="vl-input" value={form.last_touched_at} onChange={e => update({ last_touched_at: e.target.value })} /></Field>
+            <Field label="Tags (comma-separated)"><input className="vl-input" value={form.tags} onChange={e => update({ tags: e.target.value })} placeholder={TAG_SUGGESTIONS.slice(0, 4).join(', ')} /></Field>
+          </div>
+
+          {/* Persona section */}
+          <div className="rounded-xl border border-valence-blue/20 bg-valence-blue-soft/20 p-4 space-y-3">
+            <p className="vl-eyebrow-ink inline-flex items-center gap-1.5"><Sparkles className="h-3 w-3 text-valence-blue" /> Persona — visible to everyone on the team</p>
+            <PersonaField label="How to talk to them" value={form.how_to_talk} onChange={v => update({ how_to_talk: v })} placeholder={`e.g. "Direct, asks for the cheque size in 30 seconds. Skip preamble."`} />
+            <PersonaField label="Relationship history"  value={form.relationship_history} onChange={v => update({ relationship_history: v })} placeholder={`e.g. "Met at IVCA 2019 via Trishant. Closed 2 deals together."`} />
+            <PersonaField label="What they care about"  value={form.what_they_care_about} onChange={v => update({ what_they_care_about: v })} placeholder={`e.g. "Founder optionality. Path-to-IPO clarity."`} />
+            <PersonaField label="Goodwill"              value={form.favours_bank} onChange={v => update({ favours_bank: v })} placeholder={`e.g. "Will move fast for us. 2 of ~3 favours used."`} />
+            <PersonaField label="Things to avoid"       value={form.things_to_avoid} onChange={v => update({ things_to_avoid: v })} placeholder={`e.g. "Don't pitch on Mondays. Treats them as planning days."`} />
+            <PersonaField label="Mutuals"               value={form.mutuals} onChange={v => update({ mutuals: v })} placeholder={`e.g. "Close to Trishant. Distant from Manav."`} />
+          </div>
+        </form>
+      )}
+
+      {tab === 'interactions' && existing && (
+        <RelatedList
+          items={interactions}
+          empty="No interactions logged with this person yet."
+          render={i => (
+            // Click-through to the full interaction (CRM connective tissue).
+            <Link to={`/interactions?open=${i.id}`} className="block group/introw">
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-sm font-semibold text-valence-text group-hover/introw:text-valence-blue transition">{i.context || i.type?.replace(/_/g, ' ') || 'Interaction'}</p>
+                <ArrowUpRight className="h-3 w-3 text-valence-subtle opacity-0 group-hover/introw:opacity-100 transition shrink-0" />
+              </div>
+              <p className="text-[11px] text-valence-muted">{(i.type?.replace(/_/g, ' ') || '')}{i.occurred_at ? ` · ${i.occurred_at.slice(0, 10)}` : (i.created_at ? ` · ${i.created_at.slice(0, 10)}` : '')}</p>
+              {(i.next_steps || i.takeaways || i.notes) && (
+                <p className="mt-1 text-[12px] text-valence-muted leading-relaxed line-clamp-2">
+                  <WikilinkText>{i.next_steps || i.takeaways || i.notes}</WikilinkText>
+                </p>
+              )}
+            </Link>
+          )}
+        />
+      )}
+
+      {tab === 'deals' && existing && (
+        <RelatedList
+          items={deals}
+          empty="No deals linked to this person yet."
+          render={d => (
+            <Link to={`/deals?open=${d.id}`} className="block group/dealrow">
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-sm font-semibold text-valence-text group-hover/dealrow:text-valence-blue transition">{d.client_name}</p>
+                <ArrowUpRight className="h-3 w-3 text-valence-subtle opacity-0 group-hover/dealrow:opacity-100 transition shrink-0" />
+              </div>
+              <p className="text-[11px] text-valence-muted">{d.stage}</p>
+            </Link>
+          )}
+        />
+      )}
+
+      {tab === 'notes' && existing && (
+        <EntityMentions entityType="person" entityId={existing.id} entityName={existing.full_name} />
+      )}
+
+      {existing && tab === 'overview' && (
+        <div className="mt-6 grid gap-2">
+          {existing.email    && <Linklet icon={Mail}     href={`mailto:${existing.email}`}        label={existing.email} />}
+          {existing.phone    && <Linklet icon={Phone}    href={`tel:${existing.phone.replace(/\s+/g,'')}`} label={existing.phone} />}
+          {existing.linkedin_url && <Linklet icon={Linkedin} href={existing.linkedin_url} label="LinkedIn" external />}
+          {existing.whatsapp && <Linklet icon={MessageSquare} href={`https://wa.me/${existing.whatsapp.replace(/[^0-9]/g,'')}`} label="WhatsApp" external />}
+        </div>
+      )}
+
+      {/* Merge duplicates — fold another contact into this one. Keeps this as
+          the surviving record; the other's interactions move here, empty
+          fields fill in, then it's removed. */}
+      {existing?.id && tab === 'overview' && (
+        <div className="mt-6 rounded-xl border border-valence-border bg-valence-surface/40 p-4">
+          <button type="button" onClick={() => setMergeOpen(o => !o)} className="inline-flex items-center gap-2 text-xs font-semibold text-valence-muted hover:text-valence-text">
+            <GitMerge className="h-3.5 w-3.5" /> Merge a duplicate into this contact
+          </button>
+          {mergeOpen && (
+            <div className="mt-3 space-y-2">
+              {selDupes.length > 0 && (
+                <div className="flex flex-wrap gap-1.5">
+                  {selDupes.map(d => (
+                    <span key={d.id} className="inline-flex items-center gap-1 rounded-full bg-valence-blue-soft px-2 py-0.5 text-[11px] font-medium text-valence-blue">
+                      {d.full_name}{d.company ? ` · ${d.company}` : ''}
+                      <button type="button" onClick={() => setSelDupes(s => s.filter(x => x.id !== d.id))} aria-label="Remove"><X className="h-3 w-3" /></button>
+                    </span>
+                  ))}
+                </div>
+              )}
+              <input value={mergeQ} onChange={e => setMergeQ(e.target.value)} placeholder="Search the duplicate to fold in…" className="vl-input h-8 text-xs" />
+              {mergeQ.trim() && (
+                <ul className="max-h-48 divide-y divide-valence-border/60 overflow-y-auto rounded-lg border border-valence-border bg-valence-elevated">
+                  {mergeCandidates.map(p => (
+                    <li key={p.id}>
+                      <button type="button" onClick={() => { setSelDupes(s => [...s, p]); setMergeQ('') }} className="flex w-full items-center justify-between gap-2 px-3 py-2 text-sm hover:bg-valence-surface">
+                        <span className="text-valence-text truncate">{p.full_name}</span>
+                        <span className="shrink-0 text-[11px] text-valence-muted">{p.company || p.email || ''}</span>
+                      </button>
+                    </li>
+                  ))}
+                  {mergeCandidates.length === 0 && <li className="px-3 py-2 text-xs text-valence-subtle">No matches.</li>}
+                </ul>
+              )}
+              {selDupes.length > 0 && (
+                <button type="button" onClick={doMerge} disabled={busy} className="vl-btn-primary-sm">
+                  {busy ? 'Merging…' : `Merge ${selDupes.length} into ${existing.full_name}`}
+                </button>
+              )}
+              <p className="text-[11px] text-valence-subtle leading-relaxed">The duplicate's interactions move onto this contact and empty fields here fill from it — then the duplicate is removed. Nothing is lost.</p>
+            </div>
+          )}
+        </div>
+      )}
+    </Drawer>
+  )
+}
+
+function Field({ label, children }) {
+  return (
+    <div>
+      <label className="vl-label">{label}</label>
+      <div className="mt-1.5">{children}</div>
+    </div>
+  )
+}
+
+function PersonaField({ label, value, onChange, placeholder }) {
+  return (
+    <div>
+      <label className="vl-label">{label}</label>
+      <WikilinkTextarea
+        className="vl-input min-h-[64px] mt-1.5 leading-relaxed bg-valence-elevated"
+        value={value}
+        onChange={onChange}
+        placeholder={placeholder}
+      />
+    </div>
+  )
+}
+
+function RelatedList({ items, empty, render }) {
+  if (!items || items.length === 0) {
+    return <div className="rounded-lg border border-dashed border-valence-border bg-valence-surface px-5 py-8 text-center text-sm text-valence-muted">{empty}</div>
+  }
+  return (
+    <ul className="divide-y divide-valence-border/60 rounded-xl border border-valence-border bg-valence-elevated">
+      {items.map((it, i) => (
+        <li key={it.id || i} className="px-4 py-3">{render(it)}</li>
+      ))}
+    </ul>
+  )
+}
+
+function Linklet({ icon: Icon, href, label, external = false }) {
+  return (
+    <a href={href} target={external ? '_blank' : undefined} rel={external ? 'noreferrer' : undefined}
+      className="inline-flex items-center gap-2 rounded-lg border border-valence-border bg-valence-surface px-3 py-2 text-xs font-semibold text-valence-text hover:border-valence-blue/40 transition">
+      <Icon className="h-3.5 w-3.5 text-valence-blue" /> {label}
+      {external && <ArrowUpRight className="ml-auto h-3 w-3 text-valence-subtle" />}
+    </a>
+  )
+}
+
+function txt(v) { return (v || '').toString().trim() || null }
+function parseTags(v) { return (v || '').split(',').map(s => s.trim()).filter(Boolean) }
+function stringify(p) {
+  return {
+    ...p,
+    tags: Array.isArray(p.tags) ? p.tags.join(', ') : (p.tags || ''),
+    last_touched_at: p.last_touched_at ? String(p.last_touched_at).slice(0, 10) : '',
+    fund_id: p.fund_id || ''
+  }
+}

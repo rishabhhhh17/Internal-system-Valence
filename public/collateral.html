@@ -1,0 +1,533 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>ValenceOS — Product Collateral</title>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:wght@500;700;900&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --ink: #0A1628;
+    --text: #111827;
+    --muted: #4b5563;
+    --subtle: #9ca3af;
+    --border: #e5e7eb;
+    --surface: #f3f4f6;
+    --blue: #3399FF;
+    --blue-soft: #eaf4ff;
+    --success: #16a34a;
+    --warn: #d97706;
+    --danger: #dc2626;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    color: var(--text);
+    background: #f8fafc;
+    font-size: 14.5px;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 780px; margin: 0 auto; padding: 56px 48px 72px; background: white; }
+  .page { padding: 72px 0; border-bottom: 1px solid var(--border); page-break-after: always; }
+  .page:last-child { border-bottom: 0; page-break-after: auto; }
+  .kicker {
+    display: inline-block;
+    font-size: 11px; font-weight: 700;
+    letter-spacing: 0.18em; text-transform: uppercase;
+    color: var(--blue);
+    margin-bottom: 18px;
+  }
+  .sec-num {
+    display: inline-block;
+    width: 40px; height: 40px;
+    border: 1.5px solid var(--ink); color: var(--ink);
+    border-radius: 50%;
+    line-height: 37px; text-align: center;
+    font-family: 'Fraunces', serif;
+    font-weight: 700; font-size: 17px;
+    margin-right: 14px; vertical-align: middle;
+  }
+  h1 {
+    font-family: 'Fraunces', serif;
+    font-weight: 700; font-size: 36px;
+    line-height: 1.15; margin: 0 0 14px;
+    color: var(--ink); letter-spacing: -0.02em;
+  }
+  h2 {
+    font-family: 'Fraunces', serif;
+    font-weight: 700; font-size: 28px;
+    line-height: 1.2; margin: 0 0 18px;
+    color: var(--ink); letter-spacing: -0.01em;
+  }
+  h3 {
+    font-size: 13px; font-weight: 700;
+    letter-spacing: 0.08em; text-transform: uppercase;
+    color: var(--muted); margin: 26px 0 10px;
+  }
+  p { margin: 0 0 14px; color: var(--text); }
+  p.lead { font-size: 16px; line-height: 1.65; color: var(--muted); }
+  .callout {
+    display: grid; grid-template-columns: repeat(4, 1fr);
+    gap: 2px; background: var(--border);
+    border: 1px solid var(--border); border-radius: 10px;
+    overflow: hidden; margin: 22px 0;
+  }
+  .callout div { background: white; padding: 14px 16px; }
+  .callout .n {
+    font-family: 'Fraunces', serif;
+    font-size: 22px; font-weight: 700; color: var(--ink);
+  }
+  .callout .l {
+    font-size: 10px; letter-spacing: 0.12em;
+    text-transform: uppercase; color: var(--muted);
+    margin-top: 4px;
+  }
+  ul.clean { list-style: none; padding: 0; margin: 14px 0; }
+  ul.clean li {
+    padding: 10px 0 10px 18px; position: relative;
+    border-bottom: 1px dashed var(--border);
+    font-size: 14.5px; line-height: 1.55;
+  }
+  ul.clean li:last-child { border-bottom: 0; }
+  ul.clean li:before {
+    content: '—'; position: absolute; left: 0;
+    color: var(--blue); font-weight: 700;
+  }
+  .step {
+    display: grid; grid-template-columns: 36px 1fr;
+    gap: 14px; margin: 16px 0;
+    padding-bottom: 16px; border-bottom: 1px dashed var(--border);
+  }
+  .step:last-child { border-bottom: 0; }
+  .step-n {
+    font-family: 'Fraunces', serif;
+    font-size: 22px; font-weight: 700; color: var(--blue);
+    line-height: 1;
+  }
+  .step-title { font-weight: 600; color: var(--ink); margin-bottom: 4px; }
+  .step-body { color: var(--muted); font-size: 14px; line-height: 1.55; }
+  .cmp {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 18px; margin: 20px 0;
+  }
+  .cmp-col {
+    border: 1px solid var(--border); border-radius: 12px;
+    padding: 18px 20px;
+  }
+  .cmp-col.us { border-color: rgba(51,153,255,0.35); background: var(--blue-soft); }
+  .cmp-col h4 {
+    margin: 0 0 12px; font-size: 14px; font-weight: 700; color: var(--ink);
+  }
+  .cmp-col ul { list-style: none; padding: 0; margin: 0; }
+  .cmp-col li {
+    padding: 6px 0 6px 16px; position: relative;
+    font-size: 13px; color: var(--text); line-height: 1.5;
+  }
+  .cmp-col li:before {
+    content: '·'; position: absolute; left: 4px; color: var(--muted);
+    font-weight: 700;
+  }
+  table.metrics {
+    width: 100%; border-collapse: collapse; margin: 18px 0;
+    font-size: 13.5px;
+  }
+  table.metrics th, table.metrics td {
+    text-align: left; padding: 11px 12px;
+    border-bottom: 1px solid var(--border);
+  }
+  table.metrics th {
+    font-size: 10px; font-weight: 700;
+    letter-spacing: 0.14em; text-transform: uppercase;
+    color: var(--muted); background: var(--surface);
+    border-bottom: 1.5px solid var(--border);
+  }
+  table.metrics td:last-child {
+    font-weight: 600; color: var(--ink); white-space: nowrap;
+  }
+  .pull {
+    font-family: 'Fraunces', serif; font-weight: 500;
+    font-size: 21px; line-height: 1.4;
+    color: var(--ink); margin: 26px 0; padding: 20px 22px;
+    background: var(--blue-soft); border-left: 3px solid var(--blue);
+    border-radius: 2px 10px 10px 2px;
+    letter-spacing: -0.01em;
+  }
+  .footer {
+    text-align: left; padding: 40px 0 0;
+    font-size: 12px; color: var(--muted); border-top: 1px solid var(--border);
+    margin-top: 48px;
+  }
+  .footer a { color: var(--blue); text-decoration: none; }
+  .cover {
+    padding-top: 40px;
+  }
+  .brand {
+    display: flex; align-items: center; gap: 10px; margin-bottom: 56px;
+  }
+  .logo-dot {
+    width: 14px; height: 14px; border-radius: 50%;
+    background: var(--blue); box-shadow: 0 0 12px rgba(51,153,255,0.5);
+  }
+  .brand-name {
+    font-family: 'Fraunces', serif; font-weight: 700; font-size: 18px;
+    color: var(--ink); letter-spacing: -0.01em;
+  }
+  .brand-sub {
+    font-size: 10px; font-weight: 700; letter-spacing: 0.2em;
+    text-transform: uppercase; color: var(--muted);
+    border-left: 1px solid var(--border); padding-left: 10px;
+  }
+  .cover h1 {
+    font-size: 48px; line-height: 1.08; margin-bottom: 22px;
+  }
+  .cover .author {
+    margin-top: 48px; padding-top: 24px; border-top: 1px solid var(--border);
+    display: grid; grid-template-columns: 1fr 1fr; gap: 20px;
+    font-size: 13px;
+  }
+  .cover .author .k {
+    font-size: 10px; font-weight: 700; letter-spacing: 0.14em;
+    text-transform: uppercase; color: var(--muted); margin-bottom: 4px;
+  }
+  @media print {
+    body { background: white; }
+    .wrap { padding: 0 36px; max-width: none; }
+    .page { padding: 48px 0; }
+    a { color: inherit; text-decoration: none; }
+    .no-print { display: none !important; }
+  }
+  .print-hint {
+    position: fixed; bottom: 18px; right: 18px;
+    padding: 8px 14px; border-radius: 999px;
+    background: var(--ink); color: white;
+    font-size: 12px; font-weight: 600;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.15);
+    cursor: pointer; border: 0;
+  }
+  .print-hint:hover { background: var(--blue); }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <!-- COVER -->
+  <section class="page cover">
+    <div class="brand">
+      <span class="logo-dot"></span>
+      <span class="brand-name">ValenceOS</span>
+      <span class="brand-sub">Product Collateral</span>
+    </div>
+    <p class="kicker">Internal operating system · Valence Growth Partners</p>
+    <h1>One layer for the entire firm. Every mandate, every memo, every meeting.</h1>
+    <p class="lead">
+      Boutique advisory is a coordination problem. Twenty-plus documents per deal, a team split across
+      Mumbai and London, and institutional memory that walks out with the senior who built it. ValenceOS
+      is the operating layer that makes a three-person firm feel like a bulge-bracket desk.
+    </p>
+    <div class="callout">
+      <div><div class="n">6</div><div class="l">Integrated pages</div></div>
+      <div><div class="n">20+</div><div class="l">Analytics visuals</div></div>
+      <div><div class="n">13</div><div class="l">Deal drawer tabs</div></div>
+      <div><div class="n">1</div><div class="l">Source of truth</div></div>
+    </div>
+    <div class="author">
+      <div>
+        <div class="k">Live at</div>
+        <div>valance-os.vercel.app</div>
+      </div>
+      <div>
+        <div class="k">Source</div>
+        <div>github.com/rishabhhhh17/valence-os</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 01 THE PROBLEM -->
+  <section class="page">
+    <span class="sec-num">01</span><span class="kicker" style="margin:0;">The problem</span>
+    <h2 style="margin-top:22px;">The firm's knowledge is everywhere, and therefore nowhere.</h2>
+    <p class="lead">
+      A mid-sized deal at a boutique advisory touches 20+ documents, 10+ counterparties and three
+      or four team members across two time zones. None of it lives in one place. A junior needs to
+      know who Valence pitched in EdTech last year — the answer exists, but it's in an MD's email
+      thread from nine months ago.
+    </p>
+    <div class="callout">
+      <div><div class="n">20+</div><div class="l">Docs per mandate</div></div>
+      <div><div class="n">3–4</div><div class="l">Tools per deal</div></div>
+      <div><div class="n">9mo</div><div class="l">Memory half-life</div></div>
+      <div><div class="n">0</div><div class="l">Single sources of truth</div></div>
+    </div>
+    <h3>Where the time goes</h3>
+    <ul class="clean">
+      <li>Hunting through email and Drive for a memo the firm wrote six months ago</li>
+      <li>Rebuilding precedent comp tables from scratch because no one logged them</li>
+      <li>Walking a new analyst through a live mandate for four days before they're useful</li>
+      <li>Losing pitch context when the one senior who ran the last meeting leaves</li>
+    </ul>
+    <div class="pull">
+      The firm already has the knowledge. It doesn't have the retrieval.
+    </div>
+  </section>
+
+  <!-- 02 THE INSIGHT -->
+  <section class="page">
+    <span class="sec-num">02</span><span class="kicker" style="margin:0;">The insight</span>
+    <h2 style="margin-top:22px;">Boutique advisory doesn't need more software. It needs one surface.</h2>
+    <p class="lead">
+      Off-the-shelf tools are built for scale — Salesforce for 5,000 reps, DealCloud for a 200-person
+      bank. They bury a three-person firm in configuration. At the other end, spreadsheets and Gmail
+      don't scale beyond the person who set them up.
+    </p>
+    <p>
+      The gap in the middle is institutional. A firm that runs fifteen mandates a year, across two
+      cities, with a small senior team, needs something in between — opinionated, fast, and shaped
+      around the five motions that actually matter: <b>pipeline, knowledge, the day, analytics, people.</b>
+    </p>
+    <div class="pull">
+      Don't build a CRM. Build the firm's memory, surfaced every morning.
+    </div>
+    <h3>The product belief</h3>
+    <ul class="clean">
+      <li>Every question an analyst asks should get a cited answer in under 30 seconds</li>
+      <li>Every mandate should be one drawer, not thirteen tabs across three apps</li>
+      <li>Every morning should open with the day already read to you</li>
+      <li>Every metric a partner wants should be one page away, not a Saturday spreadsheet</li>
+    </ul>
+  </section>
+
+  <!-- 03 THE PRODUCT -->
+  <section class="page">
+    <span class="sec-num">03</span><span class="kicker" style="margin:0;">The product</span>
+    <h2 style="margin-top:22px;">ValenceOS — six pages, one operating layer.</h2>
+    <p class="lead">
+      Every page is designed around a moment in the day of someone running a deal.
+    </p>
+    <div class="step">
+      <div class="step-n">1</div>
+      <div>
+        <div class="step-title">Overview — the morning briefing</div>
+        <div class="step-body">A chief-of-staff card: greeting, a three-sentence AI-generated day summary, today's meetings, open tasks, free slots for tap-to-propose meetings. Walk in, know the day.</div>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-n">2</div>
+      <div>
+        <div class="step-title">Deal Logger — pipeline as one drawer</div>
+        <div class="step-body">Kanban by stage. Every card opens into a drawer with 13 tabs: brief, files, checklist, deal team, counterparties, activity, financials, CIM, similar deals, data-room shares, target list. One surface per mandate.</div>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-n">3</div>
+      <div>
+        <div class="step-title">Knowledge — ask the firm, cited</div>
+        <div class="step-body">Two tracks. <b>Shared</b>: memos, files, comps, deal notes, searchable semantically, askable in plain English. Every answer cites the source. <b>Private</b>: your personal Drive, same search, never leaves your account.</div>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-n">4</div>
+      <div>
+        <div class="step-title">Day Planner — calendar that thinks</div>
+        <div class="step-body">Google Calendar integration. Today's meetings with counterparty context. Free-slot grid with one-tap email-the-invite to any counterparty — Gmail + Calendar invite go out together.</div>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-n">5</div>
+      <div>
+        <div class="step-title">Analytics — IC-grade, in one page</div>
+        <div class="step-body">Five sections: pipeline (funnel + conversion + aging), composition (sector × stage, size, fees), productivity (velocity, win rate, bankers), forward (4-quarter forecast, book curve, what-if), coverage (clients, geography, hygiene). Period + sector filters scope everything.</div>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-n">6</div>
+      <div>
+        <div class="step-title">Team — coverage at a glance</div>
+        <div class="step-body">The directory — senior coverage across Mumbai and London, filterable by sector and role. A one-click reference when you need the right person for a mandate.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 04 HOW IT WORKS -->
+  <section class="page">
+    <span class="sec-num">04</span><span class="kicker" style="margin:0;">How it works</span>
+    <h2 style="margin-top:22px;">A single day, through the system.</h2>
+
+    <div class="step">
+      <div class="step-n">09:00</div>
+      <div>
+        <div class="step-title">Open the Overview</div>
+        <div class="step-body">MorningBriefing pulls your Google Calendar + Supabase tasks + meetings. Gemini writes a three-sentence summary. The pulse strip shows active pipeline and expected fees. You know the day before the first coffee.</div>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-n">10:00</div>
+      <div>
+        <div class="step-title">Diligence call on Nimbus Health</div>
+        <div class="step-body">Open the deal drawer. AI brief auto-generated from counterparty history, notes, and files. Similar past deals surfaced from pgvector embeddings. Walk into the call with context.</div>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-n">11:30</div>
+      <div>
+        <div class="step-title">Analyst asks: "what have we done in EdTech?"</div>
+        <div class="step-body">Knowledge → Ask. "EdTech mandates and comps, last 24 months." Cited answer in 12 seconds — three memos, two closed deals, and a comp table. The junior is productive on day one.</div>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-n">14:00</div>
+      <div>
+        <div class="step-title">Propose a meeting to a buyer</div>
+        <div class="step-body">Day Planner → FreeSlots. Tap 15:00 Thursday. A Gmail draft opens with the counterparty, a Calendar invite attached. Confirm once. Done.</div>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-n">18:00</div>
+      <div>
+        <div class="step-title">Partner asks: "how are we tracking to the fee goal?"</div>
+        <div class="step-body">Analytics → target gauge. 62% of $5M annual target already committed. 4-quarter forecast charts the rest. What-if slider models a 10% uplift on Diligence conversion. Answer in 30 seconds, not Saturday.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 05 THE AI LAYER -->
+  <section class="page">
+    <span class="sec-num">05</span><span class="kicker" style="margin:0;">The AI layer</span>
+    <h2 style="margin-top:22px;">Where the firm's data becomes the advantage.</h2>
+    <p class="lead">
+      Every page works without AI. The AI is what makes it feel different from any off-the-shelf tool
+      a firm could buy — because no off-the-shelf tool has the firm's memos.
+    </p>
+    <h3>What ValenceOS knows</h3>
+    <ul class="clean">
+      <li>Every memo, file, comp, deal note ever logged — indexed with pgvector embeddings</li>
+      <li>Every counterparty interaction — who pitched whom, when, at what valuation</li>
+      <li>Every mandate the firm has run — stages, durations, fees, close reasons</li>
+      <li>Every banker's sector surface area — inferred from deal ownership and memo authorship</li>
+    </ul>
+    <h3>How it shows up</h3>
+    <ul class="clean">
+      <li><b>Ask</b> — plain-English questions, answers grounded in firm-shared sources, every claim cited</li>
+      <li><b>AI briefs</b> — auto-generated pre-meeting summaries in the deal drawer</li>
+      <li><b>Similarity</b> — when a new mandate lands, the system surfaces the three most similar past deals</li>
+      <li><b>Morning summary</b> — a three-sentence chief-of-staff read of the day ahead</li>
+      <li><b>What-if</b> — analytics scenarios modeled in real time, not in a spreadsheet</li>
+    </ul>
+    <div class="pull">
+      No other tool has these memos, this calendar, these deal notes, indexed together. The firm's own data is the moat.
+    </div>
+  </section>
+
+  <!-- 06 WHY THIS, WHY NOW -->
+  <section class="page">
+    <span class="sec-num">06</span><span class="kicker" style="margin:0;">Why this, why now</span>
+    <h2 style="margin-top:22px;">Boutique advisory is underserved between Excel and DealCloud.</h2>
+    <div class="cmp">
+      <div class="cmp-col">
+        <h4>What exists today</h4>
+        <ul>
+          <li>DealCloud — built for 200-banker desks, priced out of reach</li>
+          <li>Salesforce — generic CRM, fifteen weeks of config to fit an IB workflow</li>
+          <li>Affinity — relationship intelligence, no deal drawer, no data-room</li>
+          <li>Shared Drive + Gmail — the default, does not scale past five people</li>
+          <li>WhatsApp — where the firm actually lives, impossible to audit</li>
+        </ul>
+      </div>
+      <div class="cmp-col us">
+        <h4>ValenceOS</h4>
+        <ul>
+          <li>Opinionated for the 3–20 person advisory shop</li>
+          <li>Ships with the firm's five motions pre-wired, zero config</li>
+          <li>Every page integrates with Gmail + Calendar + Drive out of the box</li>
+          <li>AI grounded in firm memos from day one — not a feature, the product</li>
+          <li>One interface, one drawer, one ask — no tab sprawl</li>
+        </ul>
+      </div>
+    </div>
+    <h3>The shape of the opportunity</h3>
+    <ul class="clean">
+      <li>Post-pandemic, mid-market advisory is the fastest-growing slice of IB fees globally</li>
+      <li>Boutiques are hiring faster than enterprise tools can be configured for them</li>
+      <li>AI retrieval crossed a usability threshold in 2024 — grounded citation is now table stakes</li>
+      <li>Every boutique partner already trusts one internal system — their inbox. ValenceOS replaces it.</li>
+    </ul>
+  </section>
+
+  <!-- 07 SUCCESS METRICS -->
+  <section class="page">
+    <span class="sec-num">07</span><span class="kicker" style="margin:0;">Success metrics</span>
+    <h2 style="margin-top:22px;">How we'll know it's working.</h2>
+    <table class="metrics">
+      <thead>
+        <tr>
+          <th>Metric</th>
+          <th>What it measures</th>
+          <th>Target</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Time to answer a sector question</td>
+          <td>Partner opens Ask → cited answer on screen</td>
+          <td>&lt; 30 seconds</td>
+        </tr>
+        <tr>
+          <td>Drawer → action taken</td>
+          <td>Clicks from opening a deal to logging an activity</td>
+          <td>≤ 2 clicks</td>
+        </tr>
+        <tr>
+          <td>Analyst ramp on a live mandate</td>
+          <td>Days from joining to productive on a deal</td>
+          <td>Day 1</td>
+        </tr>
+        <tr>
+          <td>Mandates per banker per quarter</td>
+          <td>Throughput per head on active pipeline</td>
+          <td>2× baseline</td>
+        </tr>
+        <tr>
+          <td>Institutional memory retained</td>
+          <td>% of firm knowledge accessible after a senior departs</td>
+          <td>100%</td>
+        </tr>
+        <tr>
+          <td>Fee target coverage</td>
+          <td>Recognised + committed fees vs annual goal</td>
+          <td>&gt; 70% by H1</td>
+        </tr>
+        <tr>
+          <td>Daily active usage</td>
+          <td>Team members opening ValenceOS on a working day</td>
+          <td>100% of team</td>
+        </tr>
+        <tr>
+          <td>MorningBriefing engagement</td>
+          <td>% of sessions that begin on Overview</td>
+          <td>&gt; 75%</td>
+        </tr>
+      </tbody>
+    </table>
+    <div class="pull">
+      North star — the firm's answer to "have we seen this before?" lives in ValenceOS, not in an MD's head.
+    </div>
+  </section>
+
+  <!-- FOOTER -->
+  <section class="footer">
+    <p>ValenceOS — internal operating system of Valence Growth Partners.<br />
+    Advisory across buy-side and sell-side mandates. Mumbai · London.</p>
+    <p style="margin-top:14px;">
+      <b>Live</b> &nbsp; <a href="https://valance-os.vercel.app">valance-os.vercel.app</a><br />
+      <b>Source</b> &nbsp; <a href="https://github.com/rishabhhhh17/valence-os">github.com/rishabhhhh17/valence-os</a>
+    </p>
+  </section>
+
+</div>
+
+<button class="print-hint no-print" onclick="window.print()">⌘P · Save as PDF</button>
+
+</body>
+</html>
