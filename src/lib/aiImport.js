@@ -248,6 +248,10 @@ async function insertEntity(e, orgId) {
       const payload = {
         org_id: orgId,
         person_id: link?.id || null,
+        // Populate the attendee array so the interaction shows on the linked
+        // person's profile (the profile query matches on person_ids). A DB
+        // trigger also backfills this, but setting it explicitly is clearer.
+        person_ids: link?.id ? [link.id] : [],
         counterparty_name: f.counterparty_name || 'Unnamed',
         counterparty_company: f.counterparty_company || null,
         // Map the model's loose enums onto the table's CHECK-constrained

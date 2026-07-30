@@ -42,6 +42,7 @@ export default function Interactions() {
   // | '<deal-uuid>'. The latter lets the partner drill into one mandate.
   const [mandateFilter, setMandateFilter] = useState('All')
   const [deals, setDeals]                 = useState([])
+  const [peopleById, setPeopleById]       = useState({})   // id → { full_name } for resolving all attendees
   const [q, setQ]                 = useState('')
   const [needsFollowUp, setNeedsFollowUp] = useState(false)
   const [drawer, setDrawer] = useState(null)   // null | 'new' | { row }
@@ -95,6 +96,11 @@ export default function Interactions() {
       const { data, error } = await Promise.race([fetchPromise, timeoutPromise])
       if (error) throw error
       setRows(data || [])
+      // Resolve attendee names for multi-person interactions. Non-fatal: if this
+      // fails the rows still render with the primary counterparty name.
+      supabase.from('people').select('id, full_name').limit(2000).then(({ data: ppl }) => {
+        if (ppl) setPeopleById(Object.fromEntries(ppl.map(p => [p.id, p])))
+      })
     } catch (err) {
       console.error(err)
       setLoadError(err?.message || 'Couldn\'t load interactions.')
@@ -306,6 +312,7 @@ export default function Interactions() {
             <InteractionRow
               key={r.id}
               row={r}
+              peopleById={peopleById}
               isDetailed={isDetailed}
               onOpen={() => setDrawer({ row: r })}
               onConvert={() => convertToOrigination(r)}
@@ -352,7 +359,20 @@ function CounterpartyName({ row, className = '' }) {
   return <p className={`text-valence-text ${className}`}>{row.counterparty_name}</p>
 }
 
-function InteractionRow({ row, onOpen, onConvert, isDetailed = true }) {
+// The extra attendees beyond the primary counterparty, so a multi-person
+// meeting reads as "Ajay Sharma +1" (or lists the names) instead of hiding
+// everyone after the first behind a single name.
+function extraAttendees(row, peopleById) {
+  const ids = Array.isArray(row.person_ids) ? row.person_ids : []
+  const primary = row.person_id
+  const others = ids.filter(id => id && id !== primary)
+  if (!others.length) return null
+  const names = others.map(id => peopleById?.[id]?.full_name).filter(Boolean)
+  return { count: others.length, names }
+}
+
+function InteractionRow({ row, onOpen, onConvert, isDetailed = true, peopleById }) {
+  const extras = extraAttendees(row, peopleById)
   // Date-fns throws on Invalid Date — guard each site so one bad value can't
   // white-screen the whole interactions list.
   const created = row.created_at ? new Date(row.created_at) : null
@@ -379,6 +399,11 @@ function InteractionRow({ row, onOpen, onConvert, isDetailed = true }) {
             <div className="flex items-center gap-2 min-w-0">
               {row.counterparty_type && <span className={`h-1.5 w-1.5 rounded-full shrink-0 ${ctyDot(row.counterparty_type)}`} title={ctyLabel(row.counterparty_type)} />}
               <CounterpartyName row={row} className="text-sm font-semibold truncate" />
+              {extras && (
+                <span className="shrink-0 rounded-full bg-valence-blue-soft px-1.5 py-px text-[10px] font-semibold text-valence-blue" title={extras.names.join(', ')}>
+                  +{extras.count}
+                </span>
+              )}
               {row.counterparty_company && <span className="text-xs text-valence-muted truncate shrink-0 max-w-[40%]">· {row.counterparty_company}</span>}
             </div>
             {row.next_steps && (
@@ -406,6 +431,11 @@ function InteractionRow({ row, onOpen, onConvert, isDetailed = true }) {
         <div onClick={onOpen} className="flex-1 min-w-0 cursor-pointer text-left">
           <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
             <CounterpartyName row={row} className="text-sm font-semibold" />
+            {extras && (
+              <span className="text-xs text-valence-blue" title={extras.names.join(', ')}>
+                {extras.names.length ? `+ ${extras.names.join(', ')}` : `+${extras.count} more`}
+              </span>
+            )}
             {row.counterparty_company && <p className="text-xs text-valence-muted">· {row.counterparty_company}</p>}
             {row.counterparty_role && <p className="text-xs text-valence-subtle">· {row.counterparty_role}</p>}
           </div>

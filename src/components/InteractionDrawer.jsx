@@ -131,31 +131,54 @@ export default function InteractionDrawer({ open, onClose, existing, onSubmit })
     setPersonQuery('')
   }, [open, existing])
 
-  // Seed the attendee list from an existing interaction's person_ids (or its
-  // single person_id), resolving names against the loaded People roster.
-  // Re-runs when People finishes loading so chips get real names.
+  // Seed the attendee list ONCE per open/record — from the interaction's
+  // person_ids (or its single person_id). CRITICAL: this must NOT depend on
+  // `people`. The roster loads async and `createPersonInline` mutates it, so
+  // depending on `people` re-ran this effect and WIPED every attendee the user
+  // had just added (the second founder never reached the DB). Names are filled
+  // in by the separate resolver below.
   useEffect(() => {
     if (!open) { setAttendees([]); return }
     const ids = existing?.person_ids?.length
       ? existing.person_ids
       : (existing?.person_id ? [existing.person_id] : [])
-    setAttendees(ids.map((id, i) => {
-      const p = people.find(x => x.id === id)
-      return p
-        ? { id: p.id, full_name: p.full_name, company: p.company, role: p.role }
-        : { id, full_name: i === 0 ? (existing?.counterparty_name || 'Contact') : 'Contact', company: null, role: null }
-    }))
-  }, [open, existing, people])
+    setAttendees(ids.map((id, i) => ({
+      id,
+      full_name: i === 0 ? (existing?.counterparty_name || 'Contact') : 'Contact',
+      company: null,
+      role: null
+    })))
+  }, [open, existing])
 
-  // Keep the primary (person_id + counterparty fields) in sync with the first
-  // attendee, so back-compat readers and the header still work.
+  // When the People roster loads (or grows via inline-create), backfill real
+  // names/company/role onto attendees that are still unresolved — WITHOUT
+  // adding or removing anyone. Returns the previous array unchanged when there's
+  // nothing to resolve, so it can't loop or clobber the user's selections.
+  useEffect(() => {
+    if (!people.length) return
+    setAttendees(prev => {
+      let changed = false
+      const next = prev.map(a => {
+        const p = people.find(x => x.id === a.id)
+        if (p && (a.full_name !== p.full_name || a.company !== p.company || a.role !== p.role)) {
+          changed = true
+          return { id: p.id, full_name: p.full_name, company: p.company, role: p.role }
+        }
+        return a
+      })
+      return changed ? next : prev
+    })
+  }, [people])
+
+  // Keep only the PRIMARY link + headline name in sync with the first attendee.
+  // Do NOT copy an attendee's own company/role onto the interaction — those are
+  // the meeting's counterparty *context* (set explicitly by the user), and each
+  // linked person keeps their own identity on their own profile. Copying them
+  // here collapsed multiple attendees into one company/role and rewrote the
+  // real counterparty on every re-save.
   useEffect(() => {
     const first = attendees[0]
-    setForm(f => first
-      ? { ...f, person_id: first.id, counterparty_name: first.full_name,
-          counterparty_company: first.company || f.counterparty_company,
-          counterparty_role: first.role || f.counterparty_role }
-      : { ...f, person_id: '' })
+    setForm(f => ({ ...f, person_id: first?.id || '', counterparty_name: first?.full_name || f.counterparty_name }))
   }, [attendees])
 
   // Pull deal options for the optional "Linked deal" picker + people for autocomplete.
@@ -455,9 +478,14 @@ export default function InteractionDrawer({ open, onClose, existing, onSubmit })
             )}
           </div>
           {attendees.length > 0 && (
-            <p className="text-[10px] uppercase tracking-[0.16em] text-valence-blue">Linked to People · shows on each of their profiles</p>
+            <p className="text-[11px] text-valence-muted">
+              This interaction shows on {attendees.length === 1 ? 'their' : `each of these ${attendees.length} people's`} profile. Each keeps their own company &amp; role from People — the fields below describe the <span className="font-semibold text-valence-text">meeting's counterparty</span>, not the attendees.
+            </p>
           )}
 
+          <div>
+            <p className="vl-label mb-1.5">{attendees.length ? 'Counterparty context' : 'Who was this with?'} <span className="font-normal text-valence-subtle">· optional</span></p>
+          </div>
           <div className="grid gap-3 sm:grid-cols-2">
             <div>
               <label className="vl-label">Company</label>
